@@ -57,7 +57,7 @@ static PyObject *_computeOverlap(PyObject *self, PyObject *args)
     int energyMode;
 
     /* Parse the input tuple */
-    if (!PyArg_ParseTuple(args, "OOOOidd", &ilon_obj, &ilat_obj, &olon_obj, &olat_obj, &energyMode, &refArea, &areaRatio))
+    if (!PyArg_ParseTuple(args, "OOOOid", &ilon_obj, &ilat_obj, &olon_obj, &olat_obj, &energyMode, &refArea))
         return NULL;
 
     /* Interpret the input objects as `numpy` arrays. */
@@ -87,7 +87,7 @@ static PyObject *_computeOverlap(PyObject *self, PyObject *args)
     double overlap = computeOverlap(ilon, ilat, olon, olat, energyMode, refArea, &areaRatio);
 
     /* Build the output tuple */
-    PyObject *ret = Py_BuildValue("d", overlap);
+    PyObject *ret = Py_BuildValue("dd", overlap, areaRatio);
     if (ret == NULL) {
         PyErr_SetString(PyExc_RuntimeError, "Couldn't build output.");
         return NULL;
