@@ -16,14 +16,38 @@ ext_modules = [Extension("reproject._overlap_wrapper",
                          include_dirs=[numpy_includes])]
 
 class PyTest(Command):
+
     user_options = []
+
     def initialize_options(self):
         pass
+
     def finalize_options(self):
         pass
+
     def run(self):
-        import sys,subprocess
-        errno = subprocess.call([sys.executable, 'runtests.py'])
+
+        import os
+        import shutil
+        import tempfile
+
+        # First ensure that we build the package so that 2to3 gets executed
+        self.reinitialize_command('build')
+        self.run_command('build')
+        build_cmd = self.get_finalized_command('build')
+        new_path = os.path.abspath(build_cmd.build_lib)
+
+        # Copy the build to a temporary directory for the purposes of testing
+        # - this avoids creating pyc and __pycache__ directories inside the
+        # build directory
+        tmp_dir = tempfile.mkdtemp(prefix='reprojection-test-')
+        testing_path = os.path.join(tmp_dir, os.path.basename(new_path))
+        shutil.copytree(new_path, testing_path)
+
+        import sys
+        import subprocess
+
+        errno = subprocess.call([sys.executable, os.path.abspath('runtests.py')], cwd=testing_path)
         raise SystemExit(errno)
 
 
