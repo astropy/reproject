@@ -31,7 +31,7 @@ setup(name='reproject',
       version="0.1.0",
       author='Thomas Robitaille',
       author_email='thomas.robitaille@gmail.com',
-      packages=['reproject'],
+      packages=['reproject', 'reproject.tests'],
       cmdclass = {'test': PyTest},
       ext_modules = ext_modules
      )
