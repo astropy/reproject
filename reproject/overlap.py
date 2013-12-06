@@ -9,13 +9,13 @@ def compute_overlap(ilon, ilat, olon, olat):
     Parameters
     ----------
     ilon : np.ndarray
-        The longitudes (in deg) defining the four corners of the input pixel
+        The longitudes (in radians) defining the four corners of the input pixel
     ilat : np.ndarray
-        The latitudes (in deg) defining the four corners of the input pixel
+        The latitudes (in radians) defining the four corners of the input pixel
     olon : np.ndarray
-        The longitudes (in deg) defining the four corners of the output pixel
+        The longitudes (in radians) defining the four corners of the output pixel
     olat : np.ndarray
-        The latitudes (in deg) defining the four corners of the output pixel
+        The latitudes (in radians) defining the four corners of the output pixel
     
     Returns
     -------

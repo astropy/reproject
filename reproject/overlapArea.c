@@ -175,8 +175,6 @@ double computeOverlap(double *ilon, double *ilat,
    double thisPixelArea;
 
    pi  = atan(1.0) * 4.;
-   dtr = pi / 180.;
-
 
    *areaRatio = 1.;
 
@@ -214,16 +212,16 @@ double computeOverlap(double *ilon, double *ilat,
 
    for(i=0; i<4; ++i)
    {
-      P[i].x = cos(ilon[i]*dtr) * cos(ilat[i]*dtr);
-      P[i].y = sin(ilon[i]*dtr) * cos(ilat[i]*dtr);
-      P[i].z = sin(ilat[i]*dtr);
+      P[i].x = cos(ilon[i]) * cos(ilat[i]);
+      P[i].y = sin(ilon[i]) * cos(ilat[i]);
+      P[i].z = sin(ilat[i]);
    }
 
    for(i=0; i<4; ++i)
    {
-      Q[i].x = cos(olon[i]*dtr) * cos(olat[i]*dtr);
-      Q[i].y = sin(olon[i]*dtr) * cos(olat[i]*dtr);
-      Q[i].z = sin(olat[i]*dtr);
+      Q[i].x = cos(olon[i]) * cos(olat[i]);
+      Q[i].y = sin(olon[i]) * cos(olat[i]);
+      Q[i].z = sin(olat[i]);
    }
 
    ComputeIntersection(P, Q);
