@@ -12,9 +12,6 @@ except ImportError:  # Python 2.x
 
 from numpy import get_include as get_numpy_include
 
-from hyperion.testing.helper import HyperionTest
-from hyperion.version import __version__, __dev__
-
 numpy_includes = get_numpy_include()
 
 ext_modules = [Extension("reproject._overlap_wrapper",
@@ -22,7 +19,7 @@ ext_modules = [Extension("reproject._overlap_wrapper",
                          include_dirs=[numpy_includes])]
 
 setup(name='reproject',
-      version=__version__,
+      version="0.1.0",
       author='Thomas Robitaille',
       author_email='thomas.robitaille@gmail.com',
       packages=['reproject'],
