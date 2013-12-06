@@ -1,0 +1,7 @@
+.project
+.pydevproject
+.settings
+build
+*.pyc
+*.so
+__pycache__
