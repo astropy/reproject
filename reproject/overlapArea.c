@@ -32,13 +32,13 @@ Version  Developer        Date     Change
 #define P_IN_Q            1
 #define Q_IN_P            2
 
-const int  debug = 0;
-const double dtr = M_PI / 180.;
-const double tolerance = 4.424e-9;  /* sin(x) where x = 5e-4 arcsec */
+const int  DEBUG = 0;
+const double DEG_TO_RADIANS = M_PI / 180.;
+const double TOLERANCE = 4.424e-9;  /* sin(x) where x = 5e-4 arcsec */
                                     /* or cos(x) when x is within   */
                                     /* 1e-5 arcsec of 90 degrees    */
-const int np = 4;
-const int nq = 4;
+const int NP = 4;
+const int NQ = 4;
 
 
 /* The two pixel polygons on the sky */
@@ -121,7 +121,7 @@ double computeOverlap(double *ilon, double *ilat,
 
    nv = 0;
 
-   if(debug >= 4)
+   if(DEBUG >= 4)
    {
       printf("Input (P):\n");
       for(i=0; i<4; ++i)
@@ -192,22 +192,22 @@ void  ComputeIntersection(Vec *P, Vec *Q)
 
    contained = TRUE;
 
-   for(ip=0; ip<np; ++ip)
+   for(ip=0; ip<NP; ++ip)
    {
-      ip_begin = (ip + np - 1) % np;
+      ip_begin = (ip + NP - 1) % NP;
 
       Cross(&P[ip_begin], &P[ip], &Pdir);
       Normalize(&Pdir);
 
-      for(iq=0; iq<nq; ++iq)
+      for(iq=0; iq<NQ; ++iq)
       {
-	 if(debug >= 4)
+	 if(DEBUG >= 4)
 	 {
 	    printf("Q in P: Dot%d%d = %12.5e\n", ip, iq, Dot(&Pdir, &Q[iq]));
 	    fflush(stdout);
 	 }
 
-	 if(Dot(&Pdir, &Q[iq]) < -tolerance)
+	 if(Dot(&Pdir, &Q[iq]) < -TOLERANCE)
 	 {
 	    contained = FALSE;
 	    break;
@@ -220,13 +220,13 @@ void  ComputeIntersection(Vec *P, Vec *Q)
 
    if(contained)
    {
-      if(debug >= 4)
+      if(DEBUG >= 4)
       {
 	 printf("Q is entirely contained in P (output pixel is in input pixel)\n");
 	 fflush(stdout);
       }
 
-      for(iq=0; iq<nq; ++iq)
+      for(iq=0; iq<NQ; ++iq)
 	 SaveVertex(&Q[iq]);
       
       return;
@@ -237,22 +237,22 @@ void  ComputeIntersection(Vec *P, Vec *Q)
 
    contained = TRUE;
 
-   for(iq=0; iq<nq; ++iq)
+   for(iq=0; iq<NQ; ++iq)
    {
-      iq_begin = (iq + nq - 1) % nq;
+      iq_begin = (iq + NQ - 1) % NQ;
 
       Cross(&Q[iq_begin], &Q[iq], &Qdir);
       Normalize(&Qdir);
 
-      for(ip=0; ip<np; ++ip)
+      for(ip=0; ip<NP; ++ip)
       {
-	 if(debug >= 4)
+	 if(DEBUG >= 4)
 	 {
 	    printf("P in Q: Dot%d%d = %12.5e\n", iq, ip, Dot(&Qdir, &P[ip]));
 	    fflush(stdout);
 	 }
 
-	 if(Dot(&Qdir, &P[ip]) < -tolerance)
+	 if(Dot(&Qdir, &P[ip]) < -TOLERANCE)
 	 {
 	    contained = FALSE;
 	    break;
@@ -265,14 +265,14 @@ void  ComputeIntersection(Vec *P, Vec *Q)
 
    if(contained)
    {
-      if(debug >= 4)
+      if(DEBUG >= 4)
       {
 	 printf("P is entirely contained in Q (input pixel is in output pixel)\n");
 	 fflush(stdout);
       }
 
       nv = 0;
-      for(ip=0; ip<np; ++ip)
+      for(ip=0; ip<NP; ++ip)
 	 SaveVertex(&P[ip]);
       
       return;
@@ -292,11 +292,11 @@ void  ComputeIntersection(Vec *P, Vec *Q)
 
    while(FOREVER)
    {
-      if(p_advances >= 2*np) break;
-      if(q_advances >= 2*nq) break;
-      if(p_advances >= np && q_advances >= nq) break;
+      if(p_advances >= 2*NP) break;
+      if(q_advances >= 2*NQ) break;
+      if(p_advances >= NP && q_advances >= NQ) break;
 
-      if(debug >= 4)
+      if(DEBUG >= 4)
       {
          printf("-----\n");
 
@@ -329,8 +329,8 @@ void  ComputeIntersection(Vec *P, Vec *Q)
 
       /* Previous point in the polygon */
 
-      ip_begin = (ip + np - 1) % np;
-      iq_begin = (iq + nq - 1) % nq;
+      ip_begin = (ip + NP - 1) % NP;
+      iq_begin = (iq + NQ - 1) % NQ;
 
 
       /* The current polygon edges are given by  */
@@ -347,7 +347,7 @@ void  ComputeIntersection(Vec *P, Vec *Q)
       Cross(&P[ip_begin], &Q[iq], &other);
       qEndpointFromPdir = DirectionCalculator(&P[ip_begin], &Pdir, &other);
 
-      if(debug >= 4)
+      if(DEBUG >= 4)
       {
          printf("   ");
 	 printDir("P", "Q", PToQDir);
@@ -380,7 +380,7 @@ void  ComputeIntersection(Vec *P, Vec *Q)
          interiorFlag = UpdateInteriorFlag(&firstIntersection, interiorFlag, 
                                            pEndpointFromQdir, qEndpointFromPdir);
 
-         if(debug >= 4)
+         if(DEBUG >= 4)
 	 {
 	    if(interiorFlag == UNKNOWN)
 	       printf("   interiorFlag -> UNKNOWN\n");
@@ -407,7 +407,7 @@ void  ComputeIntersection(Vec *P, Vec *Q)
       if((intersectionCode == COLINEAR_SEGMENTS)
       && (Dot(&Pdir, &Qdir) < 0))
       {
-         if(debug >= 4)
+         if(DEBUG >= 4)
 	 {
             printf("   ADVANCE: Pdir and Qdir are colinear.\n");
 	    fflush(stdout);
@@ -426,7 +426,7 @@ void  ComputeIntersection(Vec *P, Vec *Q)
       && (pEndpointFromQdir == CLOCKWISE) 
       && (qEndpointFromPdir == CLOCKWISE))
       {
-         if(debug >= 4)
+         if(DEBUG >= 4)
 	 {
             printf("   ADVANCE: Pdir and Qdir are disjoint.\n");
 	    fflush(stdout);
@@ -443,7 +443,7 @@ void  ComputeIntersection(Vec *P, Vec *Q)
            && (pEndpointFromQdir == PARALLEL) 
            && (qEndpointFromPdir == PARALLEL)) 
       {
-         if(debug >= 4)
+         if(DEBUG >= 4)
 	 {
             printf("   ADVANCE: Pdir and Qdir are colinear.\n");
 	    fflush(stdout);
@@ -453,9 +453,9 @@ void  ComputeIntersection(Vec *P, Vec *Q)
          /* Advance but do not output point. */
 
          if(interiorFlag == P_IN_Q)
-            iq = Advance(iq, &q_advances, nq, interiorFlag == Q_IN_P, &Q[iq]);
+            iq = Advance(iq, &q_advances, NQ, interiorFlag == Q_IN_P, &Q[iq]);
          else
-            ip = Advance(ip, &p_advances, np, interiorFlag == P_IN_Q, &P[ip]);
+            ip = Advance(ip, &p_advances, NP, interiorFlag == P_IN_Q, &P[ip]);
       }
 
 
@@ -466,7 +466,7 @@ void  ComputeIntersection(Vec *P, Vec *Q)
       {
          if(qEndpointFromPdir == COUNTERCLOCKWISE)
          {
-            if(debug >= 4)
+            if(DEBUG >= 4)
 	    {
                printf("   ADVANCE: Generic: PToQDir is COUNTERCLOCKWISE ");
 	       printf("|| PToQDir is PARALLEL, ");
@@ -474,18 +474,18 @@ void  ComputeIntersection(Vec *P, Vec *Q)
 	       fflush(stdout);
 	    }
 
-            ip = Advance(ip, &p_advances, np, interiorFlag == P_IN_Q, &P[ip]);
+            ip = Advance(ip, &p_advances, NP, interiorFlag == P_IN_Q, &P[ip]);
          }
          else
          {
-            if(debug >= 4)
+            if(DEBUG >= 4)
             {
                printf("   ADVANCE: Generic: PToQDir is COUNTERCLOCKWISE ");
                printf("|| PToQDir is PARALLEL, qEndpointFromPdir is CLOCKWISE\n");
 	       fflush(stdout);
             }
 
-            iq = Advance(iq, &q_advances, nq, interiorFlag == Q_IN_P, &Q[iq]);
+            iq = Advance(iq, &q_advances, NQ, interiorFlag == Q_IN_P, &Q[iq]);
          }
       }
 
@@ -493,29 +493,29 @@ void  ComputeIntersection(Vec *P, Vec *Q)
       {
          if(pEndpointFromQdir == COUNTERCLOCKWISE)
          {
-            if(debug >= 4)
+            if(DEBUG >= 4)
             {
                printf("   ADVANCE: Generic: PToQDir is CLOCKWISE, ");
                printf("pEndpointFromQdir is COUNTERCLOCKWISE\n");
 	       fflush(stdout);
             }
 
-            iq = Advance(iq, &q_advances, nq, interiorFlag == Q_IN_P, &Q[iq]);
+            iq = Advance(iq, &q_advances, NQ, interiorFlag == Q_IN_P, &Q[iq]);
          }
          else
          {
-            if(debug >= 4)
+            if(DEBUG >= 4)
             {
                printf("   ADVANCE: Generic: PToQDir is CLOCKWISE, ");
                printf("pEndpointFromQdir is CLOCKWISE\n");
 	       fflush(stdout);
             }
 
-            ip = Advance(ip, &p_advances, np, interiorFlag == P_IN_Q, &P[ip]);
+            ip = Advance(ip, &p_advances, NP, interiorFlag == P_IN_Q, &P[ip]);
          }
       }
 
-      if(debug >= 4)
+      if(DEBUG >= 4)
       {
 	 if(interiorFlag == UNKNOWN)
 	 {
@@ -567,10 +567,10 @@ int UpdateInteriorFlag(Vec *p, int interiorFlag,
 {
    double lon, lat;
 
-   if(debug >= 4)
+   if(DEBUG >= 4)
    {
-      lon = atan2(p->y, p->x)/dtr;
-      lat = asin(p->z)/dtr;
+      lon = atan2(p->y, p->x)/DEG_TO_RADIANS;
+      lat = asin(p->z)/DEG_TO_RADIANS;
 
       printf("   intersection [%13.6e,%13.6e,%13.6e]  -> (%10.6f,%10.6f) (UpdateInteriorFlag)\n",
          p->x, p->y, p->z, lon, lat);
@@ -603,7 +603,7 @@ int UpdateInteriorFlag(Vec *p, int interiorFlag,
 
 void SaveSharedSeg(Vec *p, Vec *q)
 {
-   if(debug >= 4)
+   if(DEBUG >= 4)
    {
       printf("\n   SaveSharedSeg():  from [%13.6e,%13.6e,%13.6e]\n",
          p->x, p->y, p->z);
@@ -633,12 +633,12 @@ int Advance(int ip, int *p_advances, int n, int inside, Vec *v)
 {
    double lon, lat;
 
-   lon = atan2(v->y, v->x)/dtr;
-   lat = asin(v->z)/dtr;
+   lon = atan2(v->y, v->x)/DEG_TO_RADIANS;
+   lat = asin(v->z)/DEG_TO_RADIANS;
 
    if(inside)
    {
-      if(debug >= 4)
+      if(DEBUG >= 4)
       {
          printf("   Advance(): inside vertex [%13.6e,%13.6e,%13.6e] -> (%10.6f,%10.6f)n",
             v->x, v->y, v->z, lon, lat);
@@ -669,25 +669,25 @@ void SaveVertex(Vec *v)
    int i, i_begin;
    Vec Dir;
 
-   if(debug >= 4)
+   if(DEBUG >= 4)
       printf("   SaveVertex ... ");
 
-   /* What with tolerance and roundoff    */
+   /* What with TOLERANCE and roundoff    */
    /* problems, we need to double check   */
    /* that the point to be save is really */
    /* in or on the edge of both pixels    */
    /* P and Q                             */
 
-   for(i=0; i<np; ++i)
+   for(i=0; i<NP; ++i)
    {
-      i_begin = (i + np - 1) % np;
+      i_begin = (i + NP - 1) % NP;
 
       Cross(&P[i_begin], &P[i], &Dir);
       Normalize(&Dir);
 
-      if(Dot(&Dir, v) < -1000.*tolerance)
+      if(Dot(&Dir, v) < -1000.*TOLERANCE)
       {
-	 if(debug >= 4)
+	 if(DEBUG >= 4)
 	 {
 	    printf("rejected (not in P)\n");
 	    fflush(stdout);
@@ -698,16 +698,16 @@ void SaveVertex(Vec *v)
    }
 
 
-   for(i=0; i<nq; ++i)
+   for(i=0; i<NQ; ++i)
    {
-      i_begin = (i + nq - 1) % nq;
+      i_begin = (i + NQ - 1) % NQ;
 
       Cross(&Q[i_begin], &Q[i], &Dir);
       Normalize(&Dir);
 
-      if(Dot(&Dir, v) < -1000.*tolerance)
+      if(Dot(&Dir, v) < -1000.*TOLERANCE)
       {
-	 if(debug >= 4)
+	 if(DEBUG >= 4)
 	 {
 	    printf("rejected (not in Q)\n");
 	    fflush(stdout);
@@ -727,7 +727,7 @@ void SaveVertex(Vec *v)
       ++nv;
    }
 
-   if(debug >= 4)
+   if(DEBUG >= 4)
    {
       printf("accepted (%d)\n", nv);
       fflush(stdout);
@@ -751,8 +751,8 @@ void PrintPolygon()
 
    for(i=0; i<nv; ++i)
    {
-      lon = atan2(V[i].y, V[i].x)/dtr;
-      lat = asin(V[i].z)/dtr;
+      lon = atan2(V[i].y, V[i].x)/DEG_TO_RADIANS;
+      lat = asin(V[i].z)/DEG_TO_RADIANS;
 
       printf("[%13.6e,%13.6e,%13.6e] -> (%10.6f,%10.6f)\n", 
          V[i].x, V[i].y, V[i].z, lon, lat);
@@ -1111,12 +1111,12 @@ double Girard()
    if(nv < 3)
       return(0.);
 
-   if(debug >= 4)
+   if(DEBUG >= 4)
    {
       for(i=0; i<nv; ++i)
       {
-	 lon = atan2(V[i].y, V[i].x)/dtr;
-	 lat = asin(V[i].z)/dtr;
+	 lon = atan2(V[i].y, V[i].x)/DEG_TO_RADIANS;
+	 lat = asin(V[i].z)/DEG_TO_RADIANS;
 
 	 printf("Girard(): %3d [%13.6e,%13.6e,%13.6e] -> (%10.6f,%10.6f)\n", 
 	    i, V[i].x, V[i].y, V[i].z, lon, lat);
@@ -1144,7 +1144,7 @@ double Girard()
 
       ang[i] = atan2(sinAng, cosAng);
 
-      if(debug >= 4)
+      if(DEBUG >= 4)
       {
 	 if(i==0)
 	    printf("\n");
@@ -1157,7 +1157,7 @@ double Girard()
       {                         /* a degree can be tricky         */
 	 ibad = (i+1)%nv;
 
-	 if(debug >= 4)
+	 if(DEBUG >= 4)
 	 {
 	    printf("Girard(): ---------- Corner %d bad; Remove point %d -------------\n", 
 	       i, ibad);
@@ -1184,7 +1184,7 @@ double Girard()
    if(mNaN(area) || area < 0.)
       area = 0.;
 
-   if(debug >= 4)
+   if(DEBUG >= 4)
    {
       printf("\nGirard(): area = %13.6e [%d]\n\n", area, nv);
       fflush(stdout);
@@ -1216,15 +1216,15 @@ void RemoveDups()
 
    double separation;
 
-   if(debug >= 4)
+   if(DEBUG >= 4)
    {
-      printf("RemoveDups() tolerance = %13.6e [%13.6e arcsec]\n\n", 
-	 tolerance, tolerance/dtr*3600.);
+      printf("RemoveDups() TOLERANCE = %13.6e [%13.6e arcsec]\n\n",
+	 TOLERANCE, TOLERANCE/DEG_TO_RADIANS*3600.);
 
       for(i=0; i<nv; ++i)
       {
-	 lon = atan2(V[i].y, V[i].x)/dtr;
-	 lat = asin(V[i].z)/dtr;
+	 lon = atan2(V[i].y, V[i].x)/DEG_TO_RADIANS;
+	 lat = asin(V[i].z)/DEG_TO_RADIANS;
 
 	 printf("RemoveDups() orig: %3d [%13.6e,%13.6e,%13.6e] -> (%10.6f,%10.6f)\n", 
 	    i, V[i].x, V[i].y, V[i].z, lon, lat);
@@ -1253,19 +1253,19 @@ void RemoveDups()
 
       separation = Normalize(&tmp);
 
-      if(debug >= 4)
+      if(DEBUG >= 4)
       {
 	 printf("RemoveDups(): %3d x %3d: distance = %13.6e [%13.6e arcsec] (would become %d)\n", 
-	    (i+1)%nv, i, separation, separation/dtr*3600., nvnew);
+	    (i+1)%nv, i, separation, separation/DEG_TO_RADIANS*3600., nvnew);
 
 	 fflush(stdout);
       }
 
-      if(separation < tolerance)
+      if(separation < TOLERANCE)
       {
 	 --nvnew;
 
-	 if(debug >= 4)
+	 if(DEBUG >= 4)
 	 {
 	    printf("RemoveDups(): %3d is a duplicate (nvnew -> %d)\n",
 	       i, nvnew);
@@ -1275,7 +1275,7 @@ void RemoveDups()
       }
    }
 
-   if(debug >= 4)
+   if(DEBUG >= 4)
    {
       printf("\n");
       fflush(stdout);
