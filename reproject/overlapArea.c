@@ -1,16 +1,10 @@
-/* Module: overlapArea.c
-
- Version  Developer        Date     Change
- -------  ---------------  -------  -----------------------
- 1.2      John Good        03Nov04  Make sure nv never exceeds max (16)
- 1.1      John Good        25Nov03  Don't exit if segments are disjoint
- 1.0      John Good        29Jan03  Baseline code
-
+/* Methods to compute pixel overlap areas on the sphere.
+ *
+ * Originally developed in 2003 / 2004 by John Good.
  */
 
 #include <stdio.h>
 #include <math.h>
-
 #include "mNaN.h"
 
 // Constants
@@ -34,14 +28,11 @@
 
 const int DEBUG = 0;
 const double DEG_TO_RADIANS = M_PI / 180.;
-const double TOLERANCE = 4.424e-9; /* sin(x) where x = 5e-4 arcsec */
-/* or cos(x) when x is within   */
-/* 1e-5 arcsec of 90 degrees    */
+// sin(x) where x = 5e-4 arcsec or cos(x) when x is within 1e-5 arcsec of 90 degrees
+const double TOLERANCE = 4.424e-9;
 const int NP = 4;
 const int NQ = 4;
 
-/* The two pixel polygons on the sky */
-/* and the polygon of intersection   */
 typedef struct vec {
   double x;
   double y;
@@ -78,18 +69,13 @@ void RemoveDups();
 int printDir(char *point, char *vector, int dir);
 
 // Global variables
+// The two pixel polygons on the sky P and Q and the polygon of intersection V
 Vec P[8], Q[8], V[16];
 int nv;
 
-/***************************************************/
-/*                                                 */
-/* computeOverlap()                                */
-/*                                                 */
-/* Sets up the polygons, runs the overlap          */
-/* computation, and returns the area of overlap.   */
-/*                                                 */
-/***************************************************/
-
+/*
+ * Sets up the polygons, runs the overlap computation, and returns the area of overlap.
+ */
 double computeOverlap(double *ilon, double *ilat, double *olon, double *olat,
                       int energyMode, double refArea, double *areaRatio) {
   int i;
@@ -140,37 +126,32 @@ double computeOverlap(double *ilon, double *ilat, double *olon, double *olat,
   return (Girard());
 }
 
-/***************************************************/
-/*                                                 */
-/* ComputeIntersection()                           */
-/*                                                 */
-/* Find the polygon defining the area of overlap   */
-/* between the two input polygons.                 */
-/*                                                 */
-/***************************************************/
-
+/*
+ * Find the polygon defining the area of overlap
+ * between the two input polygons P and Q.
+ */
 void ComputeIntersection(Vec *P, Vec *Q) {
-  Vec Pdir, Qdir; /* "Current" directed edges on P and Q   */
-  Vec other; /* Temporary "edge-like" variable        */
-  int ip, iq; /* Indices of ends of Pdir, Qdir         */
-  int ip_begin, iq_begin; /* Indices of beginning of Pdir, Qdir    */
-  int PToQDir; /* Qdir direction relative to Pdir       */
-  /* (e.g. CLOCKWISE)                      */
-  int qEndpointFromPdir; /* End P vertex as viewed from beginning */
-  /* of Qdir relative to Qdir              */
-  int pEndpointFromQdir; /* End Q vertex as viewed from beginning */
-  /* of Pdir relative to Pdir              */
-  Vec firstIntersection; /* Point of intersection of Pdir, Qdir   */
-  Vec secondIntersection; /* Second point of intersection          */
-  /* (if there is one)                     */
-  int interiorFlag; /* Which polygon is inside the other     */
-  int contained; /* Used for "completely contained" check */
-  int p_advances, q_advances; /* Number of times we've advanced        */
-  /* P and Q indices                       */
-  int isFirstPoint; /* Is this the first point?              */
-  int intersectionCode; /* SegSegIntersect() return code.        */
+  Vec Pdir, Qdir;              // "Current" directed edges on P and Q
+  Vec other;                   // Temporary "edge-like" variable
+  int ip, iq;                  // Indices of ends of Pdir, Qdir
+  int ip_begin, iq_begin;      // Indices of beginning of Pdir, Qdir
+  int PToQDir;                 // Qdir direction relative to Pdir
+                               // (e.g. CLOCKWISE)
+  int qEndpointFromPdir;       // End P vertex as viewed from beginning
+                               // of Qdir relative to Qdir
+  int pEndpointFromQdir;       // End Q vertex as viewed from beginning
+                               // of Pdir relative to Pdir
+  Vec firstIntersection;       // Point of intersection of Pdir, Qdir
+  Vec secondIntersection;      // Second point of intersection
+                               // (if there is one)
+  int interiorFlag;            // Which polygon is inside the other
+  int contained;               // Used for "completely contained" check
+  int p_advances, q_advances;  // Number of times we've advanced
+                               // P and Q indices
+  int isFirstPoint;            // Is this the first point?
+  int intersectionCode;        // SegSegIntersect() return code.
 
-  /* Check for Q contained in P */
+  // Check for Q contained in P
 
   contained = TRUE;
 
@@ -208,7 +189,7 @@ void ComputeIntersection(Vec *P, Vec *Q) {
     return;
   }
 
-  /* Check for P contained in Q */
+  // Check for P contained in Q
 
   contained = TRUE;
 
@@ -247,7 +228,7 @@ void ComputeIntersection(Vec *P, Vec *Q) {
     return;
   }
 
-  /* Then check for polygon overlap */
+  // Then check for polygon overlap
 
   ip = 0;
   iq = 0;
@@ -288,13 +269,13 @@ void ComputeIntersection(Vec *P, Vec *Q) {
       fflush(stdout);
     }
 
-    /* Previous point in the polygon */
+    // Previous point in the polygon
 
     ip_begin = (ip + NP - 1) % NP;
     iq_begin = (iq + NQ - 1) % NQ;
 
-    /* The current polygon edges are given by  */
-    /* the cross product of the vertex vectors */
+    // The current polygon edges are given by
+    // the cross product of the vertex vectors
 
     Cross(&P[ip_begin], &P[ip], &Pdir);
     Cross(&Q[iq_begin], &Q[iq], &Qdir);
@@ -316,7 +297,7 @@ void ComputeIntersection(Vec *P, Vec *Q) {
       fflush(stdout);
     }
 
-    /* Find point(s) of intersection between edges */
+    // Find point(s) of intersection between edges
 
     intersectionCode = SegSegIntersect(&Pdir, &Qdir, &P[ip_begin], &P[ip],
                                        &Q[iq_begin], &Q[iq], &firstIntersection,
@@ -351,9 +332,9 @@ void ComputeIntersection(Vec *P, Vec *Q) {
       }
     }
 
-    /*-----Advance rules-----*/
+    // Advance rules
 
-    /* Special case: Pdir & Qdir overlap and oppositely oriented. */
+    // Special case: Pdir & Qdir overlap and oppositely oriented.
 
     if ((intersectionCode == COLINEAR_SEGMENTS) && (Dot(&Pdir, &Qdir) < 0)) {
       if (DEBUG >= 4) {
@@ -367,7 +348,7 @@ void ComputeIntersection(Vec *P, Vec *Q) {
       return;
     }
 
-    /* Special case: Pdir & Qdir parallel and separated. */
+    // Special case: Pdir & Qdir parallel and separated.
 
     if ((PToQDir == PARALLEL) && (pEndpointFromQdir == CLOCKWISE)
         && (qEndpointFromPdir == CLOCKWISE)) {
@@ -380,7 +361,7 @@ void ComputeIntersection(Vec *P, Vec *Q) {
       return;
     }
 
-    /* Special case: Pdir & Qdir colinear. */
+    // Special case: Pdir & Qdir colinear.
 
     else if ((PToQDir == PARALLEL) && (pEndpointFromQdir == PARALLEL)
         && (qEndpointFromPdir == PARALLEL)) {
@@ -389,7 +370,7 @@ void ComputeIntersection(Vec *P, Vec *Q) {
         fflush(stdout);
       }
 
-      /* Advance but do not output point. */
+      // Advance but do not output point.
 
       if (interiorFlag == P_IN_Q)
         iq = Advance(iq, &q_advances, NQ, interiorFlag == Q_IN_P, &Q[iq]);
@@ -397,7 +378,7 @@ void ComputeIntersection(Vec *P, Vec *Q) {
         ip = Advance(ip, &p_advances, NP, interiorFlag == P_IN_Q, &P[ip]);
     }
 
-    /* Generic cases. */
+    // Generic cases.
 
     else if (PToQDir == COUNTERCLOCKWISE || PToQDir == PARALLEL) {
       if (qEndpointFromPdir == COUNTERCLOCKWISE) {
@@ -469,15 +450,9 @@ void ComputeIntersection(Vec *P, Vec *Q) {
   return;
 }
 
-/***************************************************/
-/*                                                 */
-/* UpdateInteriorFlag()                            */
-/*                                                 */
-/* Print out the second point of intersection      */
-/* and toggle in/out flag.                         */
-/*                                                 */
-/***************************************************/
-
+/*
+ * Print out the second point of intersection and toggle in/out flag.
+ */
 int UpdateInteriorFlag(Vec *p, int interiorFlag, int pEndpointFromQdir,
                        int qEndpointFromPdir) {
   double lon, lat;
@@ -486,15 +461,15 @@ int UpdateInteriorFlag(Vec *p, int interiorFlag, int pEndpointFromQdir,
     lon = atan2(p->y, p->x) / DEG_TO_RADIANS;
     lat = asin(p->z) / DEG_TO_RADIANS;
 
-    printf(
-        "   intersection [%13.6e,%13.6e,%13.6e]  -> (%10.6f,%10.6f) (UpdateInteriorFlag)\n",
-        p->x, p->y, p->z, lon, lat);
+    printf("   intersection [%13.6e,%13.6e,%13.6e]  "
+           "-> (%10.6f,%10.6f) (UpdateInteriorFlag)\n",
+           p->x, p->y, p->z, lon, lat);
     fflush(stdout);
   }
 
   SaveVertex(p);
 
-  /* Update interiorFlag. */
+  // Update interiorFlag.
 
   if (pEndpointFromQdir == COUNTERCLOCKWISE)
     return P_IN_Q;
@@ -503,25 +478,22 @@ int UpdateInteriorFlag(Vec *p, int interiorFlag, int pEndpointFromQdir,
     return Q_IN_P;
 
   else
-    /* Keep status quo. */
+    // Keep status quo.
     return interiorFlag;
 }
 
-/***************************************************/
-/*                                                 */
-/* SaveSharedSeg()                                 */
-/*                                                 */
-/* Save the endpoints of a shared segment.         */
-/*                                                 */
-/***************************************************/
-
+/*
+ * Save the endpoints of a shared segment.
+ */
 void SaveSharedSeg(Vec *p, Vec *q) {
   if (DEBUG >= 4) {
-    printf("\n   SaveSharedSeg():  from [%13.6e,%13.6e,%13.6e]\n", p->x, p->y,
-           p->z);
+    printf("\n   SaveSharedSeg():  from "
+           "[%13.6e,%13.6e,%13.6e]\n",
+           p->x, p->y, p->z);
 
-    printf("   SaveSharedSeg():  to   [%13.6e,%13.6e,%13.6e]\n\n", q->x, q->y,
-           q->z);
+    printf("   SaveSharedSeg():  to   "
+           "[%13.6e,%13.6e,%13.6e]\n\n",
+           q->x, q->y, q->z);
 
     fflush(stdout);
   }
@@ -530,15 +502,9 @@ void SaveSharedSeg(Vec *p, Vec *q) {
   SaveVertex(q);
 }
 
-/***************************************************/
-/*                                                 */
-/* Advance()                                       */
-/*                                                 */
-/* Advances and prints out an inside vertex if     */
-/* appropriate.                                    */
-/*                                                 */
-/***************************************************/
-
+/*
+ * Advances and prints out an inside vertex if appropriate.
+ */
 int Advance(int ip, int *p_advances, int n, int inside, Vec *v) {
   double lon, lat;
 
@@ -547,9 +513,9 @@ int Advance(int ip, int *p_advances, int n, int inside, Vec *v) {
 
   if (inside) {
     if (DEBUG >= 4) {
-      printf(
-          "   Advance(): inside vertex [%13.6e,%13.6e,%13.6e] -> (%10.6f,%10.6f)n",
-          v->x, v->y, v->z, lon, lat);
+      printf("   Advance(): inside vertex "
+             "[%13.6e,%13.6e,%13.6e] -> (%10.6f,%10.6f)n",
+             v->x, v->y, v->z, lon, lat);
 
       fflush(stdout);
     }
@@ -562,14 +528,9 @@ int Advance(int ip, int *p_advances, int n, int inside, Vec *v) {
   return (ip + 1) % n;
 }
 
-/***************************************************/
-/*                                                 */
-/* SaveVertex()                                    */
-/*                                                 */
-/* Save the intersection polygon vertices          */
-/*                                                 */
-/***************************************************/
-
+/*
+ * Save the intersection polygon vertices
+ */
 void SaveVertex(Vec *v) {
   int i, i_begin;
   Vec Dir;
@@ -577,11 +538,8 @@ void SaveVertex(Vec *v) {
   if (DEBUG >= 4)
     printf("   SaveVertex ... ");
 
-  /* What with TOLERANCE and roundoff    */
-  /* problems, we need to double check   */
-  /* that the point to be save is really */
-  /* in or on the edge of both pixels    */
-  /* P and Q                             */
+  // What with TOLERANCE and roundoff problems, we need to double-check
+  // that the point to be save is really in or on the edge of both pixels P and Q.
 
   for (i = 0; i < NP; ++i) {
     i_begin = (i + NP - 1) % NP;
@@ -629,14 +587,9 @@ void SaveVertex(Vec *v) {
   }
 }
 
-/***************************************************/
-/*                                                 */
-/* PrintPolygon()                                  */
-/*                                                 */
-/* Print out the final intersection polygon        */
-/*                                                 */
-/***************************************************/
-
+/*
+ * Print out the final intersection polygon.
+ */
 void PrintPolygon() {
   int i;
   double lon, lat;
@@ -650,15 +603,10 @@ void PrintPolygon() {
   }
 }
 
-/***************************************************/
-/*                                                 */
-/* ReadData()                                      */
-/*                                                 */
-/* Reads in the coordinates of the vertices of     */
-/* the polygons from stdin                         */
-/*                                                 */
-/***************************************************/
-
+/*
+ * Reads in the coordinates of the vertices of
+ * the polygons from stdin.
+ */
 int ReadData(double *ilon, double *ilat, double *olon, double *olat) {
   int n;
 
@@ -673,14 +621,9 @@ int ReadData(double *ilon, double *ilat, double *olon, double *olat) {
   return (0);
 }
 
-/***************************************************/
-/*                                                 */
-/* DirectionCalculator()                           */
-/*                                                 */
-/* Computes whether ac is CLOCKWISE, etc. of ab    */
-/*                                                 */
-/***************************************************/
-
+/*
+ * Computes whether ac is CLOCKWISE, etc. of ab.
+ */
 int DirectionCalculator(Vec *a, Vec *b, Vec *c) {
   Vec cross;
   int len;
@@ -695,49 +638,44 @@ int DirectionCalculator(Vec *a, Vec *b, Vec *c) {
     return COUNTERCLOCKWISE;
 }
 
-/****************************************************************************/
-/*                                                                          */
-/* SegSegIntersect()                                                        */
-/*                                                                          */
-/* Finds the point of intersection p between two closed                     */
-/* segments ab and cd.  Returns p and a char with the following meaning:    */
-/*                                                                          */
-/*   COLINEAR_SEGMENTS: The segments colinearly overlap, sharing a point.   */
-/*                                                                          */
-/*   ENDPOINT_ONLY:     An endpoint (vertex) of one segment is on the other */
-/*                      segment, but COLINEAR_SEGMENTS doesn't hold.        */
-/*                                                                          */
-/*   NORMAL_INTERSECT:  The segments intersect properly (i.e., they share   */
-/*                      a point and neither ENDPOINT_ONLY nor               */
-/*                      COLINEAR_SEGMENTS holds).                           */
-/*                                                                          */
-/*   NO_INTERSECTION:   The segments do not intersect (i.e., they share     */
-/*                      no points).                                         */
-/*                                                                          */
-/* Note that two colinear segments that share just one point, an endpoint   */
-/* of each, returns COLINEAR_SEGMENTS rather than ENDPOINT_ONLY as one      */
-/* might expect.                                                            */
-/*                                                                          */
-/****************************************************************************/
-
+/*
+ * Finds the point of intersection p between two closed segments ab and cd.
+ *
+ * Returns p and a char with the following meaning:
+ *
+ *   COLINEAR_SEGMENTS: The segments colinearly overlap, sharing a point.
+ *
+ *   ENDPOINT_ONLY:     An endpoint (vertex) of one segment is on the other
+ *                      segment, but COLINEAR_SEGMENTS doesn't hold.
+ *
+ *   NORMAL_INTERSECT:  The segments intersect properly (i.e., they share
+ *                      a point and neither ENDPOINT_ONLY nor
+ *                      COLINEAR_SEGMENTS holds).
+ *
+ *   NO_INTERSECTION:   The segments do not intersect (i.e., they share
+ *                      no points).
+ *
+ * Note that two colinear segments that share just one point, an endpoint
+ * of each, returns COLINEAR_SEGMENTS rather than ENDPOINT_ONLY as one
+ * might expect.
+ */
 int SegSegIntersect(Vec *pEdge, Vec *qEdge, Vec *p0, Vec *p1, Vec *q0, Vec *q1,
                     Vec *intersect1, Vec *intersect2) {
-  double pDot, qDot; /* Dot product [cos(length)] of the edge vertices */
-  double p0Dot, p1Dot; /* Dot product from vertices to intersection      */
-  double q0Dot, q1Dot; /* Dot pro}duct from vertices to intersection     */
+  double pDot, qDot;   // Dot product [cos(length)] of the edge vertices
+  double p0Dot, p1Dot;  // Dot product from vertices to intersection
+  double q0Dot, q1Dot;  // Dot pro}duct from vertices to intersection
   int len;
 
-  /* Get the edge lengths (actually cos(length)) */
+  // Get the edge lengths (actually cos(length))
 
   pDot = Dot(p0, p1);
   qDot = Dot(q0, q1);
 
-  /* Find the point of intersection */
+  // Find the point of intersection
 
   len = Cross(pEdge, qEdge, intersect1);
 
-  /* If the two edges are colinear, */
-  /* check to see if they overlap   */
+  // If the two edges are colinear, check to see if they overlap
 
   if (len == 0) {
     if (Between(q0, p0, p1) && Between(q1, p0, p1)) {
@@ -779,15 +717,15 @@ int SegSegIntersect(Vec *pEdge, Vec *qEdge, Vec *p0, Vec *p1, Vec *q0, Vec *q1,
     return NO_INTERSECTION;
   }
 
-  /* If this is the wrong one of the two */
-  /* (other side of the sky) reverse it  */
+  // If this is the wrong one of the two
+  // (other side of the sky) reverse it
 
   Normalize(intersect1);
 
   if (Dot(intersect1, p0) < 0.)
     Reverse(intersect1);
 
-  /* Point has to be inside both sides to be an intersection */
+  // Point has to be inside both sides to be an intersection
 
   if ((p0Dot = Dot(intersect1, p0)) < pDot)
     return NO_INTERSECTION;
@@ -798,7 +736,7 @@ int SegSegIntersect(Vec *pEdge, Vec *qEdge, Vec *p0, Vec *p1, Vec *q0, Vec *q1,
   if ((q1Dot = Dot(intersect1, q1)) < qDot)
     return NO_INTERSECTION;
 
-  /* Otherwise, if the intersection is at an endpoint */
+  // Otherwise, if the intersection is at an endpoint
 
   if (p0Dot == pDot)
     return ENDPOINT_ONLY;
@@ -809,22 +747,15 @@ int SegSegIntersect(Vec *pEdge, Vec *qEdge, Vec *p0, Vec *p1, Vec *q0, Vec *q1,
   if (q1Dot == qDot)
     return ENDPOINT_ONLY;
 
-  /* Otherwise, it is a normal intersection */
+  // Otherwise, it is a normal intersection
 
   return NORMAL_INTERSECT;
 }
 
-/***************************************************/
-/*                                                 */
-/* printDir()                                      */
-/*                                                 */
-/* Formats a message about relative directions.    */
-/*                                                 */
-/***************************************************/
-
-int printDir(char *point, char *vector, int dir)
-
-{
+/*
+ * Formats a message about relative directions.
+ */
+int printDir(char *point, char *vector, int dir) {
   if (dir == CLOCKWISE)
     printf("%s is CLOCKWISE of %s; ", point, vector);
 
@@ -840,15 +771,10 @@ int printDir(char *point, char *vector, int dir)
   return 0;
 }
 
-/***************************************************/
-/*                                                 */
-/* Between()                                       */
-/*                                                 */
-/* Tests whether whether a point on an arc is      */
-/* between two other points.                       */
-/*                                                 */
-/***************************************************/
-
+/*
+ * Tests whether whether a point on an arc is
+ * between two other points.
+ */
 int Between(Vec *v, Vec *a, Vec *b) {
   double abDot, avDot, bvDot;
 
@@ -862,14 +788,9 @@ int Between(Vec *v, Vec *a, Vec *b) {
     return FALSE;
 }
 
-/***************************************************/
-/*                                                 */
-/* Cross()                                         */
-/*                                                 */
-/* Vector cross product.                           */
-/*                                                 */
-/***************************************************/
-
+/*
+ * Vector cross product.
+ */
 int Cross(Vec *v1, Vec *v2, Vec *v3) {
   v3->x = v1->y * v2->z - v2->y * v1->z;
   v3->y = -v1->x * v2->z + v2->x * v1->z;
@@ -881,14 +802,9 @@ int Cross(Vec *v1, Vec *v2, Vec *v3) {
   return 1;
 }
 
-/***************************************************/
-/*                                                 */
-/* Dot()                                           */
-/*                                                 */
-/* Vector dot product.                             */
-/*                                                 */
-/***************************************************/
-
+/*
+ * Vector dot product.
+ */
 double Dot(Vec *a, Vec *b) {
   double sum = 0.0;
 
@@ -897,14 +813,9 @@ double Dot(Vec *a, Vec *b) {
   return sum;
 }
 
-/***************************************************/
-/*                                                 */
-/* Normalize()                                     */
-/*                                                 */
-/* Normalize the vector                            */
-/*                                                 */
-/***************************************************/
-
+/*
+ * Normalize the vector
+ */
 double Normalize(Vec *v) {
   double len;
 
@@ -922,29 +833,18 @@ double Normalize(Vec *v) {
   return len;
 }
 
-/***************************************************/
-/*                                                 */
-/* Reverse()                                       */
-/*                                                 */
-/* Reverse the vector                              */
-/*                                                 */
-/***************************************************/
-
+/*
+ * Reverse the vector.
+ */
 void Reverse(Vec *v) {
   v->x = -v->x;
   v->y = -v->y;
   v->z = -v->z;
 }
 
-/***************************************************/
-/*                                                 */
-/* Girard()                                        */
-/*                                                 */
-/* Use Girard's theorem to compute the area of a   */
-/* sky polygon.                                    */
-/*                                                 */
-/***************************************************/
-
+/*
+ * Use Girard's theorem to compute the area of a sky polygon.
+ */
 double Girard() {
   int i, j, ibad;
 
@@ -987,7 +887,7 @@ double Girard() {
     sinAng = Normalize(&tmp);
     cosAng = -Dot(&side[i], &side[(i + 1) % nv]);
 
-    /* Remove center point of colinear segments */
+    // Remove center point of colinear segments
 
     ang[i] = atan2(sinAng, cosAng);
 
@@ -1000,14 +900,14 @@ double Girard() {
       fflush(stdout);
     }
 
-    if (ang[i] > M_PI - 0.0175) /* Direction changes of less than */
-    { /* a degree can be tricky         */
+    // Direction changes of less than a degree can be tricky
+    if (ang[i] > M_PI - 0.0175) {
       ibad = (i + 1) % nv;
 
       if (DEBUG >= 4) {
-        printf(
-            "Girard(): ---------- Corner %d bad; Remove point %d -------------\n",
-            i, ibad);
+        printf("Girard(): ---------- Corner %d bad; "
+               "Remove point %d -------------\n",
+               i, ibad);
         fflush(stdout);
       }
 
@@ -1038,17 +938,12 @@ double Girard() {
   return (area);
 }
 
-/***************************************************/
-/*                                                 */
-/* RemoveDups()                                    */
-/*                                                 */
-/* Check the vertex list for adjacent pairs of     */
-/* points which are too close together for the     */
-/* subsequent dot- and cross-product calculations  */
-/* of Girard's theorem.                            */
-/*                                                 */
-/***************************************************/
-
+/*
+ * Check the vertex list for adjacent pairs of
+ * points which are too close together for the
+ * subsequent dot- and cross-product calculations
+ * of Girard's theorem.
+ */
 void RemoveDups() {
   int i, nvnew;
   Vec Vnew[16];
@@ -1065,9 +960,9 @@ void RemoveDups() {
       lon = atan2(V[i].y, V[i].x) / DEG_TO_RADIANS;
       lat = asin(V[i].z) / DEG_TO_RADIANS;
 
-      printf(
-          "RemoveDups() orig: %3d [%13.6e,%13.6e,%13.6e] -> (%10.6f,%10.6f)\n",
-          i, V[i].x, V[i].y, V[i].z, lon, lat);
+      printf("RemoveDups() orig: %3d [%13.6e,%13.6e,%13.6e] "
+             "-> (%10.6f,%10.6f)\n",
+             i, V[i].x, V[i].y, V[i].z, lon, lat);
 
       fflush(stdout);
     }
@@ -1093,10 +988,10 @@ void RemoveDups() {
     separation = Normalize(&tmp);
 
     if (DEBUG >= 4) {
-      printf(
-          "RemoveDups(): %3d x %3d: distance = %13.6e [%13.6e arcsec] (would become %d)\n",
-          (i + 1) % nv, i, separation, separation / DEG_TO_RADIANS * 3600.,
-          nvnew);
+      printf("RemoveDups(): %3d x %3d: distance = %13.6e "
+             "[%13.6e arcsec] (would become %d)\n",
+             (i + 1) % nv, i, separation, separation / DEG_TO_RADIANS * 3600.,
+             nvnew);
 
       fflush(stdout);
     }

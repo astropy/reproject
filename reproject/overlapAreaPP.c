@@ -1,9 +1,6 @@
-/* Module: overlapAreaPP.c
-
- Version  Developer        Date     Change
- -------  ---------------  -------  -----------------------
- 1.0      John Good        27Jan04  Baseline code
-
+/* Methods to compute pixel overlap areas in the plane.
+ *
+ * Originally developed in 2003 / 2004 by John Good.
  */
 
 #include <math.h>
@@ -26,17 +23,12 @@ double tmpX1[100];
 double tmpY0[100];
 double tmpY1[100];
 
-/***************************************************/
-/*                                                 */
-/* computeOverlapPP()                              */
-/*                                                 */
-/* Sets up the polygons, runs the overlap          */
-/* computation, and returns the area of overlap.   */
-/* This version works in pixel space rather than   */
-/* on the celestial sphere.                        */
-/*                                                 */
-/***************************************************/
-
+/*
+ * Sets up the polygons, runs the overlap
+ * computation, and returns the area of overlap.
+ * This version works in pixel space rather than
+ * on the celestial sphere.
+ */
 double computeOverlapPP(double *ix, double *iy, double minX, double maxX,
                         double minY, double maxY, double pixelArea) {
   int npts;
@@ -47,14 +39,12 @@ double computeOverlapPP(double *ix, double *iy, double minX, double maxX,
 
   double xp[4], yp[4];
 
-  /* Clip the input pixel polygon with the */
-  /* output pixel range                    */
+  // Clip the input pixel polygon with the output pixel range
 
   npts = rectClip(4, ix, iy, nx, ny, minX, minY, maxX, maxY);
 
-  /* If no points, it may mean that     */
-  /* the output is completely contained */
-  /* in the input                       */
+  // If no points, it may mean that the output is
+  // completely contained in the input
 
   if (npts < 3) {
     xp[0] = minX;
@@ -76,7 +66,7 @@ double computeOverlapPP(double *ix, double *iy, double minX, double maxX,
 
   area = polyArea(npts, nx, ny) * pixelArea;
 
-  return (area);
+  return area;
 }
 
 int rectClip(int n, double *x, double *y, double *nx, double *ny, double minX,
@@ -114,14 +104,14 @@ int lineClip(int n, double *x, double *y, double *nx, double *ny, double val,
   for (i = 0; i < n; ++i) {
     if (last) {
       if (inPlane(x[i], val, dir)) {
-        /* Both endpoints in, just add the new point */
+        // Both endpoints in, just add the new point
 
         nx[nout] = x[i];
         ny[nout] = y[i];
 
         ++nout;
       } else {
-        /* Moved out of the clip region, add the point we moved out */
+        // Moved out of the clip region, add the point we moved out
 
         if (i == 0)
           ycross = y[n - 1]
@@ -139,8 +129,8 @@ int lineClip(int n, double *x, double *y, double *nx, double *ny, double val,
       }
     } else {
       if (inPlane(x[i], val, dir)) {
-        /* Moved into the clip region.  Add the point */
-        /* we moved in, and the end point.            */
+        // Moved into the clip region.
+        // Add the point we moved in, and the end point.
 
         if (i == 0)
           ycross = y[n - 1]
@@ -161,7 +151,7 @@ int lineClip(int n, double *x, double *y, double *nx, double *ny, double val,
 
         last = 1;
       } else {
-        /* Segment entirely clipped. */
+        // Segment entirely clipped.
       }
     }
   }
