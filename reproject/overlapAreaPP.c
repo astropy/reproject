@@ -6,7 +6,6 @@ Version  Developer        Date     Change
 
 */
 
-#include <stdio.h>
 #include <math.h>
 
 double computeOverlapPP(double *ix, double *iy,
@@ -25,12 +24,11 @@ int lineClip (int n,
 int inPlane  (double test, double divider, int direction);
 int ptInPoly ( double x, double y, int n, double *xp, double *yp);
 
+// Global variables
 double tmpX0[100];
 double tmpX1[100];
 double tmpY0[100];
 double tmpY1[100];
-
-extern int  debug;
 
 
 /***************************************************/

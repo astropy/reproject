@@ -13,6 +13,8 @@ Version  Developer        Date     Change
 
 #include "mNaN.h"
 
+// Constants
+
 #define FALSE             0
 #define TRUE              1
 #define FOREVER           1
@@ -30,10 +32,17 @@ Version  Developer        Date     Change
 #define P_IN_Q            1
 #define Q_IN_P            2
 
+const int  debug = 0;
+const double dtr = M_PI / 180.;
+const double tolerance = 4.424e-9;  /* sin(x) where x = 5e-4 arcsec */
+                                    /* or cos(x) when x is within   */
+                                    /* 1e-5 arcsec of 90 degrees    */
+const int np = 4;
+const int nq = 4;
+
 
 /* The two pixel polygons on the sky */
 /* and the polygon of intersection   */
-
 typedef struct vec
 {
    double x;
@@ -42,12 +51,7 @@ typedef struct vec
 }
 Vec;
 
-Vec P[8], Q[8], V[16];
-
-int np = 4;
-int nq = 4;
-int nv;
-
+// Function prototypes
 
 double  computeOverlap      (double *ilon, double *ilat,
                              double *olon, double *olat,
@@ -79,83 +83,9 @@ void    RemoveDups();
 
 int     printDir           (char *point, char *vector, int dir);
 
-int  debug = 0;
-
-int  inRow,  inColumn;
-int  outRow, outColumn;
-
-
-double  pi, dtr;
-
-double tolerance = 4.424e-9;  /* sin(x) where x = 5e-4 arcsec */
-                                  /* or cos(x) when x is within   */
-                                  /* 1e-5 arcsec of 90 degrees    */
-
-
-/***************************************************/
-/*                                                 */
-/* Simple main() program; reads the data and calls */
-/* the intersection code.                          */
-/*                                                 */
-/***************************************************/
-
-/***************** ONLY FOR DEBUGGING **********************
-
-main(int argc, char **argv)
-{
-   double area;
-   double ilon[4], ilat[4];
-   double olon[4], olat[4];
-
-   if(argc > 1)
-      debug = 4;
-
-   if(debug >= 4)
-   {
-      printf("\n");
-      printf("-----\n");
-      printf("Intersection Codes:\n");
-      printf("------------------\n");
-      printf("    0 (COLINEAR_SEGMENTS) :");
-      printf("The segments colinearly overlap, sharing a point.\n");
-      printf("\n");
-      printf("    1 (ENDPOINT_ONLY)     : An endpoint (vertex) of one\n");
-      printf("                            segment is on the other, but\n");
-      printf("                            COLINEAR_SEGMENTS doesn't hold.\n");
-      printf("\n");
-      printf("    2 (NORMAL_INTERSECT)  : The segments intersect properly\n");
-      printf("                            (i.e., they share a point and\n");
-      printf("                            neither ENDPOINT_ONLY nor ");
-      printf("                            COLINEAR_SEGMENTS holds).\n");
-      printf("\n");
-      printf("    3 (NO_INTERSECTION)   : The segments do not intersect \n");
-      printf("                            (i.e., they share no points).\n");
-      printf("\n");
-      printf("interiorFlag Values:\n");
-      printf("------------------- \n");
-      printf("0 P_IN_Q\n");
-      printf("1 Q_IN_P\n");
-      printf("2 UNKNOWN\n");
-      printf("\n");
-      printf("Direction Codes:\n");
-      printf("--------------- \n");
-      printf(" 1 COUNTERCLOCKWISE\n");
-      printf(" 0 PARALLEL\n");
-      printf("-1 CLOCKWISE\n");
-      printf("\n");
-   }
-
-   ReadData(ilon, ilat, olon, olat);
-
-   area = computeOverlap(ilon, ilat, olon, olat);
-
-   printf("\nArea = %-g\n\n", area);
-
-   PrintPolygon();
-}
-
-****************** ONLY FOR DEBUGGING *********************/
-
+// Global variables
+Vec P[8], Q[8], V[16];
+int nv;
 
 
 /***************************************************/
@@ -173,8 +103,6 @@ double computeOverlap(double *ilon, double *ilat,
 {
    int    i;
    double thisPixelArea;
-
-   pi  = atan(1.0) * 4.;
 
    *areaRatio = 1.;
 
@@ -195,9 +123,6 @@ double computeOverlap(double *ilon, double *ilat,
 
    if(debug >= 4)
    {
-      printf("\n-----------------------------------------------\n\nAdding pixel (%d,%d) to pixel (%d,%d)\n\n",
-         inRow, inColumn, outRow, outColumn);
-
       printf("Input (P):\n");
       for(i=0; i<4; ++i)
          printf("%10.6f %10.6f\n", ilon[i], ilat[i]);
@@ -1179,10 +1104,7 @@ double Girard()
 
    Vec    tmp;
 
-   double pi, dtr, sumang, cosAng, sinAng;
-
-   pi  = atan(1.0) * 4.;
-   dtr = pi / 180.;
+   double sumang, cosAng, sinAng;
 
    sumang = 0.;
 
@@ -1227,11 +1149,11 @@ double Girard()
 	 if(i==0)
 	    printf("\n");
 
-	 printf("Girard(): angle[%d] = %13.6e -> %13.6e (from %13.6e / %13.6e)\n", i, ang[i], ang[i] - pi/2., sinAng, cosAng);
+	 printf("Girard(): angle[%d] = %13.6e -> %13.6e (from %13.6e / %13.6e)\n", i, ang[i], ang[i] - M_PI/2., sinAng, cosAng);
 	 fflush(stdout);
       }
 
-      if(ang[i] > pi - 0.0175)  /* Direction changes of less than */
+      if(ang[i] > M_PI - 0.0175)  /* Direction changes of less than */
       {                         /* a degree can be tricky         */
 	 ibad = (i+1)%nv;
 
@@ -1257,7 +1179,7 @@ double Girard()
       sumang += ang[i];
    }
 
-   area = sumang - (nv-2.)*pi;
+   area = sumang - (nv-2.)* M_PI;
 
    if(mNaN(area) || area < 0.)
       area = 0.;
