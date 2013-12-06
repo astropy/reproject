@@ -1,5 +1,7 @@
 from ._overlap_wrapper import _computeOverlap
 
+__all__ = ['compute_overlap']
+
 def compute_overlap(ilon, ilat, olon, olat):
     """
     Compute the overlap between two 'pixels' in spherical coordinates
