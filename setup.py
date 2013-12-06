@@ -1,61 +1,85 @@
 #!/usr/bin/env python
+# Licensed under a 3-clause BSD style license - see LICENSE.rst
 
+import glob
 import os
+import sys
 
-from distutils.core import setup, Extension, Command
-from distutils.command.sdist import sdist
+import setuptools_bootstrap
+from setuptools import setup
 
-from distutils.command.build_py import build_py
+#A dirty hack to get around some early import/configurations ambiguities
+if sys.version_info[0] >= 3:
+    import builtins
+else:
+    import __builtin__ as builtins
+builtins._ASTROPY_SETUP_ = True
 
-from numpy import get_include as get_numpy_include
+import astropy
+from astropy.setup_helpers import (register_commands, adjust_compiler,
+                                   get_debug_option)
+from astropy.version_helpers import get_git_devstr, generate_version_py
 
-numpy_includes = get_numpy_include()
+# Set affiliated package-specific settings
+PACKAGENAME = 'reproject'
+DESCRIPTION = 'Experimental package for reprojecting astronomy images'
+LONG_DESCRIPTION = ''
+AUTHOR = 'Thomas Robitaille'
+AUTHOR_EMAIL = 'thomas.robitaille@gmail.com'
+LICENSE = 'BSD'
+URL = ''
 
-ext_modules = [Extension("reproject._overlap_wrapper",
-                         ['reproject/_overlap_wrapper.c', 'reproject/overlapArea.c'],
-                         include_dirs=[numpy_includes])]
+# VERSION should be PEP386 compatible (http://www.python.org/dev/peps/pep-0386)
+VERSION = '0.0.dev'
 
-class PyTest(Command):
+# Indicates if this version is a release version
+RELEASE = 'dev' not in VERSION
 
-    user_options = []
+if not RELEASE:
+    VERSION += get_git_devstr(False)
 
-    def initialize_options(self):
-        pass
+# Populate the dict of setup command overrides; this should be done before
+# invoking any other functionality from distutils since it can potentially
+# modify distutils' behavior.
+cmdclassd = register_commands(PACKAGENAME, VERSION, RELEASE)
 
-    def finalize_options(self):
-        pass
+# Adjust the compiler in case the default on this platform is to use a
+# broken one.
+adjust_compiler(PACKAGENAME)
 
-    def run(self):
+# Freeze build information in version.py
+generate_version_py(PACKAGENAME, VERSION, RELEASE, get_debug_option())
 
-        import os
-        import shutil
-        import tempfile
-
-        # First ensure that we build the package so that 2to3 gets executed
-        self.reinitialize_command('build')
-        self.run_command('build')
-        build_cmd = self.get_finalized_command('build')
-        new_path = os.path.abspath(build_cmd.build_lib)
-
-        # Copy the build to a temporary directory for the purposes of testing
-        # - this avoids creating pyc and __pycache__ directories inside the
-        # build directory
-        tmp_dir = tempfile.mkdtemp(prefix='reprojection-test-')
-        testing_path = os.path.join(tmp_dir, os.path.basename(new_path))
-        shutil.copytree(new_path, testing_path)
-
-        import sys
-        import subprocess
-
-        errno = subprocess.call([sys.executable, os.path.abspath('runtests.py')], cwd=testing_path)
-        raise SystemExit(errno)
+# Treat everything in scripts except README.rst as a script to be installed
+scripts = [fname for fname in glob.glob(os.path.join('scripts', '*'))
+           if os.path.basename(fname) != 'README.rst']
 
 
-setup(name='reproject',
-      version="0.1.0",
-      author='Thomas Robitaille',
-      author_email='thomas.robitaille@gmail.com',
-      packages=['reproject', 'reproject.tests'],
-      cmdclass = {'test': PyTest},
-      ext_modules = ext_modules
-     )
+from astropy.setup_helpers import get_package_info
+
+# Get configuration information from all of the various subpackages.
+# See the docstring for setup_helpers.update_package_files for more
+# details.
+package_info = get_package_info(PACKAGENAME)
+
+# Add the project-global data
+package_info['package_data'][PACKAGENAME] = ['data/*']
+
+
+setup(name=PACKAGENAME,
+      version=VERSION,
+      description=DESCRIPTION,
+      scripts=scripts,
+      requires=['astropy'],
+      install_requires=['astropy'],
+      provides=[PACKAGENAME],
+      author=AUTHOR,
+      author_email=AUTHOR_EMAIL,
+      license=LICENSE,
+      url=URL,
+      long_description=LONG_DESCRIPTION,
+      cmdclass=cmdclassd,
+      zip_safe=False,
+      use_2to3=True,
+      **package_info
+)
