@@ -11,3 +11,5 @@ Status
 ======
 
 [![Build Status](https://travis-ci.org/astrofrog/python-reprojection.png?branch=master)](https://travis-ci.org/astrofrog/python-reprojection)
+
+[![Coverage Status](https://coveralls.io/repos/astrofrog/python-reprojection/badge.png?branch=master)](https://coveralls.io/r/astrofrog/python-reprojection?branch=master)
