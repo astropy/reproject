@@ -9,16 +9,31 @@ python:
 env:
     global:
         - PIP_WHEEL_COMMAND="pip install --find-links http://wheels.astropy.org/ --use-wheel --use-mirrors"
+    matrix:
+        - SETUP_CMD='test'
 
+matrix:
+    include:
+        - python: 2.7
+          env: SETUP_CMD='cov'
 
 before_install:
     - pip install setuptools --upgrade
     - pip install pip --upgrade
     - pip install wheel
+    - if [[ $SETUP_CMD == 'cov' ]]; then pip install pytest -q --use-mirrors; fi
+    - if [[ $SETUP_CMD == 'cov' ]]; then pip install pytest-cov -q --use-mirrors; fi
+    - if [[ $SETUP_CMD == 'cov' ]]; then pip install coveralls -q --use-mirrors; fi
+
 
 install:
-   - $PIP_WHEEL_COMMAND "numpy==1.8.0"
-   - $PIP_WHEEL_COMMAND "astropy==0.3"
+    - $PIP_WHEEL_COMMAND "numpy==1.8.0"
+    - $PIP_WHEEL_COMMAND "astropy==0.3"
 
 script:
-   - python setup.py test
+    - if [[ $SETUP_CMD == 'test' ]]; then python setup.py test; fi
+    - if [[ $SETUP_CMD == 'cov' ]]; then python setup.py build_ext --inplace; fi
+    - if [[ $SETUP_CMD == 'cov' ]]; then py.test --cov reproject; fi
+
+after_success:
+  - if [[ $SETUP_CMD == 'cov' ]]; then coveralls; fi
