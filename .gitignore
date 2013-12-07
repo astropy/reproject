@@ -10,3 +10,4 @@ reproject/cython_version.py
 reproject/reproject.cfg
 reproject/version.py
 reproject.egg-info
+reproject/_overlap.c
