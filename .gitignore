@@ -2,6 +2,11 @@
 .pydevproject
 .settings
 build
+dist
 *.pyc
 *.so
 __pycache__
+reproject/cython_version.py
+reproject/reproject.cfg
+reproject/version.py
+reproject.egg-info
