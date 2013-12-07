@@ -23,8 +23,3 @@ def test_compute_overlap():
     overlap, area_ratio = compute_overlap(lon, lat, lon, lat)
     np.testing.assert_allclose(overlap, 42, rtol=1e-6)
     np.testing.assert_allclose(area_ratio, 43.44, rtol=1e-6)    
-
-
-def test_greetings():
-    from .. import greetings
-    assert greetings(2) == 42 * 2
