@@ -27,8 +27,9 @@ before_install:
 
 
 install:
-    - $PIP_WHEEL_COMMAND "numpy==1.8.0"
-    - $PIP_WHEEL_COMMAND "astropy==0.3"
+   - $PIP_WHEEL_COMMAND "numpy==1.8.0"
+   - $PIP_WHEEL_COMMAND "astropy==0.3"
+   - $PIP_WHEEL_COMMAND "Cython==0.19"
 
 script:
     - if [[ $SETUP_CMD == 'test' ]]; then python setup.py test; fi

@@ -1,4 +1,5 @@
-from ._overlap_wrapper import _computeOverlap
+import numpy as np
+from ._overlap import _compute_overlap
 
 __all__ = ['compute_overlap']
 
@@ -8,20 +9,25 @@ def compute_overlap(ilon, ilat, olon, olat):
     
     Parameters
     ----------
-    ilon : np.ndarray
+    ilon : np.ndarray with shape (N, 4)
         The longitudes (in radians) defining the four corners of the input pixel
-    ilat : np.ndarray
+    ilat : np.ndarray with shape (N, 4)
         The latitudes (in radians) defining the four corners of the input pixel
-    olon : np.ndarray
+    olon : np.ndarray with shape (N, 4)
         The longitudes (in radians) defining the four corners of the output pixel
-    olat : np.ndarray
+    olat : np.ndarray with shape (N, 4)
         The latitudes (in radians) defining the four corners of the output pixel
     
     Returns
     -------
-    overlap : np.ndarray
+    overlap : np.ndarray of length N
         Pixel overlap solid angle in steradians
-    area_ratio : np.ndarray
+    area_ratio : np.ndarray of length N
         TODO
     """
-    return _computeOverlap(ilon, ilat, olon, olat, 0, 1.)
+    ilon = np.asarray(ilon, dtype=np.float64)
+    ilat = np.asarray(ilat, dtype=np.float64)
+    olon = np.asarray(olon, dtype=np.float64)
+    olat = np.asarray(olat, dtype=np.float64)
+    
+    return _compute_overlap(ilon, ilat, olon, olat) 

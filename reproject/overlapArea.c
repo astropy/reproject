@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <math.h>
 #include "mNaN.h"
+#include "overlapArea.h"
 
 // Constants
 
@@ -40,9 +41,6 @@ typedef struct vec {
 } Vec;
 
 // Function prototypes
-
-double computeOverlap(double *ilon, double *ilat, double *olon, double *olat,
-                      int energyMode, double refArea, double *areaRatio);
 
 int DirectionCalculator(Vec *a, Vec *b, Vec *c);
 int SegSegIntersect(Vec *a, Vec *b, Vec *c, Vec *d, Vec *e, Vec *f, Vec *p,
@@ -819,8 +817,6 @@ double Dot(Vec *a, Vec *b) {
 double Normalize(Vec *v) {
   double len;
 
-  len = 0.;
-
   len = sqrt(v->x * v->x + v->y * v->y + v->z * v->z);
 
   if (len == 0.)
@@ -858,10 +854,10 @@ double Girard() {
 
   double sumang, cosAng, sinAng;
 
-  sumang = 0.;
+  sumang = 0;
 
   if (nv < 3)
-    return (0.);
+    return 0;
 
   if (DEBUG >= 4) {
     for (i = 0; i < nv; ++i) {
@@ -878,7 +874,7 @@ double Girard() {
   for (i = 0; i < nv; ++i) {
     Cross(&V[i], &V[(i + 1) % nv], &side[i]);
 
-    (void) Normalize(&side[i]);
+    Normalize(&side[i]);
   }
 
   for (i = 0; i < nv; ++i) {
@@ -935,7 +931,7 @@ double Girard() {
     fflush(stdout);
   }
 
-  return (area);
+  return area;
 }
 
 /*
