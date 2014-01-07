@@ -63,7 +63,10 @@ def healpix_to_image(healpix_data, reference_header, hpx_coord_system, nest=Fals
         lon, lat = sky_to_sky(lon, lat, ref_coord_system, hpx_coord_system)
     
     # theta must be in the range [0,pi], but wcs gives it in the range (-pi/2,pi/2)
-    data = hp.get_interp_val(healpix_data, theta=lat+np.pi/2, phi=lon, nest=nest)
+    # also, somehow, lat=pi/2 corresponds to the SOUTH galactic pole and lat=-pi/2 the NORTH
+    # (this confuses me, but test it yourself by comparing some Galactic
+    # surveys... W51, M17, and others are flipped if you don't use -lat)
+    data = hp.get_interp_val(healpix_data, theta=-lat+np.pi/2, phi=lon, nest=nest)
     return data
 
 
