@@ -12,7 +12,8 @@ import numpy as np
 
 __all__ = ['healpix_to_image', 'image_to_healpix']
 
-def healpix_to_image(healpix_data, reference_header, hpx_coord_system, nest=False):
+def healpix_to_image(healpix_data, reference_header, hpx_coord_system,
+                     interp=True, nest=False):
     """
     Convert image in HEALPIX format to a normal FITS projection image (e.g.
     CAR or AIT).
@@ -30,6 +31,8 @@ def healpix_to_image(healpix_data, reference_header, hpx_coord_system, nest=Fals
     nest : bool
         The order of the healpix_data, either nested or ring.  Stored in 
         FITS headers in the ORDERING keyword.
+    interp : bool
+        Get the bilinear interpolated data?  If not, returns a set of neighbors
 
     Returns
     -------
@@ -40,13 +43,17 @@ def healpix_to_image(healpix_data, reference_header, hpx_coord_system, nest=Fals
     --------
     >>> import healpy as hp
     >>> from astropy.io import fits
-    >>> from gammapy.image.healpix import healpix_to_image
+    >>> from reproject.healpix import healpix_to_image
     >>> healpix_filename = 'healpix.fits'
     >>> healpix_data = hp.read_map(healpix_filename)
     >>> healpix_system = fits.getheader(healpix_filename,ext=1)['COORDSYS']
     >>> healpix_isnested = fits.getheader(healpix_filename,ext=1)['ORDERING'] == 'NESTED'
     >>> reference_image = fits.open('reference_image.fits')[0]
     >>> reprojected_data = healpix_to_image(healpix_data, reference_image, healpix_system, nest=healpix_isnested)
+    >>> fits.writeto('new_image.fits', reprojected_data, reference_image.header)
+    
+    >>> neighbors = healpix_to_image(healpix_data, reference_image, healpix_system, nest=healpix_isnested, interp=False)
+    >>> reprojected_data = healpix_data[neighbors].mean(axis=0)
     >>> fits.writeto('new_image.fits', reprojected_data, reference_image.header)
     """
     import healpy as hp
@@ -66,7 +73,12 @@ def healpix_to_image(healpix_data, reference_header, hpx_coord_system, nest=Fals
     # also, somehow, lat=pi/2 corresponds to the SOUTH galactic pole and lat=-pi/2 the NORTH
     # (this confuses me, but test it yourself by comparing some Galactic
     # surveys... W51, M17, and others are flipped if you don't use -lat)
-    data = hp.get_interp_val(healpix_data, theta=-lat+np.pi/2, phi=lon, nest=nest)
+    if interp:
+        data = hp.get_interp_val(healpix_data, theta=-lat+np.pi/2, phi=lon, nest=nest)
+    else:
+        neighbors = hp.get_all_neighbours(2048, theta=-lat+np.pi/2, phi=lon, nest=nest)
+        data = healpix_data[neighbors]
+
     return data
 
 
