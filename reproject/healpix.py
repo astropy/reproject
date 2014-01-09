@@ -12,6 +12,87 @@ import numpy as np
 
 __all__ = ['healpix_to_image', 'image_to_healpix']
 
+valid_coordinate_systems = ('galactic','icrs')
+
+def healpix_reproject_file(hp_filename, reference, outfilename=None, clobber=False, ext=1, **kwargs):
+    """
+    Reproject a HEALPIX file
+
+    Parameters
+    ----------
+    hp_filename : str
+        A HEALPIX FITS file name
+    reference : fits.Header, fits.PrimaryHDU, fits.HDUList, or str
+        A fits.Header or HDU or FITS filename containing the target for projection
+    outfilename : str or None
+        The filename to write to
+    clobber : bool
+        Overwrite the outfilename if it exists?
+    ext : int
+        The FITS extension containing the HEALPIX table to reproject
+    kwargs : dict
+        passed to healpix_hdu_to_hdu
+
+    Returns
+    -------
+    fits.PrimaryHDU containing the reprojected image
+    """
+    hp_hdu = fits.open(hp_filename)[ext]
+
+    if isinstance(reference,str):
+        reference_header = fits.getheader(reference)
+    elif isinstance(reference,fits.Header):
+        reference_header = reference
+    elif isinstance(reference,fits.PrimaryHDU):
+        reference_header = reference.header
+    elif isinstance(reference,fits.HDUList):
+        reference_header = reference[0].header
+    else:
+        raise TypeError("Reference was not a valid type; must be some sort of FITS header representation")
+
+    new_hdu = healpix_hdu_to_hdu(hp_hdu, reference_header, **kwargs)
+
+    if outfilename is not None:
+        new_hdu.writeto(outfilename, clobber=clobber)
+
+    return new_hdu
+
+def healpix_hdu_to_hdu(hp_hdu, reference_header, field=None, **kwargs):
+    """
+    Convert a HEALPIX binary-table HDU to a target FITS header.
+
+    Parameters
+    ----------
+    hp_hdu : fits.BinTableHDU
+        The HDU containing the healpix data table
+    reference_header : fits.Header
+        The target header, containing a valid WCS
+    field : None or string
+        The field name containing the data to be reprojected.  If not
+        specifies, defaults to the first field in the BinTable
+        
+    Returns
+    -------
+    fits.PrimaryHDU containing the reprojected image
+    """
+    if field is None:
+        field = hp_hdu.data.columns[0].name
+
+    nested = hp_hdu.header['ORDERING'] == 'NESTED'
+    coordsys = hp_hdu.header['COORDSYS'].lower()
+
+    if coordsys not in valid_coordinate_systems:
+        raise KeyError("Coordinate system was %s, which is not one of %s" % (coordsys,valid_coordinate_systems))
+
+    healpix_data = hp_hdu.data[field]
+
+    reprojected_data = healpix_to_image(healpix_data, reference_header,
+                                        coordsys, nest=nested, **kwargs)
+
+    new_hdu = fits.PrimaryHDU(data=reprojected_data, header=reference_header)
+
+    return new_hdu
+
 def healpix_to_image(healpix_data, reference_header, hpx_coord_system,
                      interp=True, nest=False):
     """
