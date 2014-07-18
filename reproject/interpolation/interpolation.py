@@ -2,10 +2,12 @@
 
 import numpy as np
 
-from .wcs_utils import wcs_to_celestial_frame
+from ..wcs_utils import wcs_to_celestial_frame
 from astropy.coordinates import UnitSphericalRepresentation
 from astropy import units as u
 from astropy.wcs import WCSSUB_CELESTIAL
+
+__all__ = ['interpolate_2d', 'interpolate_2d_slices']
 
 
 def get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
