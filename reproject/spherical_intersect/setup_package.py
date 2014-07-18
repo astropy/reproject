@@ -8,11 +8,11 @@ def get_extensions():
     include_dirs = ['numpy']
     libraries = []
 
-    sources.append("reproject/overlapArea.c")
-    include_dirs.append('reproject')
+    sources.append("reproject/spherical_intersect/overlapArea.c")
+    include_dirs.append('reproject/spherical_intersect')
 
     extension = Extension(
-        name="reproject._overlap",
+        name="reproject.spherical_intersect._overlap",
         sources=sources,
         include_dirs=include_dirs,
         libraries=libraries,
