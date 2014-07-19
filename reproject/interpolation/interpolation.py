@@ -7,7 +7,7 @@ from astropy.coordinates import UnitSphericalRepresentation
 from astropy import units as u
 from astropy.wcs import WCSSUB_CELESTIAL
 
-__all__ = ['interpolate_2d', 'interpolate_2d_slices']
+__all__ = ['interpolate_2d', 'interpolate_celestial_slices']
 
 
 def get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
@@ -15,10 +15,6 @@ def get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
     Get the pixel coordinates of the pixels in an array of shape ``shape_out``
     in the input WCS.
     """
-
-    # Extract celestial component of WCS
-    wcs_in = wcs_in.sub([WCSSUB_CELESTIAL])
-    wcs_out = wcs_out.sub([WCSSUB_CELESTIAL])
 
     # TODO: for now assuming that coordinates are spherical, not
     # necessarily the case. Also assuming something about the order of the
@@ -90,13 +86,10 @@ def interpolate_2d(array, wcs_in, wcs_out, shape_out, order=1):
     return array_new
 
 
-def interpolate_2d_slices(array, wcs_in, wcs_out, shape_out, order=1):
+def interpolate_celestial_slices(array, wcs_in, wcs_out, shape_out, order=1):
     """
-    Reproject 2D slices from a 3D array from one WCS to another using
-    interpolation.
-
-    The spatial dimensions should be the last two dimensions, and the third
-    axis should be independent of the spatial axes.
+    Reproject celestial slices from an n-d array from one WCS to another using
+    interpolation, and assuming all other dimensions are independent.
 
     Parameters
     ----------
@@ -114,20 +107,60 @@ def interpolate_2d_slices(array, wcs_in, wcs_out, shape_out, order=1):
         interpolation (the default).
     """
 
-    # TODO: check that third axis is independent
+    # For now, assume axes are independent in this routine
+
+    # TODO: Need to check that the WCSs are equivalent
+
+    # Extract celestial part of WCS in lon/lat order
+    wcs_in_celestial = wcs_in.sub([WCSSUB_CELESTIAL])
+    wcs_out_celestial = wcs_out.sub([WCSSUB_CELESTIAL])
+
+    # We create an output array with the required shape, then create an array
+    # that is in order of [rest, lat, lon] where rest is the flattened
+    # remainder of the array. We then operate on the view, but this will change
+    # the original array with the correct shape.
+
+    array_new = np.zeros(shape_out)
+
+    # First put lng/lat as first two dimensions in WCS, last two in Numpy
+    n = array_new.ndim
+    if wcs_in.wcs.lng == 0:
+        if wcs_in.wcs.lat == 1:
+            array_in_view = array
+            array_out_view = array_new
+        else:
+            array_in_view = array.swapaxes(-2, -1 - wcs_in.wcs.lat)
+            array_out_view = array_new.swapaxes(-2, -1 - wcs_in.wcs.lat)
+    elif wcs_in.wcs.lng == 1:
+        if wcs_in.wcs.lat == 0:
+            array_in_view = array.swapaxes(-1, -2)
+            array_out_view = array_new.swapaxes(-1, -2)
+        else:
+            array_in_view = array.swapaxes(-1, -1 - wcs_in.wcs.lng)
+            array_out_view = array_new.swapaxes(-1, -1 - wcs_in.wcs.lng)
+    else:
+        array_in_view = array.swapaxes(-2, -1 - wcs_in.wcs.lat).swapaxes(-1, -1 - wcs_in.wcs.lng)
+        array_out_view = array_new.swapaxes(-2, -1 - wcs_in.wcs.lat).swapaxes(-1, -1 - wcs_in.wcs.lng)
+
+    # Flatten remaining dimensions to make it easier to loop over
+    from operator import mul
+    nx = array_out_view.shape[-1]
+    ny = array_out_view.shape[-2]
+    n_remaining = reduce(mul, array_out_view.shape, 1) / nx / ny
+    array_in_view = array_in_view.reshape(n_remaining, ny, nx)
+    array_out_view = array_out_view.reshape(n_remaining, ny, nx)
 
     # Get position of output pixel centers in input image
-    xp_in, yp_in = get_input_pixels_celestial(wcs_in, wcs_out, shape_out[1:])
+    xp_in, yp_in = get_input_pixels_celestial(wcs_in_celestial, wcs_out_celestial, array_out_view.shape[1:])
     coordinates = [yp_in.ravel(), xp_in.ravel()]
 
-    # Interpolate values to new grid
+    # Loop over slices and interpolate
     from scipy.ndimage import map_coordinates
-    array_new = np.zeros(shape_out)
-    for slice_index in range(array.shape[0]):
-        array_new[slice_index] = map_coordinates(array[slice_index],
-                                                 coordinates,
-                                                 order=order, cval=np.nan,
-                                                 mode='constant'
-                                                 ).reshape(shape_out[1:])
+    for slice_index in range(n_remaining):
+        array_out_view[slice_index] = map_coordinates(array_in_view[slice_index],
+                                                      coordinates,
+                                                      order=order, cval=np.nan,
+                                                      mode='constant'
+                                                      ).reshape(array_out_view.shape[1:])
 
     return array_new
