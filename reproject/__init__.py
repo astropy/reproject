@@ -9,6 +9,3 @@ This is an Astropy affiliated package.
 # ----------------------------------------------------------------------------
 from ._astropy_init import *
 # ----------------------------------------------------------------------------
-
-if not _ASTROPY_SETUP_:
-    from .overlap import compute_overlap
