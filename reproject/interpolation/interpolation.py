@@ -109,7 +109,9 @@ def interpolate_celestial_slices(array, wcs_in, wcs_out, shape_out, order=1):
 
     # For now, assume axes are independent in this routine
 
-    # TODO: Need to check that the WCSs are equivalent
+    # Check that WCSs are equivalent
+    if wcs_in.naxis == wcs_out.naxis and np.any(wcs_in.wcs.axis_types != wcs_out.wcs.axis_types):
+        raise ValueError("The input and output WCS are not equivalent")
 
     # Extract celestial part of WCS in lon/lat order
     wcs_in_celestial = wcs_in.sub([WCSSUB_CELESTIAL])
