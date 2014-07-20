@@ -142,7 +142,6 @@ def interpolate_celestial_slices(array, wcs_in, wcs_out, shape_out, order=1):
     array_new = np.zeros(shape_out)
 
     # First put lng/lat as first two dimensions in WCS, last two in Numpy
-    n = array_new.ndim
     if wcs_in.wcs.lng == 1 and wcs_in.wcs.lat == 0:
         array_in_view = array.swapaxes(-1, -2)
         array_out_view = array_new.swapaxes(-1, -2)
