@@ -71,6 +71,11 @@ def interpolate_2d(array, wcs_in, wcs_out, shape_out, order=1):
         The order of the interpolation (if ``mode`` is set to
         ``'interpolation'``). A value of ``0`` indicates nearest neighbor
         interpolation (the default).
+
+    Returns
+    -------
+    array_new : :class:`~numpy.ndarray`
+        The reprojected array
     """
 
     # Get position of output pixel centers in input image
@@ -105,6 +110,11 @@ def interpolate_celestial_slices(array, wcs_in, wcs_out, shape_out, order=1):
         The order of the interpolation (if ``mode`` is set to
         ``'interpolation'``). A value of ``0`` indicates nearest neighbor
         interpolation (the default).
+
+    Returns
+    -------
+    array_new : :class:`~numpy.ndarray`
+        The reprojected array
     """
 
     # For now, assume axes are independent in this routine
