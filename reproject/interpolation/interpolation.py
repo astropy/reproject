@@ -1,4 +1,11 @@
-# Reprojection by interpolation
+# Licensed under a 2-clause BSD style license - see LICENSE.rst
+
+"""
+Routines to carry out reprojection by interpolation
+"""
+
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
 
 import numpy as np
 
@@ -158,7 +165,7 @@ def interpolate_celestial_slices(array, wcs_in, wcs_out, shape_out, order=1):
     from operator import mul
     nx = array_out_view.shape[-1]
     ny = array_out_view.shape[-2]
-    n_remaining = reduce(mul, array_out_view.shape, 1) / nx / ny
+    n_remaining = int(round(reduce(mul, array_out_view.shape, 1) / nx / ny))
     array_in_view = array_in_view.reshape(n_remaining, ny, nx)
     array_out_view = array_out_view.reshape(n_remaining, ny, nx)
 

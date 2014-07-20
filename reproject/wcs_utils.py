@@ -1,4 +1,15 @@
-# WCS-related utilities that will be merged into Astropy 1.0
+# Licensed under a 2-clause BSD style license - see LICENSE.rst
+
+"""
+WCS-related utilities
+"""
+
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+
+# The following WCS utilities will likely be merged into Astropy 1.0 and can be
+# removed once 0.4 is no longer supported.
 
 import numpy as np
 
