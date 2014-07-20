@@ -143,20 +143,9 @@ def interpolate_celestial_slices(array, wcs_in, wcs_out, shape_out, order=1):
 
     # First put lng/lat as first two dimensions in WCS, last two in Numpy
     n = array_new.ndim
-    if wcs_in.wcs.lng == 0:
-        if wcs_in.wcs.lat == 1:
-            array_in_view = array
-            array_out_view = array_new
-        else:
-            array_in_view = array.swapaxes(-2, -1 - wcs_in.wcs.lat)
-            array_out_view = array_new.swapaxes(-2, -1 - wcs_in.wcs.lat)
-    elif wcs_in.wcs.lng == 1:
-        if wcs_in.wcs.lat == 0:
-            array_in_view = array.swapaxes(-1, -2)
-            array_out_view = array_new.swapaxes(-1, -2)
-        else:
-            array_in_view = array.swapaxes(-1, -1 - wcs_in.wcs.lng)
-            array_out_view = array_new.swapaxes(-1, -1 - wcs_in.wcs.lng)
+    if wcs_in.wcs.lng == 1 and wcs_in.wcs.lat == 0:
+        array_in_view = array.swapaxes(-1, -2)
+        array_out_view = array_new.swapaxes(-1, -2)
     else:
         array_in_view = array.swapaxes(-2, -1 - wcs_in.wcs.lat).swapaxes(-1, -1 - wcs_in.wcs.lng)
         array_out_view = array_new.swapaxes(-2, -1 - wcs_in.wcs.lat).swapaxes(-1, -1 - wcs_in.wcs.lng)
@@ -165,7 +154,7 @@ def interpolate_celestial_slices(array, wcs_in, wcs_out, shape_out, order=1):
     from operator import mul
     nx = array_out_view.shape[-1]
     ny = array_out_view.shape[-2]
-    n_remaining = int(round(reduce(mul, array_out_view.shape, 1) / nx / ny))
+    n_remaining = reduce(mul, array_out_view.shape, 1) // nx // ny
     array_in_view = array_in_view.reshape(n_remaining, ny, nx)
     array_out_view = array_out_view.reshape(n_remaining, ny, nx)
 
