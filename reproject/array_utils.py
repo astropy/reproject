@@ -36,11 +36,20 @@ def iterate_over_celestial_slices(array_in, array_out, wcs):
 
     # Flatten remaining dimensions to make it easier to loop over
     from operator import mul
-    nx = array_out_view.shape[-1]
-    ny = array_out_view.shape[-2]
-    n_remaining = reduce(mul, array_out_view.shape, 1) // nx // ny
-    array_in_view = array_in_view.reshape(n_remaining, ny, nx)
-    array_out_view = array_out_view.reshape(n_remaining, ny, nx)
 
-    for slice_index in range(n_remaining):
+    nx_in = array_in_view.shape[-1]
+    ny_in = array_in_view.shape[-2]
+    n_remaining_in = reduce(mul, array_in_view.shape, 1) // nx_in // ny_in
+
+    nx_out = array_out_view.shape[-1]
+    ny_out = array_out_view.shape[-2]
+    n_remaining_out = reduce(mul, array_out_view.shape, 1) // nx_out // ny_out
+
+    if n_remaining_in != n_remaining_out:
+        raise ValueError("Number of non-celestial elements should match")
+
+    array_in_view = array_in_view.reshape(n_remaining_in, ny_in, nx_in)
+    array_out_view = array_out_view.reshape(n_remaining_out, ny_out, nx_out)
+
+    for slice_index in range(n_remaining_in):
         yield array_in_view[slice_index], array_out_view[slice_index]
