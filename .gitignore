@@ -10,8 +10,9 @@ reproject/cython_version.py
 reproject/reproject.cfg
 reproject/version.py
 reproject.egg-info
-reproject/_overlap.c
+reproject/spherical_intersect/_overlap.c
 docs/_build
 docs/api
 .coverage
 htmlcov
+dev

@@ -3,15 +3,15 @@
 """
 WCS-related utilities
 """
+# TODO: The following WCS utilities will likely be merged into Astropy 1.0 and can be
+# removed once 0.4 is no longer supported.
 
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
-
-
-# The following WCS utilities will likely be merged into Astropy 1.0 and can be
-# removed once 0.4 is no longer supported.
-
 import numpy as np
+
+
+__all__ = ['wcs_to_celestial_frame']
 
 
 def _wcs_to_celestial_frame_builtin(wcs):
@@ -67,9 +67,15 @@ def _wcs_to_celestial_frame_builtin(wcs):
 
 WCS_FRAME_MAPPINGS = [_wcs_to_celestial_frame_builtin]
 
+
 def wcs_to_celestial_frame(wcs):
+    """WCS to celestial frame.
+
+    TODO: document and test.
+    """
     for func in WCS_FRAME_MAPPINGS:
         frame = func(wcs)
         if frame is not None:
             return frame
-    raise ValueError("Could not determine celestial frame corresponding to the specified WCS object")
+    raise ValueError("Could not determine celestial frame corresponding "
+                     "to the specified WCS object")

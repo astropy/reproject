@@ -25,10 +25,10 @@ for astronomical images.
 Getting Started
 ---------------
 
-We just started, no functionality has been implemented yet, except this:
+Here's a basic example of how to reproject an image via interpolation:
 
-  >>> import reproject
-
+.. literalinclude:: reproject_interpolate_example.py
+    :linenos:
 
 Using `reproject`
 -----------------

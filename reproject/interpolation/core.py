@@ -1,18 +1,12 @@
-# Licensed under a 2-clause BSD style license - see LICENSE.rst
-
-"""
-Routines to carry out reprojection by interpolation
-"""
-
+# Licensed under a 3-clause BSD style license - see LICENSE.rst
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
-
+from functools import reduce
 import numpy as np
-
-from ..wcs_utils import wcs_to_celestial_frame
 from astropy.coordinates import UnitSphericalRepresentation
 from astropy import units as u
 from astropy.wcs import WCSSUB_CELESTIAL
+from ..wcs_utils import wcs_to_celestial_frame
 
 __all__ = ['interpolate_2d', 'interpolate_celestial_slices']
 
