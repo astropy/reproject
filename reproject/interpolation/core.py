@@ -1,12 +1,12 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
-from functools import reduce
 import numpy as np
 from astropy.coordinates import UnitSphericalRepresentation
 from astropy import units as u
 from astropy.wcs import WCSSUB_CELESTIAL
 from ..wcs_utils import wcs_to_celestial_frame
+from ..array_utils import iterate_over_celestial_slices
 
 __all__ = ['interpolate_2d', 'interpolate_celestial_slices']
 
@@ -135,33 +135,20 @@ def interpolate_celestial_slices(array, wcs_in, wcs_out, shape_out, order=1):
 
     array_new = np.zeros(shape_out)
 
-    # First put lng/lat as first two dimensions in WCS, last two in Numpy
-    if wcs_in.wcs.lng == 1 and wcs_in.wcs.lat == 0:
-        array_in_view = array.swapaxes(-1, -2)
-        array_out_view = array_new.swapaxes(-1, -2)
-    else:
-        array_in_view = array.swapaxes(-2, -1 - wcs_in.wcs.lat).swapaxes(-1, -1 - wcs_in.wcs.lng)
-        array_out_view = array_new.swapaxes(-2, -1 - wcs_in.wcs.lat).swapaxes(-1, -1 - wcs_in.wcs.lng)
-
-    # Flatten remaining dimensions to make it easier to loop over
-    from operator import mul
-    nx = array_out_view.shape[-1]
-    ny = array_out_view.shape[-2]
-    n_remaining = reduce(mul, array_out_view.shape, 1) // nx // ny
-    array_in_view = array_in_view.reshape(n_remaining, ny, nx)
-    array_out_view = array_out_view.reshape(n_remaining, ny, nx)
-
-    # Get position of output pixel centers in input image
-    xp_in, yp_in = get_input_pixels_celestial(wcs_in_celestial, wcs_out_celestial, array_out_view.shape[1:])
-    coordinates = [yp_in.ravel(), xp_in.ravel()]
+    xp_in = yp_in = None
 
     # Loop over slices and interpolate
-    from scipy.ndimage import map_coordinates
-    for slice_index in range(n_remaining):
-        array_out_view[slice_index] = map_coordinates(array_in_view[slice_index],
-                                                      coordinates,
-                                                      order=order, cval=np.nan,
-                                                      mode='constant'
-                                                      ).reshape(array_out_view.shape[1:])
+    for slice_in, slice_out in iterate_over_celestial_slices(array, array_new, wcs_in):
+
+        if xp_in is None:  # Get position of output pixel centers in input image
+            xp_in, yp_in = get_input_pixels_celestial(wcs_in_celestial, wcs_out_celestial, slice_out.shape)
+            coordinates = [yp_in.ravel(), xp_in.ravel()]
+
+        from scipy.ndimage import map_coordinates
+        slice_out[:,:] = map_coordinates(slice_in,
+                                         coordinates,
+                                         order=order, cval=np.nan,
+                                         mode='constant'
+                                         ).reshape(slice_out.shape)
 
     return array_new
