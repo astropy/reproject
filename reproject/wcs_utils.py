@@ -14,6 +14,9 @@ from __future__ import (absolute_import, division, print_function,
 import numpy as np
 
 
+__all__ = ['wcs_to_celestial_frame']
+
+
 def _wcs_to_celestial_frame_builtin(wcs):
 
     from astropy.coordinates import FK4, FK4NoETerms, FK5, ICRS, Galactic
@@ -68,6 +71,10 @@ def _wcs_to_celestial_frame_builtin(wcs):
 WCS_FRAME_MAPPINGS = [_wcs_to_celestial_frame_builtin]
 
 def wcs_to_celestial_frame(wcs):
+    """WCS to celestial frame.
+    
+    TODO: document and test.
+    """
     for func in WCS_FRAME_MAPPINGS:
         frame = func(wcs)
         if frame is not None:
