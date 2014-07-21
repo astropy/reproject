@@ -1,6 +1,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
-from __future__ import print_function, division
-
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+from ..wcs_utils import wcs_to_celestial_frame
 from .. import interpolate_2d, interpolate_celestial_slices
 
 
