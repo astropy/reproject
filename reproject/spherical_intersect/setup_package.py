@@ -19,7 +19,3 @@ def get_extensions():
         language="c",)
 
     return [extension]
-
-
-def requires_2to3():
-    return False
