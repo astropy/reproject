@@ -21,18 +21,18 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out):
 
     Parameters
     ----------
-    array : :class:`~numpy.ndarray`
+    array : `~numpy.ndarray`
         The array to reproject
-    wcs_in : :class:`~astropy.wcs.WCS`
+    wcs_in : `~astropy.wcs.WCS`
         The input WCS
-    wcs_out : :class:`~astropy.wcs.WCS`
+    wcs_out : `~astropy.wcs.WCS`
         The output WCS
     shape_out : tuple
         The shape of the output array
 
     Returns
     -------
-    array_new : :class:`~numpy.ndarray`
+    array_new : `~numpy.ndarray`
         The reprojected array
     """
 
