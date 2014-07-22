@@ -55,7 +55,11 @@ def reproject(input_data, output_projection, shape_out=None, projection_type='bi
 
     if isinstance(output_projection, Header):
         wcs_out = WCS(output_projection)
-        shape_out = [output_projection['NAXIS{0}'.format(i+1)] for i in range(output_projection['NAXIS'])][::-1]
+        try:
+            shape_out = [output_projection['NAXIS{0}'.format(i+1)] for i in range(output_projection['NAXIS'])][::-1]
+        except KeyError:
+            if shape_out is None:
+                raise ValueError("Need to specify shape since output header does not contain complete shape information")
     elif isinstance(output_projection, WCS):
         wcs_out = output_projection
         if shape_out is None:
