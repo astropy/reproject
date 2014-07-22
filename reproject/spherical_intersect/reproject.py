@@ -1,94 +1,107 @@
+# Licensed under a 3-clause BSD style license - see LICENSE.rst
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
 import numpy as np
+
 from astropy.io import fits
 from astropy.wcs import WCS
+
+from ..wcs_utils import wcs_to_celestial_frame, convert_world_coordinates
+
 from ._overlap import _compute_overlap
 
-def reproject(hdu_in, header_out):
+
+def reproject_2d(array, wcs_in, wcs_out, shape_out):
     """
-    Reproject an image given by a FITS HDU onto a new Header
+    Reproject a 2D array from one WCS to another using flux-conserving
+    spherical polygon intersection.
 
     Parameters
     ----------
-    hdu_in : `~astropy.io.fits.PrimaryHDU` or `~astropy.io.fits.ImageHDU`
-        The HDU containing the image and original header
-    header_out : `~astropy.io.fits.Header`
-        The new header to project to
+    array : :class:`~numpy.ndarray`
+        The array to reproject
+    wcs_in : :class:`~astropy.wcs.WCS`
+        The input WCS
+    wcs_out : :class:`~astropy.wcs.WCS`
+        The output WCS
+    shape_out : tuple
+        The shape of the output array
 
     Returns
     -------
-    hdu_out: `~astropy.io.fits.ImageHDU`
+    array_new : :class:`~numpy.ndarray`
+        The reprojected array
     """
 
-    if not isinstance(hdu_in, (fits.ImageHDU, fits.PrimaryHDU)):
-        raise TypeError("hdu_in should be an ImageHDU instance")
-
-    if not isinstance(header_out, fits.Header):
-        raise TypeError("header_out should be a Header instance")
-
-    # Parse input WCS
-    wcs_in = WCS(hdu_in.header)
-
-    # Parse output WCS
-    wcs_out = WCS(header_out)
+    # TODO: at the moment, we compute the coordinates of all of the corners,
+    # but we might want to do it in steps for large images.
 
     # Start off by finding the world position of all the corners of the input
     # image in world coordinates
 
-    x = np.arange(hdu_in.header['NAXIS1'] + 1.) - 0.5
-    y = np.arange(hdu_in.header['NAXIS2'] + 1.) - 0.5
+    ny_in, nx_in = array.shape
 
-    x_pix_in, y_pix_in = np.meshgrid(x, y)
+    x = np.arange(nx_in + 1.) - 0.5
+    y = np.arange(ny_in + 1.) - 0.5
 
-    x_world_in, y_world_in = wcs_in.wcs_pix2world(x_pix_in, y_pix_in, 0)
+    xp_in, yp_in = np.meshgrid(x, y)
+
+    xw_in, yw_in = wcs_in.wcs_pix2world(xp_in, yp_in, 0)
 
     # Now compute the world positions of all the corners in the output header
 
-    x = np.arange(header_out['NAXIS1'] + 1.) - 0.5
-    y = np.arange(header_out['NAXIS2'] + 1.) - 0.5
+    ny_out, nx_out = shape_out
 
-    x_pix_out, y_pix_out = np.meshgrid(x, y)
+    x = np.arange(nx_out + 1.) - 0.5
+    y = np.arange(ny_out + 1.) - 0.5
 
-    x_world_out, y_world_out = wcs_out.wcs_pix2world(x_pix_out, y_pix_out, 0)
+    xp_out, yp_out = np.meshgrid(x, y)
+
+    xw_out, yw_out = wcs_out.wcs_pix2world(xp_out, yp_out, 0)
+
+    # Convert the input world coordinates to the frame of the output world
+    # coordinates.
+
+    xw_in, yw_in = convert_world_coordinates(xw_in, yw_in, wcs_in, wcs_out)
 
     # Finally, compute the pixel positions in the *output* image of the pixels
     # from the *input* image.
 
-    x_pix_inout, y_pix_inout = wcs_out.wcs_world2pix(x_world_in, y_world_in, 0)
+    xp_inout, yp_inout = wcs_out.wcs_world2pix(xw_in, yw_in, 0)
 
     # Create output image
 
-    hdu_out = fits.PrimaryHDU(header=header_out)
-    hdu_out.data = np.zeros((header_out['NAXIS2'], header_out['NAXIS1']))
-    weights = np.zeros(hdu_out.data.shape)
+    array_new = np.zeros(shape_out)
+    weights = np.zeros(shape_out)
 
-    for i in range(hdu_in.header['NAXIS1']):
-        for j in range(hdu_in.header['NAXIS2']):
+    for i in range(nx_in):
+        for j in range(ny_in):
 
             # For every input pixel we find the position in the output image in
             # pixel coordinates, then use the full range of overlapping output
             # pixels with the exact overlap function.
 
-            xmin = int(min(x_pix_inout[j, i], x_pix_inout[j, i+1], x_pix_inout[j+1, i+1], x_pix_inout[j+1, i]))
-            xmax = int(max(x_pix_inout[j, i], x_pix_inout[j, i+1], x_pix_inout[j+1, i+1], x_pix_inout[j+1, i]))
-            ymin = int(min(y_pix_inout[j, i], y_pix_inout[j, i+1], y_pix_inout[j+1, i+1], y_pix_inout[j+1, i]))
-            ymax = int(max(y_pix_inout[j, i], y_pix_inout[j, i+1], y_pix_inout[j+1, i+1], y_pix_inout[j+1, i]))
+            xmin = int(min(xp_inout[j, i], xp_inout[j, i+1], xp_inout[j+1, i+1], xp_inout[j+1, i]))
+            xmax = int(max(xp_inout[j, i], xp_inout[j, i+1], xp_inout[j+1, i+1], xp_inout[j+1, i]))
+            ymin = int(min(yp_inout[j, i], yp_inout[j, i+1], yp_inout[j+1, i+1], yp_inout[j+1, i]))
+            ymax = int(max(yp_inout[j, i], yp_inout[j, i+1], yp_inout[j+1, i+1], yp_inout[j+1, i]))
 
-            ilon = [[x_world_in[j, i], x_world_in[j, i+1], x_world_in[j+1, i+1], x_world_in[j+1, i]][::-1]]
-            ilat = [[y_world_in[j, i], y_world_in[j, i+1], y_world_in[j+1, i+1], y_world_in[j+1, i]][::-1]]
+            ilon = [[xw_in[j, i], xw_in[j, i+1], xw_in[j+1, i+1], xw_in[j+1, i]][::-1]]
+            ilat = [[yw_in[j, i], yw_in[j, i+1], yw_in[j+1, i+1], yw_in[j+1, i]][::-1]]
             ilon = np.radians(np.array(ilon))
             ilat = np.radians(np.array(ilat))
 
             xmin = max(0, xmin)
-            xmax = min(hdu_out.header["NAXIS1"]-1, xmax)
+            xmax = min(nx_out-1, xmax)
             ymin = max(0, ymin)
-            ymax = min(hdu_out.header["NAXIS2"]-1, ymax)
+            ymax = min(ny_out-1, ymax)
 
             for ii in range(xmin, xmax+1):
                 for jj in range(ymin, ymax+1):
 
-
-                    olon = [[x_world_out[jj, ii], x_world_out[jj, ii+1], x_world_out[jj+1, ii+1], x_world_out[jj+1, ii]][::-1]]
-                    olat = [[y_world_out[jj, ii], y_world_out[jj, ii+1], y_world_out[jj+1, ii+1], y_world_out[jj+1, ii]][::-1]]
+                    olon = [[xw_out[jj, ii], xw_out[jj, ii+1], xw_out[jj+1, ii+1], xw_out[jj+1, ii]][::-1]]
+                    olat = [[yw_out[jj, ii], yw_out[jj, ii+1], yw_out[jj+1, ii+1], yw_out[jj+1, ii]][::-1]]
                     olon = np.radians(np.array(olon))
                     olat = np.radians(np.array(olat))
 
@@ -97,9 +110,9 @@ def reproject(hdu_in, header_out):
 
                     overlap, _ = _compute_overlap(ilon, ilat, olon, olat)
                     original, _ = _compute_overlap(ilon, ilat, ilon, ilat)
-                    hdu_out.data[ii, jj] += hdu_in.data[i, j] * overlap / original
-                    weights[ii,jj] += overlap / original
+                    array_new[jj, ii] += array[j, i] * overlap / original
+                    weights[jj, ii] += overlap / original
 
-    hdu_out.data /= weights
+    array_new /= weights
 
-    return hdu_out
+    return array_new

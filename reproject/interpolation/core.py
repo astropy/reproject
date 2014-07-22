@@ -2,10 +2,8 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 import numpy as np
-from astropy.coordinates import UnitSphericalRepresentation
-from astropy import units as u
 from astropy.wcs import WCSSUB_CELESTIAL
-from ..wcs_utils import wcs_to_celestial_frame
+from ..wcs_utils import wcs_to_celestial_frame, convert_world_coordinates
 from ..array_utils import iterate_over_celestial_slices
 
 __all__ = ['interpolate_2d', 'interpolate_celestial_slices']
@@ -34,20 +32,7 @@ def get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
     # (using pixel centers).
     xw_out, yw_out = wcs_out.wcs_pix2world(xp_out, yp_out, 0)
 
-    xw_out_unit = u.Unit(wcs_out.wcs.cunit[0])
-    yw_out_unit = u.Unit(wcs_out.wcs.cunit[1])
-
-    data = UnitSphericalRepresentation(xw_out * xw_out_unit,
-                                       yw_out * yw_out_unit)
-
-    coords_out = frame_out.realize_frame(data)
-    coords_in = coords_out.transform_to(frame_in)
-
-    xw_unit_in = u.Unit(wcs_in.wcs.cunit[0])
-    yw_unit_in = u.Unit(wcs_in.wcs.cunit[1])
-
-    xw_in = coords_in.spherical.lon.to(xw_unit_in).value
-    yw_in = coords_in.spherical.lat.to(yw_unit_in).value
+    xw_in, yw_in = convert_world_coordinates(xw_out, yw_out, wcs_out, wcs_in)
 
     xp_in, yp_in = wcs_in.wcs_world2pix(xw_in, yw_in, 0)
 
