@@ -6,7 +6,7 @@ from astropy.wcs import WCSSUB_CELESTIAL
 from ..wcs_utils import wcs_to_celestial_frame, convert_world_coordinates
 from ..array_utils import iterate_over_celestial_slices
 
-__all__ = ['reproject_2d', 'reproject_celestial_slices']
+__all__ = ['reproject_celestial']
 
 
 def get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
@@ -39,45 +39,7 @@ def get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
     return xp_in, yp_in
 
 
-def reproject_2d(array, wcs_in, wcs_out, shape_out, order=1):
-    """
-    Reproject a 2D array from one WCS to another using interpolation.
-
-    Parameters
-    ----------
-    array : :class:`~numpy.ndarray`
-        The array to reproject
-    wcs_in : :class:`~astropy.wcs.WCS`
-        The input WCS
-    wcs_out : :class:`~astropy.wcs.WCS`
-        The output WCS
-    shape_out : tuple
-        The shape of the output array
-    order : int
-        The order of the interpolation (if ``mode`` is set to
-        ``'interpolation'``). A value of ``0`` indicates nearest neighbor
-        interpolation (the default).
-
-    Returns
-    -------
-    array_new : :class:`~numpy.ndarray`
-        The reprojected array
-    """
-
-    # Get position of output pixel centers in input image
-    xp_in, yp_in = get_input_pixels_celestial(wcs_in, wcs_out, shape_out)
-    coordinates = [yp_in.ravel(), xp_in.ravel()]
-
-    # Interpolate values to new grid
-    from scipy.ndimage import map_coordinates
-    array_new = map_coordinates(array, coordinates,
-                                order=order, cval=np.nan,
-                                mode='constant').reshape(shape_out)
-
-    return array_new
-
-
-def reproject_celestial_slices(array, wcs_in, wcs_out, shape_out, order=1):
+def reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
     """
     Reproject celestial slices from an n-d array from one WCS to another using
     interpolation, and assuming all other dimensions are independent.

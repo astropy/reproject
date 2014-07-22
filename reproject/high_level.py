@@ -64,10 +64,10 @@ def reproject(input_data, output_projection, shape_out=None, projection_type='bi
 
     if projection_type in ORDER:
         order = ORDER[projection_type]
-        from .interpolation import reproject_2d
-        return reproject_2d(array_in, wcs_in, wcs_out, shape_out=shape_out, order=order)
+        from .interpolation import reproject_celestial
+        return reproject_celestial(array_in, wcs_in, wcs_out, shape_out=shape_out, order=order)
     elif projection_type == 'flux-conserving':
-        from .spherical_intersect import reproject_2d
-        return reproject_2d(array_in, wcs_in, wcs_out, shape_out=shape_out)
+        from .spherical_intersect import reproject_celestial
+        return reproject_celestial(array_in, wcs_in, wcs_out, shape_out=shape_out)
     else:
         raise ValueError("Unknown projection type: {0}".format(projection_type))
