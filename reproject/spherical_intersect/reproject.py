@@ -11,6 +11,8 @@ from ..wcs_utils import wcs_to_celestial_frame, convert_world_coordinates
 
 from ._overlap import _compute_overlap
 
+__all__ = ['reproject_2d']
+
 
 def reproject_2d(array, wcs_in, wcs_out, shape_out):
     """

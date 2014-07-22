@@ -10,6 +10,4 @@ from ._astropy_init import *
 # ----------------------------------------------------------------------------
 
 if not _ASTROPY_SETUP_:
-    from .interpolation import *
-    from .spherical_intersect import *
-    from .wcs_utils import *
+    pass
