@@ -1,6 +1,9 @@
 Reference/API
 =============
 
+.. automodapi:: reproject
+   :no-inheritance-diagram:
+
 .. automodapi:: reproject.interpolation
    :no-inheritance-diagram:
 
