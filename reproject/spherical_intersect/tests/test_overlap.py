@@ -1,5 +1,6 @@
 import numpy as np
-from .. import compute_overlap
+from ..overlap import compute_overlap
+
 
 def test_overlap():
     EPS = np.radians(1e-2)
@@ -7,6 +8,7 @@ def test_overlap():
     overlap, area_ratio = compute_overlap(lon, lat, lon, lat)
     np.testing.assert_allclose(overlap, EPS ** 2, rtol=1e-6)
     np.testing.assert_allclose(area_ratio, 1, rtol=1e-6)
+
 
 def test_overlap2():
     EPS = np.radians(1e-2)

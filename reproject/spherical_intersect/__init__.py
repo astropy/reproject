@@ -2,4 +2,4 @@
 """
 Routines to compute pixel overlap areas.
 """
-from .overlap import compute_overlap
+from .reproject import reproject_2d
