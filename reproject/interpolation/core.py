@@ -6,7 +6,7 @@ from astropy.wcs import WCSSUB_CELESTIAL
 from ..wcs_utils import wcs_to_celestial_frame, convert_world_coordinates
 from ..array_utils import iterate_over_celestial_slices
 
-__all__ = ['interpolate_2d', 'interpolate_celestial_slices']
+__all__ = ['reproject_2d', 'reproject_celestial_slices']
 
 
 def get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
@@ -39,7 +39,7 @@ def get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
     return xp_in, yp_in
 
 
-def interpolate_2d(array, wcs_in, wcs_out, shape_out, order=1):
+def reproject_2d(array, wcs_in, wcs_out, shape_out, order=1):
     """
     Reproject a 2D array from one WCS to another using interpolation.
 
@@ -77,7 +77,7 @@ def interpolate_2d(array, wcs_in, wcs_out, shape_out, order=1):
     return array_new
 
 
-def interpolate_celestial_slices(array, wcs_in, wcs_out, shape_out, order=1):
+def reproject_celestial_slices(array, wcs_in, wcs_out, shape_out, order=1):
     """
     Reproject celestial slices from an n-d array from one WCS to another using
     interpolation, and assuming all other dimensions are independent.
