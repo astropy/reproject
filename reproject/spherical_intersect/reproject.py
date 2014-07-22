@@ -11,30 +11,34 @@ from ..wcs_utils import wcs_to_celestial_frame, convert_world_coordinates
 
 from ._overlap import _compute_overlap
 
-__all__ = ['reproject_2d']
+__all__ = ['reproject_celestial']
 
 
-def reproject_2d(array, wcs_in, wcs_out, shape_out):
+def reproject_celestial(array, wcs_in, wcs_out, shape_out):
     """
-    Reproject a 2D array from one WCS to another using flux-conserving
-    spherical polygon intersection.
+    Reproject celestial slices from an n-d array from one WCS to another using
+    flux-conserving spherical polygon intersection.
 
     Parameters
     ----------
-    array : :class:`~numpy.ndarray`
+    array : `~numpy.ndarray`
         The array to reproject
-    wcs_in : :class:`~astropy.wcs.WCS`
+    wcs_in : `~astropy.wcs.WCS`
         The input WCS
-    wcs_out : :class:`~astropy.wcs.WCS`
+    wcs_out : `~astropy.wcs.WCS`
         The output WCS
     shape_out : tuple
         The shape of the output array
 
     Returns
     -------
-    array_new : :class:`~numpy.ndarray`
+    array_new : `~numpy.ndarray`
         The reprojected array
     """
+
+    # TODO: make this work for n-dimensional arrays
+    if wcs_in.naxis != 2:
+        raise NotImplementedError("Only 2-dimensional arrays can be reprojected at this time")
 
     # TODO: at the moment, we compute the coordinates of all of the corners,
     # but we might want to do it in steps for large images.

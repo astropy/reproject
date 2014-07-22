@@ -9,7 +9,7 @@ from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.utils.data import get_pkg_data_filename
 
-from .. import reproject_2d
+from .. import reproject_celestial
 
 # TODO: add reference comparisons
 
@@ -24,6 +24,4 @@ def test_reproject_celestial_slices_2d():
     wcs_in = WCS(header_in)
     wcs_out = WCS(header_out)
 
-    array_out = reproject_2d(array_in, wcs_in, wcs_out, (200, 200))
-
-    fits.writeto('/tmp/test.fits', array_out, clobber=True)
+    array_out = reproject_celestial(array_in, wcs_in, wcs_out, (200, 200))
