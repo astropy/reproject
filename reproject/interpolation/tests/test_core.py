@@ -10,7 +10,7 @@ from astropy.wcs import WCS
 
 from .. import reproject_2d, reproject_celestial_slices
 
-DATA = os.path.abspath(os.path.join(os.path.dirname(__file__), 'data'))
+DATA = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'tests', 'data'))
 
 # TODO: add reference comparisons
 
