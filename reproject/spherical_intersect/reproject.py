@@ -9,12 +9,54 @@ from astropy.wcs import WCS
 
 from ..wcs_utils import wcs_to_celestial_frame, convert_world_coordinates
 
-from ._overlap import _compute_overlap
+from ._overlap import _compute_overlap, _reproject_loop_wrapper, _reproject_par_func
 
 __all__ = ['reproject_celestial']
 
+def _par_func(start,end,ny_in,xp_inout,yp_inout,xw_in,yw_in,xw_out,yw_out,nx_out,ny_out,array,shape_out,):
+    import numpy as np
+    array_new = np.zeros(shape_out)
+    weights = np.zeros(shape_out)
+    for i in range(start,end):
+        for j in range(ny_in):
 
-def reproject_celestial(array, wcs_in, wcs_out, shape_out):
+            # For every input pixel we find the position in the output image in
+            # pixel coordinates, then use the full range of overlapping output
+            # pixels with the exact overlap function.
+
+            xmin = int(min(xp_inout[j, i], xp_inout[j, i+1], xp_inout[j+1, i+1], xp_inout[j+1, i]))
+            xmax = int(max(xp_inout[j, i], xp_inout[j, i+1], xp_inout[j+1, i+1], xp_inout[j+1, i]))
+            ymin = int(min(yp_inout[j, i], yp_inout[j, i+1], yp_inout[j+1, i+1], yp_inout[j+1, i]))
+            ymax = int(max(yp_inout[j, i], yp_inout[j, i+1], yp_inout[j+1, i+1], yp_inout[j+1, i]))
+
+            ilon = [[xw_in[j, i], xw_in[j, i+1], xw_in[j+1, i+1], xw_in[j+1, i]][::-1]]
+            ilat = [[yw_in[j, i], yw_in[j, i+1], yw_in[j+1, i+1], yw_in[j+1, i]][::-1]]
+            ilon = np.radians(np.array(ilon))
+            ilat = np.radians(np.array(ilat))
+
+            xmin = max(0, xmin)
+            xmax = min(nx_out-1, xmax)
+            ymin = max(0, ymin)
+            ymax = min(ny_out-1, ymax)
+
+            for ii in range(xmin, xmax+1):
+                for jj in range(ymin, ymax+1):
+
+                    olon = [[xw_out[jj, ii], xw_out[jj, ii+1], xw_out[jj+1, ii+1], xw_out[jj+1, ii]][::-1]]
+                    olat = [[yw_out[jj, ii], yw_out[jj, ii+1], yw_out[jj+1, ii+1], yw_out[jj+1, ii]][::-1]]
+                    olon = np.radians(np.array(olon))
+                    olat = np.radians(np.array(olat))
+
+                    # Figure out the fraction of the input pixel that makes it
+                    # to the output pixel at this position.
+
+                    overlap, _ = _compute_overlap(ilon, ilat, olon, olat)
+                    original, _ = _compute_overlap(ilon, ilat, ilon, ilat)
+                    array_new[jj, ii] += array[j, i] * overlap / original
+                    weights[jj, ii] += overlap / original
+    return array_new, weights
+
+def reproject_celestial(array, wcs_in, wcs_out, shape_out, method = "default", nproc = None):
     """
     Reproject celestial slices from an n-d array from one WCS to another using
     flux-conserving spherical polygon intersection.
@@ -76,49 +118,105 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out):
 
     xp_inout, yp_inout = wcs_out.wcs_world2pix(xw_in, yw_in, 0)
 
-    # Create output image
+    if method == "default":
+        # Create output image
 
-    array_new = np.zeros(shape_out)
-    weights = np.zeros(shape_out)
+        array_new = np.zeros(shape_out)
+        weights = np.zeros(shape_out)
 
-    for i in range(nx_in):
-        for j in range(ny_in):
+        for i in range(nx_in):
+            for j in range(ny_in):
 
-            # For every input pixel we find the position in the output image in
-            # pixel coordinates, then use the full range of overlapping output
-            # pixels with the exact overlap function.
+                # For every input pixel we find the position in the output image in
+                # pixel coordinates, then use the full range of overlapping output
+                # pixels with the exact overlap function.
 
-            xmin = int(min(xp_inout[j, i], xp_inout[j, i+1], xp_inout[j+1, i+1], xp_inout[j+1, i]))
-            xmax = int(max(xp_inout[j, i], xp_inout[j, i+1], xp_inout[j+1, i+1], xp_inout[j+1, i]))
-            ymin = int(min(yp_inout[j, i], yp_inout[j, i+1], yp_inout[j+1, i+1], yp_inout[j+1, i]))
-            ymax = int(max(yp_inout[j, i], yp_inout[j, i+1], yp_inout[j+1, i+1], yp_inout[j+1, i]))
+                xmin = int(min(xp_inout[j, i], xp_inout[j, i+1], xp_inout[j+1, i+1], xp_inout[j+1, i]))
+                xmax = int(max(xp_inout[j, i], xp_inout[j, i+1], xp_inout[j+1, i+1], xp_inout[j+1, i]))
+                ymin = int(min(yp_inout[j, i], yp_inout[j, i+1], yp_inout[j+1, i+1], yp_inout[j+1, i]))
+                ymax = int(max(yp_inout[j, i], yp_inout[j, i+1], yp_inout[j+1, i+1], yp_inout[j+1, i]))
 
-            ilon = [[xw_in[j, i], xw_in[j, i+1], xw_in[j+1, i+1], xw_in[j+1, i]][::-1]]
-            ilat = [[yw_in[j, i], yw_in[j, i+1], yw_in[j+1, i+1], yw_in[j+1, i]][::-1]]
-            ilon = np.radians(np.array(ilon))
-            ilat = np.radians(np.array(ilat))
+                ilon = [[xw_in[j, i], xw_in[j, i+1], xw_in[j+1, i+1], xw_in[j+1, i]][::-1]]
+                ilat = [[yw_in[j, i], yw_in[j, i+1], yw_in[j+1, i+1], yw_in[j+1, i]][::-1]]
+                ilon = np.radians(np.array(ilon))
+                ilat = np.radians(np.array(ilat))
 
-            xmin = max(0, xmin)
-            xmax = min(nx_out-1, xmax)
-            ymin = max(0, ymin)
-            ymax = min(ny_out-1, ymax)
+                xmin = max(0, xmin)
+                xmax = min(nx_out-1, xmax)
+                ymin = max(0, ymin)
+                ymax = min(ny_out-1, ymax)
 
-            for ii in range(xmin, xmax+1):
-                for jj in range(ymin, ymax+1):
+                for ii in range(xmin, xmax+1):
+                    for jj in range(ymin, ymax+1):
 
-                    olon = [[xw_out[jj, ii], xw_out[jj, ii+1], xw_out[jj+1, ii+1], xw_out[jj+1, ii]][::-1]]
-                    olat = [[yw_out[jj, ii], yw_out[jj, ii+1], yw_out[jj+1, ii+1], yw_out[jj+1, ii]][::-1]]
-                    olon = np.radians(np.array(olon))
-                    olat = np.radians(np.array(olat))
+                        olon = [[xw_out[jj, ii], xw_out[jj, ii+1], xw_out[jj+1, ii+1], xw_out[jj+1, ii]][::-1]]
+                        olat = [[yw_out[jj, ii], yw_out[jj, ii+1], yw_out[jj+1, ii+1], yw_out[jj+1, ii]][::-1]]
+                        olon = np.radians(np.array(olon))
+                        olat = np.radians(np.array(olat))
 
-                    # Figure out the fraction of the input pixel that makes it
-                    # to the output pixel at this position.
+                        # Figure out the fraction of the input pixel that makes it
+                        # to the output pixel at this position.
 
-                    overlap, _ = _compute_overlap(ilon, ilat, olon, olat)
-                    original, _ = _compute_overlap(ilon, ilat, ilon, ilat)
-                    array_new[jj, ii] += array[j, i] * overlap / original
-                    weights[jj, ii] += overlap / original
+                        overlap, _ = _compute_overlap(ilon, ilat, olon, olat)
+                        original, _ = _compute_overlap(ilon, ilat, ilon, ilat)
+                        array_new[jj, ii] += array[j, i] * overlap / original
+                        weights[jj, ii] += overlap / original
 
-    array_new /= weights
+        array_new /= weights
 
-    return array_new
+        return array_new
+
+    if method == 'multi_py':
+        from multiprocessing import Pool, cpu_count
+        nproc = cpu_count() if nproc is None else nproc
+        pool = Pool(nproc)
+
+        results = []
+
+        for i in range(nproc):
+            start = int(nx_in) // nproc * i
+            end = int(nx_in) if i == nproc - 1 else int(nx_in) // nproc * (i + 1)
+            results.append(pool.apply_async(_par_func,[start,end,ny_in,xp_inout,yp_inout,xw_in,yw_in,xw_out,yw_out,nx_out,ny_out,array,shape_out]))
+
+        pool.close()
+        pool.join()
+
+        array_new = sum([_.get()[0] for _ in results])
+        weights = sum([_.get()[1] for _ in results])
+
+        return array_new / weights
+
+    if method == 'cython':
+        # Create output image
+
+        array_new = np.zeros(shape_out)
+        weights = np.zeros(shape_out)
+
+        _reproject_loop_wrapper(nx_in,ny_in,nx_out,ny_out,xp_inout,yp_inout,xw_in,xw_out,
+                                yw_in,yw_out,array_new,weights,array)
+
+        array_new /= weights
+
+        return array_new
+
+    if method == "multi_cy":
+        from multiprocessing import Pool, cpu_count
+        nproc = cpu_count() if nproc is None else nproc
+        pool = Pool(nproc)
+
+        results = []
+
+        for i in range(nproc):
+            start = int(nx_in) // nproc * i
+            end = int(nx_in) if i == nproc - 1 else int(nx_in) // nproc * (i + 1)
+            results.append(pool.apply_async(_reproject_par_func,[start,end,ny_in,xp_inout,yp_inout,xw_in,yw_in,xw_out,yw_out,nx_out,ny_out,array,shape_out]))
+
+        pool.close()
+        pool.join()
+
+        array_new = sum([_.get()[0] for _ in results])
+        weights = sum([_.get()[1] for _ in results])
+
+        return array_new / weights
+
+    raise ValueError('unrecognized method "{0}"'.format(method,))

@@ -16,6 +16,7 @@ def get_extensions():
         sources=sources,
         include_dirs=include_dirs,
         libraries=libraries,
-        language="c",)
+        language="c",
+        extra_compile_args=['-O2'])
 
     return [extension]
