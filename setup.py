@@ -22,6 +22,9 @@ from astropy_helpers.version_helpers import generate_version_py
 
 # Get some values from the setup.cfg
 from distutils import config
+from distutils.core import Extension
+from numpy import get_include as get_numpy_include
+numpy_includes = get_numpy_include()
 conf = config.ConfigParser()
 conf.read(['setup.cfg'])
 metadata = dict(conf.items('metadata'))
@@ -89,6 +92,12 @@ for root, dirs, files in os.walk(PACKAGENAME):
                 os.path.join(
                     os.path.relpath(root, PACKAGENAME), filename))
 package_info['package_data'][PACKAGENAME].extend(c_files)
+
+package_info['ext_modules'].append(Extension("reproject.spherical_intersect._reproject_core",
+                         ['reproject/spherical_intersect/_reproject_core.c',
+                          'reproject/spherical_intersect/overlapArea.c'],
+                         extra_compile_args = ['-O2'],
+                         include_dirs=[numpy_includes]))
 
 setup(name=PACKAGENAME,
       version=VERSION,

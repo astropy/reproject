@@ -10,6 +10,7 @@ from astropy.wcs import WCS
 from ..wcs_utils import wcs_to_celestial_frame, convert_world_coordinates
 
 from ._overlap import _compute_overlap, _reproject_loop_wrapper, _reproject_par_func
+from ._reproject_core import _reproject_slice
 
 __all__ = ['reproject_celestial']
 
@@ -77,6 +78,10 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, method = "default", n
     array_new : `~numpy.ndarray`
         The reprojected array
     """
+
+    # Convert input array to float values. If this comes from a FITS, it might have
+    # float32 as value type and that can break things in cythin.
+    array = array.astype(float)
 
     # TODO: make this work for n-dimensional arrays
     if wcs_in.naxis != 2:
@@ -210,6 +215,43 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, method = "default", n
             start = int(nx_in) // nproc * i
             end = int(nx_in) if i == nproc - 1 else int(nx_in) // nproc * (i + 1)
             results.append(pool.apply_async(_reproject_par_func,[start,end,ny_in,xp_inout,yp_inout,xw_in,yw_in,xw_out,yw_out,nx_out,ny_out,array,shape_out]))
+
+        pool.close()
+        pool.join()
+
+        array_new = sum([_.get()[0] for _ in results])
+        weights = sum([_.get()[1] for _ in results])
+
+        return array_new / weights
+
+    if method == "numba":
+        from numba import double
+        from numba.decorators import jit, autojit
+        _par_func_numba = autojit(_par_func)
+        array_new, weights = _par_func(0,nx_in,ny_in,xp_inout,yp_inout,xw_in,yw_in,xw_out,yw_out,nx_out,ny_out,array,shape_out)
+        array_new /= weights
+
+        return array_new
+
+    if method == "c":
+        # startx,endx,starty,endy,nx_out,ny_out,xp_inout,yp_inout,xw_in,yw_in,xw_out,yw_out,array,shape_out
+        array_new, weights = _reproject_slice(0,nx_in,0,ny_in,nx_out,ny_out,xp_inout,yp_inout,xw_in,yw_in,xw_out,yw_out,array,shape_out);
+
+        array_new /= weights
+
+        return array_new
+
+    if method == "multi_c":
+        from multiprocessing import Pool, cpu_count
+        nproc = cpu_count() if nproc is None else nproc
+        pool = Pool(nproc)
+
+        results = []
+
+        for i in range(nproc):
+            start = int(nx_in) // nproc * i
+            end = int(nx_in) if i == nproc - 1 else int(nx_in) // nproc * (i + 1)
+            results.append(pool.apply_async(_reproject_slice,[start,end,0,ny_in,nx_out,ny_out,xp_inout,yp_inout,xw_in,yw_in,xw_out,yw_out,array,shape_out]))
 
         pool.close()
         pool.join()
