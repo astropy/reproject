@@ -72,6 +72,10 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, method = "default", n
         The output WCS
     shape_out : tuple
         The shape of the output array
+    method : string
+        The underlying algorithmic implementation to use
+    nproc : int or None
+        The number of processors to use
 
     Returns
     -------

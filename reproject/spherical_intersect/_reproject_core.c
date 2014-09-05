@@ -121,8 +121,8 @@ static PyObject *_reproject_slice(PyObject *self, PyObject *args)
         PyTuple_Size(shape_out_o) != 2u ||
         !PyInt_CheckExact(PyTuple_GetItem(shape_out_o,0)) ||
         !PyInt_CheckExact(PyTuple_GetItem(shape_out_o,1)) ||
-        PyInt_AS_LONG(PyTuple_GetItem(shape_out_o,0)) <= 0 ||
-        PyInt_AS_LONG(PyTuple_GetItem(shape_out_o,1)) <= 0)
+        PyLong_AsLong(PyTuple_GetItem(shape_out_o,0)) <= 0 ||
+        PyLong_AsLong(PyTuple_GetItem(shape_out_o,1)) <= 0)
     {
         PyErr_SetString(PyExc_TypeError, "Invalid input objects.");
         Py_XDECREF(xp_inout_a);
@@ -137,8 +137,8 @@ static PyObject *_reproject_slice(PyObject *self, PyObject *args)
     
     // Parse the shape.
     npy_intp shape[2];
-    shape[0] = (npy_intp)PyInt_AS_LONG(PyTuple_GetItem(shape_out_o,0));
-    shape[1] = (npy_intp)PyInt_AS_LONG(PyTuple_GetItem(shape_out_o,1));
+    shape[0] = (npy_intp)PyLong_AsLong(PyTuple_GetItem(shape_out_o,0));
+    shape[1] = (npy_intp)PyLong_AsLong(PyTuple_GetItem(shape_out_o,1));
 
     // Create the array_new and weights objects, plus the objects needed in the loop.
     PyObject *array_new_a = PyArray_SimpleNew(2,shape,NPY_DOUBLE);
