@@ -119,8 +119,8 @@ static PyObject *_reproject_slice(PyObject *self, PyObject *args)
     if (!xp_inout_a || !yp_inout_a || !xw_in_a || !yw_in_a || !xw_out_a ||
         !yw_out_a || !array_a || !PyTuple_CheckExact(shape_out_o) ||
         PyTuple_Size(shape_out_o) != 2u ||
-        !PyInt_CheckExact(PyTuple_GetItem(shape_out_o,0)) ||
-        !PyInt_CheckExact(PyTuple_GetItem(shape_out_o,1)) ||
+        !PyLong_Check(PyTuple_GetItem(shape_out_o,0)) ||
+        !PyLong_Check(PyTuple_GetItem(shape_out_o,1)) ||
         PyLong_AsLong(PyTuple_GetItem(shape_out_o,0)) <= 0 ||
         PyLong_AsLong(PyTuple_GetItem(shape_out_o,1)) <= 0)
     {
