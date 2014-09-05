@@ -98,6 +98,15 @@ static PyObject *_reproject_slice(PyObject *self, PyObject *args)
     int startx, endx, starty, endy, nx_out, ny_out;
     PyObject *xp_inout_o, *yp_inout_o, *xw_in_o, *yw_in_o,
         *xw_out_o, *yw_out_o, *array_o, *shape_out_o;
+    PyObject *xp_inout_a, *yp_inout_a, *xw_in_a, *yw_in_a, *xw_out_a, *yw_out_a, *array_a;
+    PyObject *array_new_a, *weights_a;
+    npy_intp shape[2], ll_shape[2];
+    PyObject *ilon, *ilat, *olon, *olat;
+    npy_intp overlap_shape[1];
+    PyObject *overlap, *area_ratio, *original;
+    PyObject *retval;
+    int i, j, ii, jj;
+    int xmin, xmax, ymin, ymax;
 
     // 6 ints, 8 objs.
     if (!PyArg_ParseTuple(args, "iiiiiiOOOOOOOO", &startx, &endx, &starty, &endy, &nx_out, &ny_out,
@@ -108,19 +117,17 @@ static PyObject *_reproject_slice(PyObject *self, PyObject *args)
     }
 
     // Check the inputs.
-    PyObject *xp_inout_a = PyArray_FROM_OTF(xp_inout_o, NPY_DOUBLE, NPY_IN_ARRAY),
-        *yp_inout_a = PyArray_FROM_OTF(yp_inout_o, NPY_DOUBLE, NPY_IN_ARRAY),
-        *xw_in_a = PyArray_FROM_OTF(xw_in_o, NPY_DOUBLE, NPY_IN_ARRAY),
-        *yw_in_a = PyArray_FROM_OTF(yw_in_o, NPY_DOUBLE, NPY_IN_ARRAY),
-        *xw_out_a = PyArray_FROM_OTF(xw_out_o, NPY_DOUBLE, NPY_IN_ARRAY),
-        *yw_out_a = PyArray_FROM_OTF(yw_out_o, NPY_DOUBLE, NPY_IN_ARRAY),
-        *array_a = PyArray_FROM_OTF(array_o, NPY_DOUBLE, NPY_IN_ARRAY);
+    xp_inout_a = PyArray_FROM_OTF(xp_inout_o, NPY_DOUBLE, NPY_IN_ARRAY),
+        yp_inout_a = PyArray_FROM_OTF(yp_inout_o, NPY_DOUBLE, NPY_IN_ARRAY),
+        xw_in_a = PyArray_FROM_OTF(xw_in_o, NPY_DOUBLE, NPY_IN_ARRAY),
+        yw_in_a = PyArray_FROM_OTF(yw_in_o, NPY_DOUBLE, NPY_IN_ARRAY),
+        xw_out_a = PyArray_FROM_OTF(xw_out_o, NPY_DOUBLE, NPY_IN_ARRAY),
+        yw_out_a = PyArray_FROM_OTF(yw_out_o, NPY_DOUBLE, NPY_IN_ARRAY),
+        array_a = PyArray_FROM_OTF(array_o, NPY_DOUBLE, NPY_IN_ARRAY);
 
     if (!xp_inout_a || !yp_inout_a || !xw_in_a || !yw_in_a || !xw_out_a ||
         !yw_out_a || !array_a || !PyTuple_CheckExact(shape_out_o) ||
         PyTuple_Size(shape_out_o) != 2u ||
-        !PyLong_Check(PyTuple_GetItem(shape_out_o,0)) ||
-        !PyLong_Check(PyTuple_GetItem(shape_out_o,1)) ||
         PyLong_AsLong(PyTuple_GetItem(shape_out_o,0)) <= 0 ||
         PyLong_AsLong(PyTuple_GetItem(shape_out_o,1)) <= 0)
     {
@@ -136,26 +143,26 @@ static PyObject *_reproject_slice(PyObject *self, PyObject *args)
     }
     
     // Parse the shape.
-    npy_intp shape[2];
     shape[0] = (npy_intp)PyLong_AsLong(PyTuple_GetItem(shape_out_o,0));
     shape[1] = (npy_intp)PyLong_AsLong(PyTuple_GetItem(shape_out_o,1));
 
     // Create the array_new and weights objects, plus the objects needed in the loop.
-    PyObject *array_new_a = PyArray_SimpleNew(2,shape,NPY_DOUBLE);
-    PyObject *weights_a = PyArray_SimpleNew(2,shape,NPY_DOUBLE);
+    array_new_a = PyArray_SimpleNew(2,shape,NPY_DOUBLE);
+    weights_a = PyArray_SimpleNew(2,shape,NPY_DOUBLE);
 
     // ilon/ilat/olon/olat shape.
-    npy_intp ll_shape[] = {1,4};
-    PyObject *ilon = PyArray_SimpleNew(2,ll_shape,NPY_DOUBLE);
-    PyObject *ilat = PyArray_SimpleNew(2,ll_shape,NPY_DOUBLE);
-    PyObject *olon = PyArray_SimpleNew(2,ll_shape,NPY_DOUBLE);
-    PyObject *olat = PyArray_SimpleNew(2,ll_shape,NPY_DOUBLE);
+    ll_shape[0] = 1;
+    ll_shape[1] = 4;
+    ilon = PyArray_SimpleNew(2,ll_shape,NPY_DOUBLE);
+    ilat = PyArray_SimpleNew(2,ll_shape,NPY_DOUBLE);
+    olon = PyArray_SimpleNew(2,ll_shape,NPY_DOUBLE);
+    olat = PyArray_SimpleNew(2,ll_shape,NPY_DOUBLE);
 
     // overlap, area_ratio, original.
-    npy_intp overlap_shape[] = {PyArray_DIMS(ilon)[0]};
-    PyObject *overlap = PyArray_SimpleNew(1,overlap_shape,NPY_DOUBLE);
-    PyObject *area_ratio = PyArray_SimpleNew(1,overlap_shape,NPY_DOUBLE);
-    PyObject *original = PyArray_SimpleNew(1,overlap_shape,NPY_DOUBLE);
+    overlap_shape[0] = PyArray_DIMS(ilon)[0];
+    overlap = PyArray_SimpleNew(1,overlap_shape,NPY_DOUBLE);
+    area_ratio = PyArray_SimpleNew(1,overlap_shape,NPY_DOUBLE);
+    original = PyArray_SimpleNew(1,overlap_shape,NPY_DOUBLE);
     
     if (!array_new_a || !weights_a || !ilon || !ilat || !olon || !olat || !overlap || !area_ratio || !original) {
         PyErr_SetString(PyExc_MemoryError, "Memory allocation error.");
@@ -179,7 +186,6 @@ static PyObject *_reproject_slice(PyObject *self, PyObject *args)
     }
 
     // Fill the arrays with zeroes.
-    int i, j, ii, jj;
     for (i = 0; i < shape[0]; ++i) {
         for (j = 0; j < shape[1]; ++j) {
             *(double *)PyArray_GETPTR2(array_new_a,i,j) = 0;
@@ -188,8 +194,6 @@ static PyObject *_reproject_slice(PyObject *self, PyObject *args)
     }
 
     // Main loop.
-    int xmin, xmax, ymin, ymax;
-
     for (i = startx; i < endx; ++i) {
         for (j = starty; j < endy; ++j) {
             // For every input pixel we find the position in the output image in
@@ -258,7 +262,6 @@ static PyObject *_reproject_slice(PyObject *self, PyObject *args)
     }
 
     // Prepare return value.
-    PyObject *retval;
     retval = PyTuple_Pack(2,array_new_a,weights_a);
 
     // Final cleanup.
