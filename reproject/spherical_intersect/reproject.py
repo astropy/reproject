@@ -265,4 +265,35 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, method = "default", n
 
         return array_new / weights
 
+    if method == "new_cython":
+        from numpy import ascontiguousarray as aca
+        from ._overlap import _reproject_slice_cython
+        array_new, weights = _reproject_slice_cython(0,nx_in,0,ny_in,nx_out,ny_out,aca(xp_inout),aca(yp_inout),aca(xw_in),aca(yw_in),aca(xw_out),aca(yw_out),aca(array),shape_out);
+
+        array_new /= weights
+
+        return array_new
+
+    if method == "multi_new_cython":
+        from numpy import ascontiguousarray as aca
+        from ._overlap import _reproject_slice_cython
+        from multiprocessing import Pool, cpu_count
+        nproc = cpu_count() if nproc is None else nproc
+        pool = Pool(nproc)
+
+        results = []
+
+        for i in range(nproc):
+            start = int(nx_in) // nproc * i
+            end = int(nx_in) if i == nproc - 1 else int(nx_in) // nproc * (i + 1)
+            results.append(pool.apply_async(_reproject_slice_cython,[start,end,0,ny_in,nx_out,ny_out,aca(xp_inout),aca(yp_inout),aca(xw_in),aca(yw_in),aca(xw_out),aca(yw_out),aca(array),shape_out]))
+
+        pool.close()
+        pool.join()
+
+        array_new = sum([_.get()[0] for _ in results])
+        weights = sum([_.get()[1] for _ in results])
+
+        return array_new / weights
+
     raise ValueError('unrecognized method "{0}"'.format(method,))
