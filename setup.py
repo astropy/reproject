@@ -24,8 +24,6 @@ import sys
 # Get some values from the setup.cfg
 from distutils import config
 from distutils.core import Extension
-from numpy import get_include as get_numpy_include
-numpy_includes = get_numpy_include()
 conf = config.ConfigParser()
 conf.read(['setup.cfg'])
 metadata = dict(conf.items('metadata'))
@@ -95,11 +93,12 @@ for root, dirs, files in os.walk(PACKAGENAME):
 package_info['package_data'][PACKAGENAME].extend(c_files)
 
 if not 'egg_info' in sys.argv[1:]:
+    from numpy import get_include as get_numpy_include
     package_info['ext_modules'].append(Extension("reproject.spherical_intersect._reproject_core",
                             ['reproject/spherical_intersect/_reproject_core.c',
                             'reproject/spherical_intersect/overlapArea.c'],
                             extra_compile_args = ['-O2'],
-                            include_dirs=[numpy_includes]))
+                            include_dirs=[get_numpy_include()]))
 
 setup(name=PACKAGENAME,
       version=VERSION,
