@@ -6,6 +6,7 @@ import numpy as np
 
 from astropy.io import fits
 from astropy.wcs import WCS
+from astropy import log as logger
 
 from ..wcs_utils import wcs_to_celestial_frame, convert_world_coordinates
 
@@ -13,7 +14,31 @@ from ._overlap import _compute_overlap
 
 __all__ = ['reproject_celestial']
 
-def reproject_celestial(array, wcs_in, wcs_out, shape_out, method = "default", nproc = None):
+# Setup the parallel infrastructure.
+def _get_initial_pool():
+    try:
+        from multiprocessing import Pool, cpu_count
+        n = cpu_count()
+        pool = Pool(n)
+        logger.info("Initialising a pool of {0} processes".format(n,))
+        return pool,n
+    except Exception as e:
+        logger.warn("Unable to initialise a pool of processes, the reported error message is: '{0}'".format(repr(e,)))
+        return None,None
+
+_pool, _nproc = _get_initial_pool()
+
+import atexit as _atexit
+
+@_atexit.register
+def _cleanup_pool():
+    if _pool is None:
+        return
+    logger.info("Cleaning up the process pool")
+    _pool.close()
+    _pool.join()
+
+def reproject_celestial(array, wcs_in, wcs_out, shape_out, method = "default"):
     """
     Reproject celestial slices from an n-d array from one WCS to another using
     flux-conserving spherical polygon intersection.
@@ -30,8 +55,6 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, method = "default", n
         The shape of the output array
     method : string
         The underlying algorithmic implementation to use
-    nproc : int or None
-        The number of processors to use
 
     Returns
     -------
@@ -131,31 +154,27 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, method = "default", n
 
         return array_new
 
+    # Put together the parameters common both to the serial and parallel implementations. The aca
+    # function is needed to enforce that the array will be contiguous when passed to the low-level
+    # raw C function, otherwise Cython might complain.
+    from numpy import ascontiguousarray as aca
+    from ._overlap import _reproject_slice_cython
+    common_func_par = [0,ny_in,nx_out,ny_out,aca(xp_inout),aca(yp_inout),aca(xw_in),aca(yw_in),aca(xw_out),aca(yw_out),aca(array),shape_out]
+
     if method == "new_cython":
-        from numpy import ascontiguousarray as aca
-        from ._overlap import _reproject_slice_cython
-        array_new, weights = _reproject_slice_cython(0,nx_in,0,ny_in,nx_out,ny_out,aca(xp_inout),aca(yp_inout),aca(xw_in),aca(yw_in),aca(xw_out),aca(yw_out),aca(array),shape_out);
+        array_new, weights = _reproject_slice_cython(0,nx_in,*common_func_par);
 
         array_new /= weights
 
         return array_new
 
     if method == "multi_new_cython":
-        from numpy import ascontiguousarray as aca
-        from ._overlap import _reproject_slice_cython
-        from multiprocessing import Pool, cpu_count
-        nproc = cpu_count() if nproc is None else nproc
-        pool = Pool(nproc)
-
         results = []
 
-        for i in range(nproc):
-            start = int(nx_in) // nproc * i
-            end = int(nx_in) if i == nproc - 1 else int(nx_in) // nproc * (i + 1)
-            results.append(pool.apply_async(_reproject_slice_cython,[start,end,0,ny_in,nx_out,ny_out,aca(xp_inout),aca(yp_inout),aca(xw_in),aca(yw_in),aca(xw_out),aca(yw_out),aca(array),shape_out]))
-
-        pool.close()
-        pool.join()
+        for i in range(_nproc):
+            start = int(nx_in) // _nproc * i
+            end = int(nx_in) if i == _nproc - 1 else int(nx_in) // _nproc * (i + 1)
+            results.append(_pool.apply_async(_reproject_slice_cython,[start,end] + common_func_par))
 
         array_new = sum([_.get()[0] for _ in results])
         weights = sum([_.get()[1] for _ in results])
