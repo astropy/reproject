@@ -12,30 +12,13 @@ from ..wcs_utils import wcs_to_celestial_frame, convert_world_coordinates
 
 from ._overlap import _compute_overlap
 
+import signal
+
 __all__ = ['reproject_celestial']
 
-# Setup the parallel infrastructure.
-def _get_initial_pool():
-    try:
-        from multiprocessing import Pool, cpu_count
-        n = cpu_count()
-        pool = Pool(n)
-        logger.info("Initialising a pool of {0} processes".format(n,))
-        return pool,n
-    except Exception as e:
-        logger.warn("Unable to initialise a pool of processes, the reported error message is: '{0}'".format(repr(e,)))
-        return None,None
-
-_pool, _nproc = _get_initial_pool()
-
-import atexit as _atexit
-
-@_atexit.register
-def _cleanup_pool():
-    if _pool is None:
-        return
-    _pool.close()
-    _pool.join()
+# Function to disable ctrl+c in the worker processes.
+def _init_worker():
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 def reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _method = "c"):
     """
@@ -56,8 +39,8 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _metho
         Flag for parallel implementation. If ``True``, a parallel implementation
         is chosen, the number of processes selected automatically to be equal to
         the number of logical CPUs detected on the machine. If ``False``, a
-        serial implementation is chosen. If the flag is a positive integer ``n``,
-        a parallel implementation using ``n`` processes is chosen.
+        serial implementation is chosen. If the flag is a positive integer ``n``
+        greater than one, a parallel implementation using ``n`` processes is chosen.
 
     Returns
     -------
@@ -73,22 +56,11 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _metho
         # parallel is a number of processes.
         if parallel <= 0:
             raise ValueError("The number of processors to use must be strictly positive")
-        if _pool is None:
-            # Use the serial implementation if we had issues creating the pool on startup.
-            nproc = 1
-        else:
-            # Don't use more processors than those available.
-            nproc = min(parallel,_nproc)
+        nproc = parallel
     else:
-        # parallel is a boolean flag.
-        if parallel and not _pool is None:
-            # parallel is True and we have a pool, use the default number
-            # of processes.
-            nproc = _nproc
-        else:
-            # Either parallel is false, or we had a problem in setting up the pool. Use
-            # serial implementation.
-            nproc = 1
+        # parallel is a boolean flag. nproc = None here means automatically selected
+        # number of processes.
+        nproc = None if parallel else 1
 
     # Convert input array to float values. If this comes from a FITS, it might have
     # float32 as value type and that can break things in cythin.
@@ -189,24 +161,71 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _metho
     from ._overlap import _reproject_slice_cython
     common_func_par = [0,ny_in,nx_out,ny_out,aca(xp_inout),aca(yp_inout),aca(xw_in),aca(yw_in),aca(xw_out),aca(yw_out),aca(array),shape_out]
 
-    if _method == "c" and nproc == 1:
+    # Abstract the serial implementation in a separate function so we can reuse it.
+    def serial_impl():
         array_new, weights = _reproject_slice_cython(0,nx_in,*common_func_par);
 
         array_new /= weights
 
         return array_new
 
-    if _method == "c" and nproc > 1:
-        results = []
+    if _method == "c" and nproc == 1:
+        return serial_impl()
 
-        for i in range(nproc):
-            start = int(nx_in) // nproc * i
-            end = int(nx_in) if i == nproc - 1 else int(nx_in) // nproc * (i + 1)
-            results.append(_pool.apply_async(_reproject_slice_cython,[start,end] + common_func_par))
+    # Abstract the parallel implementation as well.
+    def parallel_impl(nproc):
+        from multiprocessing import Pool, cpu_count
+        # If needed, establish the number of processors to use.
+        if nproc is None:
+                nproc = cpu_count()
 
-        array_new = sum([_.get()[0] for _ in results])
-        weights = sum([_.get()[1] for _ in results])
+        # Create the pool.
+        pool = None
+        try:
+            # Prime each process in the pool with a small function that disables
+            # the ctrl+c signal in the child process.
+            pool = Pool(nproc,_init_worker)
+
+            # Accumulator for the results from the parallel processes.
+            results = []
+
+            for i in range(nproc):
+                start = int(nx_in) // nproc * i
+                end = int(nx_in) if i == nproc - 1 else int(nx_in) // nproc * (i + 1)
+                results.append(pool.apply_async(_reproject_slice_cython,[start,end] + common_func_par))
+
+            array_new = sum([_.get()[0] for _ in results])
+            weights = sum([_.get()[1] for _ in results])
+
+        except KeyboardInterrupt:
+            # If we hit ctrl+c while running things in parallel, we want to terminate
+            # everything and erase the pool before re-raising. Note that since we inited the pool
+            # with the _init_worker function, we disabled catching ctrl+c from the subprocesses. ctrl+c
+            # can be handled only by the main process.
+            if not pool is None:
+                pool.terminate()
+                pool.join()
+                pool = None
+            raise
+
+        finally:
+            if not pool is None:
+                # Clean up the pool, if still alive.
+                pool.close()
+                pool.join()
 
         return array_new / weights
+
+    if _method == "c" and (nproc > 1 or nproc is None):
+        try:
+            return parallel_impl(nproc)
+        except KeyboardInterrupt:
+            # If we stopped the parallel implementation with ctrl+c, we don't really want to run
+            # the serial one.
+            raise
+        except Exception as e:
+            logger.warn("The parallel implementation failed, the reported error message is: '{0}'".format(repr(e,)))
+            logger.warn("Running the serial implementation instead")
+            return serial_impl()
 
     raise ValueError('unrecognized method "{0}"'.format(_method,))
