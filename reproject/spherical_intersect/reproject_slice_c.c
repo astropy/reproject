@@ -1,9 +1,10 @@
 #include "overlapArea.h"
 #include "reproject_slice_c.h"
 
-static inline int min_4(const int *ptr)
+static inline double min_4(const double *ptr)
 {
-    int retval = ptr[0], i;
+    double retval = ptr[0];
+    int i;
     for (i = 1; i < 4; ++i) {
         if (ptr[i] < retval) {
             retval = ptr[i];
@@ -12,9 +13,10 @@ static inline int min_4(const int *ptr)
     return retval;
 }
 
-static inline int max_4(const int *ptr)
+static inline double max_4(const double *ptr)
 {
-    int retval = ptr[0], i;
+    double retval = ptr[0];
+    int i;
     for (i = 1; i < 4; ++i) {
         if (ptr[i] > retval) {
             retval = ptr[i];
@@ -48,8 +50,7 @@ void _reproject_slice_c(int startx, int endx, int starty, int endy, int nx_out, 
     double *overlap, double *area_ratio, double *original, int col_inout, int col_array, int col_new)
 {
     int i, j, ii, jj, xmin, xmax, ymin, ymax;
-    double ilon[4], ilat[4], olon[4], olat[4];
-    int minmax_x[4], minmax_y[4];
+    double ilon[4], ilat[4], olon[4], olat[4], minmax_x[4], minmax_y[4];
 
     // Main loop.
     for (i = startx; i < endx; ++i) {
@@ -58,20 +59,20 @@ void _reproject_slice_c(int startx, int endx, int starty, int endy, int nx_out, 
             // pixel coordinates, then use the full range of overlapping output
             // pixels with the exact overlap function.
 
-            minmax_x[0] = (int)*GETPTR2(xp_inout,col_inout,j,i);
-            minmax_x[1] = (int)*GETPTR2(xp_inout,col_inout,j,i + 1);
-            minmax_x[2] = (int)*GETPTR2(xp_inout,col_inout,j + 1,i + 1);
-            minmax_x[3] = (int)*GETPTR2(xp_inout,col_inout,j + 1,i);
+            minmax_x[0] = *GETPTR2(xp_inout,col_inout,j,i);
+            minmax_x[1] = *GETPTR2(xp_inout,col_inout,j,i + 1);
+            minmax_x[2] = *GETPTR2(xp_inout,col_inout,j + 1,i + 1);
+            minmax_x[3] = *GETPTR2(xp_inout,col_inout,j + 1,i);
 
-            minmax_y[0] = (int)*GETPTR2(yp_inout,col_inout,j,i);
-            minmax_y[1] = (int)*GETPTR2(yp_inout,col_inout,j,i + 1);
-            minmax_y[2] = (int)*GETPTR2(yp_inout,col_inout,j + 1,i + 1);
-            minmax_y[3] = (int)*GETPTR2(yp_inout,col_inout,j + 1,i);
+            minmax_y[0] = *GETPTR2(yp_inout,col_inout,j,i);
+            minmax_y[1] = *GETPTR2(yp_inout,col_inout,j,i + 1);
+            minmax_y[2] = *GETPTR2(yp_inout,col_inout,j + 1,i + 1);
+            minmax_y[3] = *GETPTR2(yp_inout,col_inout,j + 1,i);
 
-            xmin = min_4(minmax_x);
-            xmax = max_4(minmax_x);
-            ymin = min_4(minmax_y);
-            ymax = max_4(minmax_y);
+            xmin = (int)(min_4(minmax_x) + .5);
+            xmax = (int)(max_4(minmax_x) + .5);
+            ymin = (int)(min_4(minmax_y) + .5);
+            ymax = (int)(max_4(minmax_y) + .5);
 
             // Fill in ilon/ilat.
             ilon[0] = to_rad(*GETPTR2(xw_in,col_inout,j+1,i));

@@ -34,11 +34,10 @@ import atexit as _atexit
 def _cleanup_pool():
     if _pool is None:
         return
-    logger.info("Cleaning up the process pool")
     _pool.close()
     _pool.join()
 
-def reproject_celestial(array, wcs_in, wcs_out, shape_out, method = "default"):
+def reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _method = "c"):
     """
     Reproject celestial slices from an n-d array from one WCS to another using
     flux-conserving spherical polygon intersection.
@@ -53,14 +52,43 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, method = "default"):
         The output WCS
     shape_out : tuple
         The shape of the output array
-    method : string
-        The underlying algorithmic implementation to use
+    parallel : bool or int
+        Flag for parallel implementation. If ``True``, a parallel implementation
+        is chosen, the number of processes selected automatically to be equal to
+        the number of logical CPUs detected on the machine. If ``False``, a
+        serial implementation is chosen. If the flag is a positive integer ``n``,
+        a parallel implementation using ``n`` processes is chosen.
 
     Returns
     -------
     array_new : `~numpy.ndarray`
         The reprojected array
     """
+
+    # Check the parallel flag.
+    if type(parallel) != bool and type(parallel) != int:
+        raise TypeError("The 'parallel' flag must be a boolean or integral value")
+
+    if type(parallel) == int:
+        # parallel is a number of processes.
+        if parallel <= 0:
+            raise ValueError("The number of processors to use must be strictly positive")
+        if _pool is None:
+            # Use the serial implementation if we had issues creating the pool on startup.
+            nproc = 1
+        else:
+            # Don't use more processors than those available.
+            nproc = min(parallel,_nproc)
+    else:
+        # parallel is a boolean flag.
+        if parallel and not _pool is None:
+            # parallel is True and we have a pool, use the default number
+            # of processes.
+            nproc = _nproc
+        else:
+            # Either parallel is false, or we had a problem in setting up the pool. Use
+            # serial implementation.
+            nproc = 1
 
     # Convert input array to float values. If this comes from a FITS, it might have
     # float32 as value type and that can break things in cythin.
@@ -106,7 +134,7 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, method = "default"):
 
     xp_inout, yp_inout = wcs_out.wcs_world2pix(xw_in, yw_in, 0)
 
-    if method == "default":
+    if _method == "legacy":
         # Create output image
 
         array_new = np.zeros(shape_out)
@@ -119,10 +147,10 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, method = "default"):
                 # pixel coordinates, then use the full range of overlapping output
                 # pixels with the exact overlap function.
 
-                xmin = int(min(xp_inout[j, i], xp_inout[j, i+1], xp_inout[j+1, i+1], xp_inout[j+1, i]))
-                xmax = int(max(xp_inout[j, i], xp_inout[j, i+1], xp_inout[j+1, i+1], xp_inout[j+1, i]))
-                ymin = int(min(yp_inout[j, i], yp_inout[j, i+1], yp_inout[j+1, i+1], yp_inout[j+1, i]))
-                ymax = int(max(yp_inout[j, i], yp_inout[j, i+1], yp_inout[j+1, i+1], yp_inout[j+1, i]))
+                xmin = int(min(xp_inout[j, i], xp_inout[j, i+1], xp_inout[j+1, i+1], xp_inout[j+1, i]) + 0.5)
+                xmax = int(max(xp_inout[j, i], xp_inout[j, i+1], xp_inout[j+1, i+1], xp_inout[j+1, i]) + 0.5)
+                ymin = int(min(yp_inout[j, i], yp_inout[j, i+1], yp_inout[j+1, i+1], yp_inout[j+1, i]) + 0.5)
+                ymax = int(max(yp_inout[j, i], yp_inout[j, i+1], yp_inout[j+1, i+1], yp_inout[j+1, i]) + 0.5)
 
                 ilon = [[xw_in[j, i], xw_in[j, i+1], xw_in[j+1, i+1], xw_in[j+1, i]][::-1]]
                 ilat = [[yw_in[j, i], yw_in[j, i+1], yw_in[j+1, i+1], yw_in[j+1, i]][::-1]]
@@ -161,19 +189,19 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, method = "default"):
     from ._overlap import _reproject_slice_cython
     common_func_par = [0,ny_in,nx_out,ny_out,aca(xp_inout),aca(yp_inout),aca(xw_in),aca(yw_in),aca(xw_out),aca(yw_out),aca(array),shape_out]
 
-    if method == "new_cython":
+    if _method == "c" and nproc == 1:
         array_new, weights = _reproject_slice_cython(0,nx_in,*common_func_par);
 
         array_new /= weights
 
         return array_new
 
-    if method == "multi_new_cython":
+    if _method == "c" and nproc > 1:
         results = []
 
-        for i in range(_nproc):
-            start = int(nx_in) // _nproc * i
-            end = int(nx_in) if i == _nproc - 1 else int(nx_in) // _nproc * (i + 1)
+        for i in range(nproc):
+            start = int(nx_in) // nproc * i
+            end = int(nx_in) if i == nproc - 1 else int(nx_in) // nproc * (i + 1)
             results.append(_pool.apply_async(_reproject_slice_cython,[start,end] + common_func_par))
 
         array_new = sum([_.get()[0] for _ in results])
@@ -181,4 +209,4 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, method = "default"):
 
         return array_new / weights
 
-    raise ValueError('unrecognized method "{0}"'.format(method,))
+    raise ValueError('unrecognized method "{0}"'.format(_method,))
