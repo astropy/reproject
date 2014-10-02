@@ -216,7 +216,7 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _metho
 
         return array_new / weights
 
-    if _method == "c" and (nproc > 1 or nproc is None):
+    if _method == "c" and (nproc is None or nproc > 1):
         try:
             return parallel_impl(nproc)
         except KeyboardInterrupt:
