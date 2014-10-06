@@ -9,6 +9,7 @@ def get_extensions():
     libraries = []
 
     sources.append("reproject/spherical_intersect/overlapArea.c")
+    sources.append("reproject/spherical_intersect/reproject_slice_c.c")
     include_dirs.append('reproject/spherical_intersect')
 
     extension = Extension(
@@ -16,6 +17,7 @@ def get_extensions():
         sources=sources,
         include_dirs=include_dirs,
         libraries=libraries,
-        language="c",)
+        language="c",
+        extra_compile_args=['-O2'])
 
     return [extension]
