@@ -47,7 +47,7 @@ static inline void _compute_overlap(double *overlap,
 void _reproject_slice_c(int startx, int endx, int starty, int endy, int nx_out, int ny_out,
     double *xp_inout, double *yp_inout, double *xw_in, double *yw_in, double *xw_out, double *yw_out,
     double *array, double *array_new, double *weights,
-    double *overlap, double *area_ratio, double *original, int col_inout, int col_array, int col_new)
+    double *overlap, double *area_ratio, double *original, int col_in, int col_out, int col_array, int col_new)
 {
     int i, j, ii, jj, xmin, xmax, ymin, ymax;
     double ilon[4], ilat[4], olon[4], olat[4], minmax_x[4], minmax_y[4];
@@ -59,15 +59,15 @@ void _reproject_slice_c(int startx, int endx, int starty, int endy, int nx_out, 
             // pixel coordinates, then use the full range of overlapping output
             // pixels with the exact overlap function.
 
-            minmax_x[0] = *GETPTR2(xp_inout,col_inout,j,i);
-            minmax_x[1] = *GETPTR2(xp_inout,col_inout,j,i + 1);
-            minmax_x[2] = *GETPTR2(xp_inout,col_inout,j + 1,i + 1);
-            minmax_x[3] = *GETPTR2(xp_inout,col_inout,j + 1,i);
+            minmax_x[0] = *GETPTR2(xp_inout,col_in,j,i);
+            minmax_x[1] = *GETPTR2(xp_inout,col_in,j,i + 1);
+            minmax_x[2] = *GETPTR2(xp_inout,col_in,j + 1,i + 1);
+            minmax_x[3] = *GETPTR2(xp_inout,col_in,j + 1,i);
 
-            minmax_y[0] = *GETPTR2(yp_inout,col_inout,j,i);
-            minmax_y[1] = *GETPTR2(yp_inout,col_inout,j,i + 1);
-            minmax_y[2] = *GETPTR2(yp_inout,col_inout,j + 1,i + 1);
-            minmax_y[3] = *GETPTR2(yp_inout,col_inout,j + 1,i);
+            minmax_y[0] = *GETPTR2(yp_inout,col_in,j,i);
+            minmax_y[1] = *GETPTR2(yp_inout,col_in,j,i + 1);
+            minmax_y[2] = *GETPTR2(yp_inout,col_in,j + 1,i + 1);
+            minmax_y[3] = *GETPTR2(yp_inout,col_in,j + 1,i);
 
             xmin = (int)(min_4(minmax_x) + .5);
             xmax = (int)(max_4(minmax_x) + .5);
@@ -75,15 +75,15 @@ void _reproject_slice_c(int startx, int endx, int starty, int endy, int nx_out, 
             ymax = (int)(max_4(minmax_y) + .5);
 
             // Fill in ilon/ilat.
-            ilon[0] = to_rad(*GETPTR2(xw_in,col_inout,j+1,i));
-            ilon[1] = to_rad(*GETPTR2(xw_in,col_inout,j+1,i+1));
-            ilon[2] = to_rad(*GETPTR2(xw_in,col_inout,j,i+1));
-            ilon[3] = to_rad(*GETPTR2(xw_in,col_inout,j,i));
+            ilon[0] = to_rad(*GETPTR2(xw_in,col_in,j+1,i));
+            ilon[1] = to_rad(*GETPTR2(xw_in,col_in,j+1,i+1));
+            ilon[2] = to_rad(*GETPTR2(xw_in,col_in,j,i+1));
+            ilon[3] = to_rad(*GETPTR2(xw_in,col_in,j,i));
 
-            ilat[0] = to_rad(*GETPTR2(yw_in,col_inout,j+1,i));
-            ilat[1] = to_rad(*GETPTR2(yw_in,col_inout,j+1,i+1));
-            ilat[2] = to_rad(*GETPTR2(yw_in,col_inout,j,i+1));
-            ilat[3] = to_rad(*GETPTR2(yw_in,col_inout,j,i));
+            ilat[0] = to_rad(*GETPTR2(yw_in,col_in,j+1,i));
+            ilat[1] = to_rad(*GETPTR2(yw_in,col_in,j+1,i+1));
+            ilat[2] = to_rad(*GETPTR2(yw_in,col_in,j,i+1));
+            ilat[3] = to_rad(*GETPTR2(yw_in,col_in,j,i));
 
             xmin = xmin > 0 ? xmin : 0;
             xmax = (nx_out-1) < xmax ? (nx_out-1) : xmax;
@@ -93,15 +93,15 @@ void _reproject_slice_c(int startx, int endx, int starty, int endy, int nx_out, 
             for (ii = xmin; ii < xmax + 1; ++ii) {
                 for (jj = ymin; jj < ymax + 1; ++jj) {
                     // Fill out olon/olat.
-                    olon[0] = to_rad(*GETPTR2(xw_out,col_inout,jj+1,ii));
-                    olon[1] = to_rad(*GETPTR2(xw_out,col_inout,jj+1,ii+1));
-                    olon[2] = to_rad(*GETPTR2(xw_out,col_inout,jj,ii+1));
-                    olon[3] = to_rad(*GETPTR2(xw_out,col_inout,jj,ii));
+                    olon[0] = to_rad(*GETPTR2(xw_out,col_out,jj+1,ii));
+                    olon[1] = to_rad(*GETPTR2(xw_out,col_out,jj+1,ii+1));
+                    olon[2] = to_rad(*GETPTR2(xw_out,col_out,jj,ii+1));
+                    olon[3] = to_rad(*GETPTR2(xw_out,col_out,jj,ii));
 
-                    olat[0] = to_rad(*GETPTR2(yw_out,col_inout,jj+1,ii));
-                    olat[1] = to_rad(*GETPTR2(yw_out,col_inout,jj+1,ii+1));
-                    olat[2] = to_rad(*GETPTR2(yw_out,col_inout,jj,ii+1));
-                    olat[3] = to_rad(*GETPTR2(yw_out,col_inout,jj,ii));
+                    olat[0] = to_rad(*GETPTR2(yw_out,col_out,jj+1,ii));
+                    olat[1] = to_rad(*GETPTR2(yw_out,col_out,jj+1,ii+1));
+                    olat[2] = to_rad(*GETPTR2(yw_out,col_out,jj,ii+1));
+                    olat[3] = to_rad(*GETPTR2(yw_out,col_out,jj,ii));
 
                     // Compute the overlap.
                     _compute_overlap(overlap,area_ratio,ilon,ilat,olon,olat);

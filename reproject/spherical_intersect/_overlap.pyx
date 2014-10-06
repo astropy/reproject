@@ -12,7 +12,7 @@ cdef extern from "reproject_slice_c.h":
     void _reproject_slice_c(int startx, int endx, int starty, int endy, int nx_out, int ny_out,
         double *xp_inout, double *yp_inout, double *xw_in, double *yw_in, double *xw_out, double *yw_out,
         double *array, double *array_new, double *weights,
-        double *overlap, double *area_ratio, double *original, int col_inout, int col_array, int col_new)
+        double *overlap, double *area_ratio, double *original, int col_in, int col_out, int col_array, int col_new)
 
 # @cython.wraparound(False)
 # @cython.boundscheck(False)
@@ -36,7 +36,8 @@ def _reproject_slice_cython(int startx, int endx, int starty, int endy, int nx_o
 
     # We need the y size of these 2-dimensional arrays in order to access the elements correctly
     # from raw C.
-    cdef int col_inout = xw_in.shape[1]
+    cdef int col_in = xw_in.shape[1]
+    cdef int col_out = xw_out.shape[1]
     cdef int col_array = array.shape[1]
     cdef int col_new = array_new.shape[1]
 
@@ -45,7 +46,7 @@ def _reproject_slice_cython(int startx, int endx, int starty, int endy, int nx_o
         &xp_inout[0,0],&yp_inout[0,0],
         &xw_in[0,0],&yw_in[0,0],&xw_out[0,0],&yw_out[0,0],&array[0,0],
         &array_new[0,0],&weights[0,0],
-        &overlap[0],&area_ratio[0],&original[0],col_inout,col_array,col_new)
+        &overlap[0],&area_ratio[0],&original[0],col_in,col_out,col_array,col_new)
 
     return array_new,weights
 
