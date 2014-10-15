@@ -105,7 +105,7 @@ void _reproject_slice_c(int startx, int endx, int starty, int endy, int nx_out, 
 
                     // Compute the overlap.
                     _compute_overlap(overlap,area_ratio,ilon,ilat,olon,olat);
-                    _compute_overlap(original,area_ratio,ilon,ilat,ilon,ilat);
+                    _compute_overlap(original,area_ratio,olon,olat,olon,olat);
 
                     // Write into array_new and weights.
                     *GETPTR2(array_new,col_new,jj,ii) += *GETPTR2(array,col_array,j,i) *
