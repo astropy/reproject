@@ -11,15 +11,6 @@ from astropy.utils.data import get_pkg_data_filename
 
 from .. import reproject_celestial
 
-# TODO: add reference comparisons
-
-def assert_allclose_nan(array1, array2):
-
-    np.testing.assert_allclose(np.isnan(array1),
-                               np.isnan(array2))
-
-    np.testing.assert_allclose(array1[~np.isnan(array1)],
-                               array2[~np.isnan(array2)], rtol=1.e-6)
 
 def test_reproject_celestial_slices_2d():
 
@@ -33,7 +24,7 @@ def test_reproject_celestial_slices_2d():
 
     array_out = reproject_celestial(array_in, wcs_in, wcs_out, (200, 200))
 
-DATA = np.array([[1, 2],[3, 4]])
+DATA = np.array([[1, 2], [3, 4]])
 
 INPUT_HDR = """
 WCSAXES =                    2 / Number of coordinate axes
@@ -68,7 +59,15 @@ LATPOLE =        -28.768527143 / [deg] Native latitude of celestial pole
 EQUINOX =               2000.0 / [yr] Equinox of equatorial coordinates
 """
 
-def test_reproject_celestial_accuracy():
+MONTAGE_REF = np.array([[np.nan, 2., 2., np.nan],
+                        [1., 1.6768244, 3.35364754, 4.],
+                        [1., 1.6461656, 3.32308315, 4.],
+                        [np.nan, 3., 3., np.nan]])
+
+
+def test_reproject_celestial_consistency():
+
+    # Consistency between the different modes
 
     wcs_in = WCS(fits.Header.fromstring(INPUT_HDR, sep='\n'))
     wcs_out = WCS(fits.Header.fromstring(OUTPUT_HDR, sep='\n'))
@@ -77,8 +76,21 @@ def test_reproject_celestial_accuracy():
     array2, footprint2 = reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), _method='c', parallel=False)
     array3, footprint3 = reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), _method='c', parallel=True)
 
-    assert_allclose_nan(array1, array2)
-    assert_allclose_nan(array1, array3)
+    np.testing.assert_allclose(array1, array2, rtol=1.e-6)
+    np.testing.assert_allclose(array1, array3, rtol=1.e-6)
 
-    assert_allclose_nan(footprint1, footprint2)
-    assert_allclose_nan(footprint1, footprint3)
+    np.testing.assert_allclose(footprint1, footprint2, rtol=1.e-6)
+    np.testing.assert_allclose(footprint1, footprint3, rtol=1.e-6)
+
+
+def test_reproject_celestial_():
+
+    # Accuracy compared to Montage
+
+    wcs_in = WCS(fits.Header.fromstring(INPUT_HDR, sep='\n'))
+    wcs_out = WCS(fits.Header.fromstring(OUTPUT_HDR, sep='\n'))
+
+    array, footprint = reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), _method='c', parallel=False)
+
+    # TODO: improve agreement with Montage - at the moment agreement is ~10%
+    np.testing.assert_allclose(array, MONTAGE_REF, rtol=0.09)
