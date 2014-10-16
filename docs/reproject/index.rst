@@ -94,6 +94,11 @@ flux-conserving. The reprojection method can be explicitly set with the
   only suitable for celestial images. At this point, this mode is experimental
   and does not yet return results that are exactly the same as Montage.
 
+.. note:: the reprojection/resampling is always done assuming that the image is
+          in surface brightness units. For example, if one has an iamge with a
+          constant value of 1, reprojecting the image to an image with twice as
+          high resolution will result in an image where all pixels are all 1.
+
 Reference/API
 -------------
 
