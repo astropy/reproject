@@ -58,12 +58,16 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
     order : int
         The order of the interpolation (if ``mode`` is set to
         ``'interpolation'``). A value of ``0`` indicates nearest neighbor
-        interpolation (the default).
+        interpolation. The default is bilinear interpolation.
 
     Returns
     -------
     array_new : `~numpy.ndarray`
         The reprojected array
+    footprint : `~numpy.ndarray`
+        Footprint of the input array in the output array. Values of 0 indicate
+        no coverage or valid values in the input image, while values of 1
+        indicate valid values.
     """
 
     # For now, assume axes are independent in this routine
@@ -85,6 +89,8 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
 
     xp_in = yp_in = None
 
+    from scipy.ndimage import map_coordinates
+
     # Loop over slices and interpolate
     for slice_in, slice_out in iterate_over_celestial_slices(array, array_new, wcs_in):
 
@@ -92,11 +98,10 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
             xp_in, yp_in = get_input_pixels_celestial(wcs_in_celestial, wcs_out_celestial, slice_out.shape)
             coordinates = [yp_in.ravel(), xp_in.ravel()]
 
-        from scipy.ndimage import map_coordinates
         slice_out[:,:] = map_coordinates(slice_in,
                                          coordinates,
                                          order=order, cval=np.nan,
                                          mode='constant'
                                          ).reshape(slice_out.shape)
 
-    return array_new
+    return array_new, (~np.isnan(array_new)).astype(float)

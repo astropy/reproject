@@ -46,6 +46,10 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _metho
     -------
     array_new : `~numpy.ndarray`
         The reprojected array
+    footprint : `~numpy.ndarray`
+        Footprint of the input array in the output array. Values of 0 indicate
+        no coverage or valid values in the input image, while values of 1
+        indicate valid values. Intermediate values indicate partial coverage.
     """
 
     # Check the parallel flag.
@@ -146,13 +150,13 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _metho
                         # to the output pixel at this position.
 
                         overlap, _ = _compute_overlap(ilon, ilat, olon, olat)
-                        original, _ = _compute_overlap(ilon, ilat, ilon, ilat)
+                        original, _ = _compute_overlap(olon, olat, olon, olat)
                         array_new[jj, ii] += array[j, i] * overlap / original
                         weights[jj, ii] += overlap / original
 
         array_new /= weights
 
-        return array_new
+        return array_new, weights
 
     # Put together the parameters common both to the serial and parallel implementations. The aca
     # function is needed to enforce that the array will be contiguous when passed to the low-level
@@ -167,7 +171,7 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _metho
 
         array_new /= weights
 
-        return array_new
+        return array_new, weights
 
     if _method == "c" and nproc == 1:
         return serial_impl()
@@ -214,7 +218,7 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _metho
                 pool.close()
                 pool.join()
 
-        return array_new / weights
+        return array_new / weights, weights
 
     if _method == "c" and (nproc is None or nproc > 1):
         try:

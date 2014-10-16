@@ -45,6 +45,10 @@ def reproject(input_data, output_projection, shape_out=None, projection_type='bi
     -------
     array_new : `~numpy.ndarray`
         The reprojected data
+    footprint : `~numpy.ndarray`
+        Footprint of the input array in the output array. Values of 0 indicate
+        no coverage or valid values in the input image, while values of 1
+        indicate valid values. Intermediate values indicate partial coverage.
     """
 
     if isinstance(input_data, (PrimaryHDU, ImageHDU)):
