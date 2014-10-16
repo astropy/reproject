@@ -14,6 +14,12 @@ from .. import reproject
 
 # TODO: add reference comparisons
 
+ALL_MODES = ('nearest-neighbor',
+             'bilinear',
+             'biquadratic',
+             'bicubic',
+             'flux-conserving')
+
 
 class TestReproject(object):
 
@@ -36,26 +42,73 @@ class TestReproject(object):
         self.shape_out = (600, 550)
 
     def test_hdu_header(self):
-        
+
         with pytest.raises(ValueError) as exc:
             reproject(self.hdu_in, self.header_out)
         assert exc.value.args[0] == "Need to specify shape since output header does not contain complete shape information"
-        
+
         reproject(self.hdu_in, self.header_out_size)
 
     def test_hdu_wcs(self):
         reproject(self.hdu_in, self.wcs_out, shape_out=self.shape_out)
 
     def test_array_wcs_header(self):
-        
+
         with pytest.raises(ValueError) as exc:
             reproject((self.array_in, self.wcs_in), self.header_out)
         assert exc.value.args[0] == "Need to specify shape since output header does not contain complete shape information"
-        
+
         reproject((self.array_in, self.wcs_in), self.header_out_size)
-        
+
     def test_array_wcs_wcs(self):
         reproject((self.array_in, self.wcs_in), self.wcs_out, shape_out=self.shape_out)
 
     def test_array_header_header(self):
         reproject((self.array_in, self.header_in), self.header_out_size)
+
+
+INPUT_HDR = """
+WCSAXES =                    2 / Number of coordinate axes
+CRPIX1  =                  0.5 / Pixel coordinate of reference point
+CRPIX2  =                  0.5 / Pixel coordinate of reference point
+CDELT1  =         -0.001666666 / [deg] Coordinate increment at reference point
+CDELT2  =          0.001666666 / [deg] Coordinate increment at reference point
+CUNIT1  = 'deg'                / Units of coordinate increment and value
+CUNIT2  = 'deg'                / Units of coordinate increment and value
+CTYPE1  = 'GLON-CAR'           / galactic longitude, plate caree projection
+CTYPE2  = 'GLAT-CAR'           / galactic latitude, plate caree projection
+CRVAL1  =                  0.0 / [deg] Coordinate value at reference point
+CRVAL2  =                  0.0 / [deg] Coordinate value at reference point
+LONPOLE =                  0.0 / [deg] Native longitude of celestial pole
+LATPOLE =                 90.0 / [deg] Native latitude of celestial pole
+"""
+
+@pytest.mark.parametrize('projection_type', ALL_MODES)
+def test_surface_brightness(projection_type):
+
+    header_in = fits.Header.fromstring(INPUT_HDR, sep='\n')
+    header_in['NAXIS'] = 2
+    header_in['NAXIS1'] = 10
+    header_in['NAXIS2'] = 10
+
+    header_out = header_in.copy()
+
+    header_out['CDELT1'] /= 2
+    header_out['CDELT2'] /= 2
+    header_out['NAXIS1'] *= 2
+    header_out['NAXIS2'] *= 2
+
+    data_in = np.ones((10, 10))
+
+    print(header_out)
+
+    data_out, footprint = reproject((data_in, header_in), header_out,
+                                     projection_type=projection_type)
+
+    assert data_out.shape == (20, 20)
+
+    # For interpolation, the edge rows/columns are set to NaN so we exclude
+    # these in the comparison. Here we check that the values are still 1
+    # despite the change in resolution, which demonstrates that we are
+    # preserving surface brightness.
+    np.testing.assert_allclose(data_out[1:-1,1:-1], 1)
