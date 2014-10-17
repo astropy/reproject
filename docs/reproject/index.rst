@@ -1,8 +1,9 @@
+*********************************************
 Image reprojection (resampling) (`reproject`)
-=============================================
+*********************************************
 
 Introduction
-------------
+============
 
 The `reproject` package implements image reprojection (resampling) methods
 for astronomical images.
@@ -23,7 +24,7 @@ for astronomical images.
     encouraged to install those optional dependencies.
 
 Getting Started
----------------
+===============
 
 The easiest way to reproject an image is to make use of the high-level
 :func:`~reproject.reproject` function::
@@ -100,7 +101,7 @@ flux-conserving. The reprojection method can be explicitly set with the
           high resolution will result in an image where all pixels are all 1.
 
 Reference/API
--------------
+=============
 
 .. automodapi:: reproject
    :no-inheritance-diagram:
