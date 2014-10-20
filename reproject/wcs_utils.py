@@ -106,3 +106,9 @@ def wcs_to_celestial_frame(wcs):
             return frame
     raise ValueError("Could not determine celestial frame corresponding "
                      "to the specified WCS object")
+
+
+def has_celestial(wcs):
+    from astropy.wcs import WCSSUB_CELESTIAL
+    wcs = wcs.sub([WCSSUB_CELESTIAL])
+    return wcs.naxis == 2
