@@ -6,6 +6,9 @@ import numpy as np
 from astropy.io.fits import PrimaryHDU, ImageHDU, Header
 from astropy.wcs import WCS
 
+from .wcs_utils import has_celestial
+
+
 __all__ = ['reproject']
 
 ORDER = {}
@@ -77,11 +80,24 @@ def reproject(input_data, output_projection, shape_out=None, projection_type='bi
 
 
     if projection_type in ORDER:
+
         order = ORDER[projection_type]
-        from .interpolation import reproject_celestial
-        return reproject_celestial(array_in, wcs_in, wcs_out, shape_out=shape_out, order=order)
+
+        # For now only celestial reprojection is supported
+        if has_celestial(wcs_in):
+            from .interpolation import reproject_celestial
+            return reproject_celestial(array_in, wcs_in, wcs_out, shape_out=shape_out, order=order)
+        else:
+            raise NotImplementedError("Currently only data with a WCS that includes a celestial component can be reprojected")
+
     elif projection_type == 'flux-conserving':
-        from .spherical_intersect import reproject_celestial
-        return reproject_celestial(array_in, wcs_in, wcs_out, shape_out=shape_out)
+
+        # For now only 2-d celestial reprojection is supported
+        if has_celestial(wcs_in) and wcs_in.naxis == 2:
+            from .spherical_intersect import reproject_celestial
+            return reproject_celestial(array_in, wcs_in, wcs_out, shape_out=shape_out)
+        else:
+            raise NotImplementedError("Currently only data with a 2-d celestial WCS can be reprojected using flux-conserving algorithm")
+
     else:
         raise ValueError("Unknown projection type: {0}".format(projection_type))
