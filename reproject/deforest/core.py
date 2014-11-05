@@ -20,9 +20,9 @@ class CoordinateTransformer(object):
 
     def __call__(self, input_pixel):
         xp_in, yp_in = input_pixel[:,:,0], input_pixel[:,:,1]
-        xw_in, yw_in = self.wcs_out.wcs_pix2world(xp_in, yp_in, 0)
+        xw_in, yw_in = self.wcs_in.wcs_pix2world(xp_in, yp_in, 0)
         xw_out, yw_out = convert_world_coordinates(xw_in, yw_in, self.wcs_in, self.wcs_out)
-        xp_out, yp_out = self.wcs_in.wcs_world2pix(xw_out, yw_out, 0)
+        xp_out, yp_out = self.wcs_out.wcs_world2pix(xw_out, yw_out, 0)
         output_pixel = np.array([xp_out, yp_out]).transpose().swapaxes(0,1)
         return output_pixel
 
