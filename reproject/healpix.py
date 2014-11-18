@@ -147,7 +147,6 @@ def healpix_to_image(healpix_data, reference_header, hpx_coord_system,
     # the HEALPIX image we need to transform the coordinates
     ref_coord_system = reference_header['COORDSYS']
     if ref_coord_system != hpx_coord_system:
-        from ..utils.coordinates import sky_to_sky
         lon, lat = sky_to_sky(lon, lat, ref_coord_system, hpx_coord_system)
     
     # theta must be in the range [0,pi], but wcs gives it in the range (-pi/2,pi/2)
@@ -190,9 +189,9 @@ def sky_to_sky(lon, lat, in_system, out_system, unit='deg'):
     out_coords = in_coords.transform_to(systems[out_system])
     
     if unit == 'deg':
-        return out_coords.lonangle.deg, out_coords.latangle.deg
+        return out_coords.spherical.lon.deg, out_coords.spherical.lat.deg
     else:
-        return out_coords.lonangle.rad, out_coords.latangle.rad
+        return out_coords.spherical.lon.rad, out_coords.spherical.lat.rad
 
 
 def image_to_healpix(image, healpix_pars):
