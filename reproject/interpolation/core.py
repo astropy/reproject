@@ -9,6 +9,16 @@ from ..array_utils import iterate_over_celestial_slices
 
 __all__ = ['reproject_celestial']
 
+def map_coordinates(image, coords, cval=None, **kwargs):
+    from scipy.ndimage import map_coordinates as scipy_map_coordinates
+    original_shape = image.shape
+    image = np.pad(image, 1, mode='edge')
+    values = scipy_map_coordinates(image, coords + 1, cval=cval, **kwargs)
+    reset = ((coords[0] < -0.5) | (coords[0] > original_shape[0] - 0.5) |
+             (coords[1] < -0.5) | (coords[1] > original_shape[1] - 0.5))
+    values[reset] = cval
+    return values
+
 
 def get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
     """
@@ -87,16 +97,14 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
 
     array_new = np.zeros(shape_out)
 
-    xp_in = yp_in = None
-
-    from scipy.ndimage import map_coordinates
+    coordinates = None
 
     # Loop over slices and interpolate
     for slice_in, slice_out in iterate_over_celestial_slices(array, array_new, wcs_in):
 
-        if xp_in is None:  # Get position of output pixel centers in input image
+        if coordinates is None:  # Get position of output pixel centers in input image
             xp_in, yp_in = get_input_pixels_celestial(wcs_in_celestial, wcs_out_celestial, slice_out.shape)
-            coordinates = [yp_in.ravel(), xp_in.ravel()]
+            coordinates = np.array([yp_in.ravel(), xp_in.ravel()])
 
         slice_out[:,:] = map_coordinates(slice_in,
                                          coordinates,
