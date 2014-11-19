@@ -80,6 +80,9 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
         indicate valid values.
     """
 
+    # Make sure image is floating point
+    array = np.asarray(array, dtype=float)
+
     # For now, assume axes are independent in this routine
 
     # Check that WCSs are equivalent
