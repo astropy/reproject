@@ -3,19 +3,33 @@ from __future__ import absolute_import, division, print_function
 
 import numpy as np
 from astropy.wcs import WCSSUB_CELESTIAL
-from ..wcs_utils import wcs_to_celestial_frame, convert_world_coordinates
+from ..wcs_utils import convert_world_coordinates
 from ..array_utils import iterate_over_celestial_slices
 
 __all__ = ['reproject_celestial']
 
-def map_coordinates(image, coords, cval=None, **kwargs):
+
+def map_coordinates(image, coords, **kwargs):
+
+    # In the built-in scipy map_coordinates, the values are defined at the
+    # center of the pixels. This means that map_coordinates does not
+    # correctly treat pixels that are in the outer half of the outer pixels.
+    # We solve this by extending the array, updating the pixel coordinates,
+    # then getting rid of values that were sampled in the range -1 to -0.5
+    # and n to n - 0.5.
+
     from scipy.ndimage import map_coordinates as scipy_map_coordinates
-    original_shape = image.shape
+
+    ny, nx = image.shape
+
     image = np.pad(image, 1, mode='edge')
-    values = scipy_map_coordinates(image, coords + 1, cval=cval, **kwargs)
-    reset = ((coords[0] < -0.5) | (coords[0] > original_shape[0] - 0.5) |
-             (coords[1] < -0.5) | (coords[1] > original_shape[1] - 0.5))
-    values[reset] = cval
+
+    values = scipy_map_coordinates(image, coords + 1, **kwargs)
+
+    reset = ((coords[0] < -0.5) | (coords[0] > nx - 0.5) |
+             (coords[1] < -0.5) | (coords[1] > ny - 0.5))
+    values[reset] = kwargs.get('cval', 0.)
+
     return values
 
 
@@ -28,10 +42,6 @@ def get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
     # TODO: for now assuming that coordinates are spherical, not
     # necessarily the case. Also assuming something about the order of the
     # arguments.
-
-    # Find input/output frames
-    frame_in = wcs_to_celestial_frame(wcs_in)
-    frame_out = wcs_to_celestial_frame(wcs_out)
 
     # Generate pixel coordinates of output image
     xp_out_ax = np.arange(shape_out[1])
