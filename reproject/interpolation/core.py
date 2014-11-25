@@ -4,7 +4,7 @@ from __future__ import absolute_import, division, print_function
 import numpy as np
 from astropy.wcs import WCSSUB_CELESTIAL
 from ..wcs_utils import convert_world_coordinates
-from ..array_utils import iterate_over_celestial_slices
+from ..array_utils import iterate_over_celestial_slices, pad_edge_1
 
 __all__ = ['reproject_celestial']
 
@@ -22,7 +22,7 @@ def map_coordinates(image, coords, **kwargs):
 
     ny, nx = image.shape
 
-    image = np.pad(image, 1, mode='edge')
+    image = pad_edge_1(image)
 
     values = scipy_map_coordinates(image, coords + 1, **kwargs)
 
