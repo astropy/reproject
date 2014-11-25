@@ -1,4 +1,6 @@
+import numpy as np
 from functools import reduce
+
 
 def iterate_over_celestial_slices(array_in, array_out, wcs):
     """
@@ -53,3 +55,18 @@ def iterate_over_celestial_slices(array_in, array_out, wcs):
 
     for slice_index in range(n_remaining_in):
         yield array_in_view[slice_index], array_out_view[slice_index]
+
+
+def pad_edge_1(array):
+    try:
+        return np.pad(array, 1, mode='edge')
+    except:  # numpy < 1.7 workaround
+        new_array = np.zeros((array.shape[0] + 2,
+                              array.shape[1] + 2),
+                              dtype=array.dtype)
+        new_array[1:-1, 1:-1] = array
+        new_array[0, 1:-1] = new_array[1,1:-1]
+        new_array[-1, 1:-1] = new_array[-2,1:-1]
+        new_array[:,0] = new_array[:,1]
+        new_array[:,-1] = new_array[:,-2]
+        return new_array

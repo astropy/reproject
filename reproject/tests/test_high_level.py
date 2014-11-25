@@ -100,15 +100,12 @@ def test_surface_brightness(projection_type):
 
     data_in = np.ones((10, 10))
 
-    print(header_out)
-
     data_out, footprint = reproject((data_in, header_in), header_out,
                                      projection_type=projection_type)
 
     assert data_out.shape == (20, 20)
 
-    # For interpolation, the edge rows/columns are set to NaN so we exclude
-    # these in the comparison. Here we check that the values are still 1
-    # despite the change in resolution, which demonstrates that we are
-    # preserving surface brightness.
-    np.testing.assert_allclose(data_out[1:-1,1:-1], 1)
+    # Here we check that the values are still 1 despite the change in
+    # resolution, which demonstrates that we are preserving surface
+    # brightness.
+    np.testing.assert_allclose(data_out, 1)

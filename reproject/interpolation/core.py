@@ -1,13 +1,36 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
-from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
 from astropy.wcs import WCSSUB_CELESTIAL
-from ..wcs_utils import wcs_to_celestial_frame, convert_world_coordinates
-from ..array_utils import iterate_over_celestial_slices
+from ..wcs_utils import convert_world_coordinates
+from ..array_utils import iterate_over_celestial_slices, pad_edge_1
 
 __all__ = ['reproject_celestial']
+
+
+def map_coordinates(image, coords, **kwargs):
+
+    # In the built-in scipy map_coordinates, the values are defined at the
+    # center of the pixels. This means that map_coordinates does not
+    # correctly treat pixels that are in the outer half of the outer pixels.
+    # We solve this by extending the array, updating the pixel coordinates,
+    # then getting rid of values that were sampled in the range -1 to -0.5
+    # and n to n - 0.5.
+
+    from scipy.ndimage import map_coordinates as scipy_map_coordinates
+
+    ny, nx = image.shape
+
+    image = pad_edge_1(image)
+
+    values = scipy_map_coordinates(image, coords + 1, **kwargs)
+
+    reset = ((coords[0] < -0.5) | (coords[0] > nx - 0.5) |
+             (coords[1] < -0.5) | (coords[1] > ny - 0.5))
+    values[reset] = kwargs.get('cval', 0.)
+
+    return values
 
 
 def get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
@@ -19,10 +42,6 @@ def get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
     # TODO: for now assuming that coordinates are spherical, not
     # necessarily the case. Also assuming something about the order of the
     # arguments.
-
-    # Find input/output frames
-    frame_in = wcs_to_celestial_frame(wcs_in)
-    frame_out = wcs_to_celestial_frame(wcs_out)
 
     # Generate pixel coordinates of output image
     xp_out_ax = np.arange(shape_out[1])
@@ -70,6 +89,9 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
         indicate valid values.
     """
 
+    # Make sure image is floating point
+    array = np.asarray(array, dtype=float)
+
     # For now, assume axes are independent in this routine
 
     # Check that WCSs are equivalent
@@ -87,16 +109,14 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
 
     array_new = np.zeros(shape_out)
 
-    xp_in = yp_in = None
-
-    from scipy.ndimage import map_coordinates
+    coordinates = None
 
     # Loop over slices and interpolate
     for slice_in, slice_out in iterate_over_celestial_slices(array, array_new, wcs_in):
 
-        if xp_in is None:  # Get position of output pixel centers in input image
+        if coordinates is None:  # Get position of output pixel centers in input image
             xp_in, yp_in = get_input_pixels_celestial(wcs_in_celestial, wcs_out_celestial, slice_out.shape)
-            coordinates = [yp_in.ravel(), xp_in.ravel()]
+            coordinates = np.array([yp_in.ravel(), xp_in.ravel()])
 
         slice_out[:,:] = map_coordinates(slice_in,
                                          coordinates,
