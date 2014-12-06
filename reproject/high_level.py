@@ -3,7 +3,7 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 import numpy as np
-from astropy.io.fits import PrimaryHDU, ImageHDU, Header
+from astropy.io.fits import PrimaryHDU, ImageHDU, CompImageHDU, Header
 from astropy.wcs import WCS
 
 from .wcs_utils import has_celestial
@@ -24,12 +24,14 @@ def reproject(input_data, output_projection, shape_out=None, projection_type='bi
 
     Parameters
     ----------
-    input_data : `~astropy.io.fits.PrimaryHDU` or `~astropy.io.fits.ImageHDU` or tuple
+    input_data : `~astropy.io.fits.PrimaryHDU` or `~astropy.io.fits.ImageHDU` 
+        or `~astropy.io.fits.CompImageHDU` or tuple.
         The input data to reproject. This can be an image HDU object from
-        :mod:`astropy.io.fits`, such as a `~astropy.io.fits.PrimaryHDU`
-        or `~astropy.io.fits.ImageHDU`, or it can be a tuple where the
-        first element is a `~numpy.ndarray` and the second element is
-        either a `~astropy.wcs.WCS` or a `~astropy.io.fits.Header` object
+        :mod:`astropy.io.fits`, such as a `~astropy.io.fits.PrimaryHDU`,
+        `~astropy.io.fits.ImageHDU`, `~astropy.io.fits.CompImageHDU`, 
+        or it can be a tuple where the first element is a `~numpy.ndarray` 
+        and the second element is either a `~astropy.wcs.WCS` or a 
+        `~astropy.io.fits.Header` object
     output_projection : `~astropy.wcs.WCS` or `~astropy.io.fits.Header`
         The output projection, which can be either a `~astropy.wcs.WCS`
         or a `~astropy.io.fits.Header` instance.
@@ -54,7 +56,7 @@ def reproject(input_data, output_projection, shape_out=None, projection_type='bi
         indicate valid values. Intermediate values indicate partial coverage.
     """
 
-    if isinstance(input_data, (PrimaryHDU, ImageHDU)):
+    if isinstance(input_data, (PrimaryHDU, ImageHDU, CompImageHDU)):
         array_in = input_data.data
         wcs_in = WCS(input_data.header)
     elif isinstance(input_data, tuple) and isinstance(input_data[0], np.ndarray):
