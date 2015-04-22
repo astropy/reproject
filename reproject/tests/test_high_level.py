@@ -119,3 +119,35 @@ def test_surface_brightness(projection_type, dtype):
     # resolution, which demonstrates that we are preserving surface
     # brightness.
     np.testing.assert_allclose(data_out, 1)
+
+
+IDENTITY_TEST_HDR = """
+NAXIS   =                    2 / Number of coordinate axes
+NAXIS1  =                    5
+NAXIS2  =                   10
+CRPIX1  =  8540.80750619681    / Pixel coordinate of reference point
+CRPIX2  =   4108.61481031444   / Pixel coordinate of reference point
+CUNIT1  = 'deg'                / Units of coordinate increment and value
+CUNIT2  = 'deg'                / Units of coordinate increment and value
+CTYPE1  = 'RA---TAN'           / galactic longitude, plate caree projection
+CTYPE2  = 'DEC--TAN'           / galactic latitude, plate caree projection
+CRVAL1  =  282.582253365684    / [deg] Coordinate value at reference point
+CRVAL2  =   -5.80644283270032  / [deg] Coordinate value at reference point
+CD1_1   = 5.92448829959494E-05 / WCS transform matrix element                   
+CD2_1   = -2.5640855053008E-08 / WCS transform matrix element                  
+CD1_2   = 1.30443859769625E-08 / WCS transform matrix element                   
+CD2_2   = 5.92479929826863E-05 / WCS transform matrix element  
+"""
+
+
+@pytest.mark.parametrize('projection_type', ALL_MODES)
+def test_identity_projection(projection_type):
+    header_in = fits.Header.fromstring(IDENTITY_TEST_HDR, sep='\n')
+    data_in = np.ones((header_in['NAXIS2'], header_in['NAXIS1']))
+    data_out, footprint = reproject((data_in, header_in), header_in,
+                                    projection_type=projection_type)
+    # When reprojecting with an identical input and output header,
+    # we may expect the input and output data to be similar,
+    # and the footprint values to be ~ones.
+    np.testing.assert_allclose(footprint, data_in, rtol=0.1)
+    np.testing.assert_allclose(data_in, data_out, rtol=0.1)
