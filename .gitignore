@@ -11,8 +11,11 @@ reproject/reproject.cfg
 reproject/version.py
 reproject.egg-info
 reproject/spherical_intersect/_overlap.c
+reproject/_compiler.c
 docs/_build
 docs/api
 .coverage
 htmlcov
 dev
+
+.idea
