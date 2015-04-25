@@ -6,8 +6,6 @@ import numpy as np
 from astropy.io.fits import PrimaryHDU, ImageHDU, CompImageHDU, Header
 from astropy.wcs import WCS
 
-from .wcs_utils import has_celestial
-
 
 __all__ = ['reproject']
 
@@ -86,7 +84,7 @@ def reproject(input_data, output_projection, shape_out=None, projection_type='bi
         order = ORDER[projection_type]
 
         # For now only celestial reprojection is supported
-        if has_celestial(wcs_in):
+        if wcs_in.has_celestial:
             from .interpolation import reproject_celestial
             return reproject_celestial(array_in, wcs_in, wcs_out, shape_out=shape_out, order=order)
         else:
@@ -95,7 +93,7 @@ def reproject(input_data, output_projection, shape_out=None, projection_type='bi
     elif projection_type == 'flux-conserving':
 
         # For now only 2-d celestial reprojection is supported
-        if has_celestial(wcs_in) and wcs_in.naxis == 2:
+        if wcs_in.has_celestial and wcs_in.naxis == 2:
             from .spherical_intersect import reproject_celestial
             return reproject_celestial(array_in, wcs_in, wcs_out, shape_out=shape_out)
         else:
