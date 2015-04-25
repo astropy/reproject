@@ -100,6 +100,34 @@ flux-conserving. The reprojection method can be explicitly set with the
           constant value of 1, reprojecting the image to an image with twice as
           high resolution will result in an image where all pixels are all 1.
 
+Event lists
+===========
+
+The :func:`~reproject.reproject` function can also be used to bin event lists
+onto an output WCS. This can be done by setting the first argument to
+:func:`~reproject.reproject` to a tuple consisting of a
+`~astropy.coordinates.SkyCoord` instance and a Numpy array. The
+`~astropy.coordinates.SkyCoord` instance should contain arrays of values, and
+indicate the celestial position of the events, and the Numpy array should give
+the weights to use in the binning (for instance, energy)::
+
+    >>> new_image, footprint = reproject((coords, weights), new_header)
+
+The ``footprint`` will always be ``None`` in this case, but we leave it for
+consistency.
+
+To make it easier to obtain the coordinates and weights, the
+`~reproject.events.parse_events` function takes a FITS file name or a table HDU
+object, as well as an optional ``weights`` argument which can be set to the
+name of the column to use for weighting, and returns the tuple of coordinates
+and weights::
+
+    >>> from reproject.events import parse_events
+    >>> coords, weights = parse_events('my_events.fits', weights='energy')
+
+after which the ``coords`` and ``weights`` can be passed to
+:func:`~reproject.reproject`.
+
 Reference/API
 =============
 
@@ -110,4 +138,7 @@ Reference/API
    :no-inheritance-diagram:
 
 .. automodapi:: reproject.spherical_intersect
+   :no-inheritance-diagram:
+
+.. automodapi:: reproject.events
    :no-inheritance-diagram:
