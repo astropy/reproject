@@ -11,12 +11,12 @@ __all__ = ['reproject_events', 'parse_events']
 def parse_events(hdu, weights=None):
 
     if isinstance(hdu, six.string_types):
-        hdu = fits.open(hdu)
-        try:
-            hdu = hdu['EVENTS']
-        except KeyError:
-            raise ValueError("Could not find an EVENTS HDU. Try passing the HDU object directly instead of the filename.")
-        return parse_events(hdu)
+        with fits.open(hdu) as hdulist:
+            try:
+                hdu = hdulist['EVENTS']
+            except KeyError:
+                raise ValueError("Could not find an EVENTS HDU. Try passing the HDU object directly instead of the filename.")
+            return parse_events(hdu)
     elif not isinstance(hdu, (fits.TableHDU, fits.BinTableHDU)):
         raise TypeError("hdu should be a filename or a table HDU instance")
 
@@ -36,8 +36,6 @@ def parse_events(hdu, weights=None):
         weights = hdu.data[weights]
     else:
         weights = np.ones(len(hdu.data))
-
-    print(weights)
 
     return coords, weights
 
