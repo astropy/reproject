@@ -5,6 +5,7 @@ from __future__ import (absolute_import, division, print_function,
 import numpy as np
 from astropy.io.fits import PrimaryHDU, ImageHDU, CompImageHDU, Header
 from astropy.wcs import WCS
+from astropy.coordinates import SkyCoord
 
 
 __all__ = ['reproject']
@@ -29,7 +30,10 @@ def reproject(input_data, output_projection, shape_out=None, projection_type='bi
         `~astropy.io.fits.ImageHDU`, `~astropy.io.fits.CompImageHDU`, 
         or it can be a tuple where the first element is a `~numpy.ndarray` 
         and the second element is either a `~astropy.wcs.WCS` or a 
-        `~astropy.io.fits.Header` object
+        `~astropy.io.fits.Header` object. It can also be a tuple of a
+        `~astropy.coordinates.SkyCoord` instance and a Numpy array, which can
+        be used to represent events to be binned. In this case the second
+        element in the tuple are the weights (e.g. energy) of the events.
     output_projection : `~astropy.wcs.WCS` or `~astropy.io.fits.Header`
         The output projection, which can be either a `~astropy.wcs.WCS`
         or a `~astropy.io.fits.Header` instance.
@@ -55,16 +59,22 @@ def reproject(input_data, output_projection, shape_out=None, projection_type='bi
     """
 
     if isinstance(input_data, (PrimaryHDU, ImageHDU, CompImageHDU)):
+        events_in = None
         array_in = input_data.data
         wcs_in = WCS(input_data.header)
     elif isinstance(input_data, tuple) and isinstance(input_data[0], np.ndarray):
+        events_in = None
         array_in = input_data[0]
         if isinstance(input_data[1], Header):
             wcs_in = WCS(input_data[1])
         else:
             wcs_in = input_data[1]
+    elif isinstance(input_data, tuple) and isinstance(input_data[0], SkyCoord):
+        events_in = input_data
+        array_in = None
+        wcs_in = None
     else:
-        raise TypeError("input_data should either be an HDU object or a tuple of (array, WCS) or (array, Header)")
+        raise TypeError("input_data should either be an HDU object or a tuple of (array, WCS) or (array, Header) or (SkyCoord, weights)")
 
     if isinstance(output_projection, Header):
         wcs_out = WCS(output_projection)
@@ -78,8 +88,10 @@ def reproject(input_data, output_projection, shape_out=None, projection_type='bi
         if shape_out is None:
             raise ValueError("Need to specify shape when specifying output_projection as WCS object")
 
-
-    if projection_type in ORDER:
+    if events_in is not None:
+        from .events import reproject_events
+        return reproject_events(events_in, wcs_out, shape_out=shape_out)
+    elif projection_type in ORDER:
 
         order = ORDER[projection_type]
 
