@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 
-from io import StringIO
+from astropy.extern.six import StringIO
 from astropy.io import fits
 
 from ..events import parse_events
