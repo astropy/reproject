@@ -9,6 +9,24 @@ __all__ = ['reproject_events', 'parse_events']
 
 
 def parse_events(hdu, weights=None):
+    """
+    Parse events from a FITS file or HDU.
+
+    Parameters
+    ----------
+    hdu : str or `~astropy.io.fits.BinTableHDU` or `~astropy.io.fits.TableHDU`
+        The FITS file or HDU to extract events from.
+    weights : str, optional
+        If specified, this column in the event list will be used to extract the
+        weights.
+
+    Returns
+    -------
+    coords : `~astropy.coordinates.SkyCoord`
+        The celestial coordinates of the events
+    weights : `~numpy.ndarray`
+        The weights for each event
+    """
 
     if isinstance(hdu, six.string_types):
         with fits.open(hdu) as hdulist:
@@ -41,6 +59,26 @@ def parse_events(hdu, weights=None):
 
 
 def reproject_events(events, wcs_out, shape_out):
+    """
+    Reproject events onto an output WCS.
+
+    Parameters
+    ----------
+    events : tuple
+        A tuple of celestial coordinates as a `~astropy.coordinates.SkyCoord`
+        object and weights as an `~numpy.ndarray`.
+    wcs_out : `~astropy.wcs.WCS`
+        The output WCS
+    shape_out : tuple
+        The shape of the output array
+
+    Returns
+    -------
+    array_new : `~numpy.ndarray`
+        The reprojected events
+    footprint : None
+        The footprint is always set to `None`
+    """
 
     coords, weights = events
     ny, nx = shape_out
