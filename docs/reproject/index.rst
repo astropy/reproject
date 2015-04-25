@@ -18,7 +18,7 @@ for astronomical images.
 .. note::
 
     `reproject` requires `numpy <http://www.numpy.org/>`__ and
-    `astropy <http://www.astropy.org/>`__ to be installed.
+    `astropy <http://www.astropy.org/>`__ >=1.0 to be installed.
     Some functionality is only available if `scipy <http://www.scipy.org/>`__ or
     `scikit-image <http://scikit-image.org/>`__ are installed, users are
     encouraged to install those optional dependencies.
