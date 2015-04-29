@@ -50,24 +50,24 @@ contain information about image size).
 We start off by opening a FITS file using Astropy::
 
     >>> from astropy.io import fits
-    >>> hdu = fits.open('MSX_E.fits')[0]
+    >>> hdu = fits.open('https://github.com/aplpy/aplpy-examples/raw/master/data/MSX_E.fits.gz')[0]   # doctest: +REMOTE_DATA
 
 The image is currently using a Plate Carée projection::
 
-    >>> hdu.header['CTYPE1']
+    >>> hdu.header['CTYPE1']   # doctest: +REMOTE_DATA
     'GLON-CAR'
 
 We can create a new header using a Gnomonic projection::
 
-    >>> new_header = hdu.header.copy()
-    >>> new_header['CTYPE1'] = 'GLON-TAN'
-    >>> new_header['CTYPE2'] = 'GLAT-TAN'
+    >>> new_header = hdu.header.copy()   # doctest: +REMOTE_DATA
+    >>> new_header['CTYPE1'] = 'GLON-TAN'   # doctest: +REMOTE_DATA
+    >>> new_header['CTYPE2'] = 'GLAT-TAN'   # doctest: +REMOTE_DATA
 
 And finally we can call the :func:`~reproject.reproject` function to reproject
 the image::
 
     >>> from reproject import reproject
-    >>> new_image, footprint = reproject(hdu, new_header)
+    >>> new_image, footprint = reproject(hdu, new_header)   # doctest: +REMOTE_DATA
 
 The :func:`~reproject.reproject` function returns two arrays - the first is the
 reprojected input image, and the second is a 'footprint' array which shows the
@@ -78,7 +78,7 @@ pixels with partial overlap.
 
 We can then easily write out the reprojected image to a new FITS file::
 
-    >>> fits.writeto('reprojected_image.fits', new_image, new_header)
+    >>> fits.writeto('reprojected_image.fits', new_image, new_header)   # doctest: +REMOTE_DATA
 
 There are different reprojection methods implemented. By default, the
 reprojection is done using bilinear interpolation, which is very fast but not
