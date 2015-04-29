@@ -51,6 +51,7 @@ We start off by opening a FITS file using Astropy::
 
     >>> from astropy.io import fits
     >>> hdu = fits.open('https://github.com/aplpy/aplpy-examples/raw/master/data/MSX_E.fits.gz')[0]   # doctest: +REMOTE_DATA
+    Downloading https://github.com/aplpy/aplpy-examples/raw/master/data/MSX_E.fits.gz [Done]
 
 The image is currently using a Plate Carée projection::
 
