@@ -8,12 +8,13 @@ import itertools
 import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
-import pytest
+from astropy.tests.helper import pytest
 
 from ..core import healpix_to_image, image_to_healpix, healpix_reproject_file
 
 
 DATA = os.path.join(os.path.dirname(__file__), 'data')
+
 
 def get_reference_header(oversample=2, nside=1):
 
@@ -32,13 +33,13 @@ def get_reference_header(oversample=2, nside=1):
         'NAXIS': 2,
         'NAXIS1': oversample * 8 * nside,
         'NAXIS2': oversample * 4 * nside})
-        
+
     return reference_header
 
 
 @pytest.mark.importorskip('healpy')
 @pytest.mark.parametrize("nside,nest,healpix_system,image_system",
-    itertools.product([1, 2, 4, 8, 16, 32, 64], [True, False], 'C', 'C'))
+                         itertools.product([1, 2, 4, 8, 16, 32, 64], [True, False], 'C', 'C'))
 def test_reproject_healpix_to_image_round_trip(
         nside, nest, healpix_system, image_system):
     """Test round-trip HEALPix->WCS->HEALPix conversion for a random map,
@@ -70,4 +71,3 @@ def test_reproject_file():
     hdu = healpix_reproject_file(os.path.join(DATA, 'bayestar.fits.gz'), reference_header)
     reference_result = fits.getdata(os.path.join(DATA, 'reference_result.fits'))
     np.testing.assert_allclose(hdu.data, reference_result)
-

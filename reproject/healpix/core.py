@@ -25,6 +25,7 @@ FRAMES = {
     'c': ICRS()
 }
 
+
 def parse_coord_system(system):
     if isinstance(system, BaseCoordinateFrame):
         return system
@@ -40,6 +41,7 @@ def parse_coord_system(system):
                 raise ValueError("Could not determine frame for system={0}".format(system))
             else:
                 return system_new
+
 
 def healpix_reproject_file(hp_filename, reference, outfilename=None, clobber=False, field=0, **kwargs):
     """
