@@ -11,11 +11,34 @@ import numpy as np
 
 from astropy.io import fits
 from astropy import units as u
+from astropy.extern import six
+from astropy.coordinates import BaseCoordinateFrame, frame_transform_graph, Galactic, ICRS
 
-from .wcs_utils import convert_world_coordinates
+from ..wcs_utils import convert_world_coordinates
 
 __all__ = ['healpix_reproject_file', 'healpix_to_image', 'image_to_healpix']
 
+
+FRAMES = {
+    'g': Galactic(),
+    'c': ICRS()
+}
+
+def parse_coord_system(system):
+    if isinstance(system, BaseCoordinateFrame):
+        return system
+    elif isinstance(system, six.string_types):
+        system = system.lower()
+        if system == 'e':
+            raise ValueError("Ecliptic coordinate frame not yet supported")
+        elif system in FRAMES:
+            return FRAMES[system]
+        else:
+            system_new = frame_transform_graph.lookup_name(system)
+            if system_new is None:
+                raise ValueError("Could not determine frame for system={0}".format(system))
+            else:
+                return system_new
 
 def healpix_reproject_file(hp_filename, reference, outfilename=None, clobber=False, field=0, **kwargs):
     """
@@ -67,7 +90,7 @@ def healpix_reproject_file(hp_filename, reference, outfilename=None, clobber=Fal
     return new_hdu
 
 
-def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out=None,
+def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
                      interp=True, nest=False):
     """
     Convert image in HEALPIX format to a normal FITS projection image (e.g.
@@ -132,6 +155,7 @@ def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out=None,
     lon_out, lat_out = wcs_out.wcs_pix2world(xinds, yinds, 0)
 
     # Convert between celestial coordinates
+    coord_system_in = parse_coord_system(coord_system_in)
     lon_in, lat_in = convert_world_coordinates(lon_out, lat_out, wcs_out, (coord_system_in, u.deg, u.deg))
 
     # Convert from lon, lat in degrees to colatitude theta, longitude phi,
@@ -197,6 +221,7 @@ def image_to_healpix(data, wcs_in, coord_system_out,
     lat_out = 90. - np.degrees(theta)
 
     # Convert between celestial coordinates
+    coord_system_out = parse_coord_system(coord_system_out)
     lon_in, lat_in = convert_world_coordinates(lon_out, lat_out, (coord_system_out, u.deg, u.deg), wcs_in)
 
     # Look up pixels in input system

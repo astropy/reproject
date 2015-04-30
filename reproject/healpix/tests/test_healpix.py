@@ -10,7 +10,8 @@ from astropy.io import fits
 from astropy.wcs import WCS
 import pytest
 
-from ..healpix import healpix_to_image, image_to_healpix
+from ..core import healpix_to_image, image_to_healpix
+
 
 @pytest.mark.importorskip('healpy')
 @pytest.mark.parametrize("nside,nest,healpix_system,image_system",
@@ -27,7 +28,6 @@ def test_reproject_healpix_to_image_round_trip(
     oversample = 2
     reference_header = fits.Header()
     reference_header.update({
-        'COORDSYS': image_system,
         'CDELT1': -180.0 / (oversample * 4 * nside),
         'CDELT2': 180.0 / (oversample * 4 * nside),
         'CRPIX1': oversample * 4 * nside,
@@ -42,11 +42,15 @@ def test_reproject_healpix_to_image_round_trip(
         'NAXIS1': oversample * 8 * nside,
         'NAXIS2': oversample * 4 * nside})
 
+    wcs_out = WCS(reference_header)
+    shape_out = reference_header['NAXIS2'], reference_header['NAXIS1']
+
     image_data = healpix_to_image(
-        healpix_data, reference_header, healpix_system,
+        healpix_data, healpix_system, wcs_out, shape_out,
         interp=False, nest=nest)
+
     healpix_data_2 = image_to_healpix(
-        image_data, reference_header, healpix_system,
+        image_data, wcs_out, healpix_system,
         nside, interp=False, nest=nest)
 
     np.testing.assert_array_equal(healpix_data, healpix_data_2)
