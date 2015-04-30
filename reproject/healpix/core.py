@@ -152,12 +152,12 @@ def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
     ...     'NAXIS2': 800})
     >>> healpix_data, healpix_header = hp.read_map('bayestar.fits.gz', h=True, verbose=False)
     >>> healpix_system = dict(healpix_header)['COORDSYS']
-    >>> reprojected_data = healpix_to_image(healpix_data, reference_header, healpix_system)
+    >>> wcs_out = WCS(reference_header)
+    >>> shape_out = reference_header['NAXIS2'], reference_header['NAXIS1']
+    >>> reprojected_data = healpix_to_image(healpix_data, healpix_system, wcs_out, shape_out)
     >>> fits.writeto('new_image.fits', reprojected_data, reference_header)
     """
     import healpy as hp
-
-    print(wcs_out.to_header())
 
     # Look up lon, lat of pixels in reference system
     yinds, xinds = np.indices(shape_out)
