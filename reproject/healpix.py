@@ -6,28 +6,16 @@ This is a thin wrapper convenience functions around
 Refer to https://github.com/healpy/healpy/issues/129 and https://github.com/gammapy/gammapy/blob/master/gammapy/image/healpix.py
 """
 from __future__ import print_function, division
-from astropy import wcs
-from astropy.io import fits
+
 import numpy as np
+
+from astropy.io import fits
+from astropy import units as u
+
+from .wcs_utils import convert_world_coordinates
 
 __all__ = ['healpix_reproject_file', 'healpix_to_image', 'image_to_healpix']
 
-# Mapping between HEALPix and WCS coordinate frames
-healpix_to_wcs_coordsys = {
-    'E': 'ecliptic',
-    'G': 'galactic',
-    'C': 'icrs'}
-
-# Reverse mapping
-wcs_to_healpix_coordsys = dict(zip(*list(zip(*healpix_to_wcs_coordsys.items()))[::-1]))
-
-def normalize_healpix_coordsys(coordsys):
-    if coordsys.upper() in healpix_to_wcs_coordsys:
-        return coordsys.upper()
-    try:
-        return wcs_to_healpix_coordsys[coordsys.lower()]
-    except KeyError:
-        raise ValueError('Unrecognized coordinate system: "{0}"'.format(coordsys))
 
 def healpix_reproject_file(hp_filename, reference, outfilename=None, clobber=False, field=0, **kwargs):
     """
@@ -59,13 +47,13 @@ def healpix_reproject_file(hp_filename, reference, outfilename=None, clobber=Fal
     hp_header = dict(hp_header)
     hp_coordsys = hp_header['COORDSYS']
 
-    if isinstance(reference,str):
+    if isinstance(reference, str):
         reference_header = fits.getheader(reference)
-    elif isinstance(reference,fits.Header):
+    elif isinstance(reference, fits.Header):
         reference_header = reference
-    elif isinstance(reference,fits.PrimaryHDU):
+    elif isinstance(reference, fits.PrimaryHDU):
         reference_header = reference.header
-    elif isinstance(reference,fits.HDUList):
+    elif isinstance(reference, fits.HDUList):
         reference_header = reference[0].header
     else:
         raise TypeError("Reference was not a valid type; must be some sort of FITS header representation")
@@ -78,7 +66,8 @@ def healpix_reproject_file(hp_filename, reference, outfilename=None, clobber=Fal
 
     return new_hdu
 
-def healpix_to_image(healpix_data, reference_header, hpx_coord_system,
+
+def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out=None,
                      interp=True, nest=False):
     """
     Convert image in HEALPIX format to a normal FITS projection image (e.g.
@@ -88,12 +77,14 @@ def healpix_to_image(healpix_data, reference_header, hpx_coord_system,
     ----------
     healpix_data : `numpy.ndarray`
         HEALPIX data array
-    reference_header : `astropy.io.fits.ImageHDU` or `astropy.io.fits.Header`
-        A reference image or header to project to.  Must have a 'COORDSYS'
-        keyword of either 'galactic' or 'icrs'
-    hpx_coord_system : 'galactic' or 'icrs'
-        The target coordinate system.  Should be derived from the HEALPIX
-        COORDSYS keyword if it is a FITS file
+    coord_system_in : str or `~astropy.coordinate.BaseCoordinateFrame`
+        The coordinate system for the input HEALPIX data, as an Astropy
+        coordinate frame or corresponding string alias (e.g. ``'icrs'`` or
+        ``'galactic'``)
+    wcs_out : `~astropy.wcs.WCS`
+        The WCS of the output array
+    shape_out : tuple
+        The shape of the output array
     nest : bool
         The order of the healpix_data, either nested or ring.  Stored in 
         FITS headers in the ORDERING keyword.
@@ -104,7 +95,7 @@ def healpix_to_image(healpix_data, reference_header, hpx_coord_system,
     -------
     reprojected_data : `numpy.ndarray`
         HEALPIX image resampled onto the reference image
-    
+
     Examples
     --------
     >>> import os
@@ -137,19 +128,16 @@ def healpix_to_image(healpix_data, reference_header, hpx_coord_system,
     import healpy as hp
 
     # Look up lon, lat of pixels in reference system
-    refwcs = wcs.WCS(reference_header)
-    yinds,xinds = np.indices([reference_header['NAXIS2'],reference_header['NAXIS1']])
-    lon_deg, lat_deg = refwcs.wcs_pix2world(xinds,yinds,0)
+    yinds, xinds = np.indices(shape_out)
+    lon_out, lat_out = wcs_out.wcs_pix2world(xinds, yinds, 0)
+
+    # Convert between celestial coordinates
+    lon_in, lat_in = convert_world_coordinates(lon_out, lat_out, wcs_out, (coord_system_in, u.deg, u.deg))
 
     # Convert from lon, lat in degrees to colatitude theta, longitude phi,
     # in radians
-    theta = 0.5 * np.pi - np.deg2rad(lat_deg)
-    phi = np.deg2rad(lon_deg)
-
-    # If the reference image uses a different celestial coordinate system from
-    # the HEALPIX image we need to transform the coordinates
-    ref_coord_system = reference_header['COORDSYS']
-    theta, phi = sky_to_sky(theta, phi, ref_coord_system, hpx_coord_system)
+    theta = np.radians(90. - lat_in)
+    phi = np.radians(lat_in)
 
     # hp.ang2pix() raises an exception for invalid values of theta, so only
     # process values for which WCS projection gives non-nan value
@@ -168,49 +156,21 @@ def healpix_to_image(healpix_data, reference_header, hpx_coord_system,
     return data
 
 
-def sky_to_sky(theta, phi, in_system, out_system):
-    """Convert between sky coordinates.
-
-    Parameters
-    ----------
-    theta, phi : array_like
-        Coordinate arrays
-    in_system, out_system : {'galactic', 'icrs'}
-        Input / output coordinate system
-
-    Returns
-    -------
-    """
-    import healpy as hp
-
-    in_system = normalize_healpix_coordsys(in_system)
-    out_system = normalize_healpix_coordsys(out_system)
-
-    if in_system != out_system:
-        r = hp.Rotator(coord=[in_system, out_system])
-        new_theta, new_phi = r(theta.flatten(), phi.flatten())
-        theta = new_theta.reshape(theta.shape)
-        phi = new_phi.reshape(phi.shape)
-
-    return theta, phi
-
-
-def image_to_healpix(data, reference_header, hpx_coord_system,
+def image_to_healpix(data, wcs_in, coord_system_out,
                      nside, interp=True, nest=False):
     """
-    Convert image in a normal FITS projection image (e.g. CAR or AIT)
-    to HEALPIX format.
+    Convert image in a normal WCS projection to HEALPIX format.
 
     Parameters
     ----------
     data : `numpy.ndarray`
-        FITS data array
-    reference_header : `astropy.io.fits.ImageHDU` or `astropy.io.fits.Header`
-        A reference image or header to project from.  Must have a 'COORDSYS'
-        keyword of either 'galactic' or 'icrs'
-    hpx_coord_system : 'galactic' or 'icrs'
-        The target coordinate system.  Should be derived from the HEALPIX
-        COORDSYS keyword if it is a FITS file
+        Input data array to reproject
+    wcs_in : `~astropy.wcs.WCS`
+        The WCS of the input array
+    coord_system_out : str or `~astropy.coordinate.BaseCoordinateFrame`
+        The target coordinate system for the HEALPIX projection, as an Astropy
+        coordinate frame or corresponding string alias (e.g. ``'icrs'`` or
+        ``'galactic'``)
     nest : bool
         The order of the healpix_data, either nested or ring.  Stored in 
         FITS headers in the ORDERING keyword.
@@ -220,33 +180,31 @@ def image_to_healpix(data, reference_header, hpx_coord_system,
     Returns
     -------
     reprojected_data : `numpy.ndarray`
-        FITS image resampled into HEALPIX array
+        A HEALPIX array of values
     """
     import healpy as hp
     from scipy.ndimage import map_coordinates
-
-    # If the reference image uses a different celestial coordinate system from
-    # the HEALPIX image we need to transform the coordinates
-    ref_coord_system = reference_header['COORDSYS']
 
     npix = hp.nside2npix(nside)
 
     if interp:
         raise NotImplementedError
 
-    # Look up lon, lat of pixels in reference system
+    # Look up lon, lat of pixels in output system and convert colatitude theta
+    # and longitude phi to longitude and latitude.
     theta, phi = hp.pix2ang(nside, np.arange(npix), nest)
-    theta, phi = sky_to_sky(theta, phi, hpx_coord_system, ref_coord_system)
-    lon_deg = np.rad2deg(phi)
-    lat_deg = np.rad2deg(0.5 * np.pi - theta)
+    lon_out = np.degrees(phi)
+    lat_out = 90. - np.degrees(theta)
 
-    # Look up pixels in reference system
-    refwcs = wcs.WCS(reference_header)
-    yinds, xinds = refwcs.wcs_world2pix(lon_deg, lat_deg, 0)
+    # Convert between celestial coordinates
+    lon_in, lat_in = convert_world_coordinates(lon_out, lat_out, (coord_system_out, u.deg, u.deg), wcs_in)
 
-    healpix_data = map_coordinates(
-        data, [xinds, yinds],
-        order=(3 if interp else 0),
-        mode='constant', cval=np.nan)
+    # Look up pixels in input system
+    yinds, xinds = wcs_in.wcs_world2pix(lon_in, lat_in, 0)
+
+    # Interpolate
+    healpix_data = map_coordinates(data, [xinds, yinds],
+                                   order=(3 if interp else 0),
+                                   mode='constant', cval=np.nan)
 
     return healpix_data
