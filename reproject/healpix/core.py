@@ -1,10 +1,12 @@
-"""HEALPIX (Hierarchical Equal-Area and Isolatitude Pixelization) utility functions.
-
-This is a thin wrapper convenience functions around
-`healpy` (http://code.google.com/p/healpy/) functionality.
-
-Refer to https://github.com/healpy/healpy/issues/129 and https://github.com/gammapy/gammapy/blob/master/gammapy/image/healpix.py
 """
+HEALPIX (Hierarchical Equal-Area and Isolatitude Pixelization) utility functions.
+
+These are convenience functions that are thin wrappers around `healpy`
+(http://code.google.com/p/healpy/) functionality.
+
+See https://github.com/healpy/healpy/issues/129 and https://github.com/gammapy/gammapy/blob/master/gammapy/image/healpix.py
+"""
+
 from __future__ import print_function, division
 
 import numpy as np
