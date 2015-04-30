@@ -43,17 +43,17 @@ def parse_coord_system(system):
                 return system_new
 
 
-def healpix_reproject_file(hp_filename, reference, outfilename=None, clobber=False, field=0, **kwargs):
+def healpix_reproject_file(filename_in, target, filename_out=None, clobber=False, field=0, **kwargs):
     """
     Reproject a HEALPIX file
 
     Parameters
     ----------
-    hp_filename : str
+    filename_in : str
         A HEALPIX FITS file name
-    reference : fits.Header, fits.PrimaryHDU, fits.HDUList, or str
+    target : fits.Header, fits.PrimaryHDU, fits.HDUList, or str
         A fits.Header or HDU or FITS filename containing the target for projection
-    outfilename : str or None
+    filename_out : str or None
         The filename to write to
     clobber : bool
         Overwrite the outfilename if it exists?
@@ -68,31 +68,31 @@ def healpix_reproject_file(hp_filename, reference, outfilename=None, clobber=Fal
     fits.PrimaryHDU containing the reprojected image
     """
     import healpy as hp
-    hp_data, hp_header = hp.read_map(
-        hp_filename, verbose=False, h=True, field=field)
+
+    hp_data, hp_header = hp.read_map(filename_in, verbose=False, h=True, field=field)
     hp_header = dict(hp_header)
     hp_coordsys = hp_header['COORDSYS']
 
-    if isinstance(reference, str):
-        reference_header = fits.getheader(reference)
-    elif isinstance(reference, fits.Header):
-        reference_header = reference
-    elif isinstance(reference, fits.PrimaryHDU):
-        reference_header = reference.header
-    elif isinstance(reference, fits.HDUList):
-        reference_header = reference[0].header
+    if isinstance(target, str):
+        target_header = fits.getheader(target)
+    elif isinstance(target, fits.Header):
+        target_header = target
+    elif isinstance(target, fits.PrimaryHDU):
+        target_header = target.header
+    elif isinstance(target, fits.HDUList):
+        target_header = target[0].header
     else:
-        raise TypeError("Reference was not a valid type; must be some sort of FITS header representation")
+        raise TypeError("target was not a valid type; must be some sort of FITS header representation")
 
-    wcs_out = WCS(reference_header)
-    shape_out = reference_header['NAXIS2'], reference_header['NAXIS1']
+    wcs_out = WCS(target_header)
+    shape_out = target_header['NAXIS2'], target_header['NAXIS1']
 
     image_data = healpix_to_image(hp_data, hp_coordsys, wcs_out, shape_out, **kwargs)
 
-    new_hdu = fits.PrimaryHDU(data=image_data, header=reference_header)
+    new_hdu = fits.PrimaryHDU(data=image_data, header=target_header)
 
-    if outfilename is not None:
-        new_hdu.writeto(outfilename, clobber=clobber)
+    if filename_out is not None:
+        new_hdu.writeto(filename_out, clobber=clobber)
 
     return new_hdu
 
