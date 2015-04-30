@@ -12,6 +12,7 @@ import numpy as np
 from astropy.io import fits
 from astropy import units as u
 from astropy.extern import six
+from astropy.wcs import WCS
 from astropy.coordinates import BaseCoordinateFrame, frame_transform_graph, Galactic, ICRS
 
 from ..wcs_utils import convert_world_coordinates
@@ -81,7 +82,11 @@ def healpix_reproject_file(hp_filename, reference, outfilename=None, clobber=Fal
     else:
         raise TypeError("Reference was not a valid type; must be some sort of FITS header representation")
 
-    image_data = healpix_to_image(hp_data, reference_header, hp_coordsys, **kwargs)
+    wcs_out = WCS(reference_header)
+    shape_out = reference_header['NAXIS2'], reference_header['NAXIS1']
+
+    image_data = healpix_to_image(hp_data, hp_coordsys, wcs_out, shape_out, **kwargs)
+
     new_hdu = fits.PrimaryHDU(data=image_data, header=reference_header)
 
     if outfilename is not None:
@@ -109,7 +114,7 @@ def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
     shape_out : tuple
         The shape of the output array
     nest : bool
-        The order of the healpix_data, either nested or ring.  Stored in 
+        The order of the healpix_data, either nested or ring.  Stored in
         FITS headers in the ORDERING keyword.
     interp : bool
         Get the bilinear interpolated data?  If not, returns a set of neighbors
@@ -150,6 +155,8 @@ def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
     """
     import healpy as hp
 
+    print(wcs_out.to_header())
+
     # Look up lon, lat of pixels in reference system
     yinds, xinds = np.indices(shape_out)
     lon_out, lat_out = wcs_out.wcs_pix2world(xinds, yinds, 0)
@@ -161,7 +168,7 @@ def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
     # Convert from lon, lat in degrees to colatitude theta, longitude phi,
     # in radians
     theta = np.radians(90. - lat_in)
-    phi = np.radians(lat_in)
+    phi = np.radians(lon_in)
 
     # hp.ang2pix() raises an exception for invalid values of theta, so only
     # process values for which WCS projection gives non-nan value
@@ -196,7 +203,7 @@ def image_to_healpix(data, wcs_in, coord_system_out,
         coordinate frame or corresponding string alias (e.g. ``'icrs'`` or
         ``'galactic'``)
     nest : bool
-        The order of the healpix_data, either nested or ring.  Stored in 
+        The order of the healpix_data, either nested or ring.  Stored in
         FITS headers in the ORDERING keyword.
     interp : bool
         Get the bilinear interpolated data?  If not, returns a set of neighbors
