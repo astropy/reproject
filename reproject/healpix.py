@@ -19,7 +19,7 @@ healpix_to_wcs_coordsys = {
     'C': 'icrs'}
 
 # Reverse mapping
-wcs_to_healpix_coordsys = dict(zip(*zip(*healpix_to_wcs_coordsys.items())[::-1]))
+wcs_to_healpix_coordsys = dict(zip(*list(zip(*healpix_to_wcs_coordsys.items()))[::-1]))
 
 def normalize_healpix_coordsys(coordsys):
     if coordsys.upper() in healpix_to_wcs_coordsys:
