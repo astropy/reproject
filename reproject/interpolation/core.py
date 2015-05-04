@@ -18,25 +18,33 @@ ORDER['biquadratic'] = 2
 ORDER['bicubic']= 3
 
 
-def reproject_interp(input_data, output_projection, shape_out=None, order='bilinear'):
+def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=None, order='bilinear'):
     """
     Reproject data to a new projection using interpolation (this is typically
     the fastest way to reproject an image).
 
     Parameters
     ----------
-    input_data : `~astropy.io.fits.PrimaryHDU` or `~astropy.io.fits.ImageHDU` or tuple
-        The input data to reproject. This can be an image HDU object from
-        :mod:`astropy.io.fits`, such as a `~astropy.io.fits.PrimaryHDU`
-        or `~astropy.io.fits.ImageHDU`, or it can be a tuple where the
-        first element is a `~numpy.ndarray` and the second element is
-        either a `~astropy.wcs.WCS` or a `~astropy.io.fits.Header` object
+    input_data : str or `~astropy.io.fits.HDUList` or `~astropy.io.fits.PrimaryHDU` or `~astropy.io.fits.ImageHDU` or tuple
+        The input data to reproject. This can be:
+        
+            * The name of a FITS file
+            * An `~astropy.io.fits.HDUList` object
+            * An image HDU object such as a `~astropy.io.fits.PrimaryHDU` or
+              `~astropy.io.fits.ImageHDU`
+            * A tuple where the first element is a `~numpy.ndarray` and the
+              second element is either a `~astropy.wcs.WCS` or a
+              `~astropy.io.fits.Header` object
+
     output_projection : `~astropy.wcs.WCS` or `~astropy.io.fits.Header`
         The output projection, which can be either a `~astropy.wcs.WCS`
         or a `~astropy.io.fits.Header` instance.
     shape_out : tuple, optional
         If ``output_projection`` is a `~astropy.wcs.WCS` instance, the
         shape of the output data should be specified separately.
+    hdu_in : int or str, optional
+        If ``input_data`` is a FITS file or an ~astropy.io.fits.HDUList`
+        instance, specifies the HDU to use.
     order : int or str, optional
         The order of the interpolation (if ``mode`` is set to
         ``'interpolation'``). This can be either one of the following strings:
@@ -59,7 +67,7 @@ def reproject_interp(input_data, output_projection, shape_out=None, order='bilin
         indicate valid values.
     """
     
-    array_in, wcs_in = parse_input_data(input_data)
+    array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
     wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
     
     if isinstance(order, six.string_types):

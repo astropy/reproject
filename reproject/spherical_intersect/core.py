@@ -19,25 +19,33 @@ from ..utils import parse_input_data, parse_output_projection
 __all__ = ['reproject_exact']
 
 
-def reproject_exact(input_data, output_projection, shape_out=None, parallel=True):
+def reproject_exact(input_data, output_projection, shape_out=None, hdu_in=None, parallel=True):
     """
     Reproject data to a new projection using flux-conserving spherical
     polygon intersection (this is the slowest algorithm).
 
     Parameters
     ----------
-    input_data : `~astropy.io.fits.PrimaryHDU` or `~astropy.io.fits.ImageHDU` or tuple
-        The input data to reproject. This can be an image HDU object from
-        :mod:`astropy.io.fits`, such as a `~astropy.io.fits.PrimaryHDU`
-        or `~astropy.io.fits.ImageHDU`, or it can be a tuple where the
-        first element is a `~numpy.ndarray` and the second element is
-        either a `~astropy.wcs.WCS` or a `~astropy.io.fits.Header` object
+    input_data : str or `~astropy.io.fits.HDUList` or `~astropy.io.fits.PrimaryHDU` or `~astropy.io.fits.ImageHDU` or tuple
+        The input data to reproject. This can be:
+        
+            * The name of a FITS file
+            * An `~astropy.io.fits.HDUList` object
+            * An image HDU object such as a `~astropy.io.fits.PrimaryHDU` or
+              `~astropy.io.fits.ImageHDU`
+            * A tuple where the first element is a `~numpy.ndarray` and the
+              second element is either a `~astropy.wcs.WCS` or a
+              `~astropy.io.fits.Header` object
+
     output_projection : `~astropy.wcs.WCS` or `~astropy.io.fits.Header`
         The output projection, which can be either a `~astropy.wcs.WCS`
         or a `~astropy.io.fits.Header` instance.
     shape_out : tuple, optional
         If ``output_projection`` is a `~astropy.wcs.WCS` instance, the
         shape of the output data should be specified separately.
+    hdu_in : int or str, optional
+        If ``input_data`` is a FITS file or an ~astropy.io.fits.HDUList`
+        instance, specifies the HDU to use.
     parallel : bool or int
         Flag for parallel implementation. If ``True``, a parallel implementation
         is chosen, the number of processes selected automatically to be equal to
@@ -55,7 +63,7 @@ def reproject_exact(input_data, output_projection, shape_out=None, parallel=True
         indicate valid values. Intermediate values indicate partial coverage.
     """
 
-    array_in, wcs_in = parse_input_data(input_data)
+    array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
     wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
 
     if wcs_in.has_celestial and wcs_in.naxis == 2:

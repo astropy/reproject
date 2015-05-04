@@ -30,7 +30,7 @@ def parse_coord_system(system):
                 return system_new
 
 
-def parse_input_healpix_data(input_data, field=0):
+def parse_input_healpix_data(input_data, field=0, hdu_in=None):
     """
     Parse input HEALPIX data to return a Numpy array and coordinate frame object.
     """
@@ -42,7 +42,7 @@ def parse_input_healpix_data(input_data, field=0):
         input_data = filename
 
     if isinstance(input_data, six.string_types):
-        array_in, header = read_map(input_data, verbose=False, h=True, field=field)
+        array_in, header = read_map(input_data, verbose=False, h=True, field=field, hdu=1 if hdu_in is None else hdu_in)
         coordinate_system_in = parse_coord_system(dict(header)['COORDSYS'])
     elif isinstance(input_data, tuple) and isinstance(input_data[0], np.ndarray):
         array_in = input_data[0]

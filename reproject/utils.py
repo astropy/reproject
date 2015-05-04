@@ -1,26 +1,30 @@
 import numpy as np
 
-from astropy.io.fits import PrimaryHDU, ImageHDU, CompImageHDU, Header
+from astropy.io.fits import PrimaryHDU, ImageHDU, CompImageHDU, Header, HDUList
 from astropy.wcs import WCS
+from astropy.extern import six
 
-def parse_input_data(input_data):
+
+def parse_input_data(input_data, hdu_in=None):
     """
     Parse input data to return a Numpy array and WCS object.
     """
     
-    if isinstance(input_data, (PrimaryHDU, ImageHDU, CompImageHDU)):
-        array_in = input_data.data
-        wcs_in = WCS(input_data.header)
+    if isinstance(input_data, six.string_types):
+        return parse_input_data(fits.open(input_data))   
+    elif isinstance(input_data, HDUList):
+        if len(input_data) > 1:
+            raise ValueError("More than one HDU is present, please specify HDU to use with ``hdu_in=`` option")
+        return parse_input_data(input_data[hdu])  
+    elif isinstance(input_data, (PrimaryHDU, ImageHDU, CompImageHDU)):
+        return input_data.data, WCS(input_data.header)
     elif isinstance(input_data, tuple) and isinstance(input_data[0], np.ndarray):
-        array_in = input_data[0]
         if isinstance(input_data[1], Header):
-            wcs_in = WCS(input_data[1])
+            return input_data[0], WCS(input_data[1])
         else:
-            wcs_in = input_data[1]
+            return input_data
     else:
         raise TypeError("input_data should either be an HDU object or a tuple of (array, WCS) or (array, Header)")
-
-    return array_in, wcs_in
 
 def parse_output_projection(output_projection, shape_out=None):
     
