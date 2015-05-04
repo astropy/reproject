@@ -21,10 +21,10 @@ specify the output shape using ``shape_out``) or as a FITS
 :class:`~astropy.io.fits.Header` object. All of the following are valid ways
 of reprojecting HEALPIX data::
 
-    >>> array, footprint = reproject_from_healpix('my_healpix_map.fits', target_header)
-    >>> array, footprint = reproject_from_healpix('my_healpix_map.fits', target_wcs, shape_out=(100,100))
-    >>> array, footprint = reproject_from_healpix((data, 'fk5'), target_header)
-    >>> array, footprint = reproject_from_healpix((data, FK5(equinox='J2010')), target_header)
+    >>> array, footprint = reproject_from_healpix('my_healpix_map.fits', target_header)  # doctest: +SKIP
+    >>> array, footprint = reproject_from_healpix('my_healpix_map.fits', target_wcs, shape_out=(100,100))  # doctest: +SKIP
+    >>> array, footprint = reproject_from_healpix((data, 'fk5'), target_header)  # doctest: +SKIP
+    >>> array, footprint = reproject_from_healpix((data, FK5(equinox='J2010')), target_header)  # doctest: +SKIP
     
 On the other hand, the :func:`~reproject.reproject_to_healpix` function takes
 input data in the same form as :func:`~reproject.reproject_interp`
@@ -32,4 +32,4 @@ input data in the same form as :func:`~reproject.reproject_interp`
 second argument, either as a string or as a
 :class:`~astropy.coordinates.BaseCoordinateFrame` instance e.g.::
 
-    >>> array, footprint = reproject_to_healpix((array, header_in), 'galactic')
+    >>> array, footprint = reproject_to_healpix((array, header_in), 'galactic')  # doctest: +SKIP
