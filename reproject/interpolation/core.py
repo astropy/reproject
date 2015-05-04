@@ -3,10 +3,70 @@ from __future__ import absolute_import, division, print_function
 
 import numpy as np
 from astropy.wcs import WCSSUB_CELESTIAL
+from astropy.extern import six
+
 from ..wcs_utils import convert_world_coordinates
 from ..array_utils import iterate_over_celestial_slices, pad_edge_1
+from ..utils import parse_input_data, parse_output_projection
 
-__all__ = ['reproject_celestial']
+__all__ = ['reproject_interpolation']
+
+ORDER = {}
+ORDER['nearest-neighbor'] = 0
+ORDER['bilinear'] = 1
+ORDER['biquadratic'] = 2
+ORDER['bicubic']= 3
+
+
+def reproject_interpolation(input_data, output_projection, shape_out=None, order='bilinear'):
+    """
+    Reproject data to a new projection using interpolation.
+
+    Parameters
+    ----------
+    input_data : `~astropy.io.fits.PrimaryHDU` or `~astropy.io.fits.ImageHDU` or tuple
+        The input data to reproject. This can be an image HDU object from
+        :mod:`astropy.io.fits`, such as a `~astropy.io.fits.PrimaryHDU`
+        or `~astropy.io.fits.ImageHDU`, or it can be a tuple where the
+        first element is a `~numpy.ndarray` and the second element is
+        either a `~astropy.wcs.WCS` or a `~astropy.io.fits.Header` object
+    output_projection : `~astropy.wcs.WCS` or `~astropy.io.fits.Header`
+        The output projection, which can be either a `~astropy.wcs.WCS`
+        or a `~astropy.io.fits.Header` instance.
+    shape_out : tuple, optional
+        If ``output_projection`` is a `~astropy.wcs.WCS` instance, the
+        shape of the output data should be specified separately.
+    order : int or str, optional
+        The order of the interpolation (if ``mode`` is set to
+        ``'interpolation'``). This can be either one of the following strings:
+            * 'nearest-neighbor'
+            * 'bilinear'
+            * 'biquadratic'
+            * 'bicubic'
+        or an integer. A value of ``0`` indicates nearest neighbor
+        interpolation. 
+
+    Returns
+    -------
+    array_new : `~numpy.ndarray`
+        The reprojected array
+    footprint : `~numpy.ndarray`
+        Footprint of the input array in the output array. Values of 0 indicate
+        no coverage or valid values in the input image, while values of 1
+        indicate valid values.
+    """
+    
+    array_in, wcs_in = parse_input_data(input_data)
+    wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
+    
+    if isinstance(order, six.string_types):
+        order = ORDER[order]
+
+    # For now only celestial reprojection is supported
+    if wcs_in.has_celestial:
+        return _reproject_celestial(array_in, wcs_in, wcs_out, shape_out=shape_out, order=order)
+    else:
+        raise NotImplementedError("Currently only data with a WCS that includes a celestial component can be reprojected")
 
 
 def map_coordinates(image, coords, **kwargs):
@@ -33,7 +93,7 @@ def map_coordinates(image, coords, **kwargs):
     return values
 
 
-def get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
+def _get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
     """
     Get the pixel coordinates of the pixels in an array of shape ``shape_out``
     in the input WCS.
@@ -59,34 +119,9 @@ def get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
     return xp_in, yp_in
 
 
-def reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
+def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
     """
-    Reproject celestial slices from an n-d array from one WCS to another using
-    interpolation, and assuming all other dimensions are independent.
-
-    Parameters
-    ----------
-    array : `~numpy.ndarray`
-        The array to reproject
-    wcs_in : `~astropy.wcs.WCS`
-        The input WCS
-    wcs_out : `~astropy.wcs.WCS`
-        The output WCS
-    shape_out : tuple
-        The shape of the output array
-    order : int
-        The order of the interpolation (if ``mode`` is set to
-        ``'interpolation'``). A value of ``0`` indicates nearest neighbor
-        interpolation. The default is bilinear interpolation.
-
-    Returns
-    -------
-    array_new : `~numpy.ndarray`
-        The reprojected array
-    footprint : `~numpy.ndarray`
-        Footprint of the input array in the output array. Values of 0 indicate
-        no coverage or valid values in the input image, while values of 1
-        indicate valid values.
+    Reproject data with celestial axes to a new projection using interpolation.
     """
 
     # Make sure image is floating point
@@ -115,7 +150,7 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
     for slice_in, slice_out in iterate_over_celestial_slices(array, array_new, wcs_in):
 
         if coordinates is None:  # Get position of output pixel centers in input image
-            xp_in, yp_in = get_input_pixels_celestial(wcs_in_celestial, wcs_out_celestial, slice_out.shape)
+            xp_in, yp_in = _get_input_pixels_celestial(wcs_in_celestial, wcs_out_celestial, slice_out.shape)
             coordinates = np.array([yp_in.ravel(), xp_in.ravel()])
 
         slice_out[:,:] = map_coordinates(slice_in,

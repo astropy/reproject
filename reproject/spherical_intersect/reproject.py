@@ -2,6 +2,8 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
+import signal
+
 import numpy as np
 
 from astropy.io import fits
@@ -11,30 +13,31 @@ from astropy import log as logger
 from ..wcs_utils import wcs_to_celestial_frame, convert_world_coordinates
 
 from ._overlap import _compute_overlap
+from ..utils import parse_input_data, parse_output_projection
 
-import signal
 
-__all__ = ['reproject_celestial']
+__all__ = ['reproject_flux_conserving']
 
-# Function to disable ctrl+c in the worker processes.
-def _init_worker():
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
 
-def reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _method = "c"):
+def reproject_flux_conserving(input_data, output_projection, shape_out=None, parallel=True):
     """
-    Reproject celestial slices from an n-d array from one WCS to another using
-    flux-conserving spherical polygon intersection.
+    Reproject data to a new projection using flux-conserving spherical
+    polygon intersection.
 
     Parameters
     ----------
-    array : `~numpy.ndarray`
-        The array to reproject
-    wcs_in : `~astropy.wcs.WCS`
-        The input WCS
-    wcs_out : `~astropy.wcs.WCS`
-        The output WCS
-    shape_out : tuple
-        The shape of the output array
+    input_data : `~astropy.io.fits.PrimaryHDU` or `~astropy.io.fits.ImageHDU` or tuple
+        The input data to reproject. This can be an image HDU object from
+        :mod:`astropy.io.fits`, such as a `~astropy.io.fits.PrimaryHDU`
+        or `~astropy.io.fits.ImageHDU`, or it can be a tuple where the
+        first element is a `~numpy.ndarray` and the second element is
+        either a `~astropy.wcs.WCS` or a `~astropy.io.fits.Header` object
+    output_projection : `~astropy.wcs.WCS` or `~astropy.io.fits.Header`
+        The output projection, which can be either a `~astropy.wcs.WCS`
+        or a `~astropy.io.fits.Header` instance.
+    shape_out : tuple, optional
+        If ``output_projection`` is a `~astropy.wcs.WCS` instance, the
+        shape of the output data should be specified separately.
     parallel : bool or int
         Flag for parallel implementation. If ``True``, a parallel implementation
         is chosen, the number of processes selected automatically to be equal to
@@ -51,6 +54,21 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _metho
         no coverage or valid values in the input image, while values of 1
         indicate valid values. Intermediate values indicate partial coverage.
     """
+
+    array_in, wcs_in = parse_input_data(input_data)
+    wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
+
+    if wcs_in.has_celestial and wcs_in.naxis == 2:
+        return _reproject_celestial(array_in, wcs_in, wcs_out, shape_out=shape_out)
+    else:
+        raise NotImplementedError("Currently only data with a 2-d celestial WCS can be reprojected using flux-conserving algorithm")
+
+
+# Function to disable ctrl+c in the worker processes.
+def _init_worker():
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _method = "c"):
 
     # Check the parallel flag.
     if type(parallel) != bool and type(parallel) != int:
@@ -181,7 +199,7 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _metho
         from multiprocessing import Pool, cpu_count
         # If needed, establish the number of processors to use.
         if nproc is None:
-                nproc = cpu_count()
+            nproc = cpu_count()
 
         # Create the pool.
         pool = None

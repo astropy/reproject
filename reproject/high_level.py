@@ -9,11 +9,6 @@ from astropy.wcs import WCS
 
 __all__ = ['reproject']
 
-ORDER = {}
-ORDER['nearest-neighbor'] = 0
-ORDER['bilinear'] = 1
-ORDER['biquadratic'] = 2
-ORDER['bicubic']= 3
 
 
 def reproject(input_data, output_projection, shape_out=None, projection_type='bilinear'):
@@ -54,50 +49,10 @@ def reproject(input_data, output_projection, shape_out=None, projection_type='bi
         indicate valid values. Intermediate values indicate partial coverage.
     """
 
-    if isinstance(input_data, (PrimaryHDU, ImageHDU, CompImageHDU)):
-        array_in = input_data.data
-        wcs_in = WCS(input_data.header)
-    elif isinstance(input_data, tuple) and isinstance(input_data[0], np.ndarray):
-        array_in = input_data[0]
-        if isinstance(input_data[1], Header):
-            wcs_in = WCS(input_data[1])
-        else:
-            wcs_in = input_data[1]
+    if projection_type == 'flux-conserving':
+        from .spherical_intersect import reproject_flux_conserving
+        return reproject_flux_conserving(input_data, output_projection, shape_out=shape_out)
     else:
-        raise TypeError("input_data should either be an HDU object or a tuple of (array, WCS) or (array, Header)")
+        from .interpolation import reproject_interpolation
+        return reproject_interpolation(input_data, output_projection, shape_out=shape_out, order=projection_type)
 
-    if isinstance(output_projection, Header):
-        wcs_out = WCS(output_projection)
-        try:
-            shape_out = [output_projection['NAXIS{0}'.format(i+1)] for i in range(output_projection['NAXIS'])][::-1]
-        except KeyError:
-            if shape_out is None:
-                raise ValueError("Need to specify shape since output header does not contain complete shape information")
-    elif isinstance(output_projection, WCS):
-        wcs_out = output_projection
-        if shape_out is None:
-            raise ValueError("Need to specify shape when specifying output_projection as WCS object")
-
-
-    if projection_type in ORDER:
-
-        order = ORDER[projection_type]
-
-        # For now only celestial reprojection is supported
-        if wcs_in.has_celestial:
-            from .interpolation import reproject_celestial
-            return reproject_celestial(array_in, wcs_in, wcs_out, shape_out=shape_out, order=order)
-        else:
-            raise NotImplementedError("Currently only data with a WCS that includes a celestial component can be reprojected")
-
-    elif projection_type == 'flux-conserving':
-
-        # For now only 2-d celestial reprojection is supported
-        if wcs_in.has_celestial and wcs_in.naxis == 2:
-            from .spherical_intersect import reproject_celestial
-            return reproject_celestial(array_in, wcs_in, wcs_out, shape_out=shape_out)
-        else:
-            raise NotImplementedError("Currently only data with a 2-d celestial WCS can be reprojected using flux-conserving algorithm")
-
-    else:
-        raise ValueError("Unknown projection type: {0}".format(projection_type))
