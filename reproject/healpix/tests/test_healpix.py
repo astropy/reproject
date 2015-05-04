@@ -55,11 +55,11 @@ def test_reproject_healpix_to_image_round_trip(
     wcs_out = WCS(reference_header)
     shape_out = reference_header['NAXIS2'], reference_header['NAXIS1']
 
-    image_data = healpix_to_image(
+    image_data, footprint = healpix_to_image(
         healpix_data, healpix_system, wcs_out, shape_out,
         interp=False, nest=nest)
 
-    healpix_data_2 = image_to_healpix(
+    healpix_data_2, footprint = image_to_healpix(
         image_data, wcs_out, healpix_system,
         nside, interp=False, nest=nest)
 
@@ -69,6 +69,6 @@ def test_reproject_healpix_to_image_round_trip(
 @pytest.mark.importorskip('healpy')
 def test_reproject_file():
     reference_header = get_reference_header(oversample=2, nside=8)
-    data = reproject_from_healpix(os.path.join(DATA, 'bayestar.fits.gz'), reference_header)
+    data, footprint = reproject_from_healpix(os.path.join(DATA, 'bayestar.fits.gz'), reference_header)
     reference_result = fits.getdata(os.path.join(DATA, 'reference_result.fits'))
     np.testing.assert_allclose(data, reference_result)

@@ -10,7 +10,7 @@ from astropy.wcs import WCS
 from astropy.utils.data import get_pkg_data_filename
 from astropy.tests.helper import pytest
 
-from .. import reproject
+from .. import reproject_interpolation, reproject_flux_conserving
 
 # TODO: add reference comparisons
 
@@ -44,27 +44,27 @@ class TestReproject(object):
     def test_hdu_header(self):
 
         with pytest.raises(ValueError) as exc:
-            reproject(self.hdu_in, self.header_out)
+            reproject_interpolation(self.hdu_in, self.header_out)
         assert exc.value.args[0] == "Need to specify shape since output header does not contain complete shape information"
 
-        reproject(self.hdu_in, self.header_out_size)
+        reproject_interpolation(self.hdu_in, self.header_out_size)
 
     def test_hdu_wcs(self):
-        reproject(self.hdu_in, self.wcs_out, shape_out=self.shape_out)
+        reproject_interpolation(self.hdu_in, self.wcs_out, shape_out=self.shape_out)
 
     def test_array_wcs_header(self):
 
         with pytest.raises(ValueError) as exc:
-            reproject((self.array_in, self.wcs_in), self.header_out)
+            reproject_interpolation((self.array_in, self.wcs_in), self.header_out)
         assert exc.value.args[0] == "Need to specify shape since output header does not contain complete shape information"
 
-        reproject((self.array_in, self.wcs_in), self.header_out_size)
+        reproject_interpolation((self.array_in, self.wcs_in), self.header_out_size)
 
     def test_array_wcs_wcs(self):
-        reproject((self.array_in, self.wcs_in), self.wcs_out, shape_out=self.shape_out)
+        reproject_interpolation((self.array_in, self.wcs_in), self.wcs_out, shape_out=self.shape_out)
 
     def test_array_header_header(self):
-        reproject((self.array_in, self.header_in), self.header_out_size)
+        reproject_interpolation((self.array_in, self.header_in), self.header_out_size)
 
 
 INPUT_HDR = """
@@ -100,8 +100,12 @@ def test_surface_brightness(projection_type):
 
     data_in = np.ones((10, 10))
 
-    data_out, footprint = reproject((data_in, header_in), header_out,
-                                     projection_type=projection_type)
+    if projection_type == 'flux-conserving':
+        data_out, footprint = reproject_flux_conserving((data_in, header_in), header_out)
+    else:
+        data_out, footprint = reproject_interpolation((data_in, header_in), header_out,
+                                                      order=projection_type)
+
 
     assert data_out.shape == (20, 20)
 
