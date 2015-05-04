@@ -23,22 +23,22 @@ of reprojecting HEALPIX data:
 
 * With an input filename and a target header::
 
-    >>> array, footprint = reproject_from_healpix('my_healpix_map.fits',
+    >>> array, footprint = reproject_from_healpix('my_healpix_map.fits',  # doctest: +SKIP
                                                   target_header)  # doctest: +SKIP
 
 * With an input filename and a target wcs and shape::
 
-    >>> array, footprint = reproject_from_healpix('my_healpix_map.fits',
+    >>> array, footprint = reproject_from_healpix('my_healpix_map.fits',  # doctest: +SKIP
                                                   target_wcs, shape_out=(100,100))  # doctest: +SKIP
 
 * With an input array (and associated coordinate system as a string) and a target header::
 
-    >>> array, footprint = reproject_from_healpix((data, 'fk5'),
+    >>> array, footprint = reproject_from_healpix((data, 'fk5'),  # doctest: +SKIP
                                                   target_header)  # doctest: +SKIP
 
 * With an input array (and associated coordinate system) and a target header::
 
-    >>> array, footprint = reproject_from_healpix((data, FK5(equinox='J2010')),
+    >>> array, footprint = reproject_from_healpix((data, FK5(equinox='J2010')),  # doctest: +SKIP
                                                   target_header)  # doctest: +SKIP
     
 On the other hand, the :func:`~reproject.reproject_to_healpix` function takes
@@ -48,3 +48,8 @@ second argument, either as a string or as a
 :class:`~astropy.coordinates.BaseCoordinateFrame` instance e.g.::
 
     >>> array, footprint = reproject_to_healpix((array, header_in), 'galactic')  # doctest: +SKIP
+
+The array returned is a 1-D array which can be stored in a HEALPIX file using ``healpy.write_map``::
+
+    >>> from healpy import write_map
+    >>> write_map('healpix_map.fits', array)  # doctest: +SKIP
