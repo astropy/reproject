@@ -20,7 +20,8 @@ ORDER['bicubic']= 3
 
 def reproject_interp(input_data, output_projection, shape_out=None, order='bilinear'):
     """
-    Reproject data to a new projection using interpolation.
+    Reproject data to a new projection using interpolation (this is typically
+    the fastest way to reproject an image).
 
     Parameters
     ----------

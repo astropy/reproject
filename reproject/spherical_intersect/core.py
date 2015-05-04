@@ -22,7 +22,7 @@ __all__ = ['reproject_exact']
 def reproject_exact(input_data, output_projection, shape_out=None, parallel=True):
     """
     Reproject data to a new projection using flux-conserving spherical
-    polygon intersection.
+    polygon intersection (this is the slowest algorithm).
 
     Parameters
     ----------
