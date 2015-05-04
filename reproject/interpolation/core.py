@@ -3,11 +3,9 @@ from __future__ import absolute_import, division, print_function
 
 import numpy as np
 from astropy.wcs import WCSSUB_CELESTIAL
-from astropy.extern import six
 
 from ..wcs_utils import convert_world_coordinates
 from ..array_utils import iterate_over_celestial_slices, pad_edge_1
-from ..utils import parse_input_data, parse_output_projection
 
 
 def map_coordinates(image, coords, **kwargs):
@@ -94,10 +92,10 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
             xp_in, yp_in = _get_input_pixels_celestial(wcs_in_celestial, wcs_out_celestial, slice_out.shape)
             coordinates = np.array([yp_in.ravel(), xp_in.ravel()])
 
-        slice_out[:,:] = map_coordinates(slice_in,
-                                         coordinates,
-                                         order=order, cval=np.nan,
-                                         mode='constant'
-                                         ).reshape(slice_out.shape)
+        slice_out[:, :] = map_coordinates(slice_in,
+                                          coordinates,
+                                          order=order, cval=np.nan,
+                                          mode='constant'
+                                          ).reshape(slice_out.shape)
 
     return array_new, (~np.isnan(array_new)).astype(float)

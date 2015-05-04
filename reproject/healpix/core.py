@@ -19,8 +19,6 @@ from .utils import parse_coord_system
 __all__ = ['healpix_to_image', 'image_to_healpix']
 
 
-
-
 def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
                      interp=True, nest=False):
     """

@@ -13,7 +13,7 @@ ORDER = {}
 ORDER['nearest-neighbor'] = 0
 ORDER['bilinear'] = 1
 ORDER['biquadratic'] = 2
-ORDER['bicubic']= 3
+ORDER['bicubic'] = 3
 
 
 def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=None, order='bilinear'):
@@ -25,7 +25,7 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=None,
     ----------
     input_data : str or `~astropy.io.fits.HDUList` or `~astropy.io.fits.PrimaryHDU` or `~astropy.io.fits.ImageHDU` or tuple
         The input data to reproject. This can be:
-        
+
             * The name of a FITS file
             * An `~astropy.io.fits.HDUList` object
             * An image HDU object such as a `~astropy.io.fits.PrimaryHDU` or
@@ -64,10 +64,10 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=None,
         no coverage or valid values in the input image, while values of 1
         indicate valid values.
     """
-    
+
     array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
     wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
-    
+
     if isinstance(order, six.string_types):
         order = ORDER[order]
 

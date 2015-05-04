@@ -2,8 +2,6 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-import os
-
 import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -83,6 +81,7 @@ LONPOLE =                  0.0 / [deg] Native longitude of celestial pole
 LATPOLE =                 90.0 / [deg] Native latitude of celestial pole
 """
 
+
 @pytest.mark.parametrize('projection_type', ALL_MODES)
 def test_surface_brightness(projection_type):
 
@@ -104,8 +103,7 @@ def test_surface_brightness(projection_type):
         data_out, footprint = reproject_exact((data_in, header_in), header_out)
     else:
         data_out, footprint = reproject_interp((data_in, header_in), header_out,
-                                                      order=projection_type)
-
+                                               order=projection_type)
 
     assert data_out.shape == (20, 20)
 

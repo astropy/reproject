@@ -17,7 +17,7 @@ def reproject_exact(input_data, output_projection, shape_out=None, hdu_in=None, 
     ----------
     input_data : str or `~astropy.io.fits.HDUList` or `~astropy.io.fits.PrimaryHDU` or `~astropy.io.fits.ImageHDU` or tuple
         The input data to reproject. This can be:
-        
+
             * The name of a FITS file
             * An `~astropy.io.fits.HDUList` object
             * An image HDU object such as a `~astropy.io.fits.PrimaryHDU` or
@@ -59,4 +59,3 @@ def reproject_exact(input_data, output_projection, shape_out=None, hdu_in=None, 
         return _reproject_celestial(array_in, wcs_in, wcs_out, shape_out=shape_out)
     else:
         raise NotImplementedError("Currently only data with a 2-d celestial WCS can be reprojected using flux-conserving algorithm")
-

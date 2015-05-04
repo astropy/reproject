@@ -2,8 +2,6 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-import os
-
 import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -22,7 +20,7 @@ def test_reproject_celestial_slices_2d():
     wcs_in = WCS(header_in)
     wcs_out = WCS(header_out)
 
-    array_out = _reproject_celestial(array_in, wcs_in, wcs_out, (200, 200))
+    _reproject_celestial(array_in, wcs_in, wcs_out, (200, 200))
 
 DATA = np.array([[1, 2], [3, 4]])
 

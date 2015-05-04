@@ -17,7 +17,8 @@ from ._overlap import _compute_overlap
 def _init_worker():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
-def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _method = "c"):
+
+def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _method="c"):
 
     # Check the parallel flag.
     if type(parallel) != bool and type(parallel) != int:
@@ -90,26 +91,26 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _meth
                 # pixel coordinates, then use the full range of overlapping output
                 # pixels with the exact overlap function.
 
-                xmin = int(min(xp_inout[j, i], xp_inout[j, i+1], xp_inout[j+1, i+1], xp_inout[j+1, i]) + 0.5)
-                xmax = int(max(xp_inout[j, i], xp_inout[j, i+1], xp_inout[j+1, i+1], xp_inout[j+1, i]) + 0.5)
-                ymin = int(min(yp_inout[j, i], yp_inout[j, i+1], yp_inout[j+1, i+1], yp_inout[j+1, i]) + 0.5)
-                ymax = int(max(yp_inout[j, i], yp_inout[j, i+1], yp_inout[j+1, i+1], yp_inout[j+1, i]) + 0.5)
+                xmin = int(min(xp_inout[j, i], xp_inout[j, i + 1], xp_inout[j + 1, i + 1], xp_inout[j + 1, i]) + 0.5)
+                xmax = int(max(xp_inout[j, i], xp_inout[j, i + 1], xp_inout[j + 1, i + 1], xp_inout[j + 1, i]) + 0.5)
+                ymin = int(min(yp_inout[j, i], yp_inout[j, i + 1], yp_inout[j + 1, i + 1], yp_inout[j + 1, i]) + 0.5)
+                ymax = int(max(yp_inout[j, i], yp_inout[j, i + 1], yp_inout[j + 1, i + 1], yp_inout[j + 1, i]) + 0.5)
 
-                ilon = [[xw_in[j, i], xw_in[j, i+1], xw_in[j+1, i+1], xw_in[j+1, i]][::-1]]
-                ilat = [[yw_in[j, i], yw_in[j, i+1], yw_in[j+1, i+1], yw_in[j+1, i]][::-1]]
+                ilon = [[xw_in[j, i], xw_in[j, i + 1], xw_in[j + 1, i + 1], xw_in[j + 1, i]][::-1]]
+                ilat = [[yw_in[j, i], yw_in[j, i + 1], yw_in[j + 1, i + 1], yw_in[j + 1, i]][::-1]]
                 ilon = np.radians(np.array(ilon))
                 ilat = np.radians(np.array(ilat))
 
                 xmin = max(0, xmin)
-                xmax = min(nx_out-1, xmax)
+                xmax = min(nx_out - 1, xmax)
                 ymin = max(0, ymin)
-                ymax = min(ny_out-1, ymax)
+                ymax = min(ny_out - 1, ymax)
 
-                for ii in range(xmin, xmax+1):
-                    for jj in range(ymin, ymax+1):
+                for ii in range(xmin, xmax + 1):
+                    for jj in range(ymin, ymax + 1):
 
-                        olon = [[xw_out[jj, ii], xw_out[jj, ii+1], xw_out[jj+1, ii+1], xw_out[jj+1, ii]][::-1]]
-                        olat = [[yw_out[jj, ii], yw_out[jj, ii+1], yw_out[jj+1, ii+1], yw_out[jj+1, ii]][::-1]]
+                        olon = [[xw_out[jj, ii], xw_out[jj, ii + 1], xw_out[jj + 1, ii + 1], xw_out[jj + 1, ii]][::-1]]
+                        olat = [[yw_out[jj, ii], yw_out[jj, ii + 1], yw_out[jj + 1, ii + 1], yw_out[jj + 1, ii]][::-1]]
                         olon = np.radians(np.array(olon))
                         olat = np.radians(np.array(olat))
 
@@ -130,11 +131,11 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _meth
     # raw C function, otherwise Cython might complain.
     from numpy import ascontiguousarray as aca
     from ._overlap import _reproject_slice_cython
-    common_func_par = [0,ny_in,nx_out,ny_out,aca(xp_inout),aca(yp_inout),aca(xw_in),aca(yw_in),aca(xw_out),aca(yw_out),aca(array),shape_out]
+    common_func_par = [0, ny_in, nx_out, ny_out, aca(xp_inout), aca(yp_inout), aca(xw_in), aca(yw_in), aca(xw_out), aca(yw_out), aca(array), shape_out]
 
     # Abstract the serial implementation in a separate function so we can reuse it.
     def serial_impl():
-        array_new, weights = _reproject_slice_cython(0,nx_in,*common_func_par);
+        array_new, weights = _reproject_slice_cython(0, nx_in, *common_func_par)
 
         array_new /= weights
 
@@ -155,7 +156,7 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _meth
         try:
             # Prime each process in the pool with a small function that disables
             # the ctrl+c signal in the child process.
-            pool = Pool(nproc,_init_worker)
+            pool = Pool(nproc, _init_worker)
 
             # Accumulator for the results from the parallel processes.
             results = []
@@ -163,7 +164,7 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _meth
             for i in range(nproc):
                 start = int(nx_in) // nproc * i
                 end = int(nx_in) if i == nproc - 1 else int(nx_in) // nproc * (i + 1)
-                results.append(pool.apply_async(_reproject_slice_cython,[start,end] + common_func_par))
+                results.append(pool.apply_async(_reproject_slice_cython, [start, end] + common_func_par))
 
             array_new = sum([_.get()[0] for _ in results])
             weights = sum([_.get()[1] for _ in results])
