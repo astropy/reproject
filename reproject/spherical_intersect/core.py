@@ -16,10 +16,10 @@ from ._overlap import _compute_overlap
 from ..utils import parse_input_data, parse_output_projection
 
 
-__all__ = ['reproject_flux_conserving']
+__all__ = ['reproject_exact']
 
 
-def reproject_flux_conserving(input_data, output_projection, shape_out=None, parallel=True):
+def reproject_exact(input_data, output_projection, shape_out=None, parallel=True):
     """
     Reproject data to a new projection using flux-conserving spherical
     polygon intersection.

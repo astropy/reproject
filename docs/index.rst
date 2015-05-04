@@ -39,13 +39,13 @@ package::
     hdu2 = fits.open('image2.fits')
 
     # Reproject using the 'reproject' package
-    from reproject import reproject_interpolation
-    array, footprint = reproject_interpolation(hdu1, hdu2.header)
+    from reproject import reproject_interp
+    array, footprint = reproject_interp(hdu1, hdu2.header)
     
     # Write out reprojected image using Astropy
     fits.writeto('image1_reprojected.fits', array, hdu2.header, clobber=True)
 
-The :func:`~reproject.reproject_interpolation` function above returns the
+The :func:`~reproject.reproject_interp` function above returns the
 reprojected array as well as an array that provides information on the
 footprint of the first image in the new reprojected image plane.
 

@@ -9,7 +9,7 @@ from ..wcs_utils import convert_world_coordinates
 from ..array_utils import iterate_over_celestial_slices, pad_edge_1
 from ..utils import parse_input_data, parse_output_projection
 
-__all__ = ['reproject_interpolation']
+__all__ = ['reproject_interp']
 
 ORDER = {}
 ORDER['nearest-neighbor'] = 0
@@ -18,7 +18,7 @@ ORDER['biquadratic'] = 2
 ORDER['bicubic']= 3
 
 
-def reproject_interpolation(input_data, output_projection, shape_out=None, order='bilinear'):
+def reproject_interp(input_data, output_projection, shape_out=None, order='bilinear'):
     """
     Reproject data to a new projection using interpolation.
 

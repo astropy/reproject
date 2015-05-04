@@ -43,9 +43,9 @@ Interpolation
 =============
 
 Reprojection using interpolation can be done using the high-level
-:func:`~reproject.reproject_interpolation` function::
+:func:`~reproject.reproject_interp` function::
 
-    >>> from reproject import reproject_interpolation
+    >>> from reproject import reproject_interp
 
 This function takes two main arguments. The first argument is the image to
 reproject, together with WCS information about the image. This can be either an
@@ -58,7 +58,7 @@ The second argument is the WCS information for the output image, which should
 be specified either as a :class:`~astropy.wcs.WCS` or a
 :class:`~astropy.io.fits.Header` instance. If this is specified as a
 :class:`~astropy.wcs.WCS` instance, the ``shape_out`` argument to
-:func:`~reproject.reproject_interpolation` should also be specified, and be
+:func:`~reproject.reproject_interp` should also be specified, and be
 given the shape of the output image using the Numpy ``(ny, nx)`` convention
 (this is because :class:`~astropy.wcs.WCS`, unlike
 :class:`~astropy.io.fits.Header`, does not contain information about image
@@ -86,13 +86,13 @@ We can create a new header using a Gnomonic projection::
     >>> new_header['CTYPE1'] = 'GLON-TAN'   # doctest: +REMOTE_DATA
     >>> new_header['CTYPE2'] = 'GLAT-TAN'   # doctest: +REMOTE_DATA
 
-And finally we can call the :func:`~reproject.reproject_interpolation` function to reproject
+And finally we can call the :func:`~reproject.reproject_interp` function to reproject
 the image::
 
-    >>> from reproject import reproject_interpolation
-    >>> new_image, footprint = reproject_interpolation(hdu, new_header)   # doctest: +REMOTE_DATA
+    >>> from reproject import reproject_interp
+    >>> new_image, footprint = reproject_interp(hdu, new_header)   # doctest: +REMOTE_DATA
 
-The :func:`~reproject.reproject_interpolation` function returns two arrays -
+The :func:`~reproject.reproject_interp` function returns two arrays -
 the first is the reprojected input image, and the second is a 'footprint'
 array which shows the fraction of overlap of the input image on the output
 image grid. This footprint is 0 for output pixels that fall outside the input
@@ -120,13 +120,13 @@ Spherical Polygon Intersection
 ==============================
 
 Exact reprojection using the spherical polygon intersection can be done using
-the high-level :func:`~reproject.reproject_flux_conserving` function::
+the high-level :func:`~reproject.reproject_exact` function::
 
-    >>> from reproject import reproject_flux_conserving
+    >>> from reproject import reproject_exact
 
 The two first arguments, the input data and the output projection, should be
-specified as for the :func:`~reproject.reproject_interpolation` function
+specified as for the :func:`~reproject.reproject_interp` function
 described in `Interpolation`_. In addition, an optional ``parallel=`` option
 can be used to control whether to parallelize the reprojection, and if so how
-many cores to use (see :func:`~reproject.reproject_flux_conserving` for more
+many cores to use (see :func:`~reproject.reproject_exact` for more
 details).
