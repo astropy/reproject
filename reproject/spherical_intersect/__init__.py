@@ -2,4 +2,4 @@
 """
 Routines to compute pixel overlap areas.
 """
-from .core import *
+from .high_level import *
