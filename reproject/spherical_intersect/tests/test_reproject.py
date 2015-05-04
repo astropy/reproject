@@ -9,7 +9,7 @@ from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.utils.data import get_pkg_data_filename
 
-from ..reproject import _reproject_celestial
+from ..core import _reproject_celestial
 
 
 def test_reproject_celestial_slices_2d():

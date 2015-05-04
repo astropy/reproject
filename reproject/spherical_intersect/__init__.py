@@ -2,4 +2,4 @@
 """
 Routines to compute pixel overlap areas.
 """
-from .reproject import *
+from .core import *
