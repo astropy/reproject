@@ -18,13 +18,28 @@ coordinate frame given as an Astropy :class:`~astropy.coordinates.BaseCoordinate
 instance or a string. The target
 projection should be given either as a WCS object (which required you to also
 specify the output shape using ``shape_out``) or as a FITS
-:class:`~astropy.io.fits.Header` object. All of the following are valid ways
-of reprojecting HEALPIX data::
+:class:`~astropy.io.fits.Header` object. All of the following are examples of valid ways
+of reprojecting HEALPIX data:
 
-    >>> array, footprint = reproject_from_healpix('my_healpix_map.fits', target_header)  # doctest: +SKIP
-    >>> array, footprint = reproject_from_healpix('my_healpix_map.fits', target_wcs, shape_out=(100,100))  # doctest: +SKIP
-    >>> array, footprint = reproject_from_healpix((data, 'fk5'), target_header)  # doctest: +SKIP
-    >>> array, footprint = reproject_from_healpix((data, FK5(equinox='J2010')), target_header)  # doctest: +SKIP
+* With an input filename and a target header::
+
+    >>> array, footprint = reproject_from_healpix('my_healpix_map.fits',
+                                                  target_header)  # doctest: +SKIP
+
+* With an input filename and a target wcs and shape::
+
+    >>> array, footprint = reproject_from_healpix('my_healpix_map.fits',
+                                                  target_wcs, shape_out=(100,100))  # doctest: +SKIP
+
+* With an input array (and associated coordinate system as a string) and a target header::
+
+    >>> array, footprint = reproject_from_healpix((data, 'fk5'),
+                                                  target_header)  # doctest: +SKIP
+
+* With an input array (and associated coordinate system) and a target header::
+
+    >>> array, footprint = reproject_from_healpix((data, FK5(equinox='J2010')),
+                                                  target_header)  # doctest: +SKIP
     
 On the other hand, the :func:`~reproject.reproject_to_healpix` function takes
 input data in the same form as :func:`~reproject.reproject_interp`
