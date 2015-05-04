@@ -39,9 +39,10 @@ def reproject_from_healpix(input_data, output_projection, shape_out=None):
 
     return healpix_to_image(array_in, coord_system_in, wcs_out, shape_out)
 
+
 def reproject_to_healpix(input_data, coord_system_out):
     """
-    Reproject data from a standard projection to a HEALPIX projection
+    Reproject data from a standard projection to a HEALPIX projection.
 
     Parameters
     ----------
