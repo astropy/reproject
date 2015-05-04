@@ -49,6 +49,10 @@ def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
     -------
     reprojected_data : `numpy.ndarray`
         HEALPIX image resampled onto the reference image
+    footprint : `~numpy.ndarray`
+        Footprint of the input array in the output array. Values of 0 indicate
+        no coverage or valid values in the input image, while values of 1
+        indicate valid values.
     """
     import healpy as hp
 
@@ -79,7 +83,9 @@ def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
         ipix = hp.ang2pix(nside, theta[good], phi[good], nest)
         data[good] = healpix_data[ipix]
 
-    return data
+    footprint = good.astype(int)
+
+    return data, footprint
 
 
 def image_to_healpix(data, wcs_in, coord_system_out,
@@ -107,14 +113,15 @@ def image_to_healpix(data, wcs_in, coord_system_out,
     -------
     reprojected_data : `numpy.ndarray`
         A HEALPIX array of values
+    footprint : `~numpy.ndarray`
+        Footprint of the input array in the output array. Values of 0 indicate
+        no coverage or valid values in the input image, while values of 1
+        indicate valid values.
     """
     import healpy as hp
     from scipy.ndimage import map_coordinates
 
     npix = hp.nside2npix(nside)
-
-    if interp:
-        raise NotImplementedError
 
     # Look up lon, lat of pixels in output system and convert colatitude theta
     # and longitude phi to longitude and latitude.
@@ -134,4 +141,4 @@ def image_to_healpix(data, wcs_in, coord_system_out,
                                    order=(3 if interp else 0),
                                    mode='constant', cval=np.nan)
 
-    return healpix_data
+    return healpix_data, (~np.isnan(healpix_data)).astype(float)

@@ -40,7 +40,7 @@ def reproject_from_healpix(input_data, output_projection, shape_out=None):
     return healpix_to_image(array_in, coord_system_in, wcs_out, shape_out)
 
 
-def reproject_to_healpix(input_data, coord_system_out):
+def reproject_to_healpix(input_data, coord_system_out, nside=128):
     """
     Reproject data from a standard projection to a HEALPIX projection.
 
@@ -54,6 +54,8 @@ def reproject_to_healpix(input_data, coord_system_out):
         either a `~astropy.wcs.WCS` or a `~astropy.io.fits.Header` object
     coord_system_out : `~astropy.coordinates.BaseCoordinateFrame` or str
         The output coordinate system for the HEALPIX projection
+    nside : int, optional
+        The resolution of the HEALPIX projection.
 
     Returns
     -------
@@ -66,10 +68,9 @@ def reproject_to_healpix(input_data, coord_system_out):
     """
 
     array_in, wcs_in = parse_input_data(input_data)
-    wcs_out, shape_out = parse_coord_system(coord_system_out)
+    coord_system_out = parse_coord_system(coord_system_out)
 
     if wcs_in.has_celestial and wcs_in.naxis == 2:
-        return image_to_healpix(array_in, wcs_in, coord_system_out)
+        return image_to_healpix(array_in, wcs_in, coord_system_out, nside=nside)
     else:
         raise NotImplementedError("Only data with a 2-d celestial WCS can be reprojected to a HEALPIX projection")
-
