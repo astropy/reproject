@@ -1,105 +1,72 @@
-*********************************************
-Image reprojection (resampling) (`reproject`)
-*********************************************
+*******************************
+Image reprojection (resampling)
+*******************************
 
 Introduction
 ============
 
-The `reproject` package implements image reprojection (resampling) methods
-for astronomical images.
+The *reproject* package implements image reprojection (resampling) methods
+for astronomical images and more generally n-dimensional data. These assume
+that the WCS information contained in the data are correct. This package does
+**not** do image registration, which is the process of aligning images where
+one or more image may have incorrect or missing WCS.
 
+Requirements
+============
 
-.. note::
+This package has the following hard dependencies:
+ 
+* `Numpy <http://www.numpy.org/>`__ 1.6 or later
 
-    We plan to propose that `reproject` will be merged into the
-    ``astropy`` core as ``astropy.reproject`` once the main functionality
-    is in place and has been tested for a while.
+* `Astropy <http://www.astropy.org/>`__ 1.0 or later
 
-.. note::
+and the following optional dependencies:
 
-    `reproject` requires `numpy <http://www.numpy.org/>`__ and
-    `astropy <http://www.astropy.org/>`__ >=1.0 to be installed.
-    Some functionality is only available if `scipy <http://www.scipy.org/>`__ or
-    `scikit-image <http://scikit-image.org/>`__ are installed, users are
-    encouraged to install those optional dependencies.
+* `Scipy <http://www.scipy.org/>`__ for interpolation
 
-Getting Started
-===============
+* `healpy <http://healpy.readthedocs.org>`_ for HEALPIX image reprojection
 
-The easiest way to reproject an image is to make use of the high-level
-:func:`~reproject.reproject` function::
+Quick start
+===========
 
-    >>> from reproject import reproject
+A common use case is that you have two FITS images, and want to reproject one
+to the same header as the other. This can easily be done with the *reproject*
+package::
 
-This function takes two main arguments. The first argument is the image to
-reproject, together with WCS information about the image. This can be either an
-Astropy HDU object (specifically :class:`~astropy.io.fits.PrimaryHDU` or
-:class:`~astropy.io.fits.ImageHDU`), or a tuple with two elements: a Numpy
-array and either a :class:`~astropy.wcs.WCS` or a
-:class:`~astropy.io.fits.Header` instance.
+    # Read in data using Astropy
+    from astropy.io import fits
+    hdu1 = fits.open('image1.fits')
+    hdu2 = fits.open('image2.fits')
 
-The second argument is the WCS information for the output image, which should
-be specified either as a :class:`~astropy.wcs.WCS` or a
-:class:`~astropy.io.fits.Header` instance. If this is specified as a
-:class:`~astropy.wcs.WCS` instance, the ``shape_out`` argument to
-:func:`~reproject.reproject` should also be specified, and give the shape of
-the output image using the Numpy ``(ny, nx)`` convention (this is because
-:class:`~astropy.wcs.WCS`, unlike :class:`~astropy.io.fits.Header`, does not
-contain information about image size).
+    # Reproject using the 'reproject' package
+    from reproject import reproject_interpolation
+    array, footprint = reproject_interpolation(hdu1, hdu2.header)
+    
+    # Write out reprojected image using Astropy
+    fits.writeto('image1_reprojected.fits', array, hdu2.header, clobber=True)
 
-We start off by opening a FITS file using Astropy::
+The :func:`~reproject.reproject_interpolation` function above returns the
+reprojected array as well as an array that provides information on the
+footprint of the first image in the new reprojected image plane.
 
-    >>> from astropy.io import fits
-    >>> hdu = fits.open('http://data.astropy.org/galactic_center/gc_msx_e.fits')[0]    # doctest: +REMOTE_DATA
-    Downloading http://data.astropy.org/galactic_center/gc_msx_e.fits [Done]
+The *reproject* package supports a number of different algorithms for
+reprojection (interpolation, flux-conserving reprojection, etc.) and
+different types of data (images, spectral cubes, HEALPIX images, etc.). For
+more information, we encourage you to read the full documentation below!
 
-The image is currently using a Plate Carée projection::
+Documentation
+=============
 
-    >>> hdu.header['CTYPE1']   # doctest: +REMOTE_DATA
-    'GLON-CAR'
+The reproject package consists of a few high-level functions to do
+reprojection using different algorithms, which depend on the type of data
+that you want to reproject.
 
-We can create a new header using a Gnomonic projection::
-
-    >>> new_header = hdu.header.copy()   # doctest: +REMOTE_DATA
-    >>> new_header['CTYPE1'] = 'GLON-TAN'   # doctest: +REMOTE_DATA
-    >>> new_header['CTYPE2'] = 'GLAT-TAN'   # doctest: +REMOTE_DATA
-
-And finally we can call the :func:`~reproject.reproject` function to reproject
-the image::
-
-    >>> from reproject import reproject
-    >>> new_image, footprint = reproject(hdu, new_header)   # doctest: +REMOTE_DATA
-
-The :func:`~reproject.reproject` function returns two arrays - the first is the
-reprojected input image, and the second is a 'footprint' array which shows the
-fraction of overlap of the input image on the output image grid. This footprint
-is 0 for output pixels that fall outside the input image, 1 for output pixels
-that fall completely inside the input image, and values between 0 and 1 for
-pixels with partial overlap.
-
-We can then easily write out the reprojected image to a new FITS file::
-
-    >>> fits.writeto('reprojected_image.fits', new_image, new_header)   # doctest: +REMOTE_DATA
-
-There are different reprojection methods implemented. By default, the
-reprojection is done using bilinear interpolation, which is very fast but not
-flux-conserving. The reprojection method can be explicitly set with the
-``projection_type`` argument, which can be one of:
-
-* ``'nearest-neighbor'``: zeroth order interpolation
-* ``'bilinear'``: fisst order interpolation
-* ``'biquadratic'``: second order interpolation
-* ``'bicubic'``: third order interpolation
-* ``'flux-conserving'``: a slower algorithm based on that used in `Montage
-  <http://montage.ipac.caltech.edu/index.html>`_. This uses intersection of
-  spherical polygons to determine how to redistribute the flux. This method is
-  only suitable for celestial images. At this point, this mode is experimental
-  and does not yet return results that are exactly the same as Montage.
-
-.. note:: the reprojection/resampling is always done assuming that the image is
-          in surface brightness units. For example, if one has an iamge with a
-          constant value of 1, reprojecting the image to an image with twice as
-          high resolution will result in an image where all pixels are all 1.
+.. toctree::
+   :maxdepth: 2
+   
+   celestial
+   healpix
+   noncelestial
 
 Reference/API
 =============
