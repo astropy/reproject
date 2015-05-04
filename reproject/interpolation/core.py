@@ -40,10 +40,12 @@ def reproject_interp(input_data, output_projection, shape_out=None, order='bilin
     order : int or str, optional
         The order of the interpolation (if ``mode`` is set to
         ``'interpolation'``). This can be either one of the following strings:
+
             * 'nearest-neighbor'
             * 'bilinear'
             * 'biquadratic'
             * 'bicubic'
+
         or an integer. A value of ``0`` indicates nearest neighbor
         interpolation. 
 
