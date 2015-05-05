@@ -33,7 +33,7 @@ def reproject_exact(input_data, output_projection, shape_out=None, hdu_in=None, 
         If ``output_projection`` is a `~astropy.wcs.WCS` instance, the
         shape of the output data should be specified separately.
     hdu_in : int or str, optional
-        If ``input_data`` is a FITS file or an ~astropy.io.fits.HDUList`
+        If ``input_data`` is a FITS file or an `~astropy.io.fits.HDUList`
         instance, specifies the HDU to use.
     parallel : bool or int
         Flag for parallel implementation. If ``True``, a parallel implementation

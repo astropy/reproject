@@ -36,7 +36,14 @@ def parse_input_healpix_data(input_data, field=0, hdu_in=None):
     """
 
     if isinstance(input_data, (TableHDU, BinTableHDU)):
-        # TODO: for now we have to write out to a temporary file
+
+        # TODO: for now we have to write out to a temporary file. A pull
+        # request to healpy has been merged to allow ``read_map`` to take
+        # HDUList objects and HDUs, but we have to wait for a stable release
+        # before we can use that:
+        #
+        # https://github.com/healpy/healpy/pull/249
+
         filename = tempfile.mktemp()
         input_data.writeto(filename)
         input_data = filename

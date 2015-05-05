@@ -15,11 +15,12 @@ reproject such data:
 
 * **Drizzling**, which consists of determining the exact overlap fraction of
   pixels, and optionally allows pixels to be rescaled before reprojection.
-  More details can be found `here <here>`__. This method is more accurate
-  than interpolation but is only suitable for images where the field of view
-  is small so that pixels are well approximated by rectangles in world
-  coordinates. This is slower but more accurate than interpolation for small
-  fields of view.
+  A description of the algorithm can be found in
+  `Fruchter and Hook (2002) <http://dx.doi.org/10.1086/338393>`__. This
+  method is more accurate than interpolation but is only suitable for images
+  where the field of view is small so that pixels are well approximated by
+  rectangles in world coordinates. This is slower but more accurate than
+  interpolation for small fields of view.
 
 * Computing the **exact overlap** of pixels on the sky by treating them as
   **four-sided spherical polygons** on the sky and computing spherical polygon

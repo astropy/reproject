@@ -66,7 +66,7 @@ def reproject_to_healpix(input_data, coord_system_out, hdu_in=None, nside=128):
     coord_system_out : `~astropy.coordinates.BaseCoordinateFrame` or str
         The output coordinate system for the HEALPIX projection
     hdu_in : int or str, optional
-        If ``input_data`` is a FITS file or an ~astropy.io.fits.HDUList`
+        If ``input_data`` is a FITS file or an `~astropy.io.fits.HDUList`
         instance, specifies the HDU to use.
     nside : int, optional
         The resolution of the HEALPIX projection.
@@ -78,7 +78,7 @@ def reproject_to_healpix(input_data, coord_system_out, hdu_in=None, nside=128):
     footprint : `~numpy.ndarray`
         Footprint of the input array in the output array. Values of 0 indicate
         no coverage or valid values in the input image, while values of 1
-        indicate valid values. Intermediate values indicate partial coverage.
+        indicate valid values.
     """
 
     array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)

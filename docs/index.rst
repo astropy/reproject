@@ -9,7 +9,7 @@ The *reproject* package implements image reprojection (resampling) methods
 for astronomical images and more generally n-dimensional data. These assume
 that the WCS information contained in the data are correct. This package does
 **not** do image registration, which is the process of aligning images where
-one or more image may have incorrect or missing WCS.
+one or more images may have incorrect or missing WCS.
 
 Requirements
 ============
