@@ -143,7 +143,7 @@ The resulting map is the following:
     ax = plt.subplot(1,1,1, projection=WCS(target_header))
     ax.imshow(array, vmin=0, vmax=1.e-8)
     ax.coords.grid(color='white')
-    ax.patch.set_edgecolor('white')
+    ax.coords.frame.set_color('none')
 
 
 On the other hand, the :func:`~reproject.reproject_to_healpix` function takes
