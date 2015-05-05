@@ -33,10 +33,17 @@ reproject such data:
 Currently, this package implements interpolation and spherical polygon
 intersection.
 
-The reprojection/resampling is always done assuming that the image is in
-**surface brightness units**. For example, if you have an image with a constant
-value of 1, reprojecting the image to an image with twice as high resolution
-will result in an image where all pixels are all 1.
+.. note:: The reprojection/resampling is always done assuming that the image is in
+          **surface brightness units**. For example, if you have an image
+          with a constant value of 1, reprojecting the image to an image with
+          twice as high resolution will result in an image where all pixels
+          are all 1. This limitation is due to the interpolation algorithms
+          (the fact that interpolation can be used implicitly assumes that
+          the pixel values can be interpolated which is only the case with
+          surface brightness units). If you have an image in flux units,
+          first convert it to surface brightness, then use the functions
+          described below. In future, we will provide a convenience function
+          to return the area of all the pixels to make it easier.
 
 .. _interpolation:
 
