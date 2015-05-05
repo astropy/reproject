@@ -164,7 +164,12 @@ if LooseVersion(matplotlib.__version__) < LooseVersion('1.4'):
 plot_rcparams = {'figure.figsize':(10,10),
                  'savefig.facecolor':'none',
                  'savefig.bbox':'tight',
-                 'image.cmap':'gist_heat'}
+                 'image.cmap':'gist_heat',
+                 'patch.edgecolor':'white',
+                 'figure.edgecolor':'white',
+                 'figure.frameon':False,
+                 'axes.edgecolor':'white'}
+
 plot_apply_rcparams = True
 plot_template = """
 {{ source_code }}

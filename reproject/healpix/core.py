@@ -20,7 +20,7 @@ __all__ = ['healpix_to_image', 'image_to_healpix']
 
 
 def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
-                     interp=True, nest=False):
+                     interp=True, nested=False):
     """
     Convert image in HEALPIX format to a normal FITS projection image (e.g.
     CAR or AIT).
@@ -37,7 +37,7 @@ def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
         The WCS of the output array
     shape_out : tuple
         The shape of the output array
-    nest : bool
+    nested : bool
         The order of the healpix_data, either nested or ring.  Stored in
         FITS headers in the ORDERING keyword.
     interp : bool
@@ -74,11 +74,11 @@ def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
     data[~good] = np.nan
 
     if interp:
-        data[good] = hp.get_interp_val(healpix_data, theta[good], phi[good], nest)
+        data[good] = hp.get_interp_val(healpix_data, theta[good], phi[good], nested)
     else:
         npix = len(healpix_data)
         nside = hp.npix2nside(npix)
-        ipix = hp.ang2pix(nside, theta[good], phi[good], nest)
+        ipix = hp.ang2pix(nside, theta[good], phi[good], nested)
         data[good] = healpix_data[ipix]
 
     footprint = good.astype(int)
@@ -87,7 +87,7 @@ def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
 
 
 def image_to_healpix(data, wcs_in, coord_system_out,
-                     nside, interp=True, nest=False):
+                     nside, interp=True, nested=False):
     """
     Convert image in a normal WCS projection to HEALPIX format.
 
@@ -101,7 +101,7 @@ def image_to_healpix(data, wcs_in, coord_system_out,
         The target coordinate system for the HEALPIX projection, as an Astropy
         coordinate frame or corresponding string alias (e.g. ``'icrs'`` or
         ``'galactic'``)
-    nest : bool
+    nested : bool
         The order of the healpix_data, either nested or ring.  Stored in
         FITS headers in the ORDERING keyword.
     interp : bool
@@ -123,7 +123,7 @@ def image_to_healpix(data, wcs_in, coord_system_out,
 
     # Look up lon, lat of pixels in output system and convert colatitude theta
     # and longitude phi to longitude and latitude.
-    theta, phi = hp.pix2ang(nside, np.arange(npix), nest)
+    theta, phi = hp.pix2ang(nside, np.arange(npix), nested)
     lon_out = np.degrees(phi)
     lat_out = 90. - np.degrees(theta)
 
