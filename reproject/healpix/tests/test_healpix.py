@@ -39,10 +39,10 @@ def get_reference_header(oversample=2, nside=1):
 
 
 @pytest.mark.importorskip('healpy')
-@pytest.mark.parametrize("nside,nest,healpix_system,image_system",
+@pytest.mark.parametrize("nside,nested,healpix_system,image_system",
                          itertools.product([1, 2, 4, 8, 16, 32, 64], [True, False], 'C', 'C'))
 def test_reproject_healpix_to_image_round_trip(
-        nside, nest, healpix_system, image_system):
+        nside, nested, healpix_system, image_system):
     """Test round-trip HEALPix->WCS->HEALPix conversion for a random map,
     with a WCS projection large enough to store each HEALPix pixel"""
     import healpy as hp
@@ -57,11 +57,11 @@ def test_reproject_healpix_to_image_round_trip(
 
     image_data, footprint = healpix_to_image(
         healpix_data, healpix_system, wcs_out, shape_out,
-        interp=False, nest=nest)
+        interp=False, nested=nested)
 
     healpix_data_2, footprint = image_to_healpix(
         image_data, wcs_out, healpix_system,
-        nside, interp=False, nest=nest)
+        nside, interp=False, nested=nested)
 
     np.testing.assert_array_equal(healpix_data, healpix_data_2)
 
