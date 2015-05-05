@@ -26,6 +26,8 @@ and the following optional dependencies:
 
 * `healpy <http://healpy.readthedocs.org>`_ for HEALPIX image reprojection
 
+.. _quickstart:
+
 Quick start
 ===========
 
@@ -144,6 +146,7 @@ that you want to reproject.
    celestial
    healpix
    noncelestial
+   footprints
 
 Reference/API
 =============

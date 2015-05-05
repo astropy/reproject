@@ -97,7 +97,7 @@ The :func:`~reproject.reproject_interp` function returns two arrays -
 the first is the reprojected input image, and the second is a 'footprint'
 array which shows the fraction of overlap of the input image on the output
 image grid. This footprint is 0 for output pixels that fall outside the input
-image, 1 for output pixels that fall inside the input image.
+image, 1 for output pixels that fall inside the input image. For more information about footprint arrays, see the :doc:`footprints` section.
 
 We can then easily write out the reprojected image to a new FITS file::
 
@@ -130,4 +130,6 @@ specified as for the :func:`~reproject.reproject_interp` function
 described in `Interpolation`_. In addition, an optional ``parallel=`` option
 can be used to control whether to parallelize the reprojection, and if so how
 many cores to use (see :func:`~reproject.reproject_exact` for more
-details).
+details). For this algorithm, the footprint array returned gives the exact
+fractional overlap of new pixels with the original image (see
+:doc:`footprints` for more details).
