@@ -57,11 +57,11 @@ def test_reproject_healpix_to_image_round_trip(
 
     image_data, footprint = healpix_to_image(
         healpix_data, healpix_system, wcs_out, shape_out,
-        interp=False, nested=nested)
+        order=0, nested=nested)
 
     healpix_data_2, footprint = image_to_healpix(
         image_data, wcs_out, healpix_system,
-        nside, interp=False, nested=nested)
+        nside, order=0, nested=nested)
 
     np.testing.assert_array_equal(healpix_data, healpix_data_2)
 

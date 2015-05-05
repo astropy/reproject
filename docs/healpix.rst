@@ -8,7 +8,9 @@ Images can also be stored using the HEALPIX representation, and the
 :func:`~reproject.reproject_to_healpix`, which can be used to reproject
 from/to HEALPIX representations (these functions are wrappers around
 functionality provided by the `healpy <http://healpy.readthedocs.org>`_
-package). The functions can be imported with:
+package). These functions do the reprojection using interpolation (and the
+order can be specified using the ``order`` argument). The functions can be
+imported with:
 
 .. plot::
    :context: reset
@@ -78,7 +80,7 @@ We now define a header using the
     COORDSYS= 'icrs    '
     """, sep='\n')
 
-All of the following are examples of valid ways of reprojecting the HEALPIX LIGO data onto the Aitoff projection:
+All of the following are examples of valid ways of reprojecting the HEALPIX LIGO data onto the Mollweide projection:
 
 * With an input filename and a target header:
 

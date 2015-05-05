@@ -5,7 +5,7 @@ from ..utils import parse_input_data, parse_output_projection
 __all__ = ['reproject_from_healpix', 'reproject_to_healpix']
 
 
-def reproject_from_healpix(input_data, output_projection, shape_out=None, hdu_in=None, nested=False):
+def reproject_from_healpix(input_data, output_projection, shape_out=None, hdu_in=None, order='bilinear', nested=False):
     """
     Reproject data from a HEALPIX projection to a standard projection.
 
@@ -27,10 +27,19 @@ def reproject_from_healpix(input_data, output_projection, shape_out=None, hdu_in
     shape_out : tuple, optional
         If ``output_projection`` is a `~astropy.wcs.WCS` instance, the
         shape of the output data should be specified separately.
-    nested : bool
-        The order of the healpix_data, either nested (True) or ring (False)
     hdu_in : int or str, optional
         If ``input_data`` is a FITS file, specifies the HDU to use.
+    order : int or str, optional
+        The order of the interpolation (if ``mode`` is set to
+        ``'interpolation'``). This can be either one of the following strings:
+
+            * 'nearest-neighbor'
+            * 'bilinear'
+
+        or an integer. A value of ``0`` indicates nearest neighbor
+        interpolation.
+    nested : bool
+        The order of the healpix_data, either nested (True) or ring (False)
 
     Returns
     -------
@@ -39,16 +48,16 @@ def reproject_from_healpix(input_data, output_projection, shape_out=None, hdu_in
     footprint : `~numpy.ndarray`
         Footprint of the input array in the output array. Values of 0 indicate
         no coverage or valid values in the input image, while values of 1
-        indicate valid values. Intermediate values indicate partial coverage.
+        indicate valid values.
     """
 
     array_in, coord_system_in = parse_input_healpix_data(input_data, hdu_in=hdu_in)
     wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
 
-    return healpix_to_image(array_in, coord_system_in, wcs_out, shape_out, nested=nested)
+    return healpix_to_image(array_in, coord_system_in, wcs_out, shape_out, order=order, nested=nested)
 
 
-def reproject_to_healpix(input_data, coord_system_out, hdu_in=None, nested=False, nside=128):
+def reproject_to_healpix(input_data, coord_system_out, hdu_in=None, order='bilinear', nested=False, nside=128):
     """
     Reproject data from a standard projection to a HEALPIX projection.
 
@@ -70,6 +79,17 @@ def reproject_to_healpix(input_data, coord_system_out, hdu_in=None, nested=False
     hdu_in : int or str, optional
         If ``input_data`` is a FITS file or an `~astropy.io.fits.HDUList`
         instance, specifies the HDU to use.
+    order : int or str, optional
+        The order of the interpolation (if ``mode`` is set to
+        ``'interpolation'``). This can be either one of the following strings:
+
+            * 'nearest-neighbor'
+            * 'bilinear'
+            * 'biquadratic'
+            * 'bicubic'
+
+        or an integer. A value of ``0`` indicates nearest neighbor
+        interpolation.
     nested : bool
         The order of the healpix_data, either nested (True) or ring (False)
     nside : int, optional
@@ -89,6 +109,6 @@ def reproject_to_healpix(input_data, coord_system_out, hdu_in=None, nested=False
     coord_system_out = parse_coord_system(coord_system_out)
 
     if wcs_in.has_celestial and wcs_in.naxis == 2:
-        return image_to_healpix(array_in, wcs_in, coord_system_out, nside=nside, nested=nested)
+        return image_to_healpix(array_in, wcs_in, coord_system_out, nside=nside, order=order, nested=nested)
     else:
         raise NotImplementedError("Only data with a 2-d celestial WCS can be reprojected to a HEALPIX projection")
