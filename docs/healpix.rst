@@ -4,8 +4,8 @@ HEALPIX images
 
 Images can also be stored using the HEALPIX representation, and the
 *reproject* package includes two functions,
-:func:`~reproject.reproject_from_healpix` and
-:func:`~reproject.reproject_to_healpix`, which can be used to reproject
+:func:`~reproject.reproject_from_healpix_interp` and
+:func:`~reproject.reproject_to_healpix_interp`, which can be used to reproject
 from/to HEALPIX representations (these functions are wrappers around
 functionality provided by the `healpy <http://healpy.readthedocs.org>`_
 package). These functions do the reprojection using interpolation (and the
@@ -18,9 +18,9 @@ imported with:
    :include-source:
    :align: center
 
-    from reproject import reproject_from_healpix, reproject_to_healpix
+    from reproject import reproject_from_healpix_interp, reproject_to_healpix_interp
 
-The :func:`~reproject.reproject_from_healpix` function takes either a
+The :func:`~reproject.reproject_from_healpix_interp` function takes either a
 filename, a FITS Table HDU object, or a tuple containing a 1-D array and a
 coordinate frame given as an Astropy :class:`~astropy.coordinates.BaseCoordinateFrame`
 instance or a string. The target
@@ -90,7 +90,7 @@ All of the following are examples of valid ways of reprojecting the HEALPIX LIGO
    :include-source:
    :align: center
 
-    array, footprint = reproject_from_healpix(filename_ligo, target_header)
+    array, footprint = reproject_from_healpix_interp(filename_ligo, target_header)
 
 * With an input filename and a target wcs and shape:
 
@@ -102,7 +102,7 @@ All of the following are examples of valid ways of reprojecting the HEALPIX LIGO
 
     from astropy.wcs import WCS
     target_wcs = WCS(target_header)
-    array, footprint = reproject_from_healpix(filename_ligo, target_wcs,
+    array, footprint = reproject_from_healpix_interp(filename_ligo, target_wcs,
                                               shape_out=(240,480))
 
 * With an input array (and associated coordinate system as a string) and a target header:
@@ -114,7 +114,7 @@ All of the following are examples of valid ways of reprojecting the HEALPIX LIGO
    :align: center
 
     data = hdu_ligo.data['PROB']
-    array, footprint = reproject_from_healpix((data, 'icrs'),
+    array, footprint = reproject_from_healpix_interp((data, 'icrs'),
                                                target_header, nested=True)
 
 Note that in this case we have to be careful to specify whether the pixels
@@ -129,7 +129,7 @@ are in nested (``nested=True``) or ring (``nested=False``) order.
    :align: center
 
     from astropy.coordinates import FK5
-    array, footprint = reproject_from_healpix((data, FK5(equinox='J2010')),
+    array, footprint = reproject_from_healpix_interp((data, FK5(equinox='J2010')),
                                               target_header, nested=True)
 
 The resulting map is the following:
@@ -148,13 +148,13 @@ The resulting map is the following:
     ax.coords.frame.set_color('none')
 
 
-On the other hand, the :func:`~reproject.reproject_to_healpix` function takes
+On the other hand, the :func:`~reproject.reproject_to_healpix_interp` function takes
 input data in the same form as :func:`~reproject.reproject_interp`
 (see :ref:`interpolation`) for the first argument, and a coordinate frame as the
 second argument, either as a string or as a
 :class:`~astropy.coordinates.BaseCoordinateFrame` instance e.g.::
 
-    >>> array, footprint = reproject_to_healpix((array, header_in), 'galactic')  # doctest: +SKIP
+    >>> array, footprint = reproject_to_healpix_interp((array, header_in), 'galactic')  # doctest: +SKIP
 
 The array returned is a 1-D array which can be stored in a HEALPIX file using ``healpy.write_map``::
 
@@ -163,7 +163,7 @@ The array returned is a 1-D array which can be stored in a HEALPIX file using ``
 
 .. note:: When converting to a HEALPIX array, it is important to be aware
           that the order of the array matters (nested or ring). The
-          :func:`~reproject.reproject_to_healpix` function takes a ``nested``
+          :func:`~reproject.reproject_to_healpix_interp` function takes a ``nested``
           argument, and the ``write_map`` function from healpy takes a
           ``nest`` argument. Both default to `False`, so the above example
           works as expected.
