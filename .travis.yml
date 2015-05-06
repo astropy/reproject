@@ -73,6 +73,13 @@ before_install:
     # DOCUMENTATION DEPENDENCIES
     - if [[ $SETUP_CMD == build_sphinx* ]]; then sudo apt-get install graphviz texlive-latex-extra dvipng; fi
 
+    # Make sure that interactive matplotlib backends work
+    - export DISPLAY=:99.0
+    - sh -e /etc/init.d/xvfb start
+
+    # Make sure matplotlib uses PyQT not PySide
+    - export QT_API=pyqt
+
 install:
 
     # CONDA
@@ -85,7 +92,7 @@ install:
 
     # ASTROPY
     - if [[ $SETUP_CMD != egg_info ]] && [[ $ASTROPY_VERSION == development ]]; then $PIP_INSTALL git+http://github.com/astropy/astropy.git#egg=astropy; fi
-    - if [[ $SETUP_CMD != egg_info ]] && [[ $ASTROPY_VERSION == stable ]]; then $CONDA_INSTALL numpy=$NUMPY_VERSION astropy; fi
+    - if [[ $SETUP_CMD != egg_info ]] && [[ $ASTROPY_VERSION == stable ]]; then $CONDA_INSTALL numpy=$NUMPY_VERSION astropy nose pyqt matplotlib; fi
 
     # OPTIONAL DEPENDENCIES
     # Here you can add any dependencies your package may have. You can use
@@ -99,7 +106,7 @@ install:
     # build_sphinx needs sphinx and matplotlib (for plot_directive). Note that
     # this matplotlib will *not* work with py 3.x, but our sphinx build is
     # currently 2.7, so that's fine
-    - if [[ $SETUP_CMD == build_sphinx* ]]; then $CONDA_INSTALL numpy=$NUMPY_VERSION Sphinx matplotlib; fi
+    - if [[ $SETUP_CMD == build_sphinx* ]]; then $CONDA_INSTALL numpy=$NUMPY_VERSION Sphinx=1.2 matplotlib; fi
 
     # COVERAGE DEPENDENCIES
     - if [[ $SETUP_CMD == 'test --coverage' ]]; then $PIP_INSTALL coverage coveralls; fi
