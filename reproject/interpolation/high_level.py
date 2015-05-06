@@ -28,8 +28,9 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=None,
 
             * The name of a FITS file
             * An `~astropy.io.fits.HDUList` object
-            * An image HDU object such as a `~astropy.io.fits.PrimaryHDU` or
-              `~astropy.io.fits.ImageHDU`
+            * An image HDU object such as a `~astropy.io.fits.PrimaryHDU`,
+              `~astropy.io.fits.ImageHDU`, or `~astropy.io.fits.CompImageHDU`
+              instance
             * A tuple where the first element is a `~numpy.ndarray` and the
               second element is either a `~astropy.wcs.WCS` or a
               `~astropy.io.fits.Header` object
