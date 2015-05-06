@@ -1,7 +1,7 @@
 numpy
+Cython
 matplotlib>=1.4
 astropy-helpers
 astropy
 healpy
 wcsaxes
-
