@@ -12,7 +12,7 @@ from astropy.tests.helper import pytest
 
 from ..core import healpix_to_image, image_to_healpix
 from ..high_level import reproject_from_healpix
-
+from ...tests.test_high_level import ALL_DTYPES
 
 DATA = os.path.join(os.path.dirname(__file__), 'data')
 
@@ -39,16 +39,16 @@ def get_reference_header(oversample=2, nside=1):
 
 
 @pytest.mark.importorskip('healpy')
-@pytest.mark.parametrize("nside,nested,healpix_system,image_system",
-                         itertools.product([1, 2, 4, 8, 16, 32, 64], [True, False], 'C', 'C'))
+@pytest.mark.parametrize("nside,nested,healpix_system,image_system,dtype",
+                         itertools.product([1, 2, 4, 8, 16, 32, 64], [True, False], 'C', 'C', ALL_DTYPES))
 def test_reproject_healpix_to_image_round_trip(
-        nside, nested, healpix_system, image_system):
+        nside, nested, healpix_system, image_system, dtype):
     """Test round-trip HEALPix->WCS->HEALPix conversion for a random map,
     with a WCS projection large enough to store each HEALPix pixel"""
     import healpy as hp
 
     npix = hp.nside2npix(nside)
-    healpix_data = np.random.uniform(size=npix)
+    healpix_data = np.random.uniform(size=npix).astype(dtype)
 
     reference_header = get_reference_header(oversample=2, nside=nside)
 

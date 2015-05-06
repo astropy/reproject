@@ -3,10 +3,11 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 import signal
+import warnings
 
 import numpy as np
 
-from astropy import log as logger
+from astropy.utils.exceptions import AstropyUserWarning
 
 from ..wcs_utils import convert_world_coordinates
 
@@ -35,8 +36,8 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _meth
         nproc = None if parallel else 1
 
     # Convert input array to float values. If this comes from a FITS, it might have
-    # float32 as value type and that can break things in cythin.
-    array = array.astype(float)
+    # float32 as value type and that can break things in Cython
+    array = np.asarray(array, dtype=float)
 
     # TODO: make this work for n-dimensional arrays
     if wcs_in.naxis != 2:
@@ -196,8 +197,8 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _meth
             # the serial one.
             raise
         except Exception as e:
-            logger.warn("The parallel implementation failed, the reported error message is: '{0}'".format(repr(e,)))
-            logger.warn("Running the serial implementation instead")
+            warnings.warn("The parallel implementation failed, the reported error message is: '{0}'".format(repr(e,)), AstropyUserWarning)
+            warnings.warn("Running the serial implementation instead", AstropyUserWarning)
             return serial_impl()
 
     raise ValueError('unrecognized method "{0}"'.format(_method,))

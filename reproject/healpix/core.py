@@ -52,7 +52,7 @@ def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
             * 'bilinear'
 
         or an integer. A value of ``0`` indicates nearest neighbor
-        interpolation. 
+        interpolation.
     nested : bool
         The order of the healpix_data, either nested or ring.  Stored in
         FITS headers in the ORDERING keyword.
@@ -67,6 +67,8 @@ def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
         indicate valid values.
     """
     import healpy as hp
+
+    healpix_data = np.asarray(healpix_data, dtype=float)
 
     # Look up lon, lat of pixels in reference system
     yinds, xinds = np.indices(shape_out)
@@ -130,7 +132,7 @@ def image_to_healpix(data, wcs_in, coord_system_out,
             * 'bicubic'
 
         or an integer. A value of ``0`` indicates nearest neighbor
-        interpolation. 
+        interpolation.
     nested : bool
         The order of the healpix_data, either nested or ring.  Stored in
         FITS headers in the ORDERING keyword.
