@@ -104,7 +104,7 @@ input data in the same form as :func:`~reproject.reproject_interp`
 second argument, either as a string or as a
 :class:`~astropy.coordinates.BaseCoordinateFrame` instance e.g.::
 
-    array, footprint = reproject_to_healpix((array, header_in), 'galactic')
+    array, footprint = reproject_to_healpix((array, target_header), 'galactic')
 
 The array returned is a 1-D array which can be stored in a HEALPIX file using ``healpy.write_map``::
 
