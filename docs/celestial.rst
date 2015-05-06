@@ -56,11 +56,20 @@ Reprojection using interpolation can be done using the high-level
     >>> from reproject import reproject_interp
 
 This function takes two main arguments. The first argument is the image to
-reproject, together with WCS information about the image. This can be either an
-Astropy HDU object (specifically :class:`~astropy.io.fits.PrimaryHDU`,
-:class:`~astropy.io.fits.ImageHDU`, or :class:`~astropy.io.fits.CompImageHDU`), or a tuple with two elements: a Numpy
-array and either a :class:`~astropy.wcs.WCS` or a
-:class:`~astropy.io.fits.Header` instance.
+reproject, together with WCS information about the image. This can be either:
+
+* The name of a FITS file
+* An :class:`~astropy.io.fits.HDUList` object
+* An image HDU object such as a :class:`~astropy.io.fits.PrimaryHDU`,
+  :class:`~astropy.io.fits.ImageHDU`, or
+  :class:`~astropy.io.fits.CompImageHDU` instance
+* A tuple where the first element is a :class:`~numpy.ndarray` and the
+  second element is either a :class:`~astropy.wcs.WCS` or a
+  :class:`~astropy.io.fits.Header` object
+
+In the case of a FITS file or an :class:`~astropy.io.fits.HDUList` object, if
+there is more than one Header-Data Unit (HDU), the ``hdu_in`` argument is
+also required and should be set to the ID or the name of the HDU to use.
 
 The second argument is the WCS information for the output image, which should
 be specified either as a :class:`~astropy.wcs.WCS` or a
