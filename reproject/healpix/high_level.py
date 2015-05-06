@@ -2,10 +2,10 @@ from .core import healpix_to_image, image_to_healpix
 from .utils import parse_input_healpix_data, parse_coord_system
 from ..utils import parse_input_data, parse_output_projection
 
-__all__ = ['reproject_from_healpix_interp', 'reproject_to_healpix_interp']
+__all__ = ['reproject_from_healpix', 'reproject_to_healpix']
 
 
-def reproject_from_healpix_interp(input_data, output_projection, shape_out=None, hdu_in=None, order='bilinear', nested=False):
+def reproject_from_healpix(input_data, output_projection, shape_out=None, hdu_in=None, order='bilinear', nested=False):
     """
     Reproject data from a HEALPIX projection to a standard projection.
 
@@ -57,7 +57,7 @@ def reproject_from_healpix_interp(input_data, output_projection, shape_out=None,
     return healpix_to_image(array_in, coord_system_in, wcs_out, shape_out, order=order, nested=nested)
 
 
-def reproject_to_healpix_interp(input_data, coord_system_out, hdu_in=None, order='bilinear', nested=False, nside=128):
+def reproject_to_healpix(input_data, coord_system_out, hdu_in=None, order='bilinear', nested=False, nside=128):
     """
     Reproject data from a standard projection to a HEALPIX projection.
 
