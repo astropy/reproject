@@ -10,7 +10,8 @@ from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.tests.helper import pytest
 
-from ..core import healpix_to_image, image_to_healpix, healpix_reproject_file
+from ..core import healpix_to_image, image_to_healpix
+from ..high_level import reproject_from_healpix
 
 
 DATA = os.path.join(os.path.dirname(__file__), 'data')
@@ -38,10 +39,10 @@ def get_reference_header(oversample=2, nside=1):
 
 
 @pytest.mark.importorskip('healpy')
-@pytest.mark.parametrize("nside,nest,healpix_system,image_system",
+@pytest.mark.parametrize("nside,nested,healpix_system,image_system",
                          itertools.product([1, 2, 4, 8, 16, 32, 64], [True, False], 'C', 'C'))
 def test_reproject_healpix_to_image_round_trip(
-        nside, nest, healpix_system, image_system):
+        nside, nested, healpix_system, image_system):
     """Test round-trip HEALPix->WCS->HEALPix conversion for a random map,
     with a WCS projection large enough to store each HEALPix pixel"""
     import healpy as hp
@@ -54,13 +55,13 @@ def test_reproject_healpix_to_image_round_trip(
     wcs_out = WCS(reference_header)
     shape_out = reference_header['NAXIS2'], reference_header['NAXIS1']
 
-    image_data = healpix_to_image(
+    image_data, footprint = healpix_to_image(
         healpix_data, healpix_system, wcs_out, shape_out,
-        interp=False, nest=nest)
+        order=0, nested=nested)
 
-    healpix_data_2 = image_to_healpix(
+    healpix_data_2, footprint = image_to_healpix(
         image_data, wcs_out, healpix_system,
-        nside, interp=False, nest=nest)
+        nside, order=0, nested=nested)
 
     np.testing.assert_array_equal(healpix_data, healpix_data_2)
 
@@ -68,6 +69,6 @@ def test_reproject_healpix_to_image_round_trip(
 @pytest.mark.importorskip('healpy')
 def test_reproject_file():
     reference_header = get_reference_header(oversample=2, nside=8)
-    hdu = healpix_reproject_file(os.path.join(DATA, 'bayestar.fits.gz'), reference_header)
+    data, footprint = reproject_from_healpix(os.path.join(DATA, 'bayestar.fits.gz'), reference_header)
     reference_result = fits.getdata(os.path.join(DATA, 'reference_result.fits'))
-    np.testing.assert_allclose(hdu.data, reference_result)
+    np.testing.assert_allclose(data, reference_result)

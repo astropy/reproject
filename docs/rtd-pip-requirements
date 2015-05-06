@@ -1,4 +1,7 @@
-astropy-helpers
 numpy
-Cython
+matplotlib==1.4.0
+astropy-helpers
 astropy
+healpy
+wcsaxes
+

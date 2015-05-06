@@ -3,10 +3,9 @@ from __future__ import absolute_import, division, print_function
 
 import numpy as np
 from astropy.wcs import WCSSUB_CELESTIAL
+
 from ..wcs_utils import convert_world_coordinates
 from ..array_utils import iterate_over_celestial_slices, pad_edge_1
-
-__all__ = ['reproject_celestial']
 
 
 def map_coordinates(image, coords, **kwargs):
@@ -33,7 +32,7 @@ def map_coordinates(image, coords, **kwargs):
     return values
 
 
-def get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
+def _get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
     """
     Get the pixel coordinates of the pixels in an array of shape ``shape_out``
     in the input WCS.
@@ -59,34 +58,9 @@ def get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
     return xp_in, yp_in
 
 
-def reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
+def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
     """
-    Reproject celestial slices from an n-d array from one WCS to another using
-    interpolation, and assuming all other dimensions are independent.
-
-    Parameters
-    ----------
-    array : `~numpy.ndarray`
-        The array to reproject
-    wcs_in : `~astropy.wcs.WCS`
-        The input WCS
-    wcs_out : `~astropy.wcs.WCS`
-        The output WCS
-    shape_out : tuple
-        The shape of the output array
-    order : int
-        The order of the interpolation (if ``mode`` is set to
-        ``'interpolation'``). A value of ``0`` indicates nearest neighbor
-        interpolation. The default is bilinear interpolation.
-
-    Returns
-    -------
-    array_new : `~numpy.ndarray`
-        The reprojected array
-    footprint : `~numpy.ndarray`
-        Footprint of the input array in the output array. Values of 0 indicate
-        no coverage or valid values in the input image, while values of 1
-        indicate valid values.
+    Reproject data with celestial axes to a new projection using interpolation.
     """
 
     # Make sure image is floating point
@@ -115,13 +89,13 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
     for slice_in, slice_out in iterate_over_celestial_slices(array, array_new, wcs_in):
 
         if coordinates is None:  # Get position of output pixel centers in input image
-            xp_in, yp_in = get_input_pixels_celestial(wcs_in_celestial, wcs_out_celestial, slice_out.shape)
+            xp_in, yp_in = _get_input_pixels_celestial(wcs_in_celestial, wcs_out_celestial, slice_out.shape)
             coordinates = np.array([yp_in.ravel(), xp_in.ravel()])
 
-        slice_out[:,:] = map_coordinates(slice_in,
-                                         coordinates,
-                                         order=order, cval=np.nan,
-                                         mode='constant'
-                                         ).reshape(slice_out.shape)
+        slice_out[:, :] = map_coordinates(slice_in,
+                                          coordinates,
+                                          order=order, cval=np.nan,
+                                          mode='constant'
+                                          ).reshape(slice_out.shape)
 
     return array_new, (~np.isnan(array_new)).astype(float)

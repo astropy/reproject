@@ -11,96 +11,23 @@ from __future__ import print_function, division
 
 import numpy as np
 
-from astropy.io import fits
 from astropy import units as u
 from astropy.extern import six
-from astropy.wcs import WCS
-from astropy.coordinates import BaseCoordinateFrame, frame_transform_graph, Galactic, ICRS
 
 from ..wcs_utils import convert_world_coordinates
+from .utils import parse_coord_system
 
-__all__ = ['healpix_reproject_file', 'healpix_to_image', 'image_to_healpix']
+__all__ = ['healpix_to_image', 'image_to_healpix']
 
-
-FRAMES = {
-    'g': Galactic(),
-    'c': ICRS()
-}
-
-
-def parse_coord_system(system):
-    if isinstance(system, BaseCoordinateFrame):
-        return system
-    elif isinstance(system, six.string_types):
-        system = system.lower()
-        if system == 'e':
-            raise ValueError("Ecliptic coordinate frame not yet supported")
-        elif system in FRAMES:
-            return FRAMES[system]
-        else:
-            system_new = frame_transform_graph.lookup_name(system)
-            if system_new is None:
-                raise ValueError("Could not determine frame for system={0}".format(system))
-            else:
-                return system_new
-
-
-def healpix_reproject_file(filename_in, target, filename_out=None, clobber=False, field=0, **kwargs):
-    """
-    Reproject a HEALPIX file
-
-    Parameters
-    ----------
-    filename_in : str
-        A HEALPIX FITS file name
-    target : fits.Header, fits.PrimaryHDU, fits.HDUList, or str
-        A fits.Header or HDU or FITS filename containing the target for projection
-    filename_out : str or None
-        The filename to write to
-    clobber : bool
-        Overwrite the outfilename if it exists?
-    field : int
-        The field number containing the data to be reprojected.  If not
-        specifies, defaults to the first field in the BinTable
-    kwargs : dict
-        passed to healpix_to_image
-
-    Returns
-    -------
-    fits.PrimaryHDU containing the reprojected image
-    """
-    import healpy as hp
-
-    hp_data, hp_header = hp.read_map(filename_in, verbose=False, h=True, field=field)
-    hp_header = dict(hp_header)
-    hp_coordsys = hp_header['COORDSYS']
-
-    if isinstance(target, str):
-        target_header = fits.getheader(target)
-    elif isinstance(target, fits.Header):
-        target_header = target
-    elif isinstance(target, fits.PrimaryHDU):
-        target_header = target.header
-    elif isinstance(target, fits.HDUList):
-        target_header = target[0].header
-    else:
-        raise TypeError("target was not a valid type; must be some sort of FITS header representation")
-
-    wcs_out = WCS(target_header)
-    shape_out = target_header['NAXIS2'], target_header['NAXIS1']
-
-    image_data = healpix_to_image(hp_data, hp_coordsys, wcs_out, shape_out, **kwargs)
-
-    new_hdu = fits.PrimaryHDU(data=image_data, header=target_header)
-
-    if filename_out is not None:
-        new_hdu.writeto(filename_out, clobber=clobber)
-
-    return new_hdu
+ORDER = {}
+ORDER['nearest-neighbor'] = 0
+ORDER['bilinear'] = 1
+ORDER['biquadratic'] = 2
+ORDER['bicubic'] = 3
 
 
 def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
-                     interp=True, nest=False):
+                     order='bilinear', nested=False):
     """
     Convert image in HEALPIX format to a normal FITS projection image (e.g.
     CAR or AIT).
@@ -109,7 +36,7 @@ def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
     ----------
     healpix_data : `numpy.ndarray`
         HEALPIX data array
-    coord_system_in : str or `~astropy.coordinate.BaseCoordinateFrame`
+    coord_system_in : str or `~astropy.coordinates.BaseCoordinateFrame`
         The coordinate system for the input HEALPIX data, as an Astropy
         coordinate frame or corresponding string alias (e.g. ``'icrs'`` or
         ``'galactic'``)
@@ -117,47 +44,27 @@ def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
         The WCS of the output array
     shape_out : tuple
         The shape of the output array
-    nest : bool
+    order : int or str, optional
+        The order of the interpolation (if ``mode`` is set to
+        ``'interpolation'``). This can be either one of the following strings:
+
+            * 'nearest-neighbor'
+            * 'bilinear'
+
+        or an integer. A value of ``0`` indicates nearest neighbor
+        interpolation. 
+    nested : bool
         The order of the healpix_data, either nested or ring.  Stored in
         FITS headers in the ORDERING keyword.
-    interp : bool
-        Get the bilinear interpolated data?  If not, returns a set of neighbors
 
     Returns
     -------
     reprojected_data : `numpy.ndarray`
         HEALPIX image resampled onto the reference image
-
-    Examples
-    --------
-    >>> import os
-    >>> import healpy as hp
-    >>> from astropy.io import fits
-    >>> from reproject.healpix import healpix_to_image
-    >>> reference_header = fits.Header()
-    >>> os.system('curl -O http://www.ligo.org/scientists/first2years/2015/compare/12157/bayestar.fits.gz')
-    0
-    >>> reference_header.update({
-    ...     'COORDSYS': 'icrs',
-    ...     'CDELT1': -0.4,
-    ...     'CDELT2': 0.4,
-    ...     'CRPIX1': 500,
-    ...     'CRPIX2': 400,
-    ...     'CRVAL1': 180.0,
-    ...     'CRVAL2': 0.0,
-    ...     'CTYPE1': 'RA---MOL',
-    ...     'CTYPE2': 'DEC--MOL',
-    ...     'CUNIT1': 'deg',
-    ...     'CUNIT2': 'deg',
-    ...     'NAXIS': 2,
-    ...     'NAXIS1': 1000,
-    ...     'NAXIS2': 800})
-    >>> healpix_data, healpix_header = hp.read_map('bayestar.fits.gz', h=True, verbose=False)
-    >>> healpix_system = dict(healpix_header)['COORDSYS']
-    >>> wcs_out = WCS(reference_header)
-    >>> shape_out = reference_header['NAXIS2'], reference_header['NAXIS1']
-    >>> reprojected_data = healpix_to_image(healpix_data, healpix_system, wcs_out, shape_out)
-    >>> fits.writeto('new_image.fits', reprojected_data, reference_header)
+    footprint : `~numpy.ndarray`
+        Footprint of the input array in the output array. Values of 0 indicate
+        no coverage or valid values in the input image, while values of 1
+        indicate valid values.
     """
     import healpy as hp
 
@@ -180,19 +87,26 @@ def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
     data = np.empty(theta.shape, healpix_data.dtype)
     data[~good] = np.nan
 
-    if interp:
-        data[good] = hp.get_interp_val(healpix_data, theta[good], phi[good], nest)
-    else:
+    if isinstance(order, six.string_types):
+        order = ORDER[order]
+
+    if order == 1:
+        data[good] = hp.get_interp_val(healpix_data, theta[good], phi[good], nested)
+    elif order == 0:
         npix = len(healpix_data)
         nside = hp.npix2nside(npix)
-        ipix = hp.ang2pix(nside, theta[good], phi[good], nest)
+        ipix = hp.ang2pix(nside, theta[good], phi[good], nested)
         data[good] = healpix_data[ipix]
+    else:
+        raise ValueError("Only nearest-neighbor and bilinear interpolation are supported")
 
-    return data
+    footprint = good.astype(int)
+
+    return data, footprint
 
 
 def image_to_healpix(data, wcs_in, coord_system_out,
-                     nside, interp=True, nest=False):
+                     nside, order='bilinear', nested=False):
     """
     Convert image in a normal WCS projection to HEALPIX format.
 
@@ -202,32 +116,42 @@ def image_to_healpix(data, wcs_in, coord_system_out,
         Input data array to reproject
     wcs_in : `~astropy.wcs.WCS`
         The WCS of the input array
-    coord_system_out : str or `~astropy.coordinate.BaseCoordinateFrame`
+    coord_system_out : str or `~astropy.coordinates.BaseCoordinateFrame`
         The target coordinate system for the HEALPIX projection, as an Astropy
         coordinate frame or corresponding string alias (e.g. ``'icrs'`` or
         ``'galactic'``)
-    nest : bool
+    order : int or str, optional
+        The order of the interpolation (if ``mode`` is set to
+        ``'interpolation'``). This can be either one of the following strings:
+
+            * 'nearest-neighbor'
+            * 'bilinear'
+            * 'biquadratic'
+            * 'bicubic'
+
+        or an integer. A value of ``0`` indicates nearest neighbor
+        interpolation. 
+    nested : bool
         The order of the healpix_data, either nested or ring.  Stored in
         FITS headers in the ORDERING keyword.
-    interp : bool
-        Get the bilinear interpolated data?  If not, returns a set of neighbors
 
     Returns
     -------
     reprojected_data : `numpy.ndarray`
         A HEALPIX array of values
+    footprint : `~numpy.ndarray`
+        Footprint of the input array in the output array. Values of 0 indicate
+        no coverage or valid values in the input image, while values of 1
+        indicate valid values.
     """
     import healpy as hp
     from scipy.ndimage import map_coordinates
 
     npix = hp.nside2npix(nside)
 
-    if interp:
-        raise NotImplementedError
-
     # Look up lon, lat of pixels in output system and convert colatitude theta
     # and longitude phi to longitude and latitude.
-    theta, phi = hp.pix2ang(nside, np.arange(npix), nest)
+    theta, phi = hp.pix2ang(nside, np.arange(npix), nested)
     lon_out = np.degrees(phi)
     lat_out = 90. - np.degrees(theta)
 
@@ -239,8 +163,12 @@ def image_to_healpix(data, wcs_in, coord_system_out,
     yinds, xinds = wcs_in.wcs_world2pix(lon_in, lat_in, 0)
 
     # Interpolate
+
+    if isinstance(order, six.string_types):
+        order = ORDER[order]
+
     healpix_data = map_coordinates(data, [xinds, yinds],
-                                   order=(3 if interp else 0),
+                                   order=order,
                                    mode='constant', cval=np.nan)
 
-    return healpix_data
+    return healpix_data, (~np.isnan(healpix_data)).astype(float)

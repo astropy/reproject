@@ -8,7 +8,7 @@ __all__ = ['compute_overlap']
 
 def compute_overlap(ilon, ilat, olon, olat):
     """Compute the overlap between two 'pixels' in spherical coordinates.
-    
+
     Parameters
     ----------
     ilon : np.ndarray with shape (N, 4)
@@ -19,7 +19,7 @@ def compute_overlap(ilon, ilat, olon, olat):
         The longitudes (in radians) defining the four corners of the output pixel
     olat : np.ndarray with shape (N, 4)
         The latitudes (in radians) defining the four corners of the output pixel
-    
+
     Returns
     -------
     overlap : np.ndarray of length N
@@ -31,5 +31,5 @@ def compute_overlap(ilon, ilat, olon, olat):
     ilat = np.asarray(ilat, dtype=np.float64)
     olon = np.asarray(olon, dtype=np.float64)
     olat = np.asarray(olat, dtype=np.float64)
-    
-    return _compute_overlap(ilon, ilat, olon, olat) 
+
+    return _compute_overlap(ilon, ilat, olon, olat)
