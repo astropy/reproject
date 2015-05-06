@@ -76,7 +76,8 @@ def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
 
     # Convert between celestial coordinates
     coord_system_in = parse_coord_system(coord_system_in)
-    lon_in, lat_in = convert_world_coordinates(lon_out, lat_out, wcs_out, (coord_system_in, u.deg, u.deg))
+    with np.errstate(invalid='ignore'):
+        lon_in, lat_in = convert_world_coordinates(lon_out, lat_out, wcs_out, (coord_system_in, u.deg, u.deg))
 
     # Convert from lon, lat in degrees to colatitude theta, longitude phi,
     # in radians
@@ -159,7 +160,8 @@ def image_to_healpix(data, wcs_in, coord_system_out,
 
     # Convert between celestial coordinates
     coord_system_out = parse_coord_system(coord_system_out)
-    lon_in, lat_in = convert_world_coordinates(lon_out, lat_out, (coord_system_out, u.deg, u.deg), wcs_in)
+    with np.errstate(invalid='ignore'):
+        lon_in, lat_in = convert_world_coordinates(lon_out, lat_out, (coord_system_out, u.deg, u.deg), wcs_in)
 
     # Look up pixels in input system
     yinds, xinds = wcs_in.wcs_world2pix(lon_in, lat_in, 0)
