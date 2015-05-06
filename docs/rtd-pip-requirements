@@ -1,6 +1,6 @@
 numpy
 Cython
-matplotlib>=1.4
+matplotlib
 astropy-helpers
 astropy
 healpy
