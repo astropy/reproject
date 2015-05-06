@@ -2,6 +2,8 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
+import itertools
+
 import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -17,6 +19,14 @@ ALL_MODES = ('nearest-neighbor',
              'biquadratic',
              'bicubic',
              'flux-conserving')
+
+ALL_DTYPES = []
+for endian in ('<', '>'):
+    for kind in ('u', 'i', 'f'):
+        for size in ('1', '2', '4', '8'):
+            if kind == 'f' and size == '1':
+                continue
+            ALL_DTYPES.append(np.dtype(endian + kind + size))
 
 
 class TestReproject(object):
@@ -82,8 +92,8 @@ LATPOLE =                 90.0 / [deg] Native latitude of celestial pole
 """
 
 
-@pytest.mark.parametrize('projection_type', ALL_MODES)
-def test_surface_brightness(projection_type):
+@pytest.mark.parametrize('projection_type, dtype', itertools.product(ALL_MODES, ALL_DTYPES))
+def test_surface_brightness(projection_type, dtype):
 
     header_in = fits.Header.fromstring(INPUT_HDR, sep='\n')
     header_in['NAXIS'] = 2
@@ -97,7 +107,7 @@ def test_surface_brightness(projection_type):
     header_out['NAXIS1'] *= 2
     header_out['NAXIS2'] *= 2
 
-    data_in = np.ones((10, 10))
+    data_in = np.ones((10, 10), dtype=dtype)
 
     if projection_type == 'flux-conserving':
         data_out, footprint = reproject_exact((data_in, header_in), header_out)
