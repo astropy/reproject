@@ -15,7 +15,7 @@ Requirements
 ============
 
 This package has the following hard dependencies:
- 
+
 * `Numpy <http://www.numpy.org/>`__ 1.6 or later
 
 * `Astropy <http://www.astropy.org/>`__ 1.0 or later
@@ -35,30 +35,19 @@ A common use case is that you have two FITS images, and want to reproject one
 to the same header as the other. This can easily be done with the *reproject*
 package, and we demonstrate this in the following example. We start off by
 downloading two example images from `http://data.astropy.org <http://data.astropy.org>`_,
-namely 2MASS K-band and MSX band E images of the Galactic center.
-
-.. plot::
-   :context: reset
-   :nofigs:
-   :include-source:
-   :align: center
+namely 2MASS K-band and MSX band E images of the Galactic center::
 
     from astropy.io import fits
-    from astropy.utils.data import get_pkg_data_filename    
+    from astropy.utils.data import get_pkg_data_filename
     hdu1 = fits.open(get_pkg_data_filename('galactic_center/gc_2mass_k.fits'))[0]
     hdu2 = fits.open(get_pkg_data_filename('galactic_center/gc_msx_e.fits'))[0]
 
 We can examine the two images (this makes use of the
-`wcsaxes <wcsaxes.readthedocs.org>`_ package behind the scenes):
-
-.. plot::
-   :context:
-   :include-source:
-   :align: center
+`wcsaxes <wcsaxes.readthedocs.org>`_ package behind the scenes)::
 
     from astropy.wcs import WCS
     import matplotlib.pyplot as plt
-    
+
     ax1 = plt.subplot(1,2,1, projection=WCS(hdu1.header))
     ax1.imshow(hdu1.data, origin='lower', vmin=-100., vmax=2000.)
     ax1.coords.grid(color='white')
@@ -74,14 +63,12 @@ We can examine the two images (this makes use of the
     ax2.coords['glat'].set_axislabel_position('r')
     ax2.coords['glat'].set_ticklabel_position('r')
     ax2.set_title('MSX band E')
-   
-We now reproject the MSX image to be in the same projection as the 2MASS image:
 
-.. plot::
-   :context:
-   :nofigs:
-   :include-source:
+.. image:: images/index-2.png
    :align: center
+   :width: 80%
+
+We now reproject the MSX image to be in the same projection as the 2MASS image::
 
     from reproject import reproject_interp
     array, footprint = reproject_interp(hdu2, hdu1.header)
@@ -90,16 +77,11 @@ The :func:`~reproject.reproject_interp` function above returns the
 reprojected array as well as an array that provides information on the
 footprint of the first image in the new reprojected image plane (essentially
 which pixels in the new image had a corresponding pixel in the old image). We
-can now visualize the reprojected data and footprint:
-
-.. plot::
-   :context:
-   :include-source:
-   :align: center
+can now visualize the reprojected data and footprint::
 
     from astropy.wcs import WCS
     import matplotlib.pyplot as plt
-    
+
     ax1 = plt.subplot(1,2,1, projection=WCS(hdu1.header))
     ax1.imshow(array, origin='lower', vmin=-2.e-4, vmax=5.e-4)
     ax1.coords.grid(color='white')
@@ -116,16 +98,14 @@ can now visualize the reprojected data and footprint:
     ax2.coords['dec'].set_ticklabel_position('r')
     ax2.set_title('MSX band E image footprint')
 
+.. image:: images/index-4.png
+   :align: center
+   :width: 80%
+
 We can then write out the image to a new FITS file. Note that, as for
 plotting, we can use the header from the 2MASS image since both images are
-now in the same projection:
+now in the same projection::
 
-.. plot::
-   :context:
-   :nofigs:
-   :include-source:
-   :align: center
-   
    fits.writeto('msx_on_2mass_header.fits', array, hdu1.header, clobber=True)
 
 The *reproject* package supports a number of different algorithms for
@@ -142,7 +122,7 @@ that you want to reproject.
 
 .. toctree::
    :maxdepth: 2
-   
+
    celestial
    healpix
    noncelestial

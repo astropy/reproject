@@ -3,5 +3,3 @@ Cython
 matplotlib
 astropy-helpers
 astropy
-healpy
-wcsaxes

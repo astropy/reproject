@@ -1,7 +1,6 @@
 import tempfile
 
 import numpy as np
-from healpy import read_map
 
 from astropy.io.fits import TableHDU, BinTableHDU
 from astropy.extern import six
@@ -49,6 +48,7 @@ def parse_input_healpix_data(input_data, field=0, hdu_in=None):
         input_data = filename
 
     if isinstance(input_data, six.string_types):
+        from healpy import read_map
         array_in, header = read_map(input_data, verbose=False, h=True, field=field, hdu=1 if hdu_in is None else hdu_in)
         coordinate_system_in = parse_coord_system(dict(header)['COORDSYS'])
     elif isinstance(input_data, tuple) and isinstance(input_data[0], np.ndarray):
