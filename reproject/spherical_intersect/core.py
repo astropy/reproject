@@ -187,7 +187,10 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _meth
                 pool.close()
                 pool.join()
 
-        return array_new / weights, weights
+        with np.errstate(invalid='ignore'):
+            array_new /= weights
+
+        return array_new, weights
 
     if _method == "c" and (nproc is None or nproc > 1):
         try:
