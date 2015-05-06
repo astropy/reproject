@@ -60,7 +60,7 @@ def iterate_over_celestial_slices(array_in, array_out, wcs):
 def pad_edge_1(array):
     try:
         return np.pad(array, 1, mode='edge')
-    except:  # numpy < 1.7 workaround
+    except:  # numpy < 1.7 workaround pragma: no cover
         new_array = np.zeros((array.shape[0] + 2,
                               array.shape[1] + 2),
                              dtype=array.dtype)

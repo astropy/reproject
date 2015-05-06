@@ -22,11 +22,11 @@ def parse_coord_system(system):
         elif system in FRAMES:
             return FRAMES[system]
         else:
-            system_new = frame_transform_graph.lookup_name(system)()
+            system_new = frame_transform_graph.lookup_name(system)
             if system_new is None:
                 raise ValueError("Could not determine frame for system={0}".format(system))
             else:
-                return system_new
+                return system_new()
 
 
 def parse_input_healpix_data(input_data, field=0, hdu_in=None):

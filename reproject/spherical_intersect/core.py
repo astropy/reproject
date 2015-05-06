@@ -170,7 +170,7 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _meth
             array_new = sum([_.get()[0] for _ in results])
             weights = sum([_.get()[1] for _ in results])
 
-        except KeyboardInterrupt:
+        except KeyboardInterrupt:  # pragma: no cover
             # If we hit ctrl+c while running things in parallel, we want to terminate
             # everything and erase the pool before re-raising. Note that since we inited the pool
             # with the _init_worker function, we disabled catching ctrl+c from the subprocesses. ctrl+c
@@ -190,15 +190,6 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _meth
         return array_new / weights, weights
 
     if _method == "c" and (nproc is None or nproc > 1):
-        try:
-            return parallel_impl(nproc)
-        except KeyboardInterrupt:
-            # If we stopped the parallel implementation with ctrl+c, we don't really want to run
-            # the serial one.
-            raise
-        except Exception as e:
-            warnings.warn("The parallel implementation failed, the reported error message is: '{0}'".format(repr(e,)), AstropyUserWarning)
-            warnings.warn("Running the serial implementation instead", AstropyUserWarning)
-            return serial_impl()
+        return parallel_impl(nproc)
 
     raise ValueError('unrecognized method "{0}"'.format(_method,))
