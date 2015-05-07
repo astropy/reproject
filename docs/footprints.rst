@@ -19,7 +19,6 @@ To demonstrate this, we take the same example as in the :ref:`quickstart` guide,
 As before, we now reproject the MSX image to be in the same projection as the 2MASS image, but we do this with two algorithms::
 
     from reproject import reproject_interp, reproject_exact
-
     array_interp, footprint_interp = reproject_interp(hdu2, hdu1.header)
     array_exact, footprint_exact = reproject_exact(hdu2, hdu1.header)
 

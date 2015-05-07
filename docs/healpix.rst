@@ -23,7 +23,7 @@ specify the output shape using ``shape_out``) or as a FITS
 :class:`~astropy.io.fits.Header` object.
 
 To demonstrate these functions, we can download an example HEALPIX map which
-is a posterior distribution map from the `LIGO project
+is a posterior probability distribution map from the `LIGO project
 <http://www.ligo.org/scientists/first2years/>`_::
 
     from astropy.utils.data import get_pkg_data_filename

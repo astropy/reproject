@@ -43,7 +43,7 @@ A common use case is that you have two FITS images, and want to reproject one
 to the same header as the other. This can easily be done with the *reproject*
 package, and we demonstrate this in the following example. We start off by
 downloading two example images from `http://data.astropy.org <http://data.astropy.org>`_,
-namely 2MASS K-band and MSX band E images of the Galactic center::
+namely a 2MASS K-band image and an MSX band E image of the Galactic center::
 
     from astropy.io import fits
     from astropy.utils.data import get_pkg_data_filename
