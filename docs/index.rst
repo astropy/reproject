@@ -20,9 +20,9 @@ This package has the following hard dependencies:
 
 * `Astropy <http://www.astropy.org/>`__ 1.0 or later
 
-and the following optional dependencies:
+* `Scipy <http://www.scipy.org/>`__
 
-* `Scipy <http://www.scipy.org/>`__ for interpolation
+and the following optional dependencies:
 
 * `healpy <http://healpy.readthedocs.org>`_ for HEALPIX image reprojection
 
