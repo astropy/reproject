@@ -20,11 +20,11 @@ This package has the following hard dependencies:
 
 * `Astropy <http://www.astropy.org/>`__ 1.0 or later
 
-* `Scipy <http://www.scipy.org/>`__
+* `Scipy <http://www.scipy.org/>`__ 0.9 or later
 
 and the following optional dependencies:
 
-* `healpy <http://healpy.readthedocs.org>`_ for HEALPIX image reprojection
+* `healpy <http://healpy.readthedocs.org>`_ 1.8 or later for HEALPIX image reprojection
 
 .. _quickstart:
 
