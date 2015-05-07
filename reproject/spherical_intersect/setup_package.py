@@ -5,13 +5,16 @@ REPROJECT_ROOT = os.path.relpath(os.path.dirname(__file__))
 
 
 def get_extensions():
-    sources = [os.path.join(REPROJECT_ROOT, "_overlap.pyx")]
-    include_dirs = ['numpy']
+
     libraries = []
 
-    sources.append("reproject/spherical_intersect/overlapArea.c")
-    sources.append("reproject/spherical_intersect/reproject_slice_c.c")
-    include_dirs.append('reproject/spherical_intersect')
+    sources = []
+    sources.append(os.path.join(REPROJECT_ROOT, "_overlap.c"))
+    sources.append(os.path.join(REPROJECT_ROOT, "overlapArea.c"))
+    sources.append(os.path.join(REPROJECT_ROOT, "reproject_slice_c.c"))
+
+    include_dirs = ['numpy']
+    include_dirs.append(REPROJECT_ROOT)
 
     extension = Extension(
         name="reproject.spherical_intersect._overlap",
@@ -22,3 +25,10 @@ def get_extensions():
         extra_compile_args=['-O2'])
 
     return [extension]
+
+
+def get_package_data():
+
+    header_files = ['overlapArea.h', 'reproject_slice_c.h', 'mNaN.h']
+
+    return {'reproject.spherical_intersect': header_files}
