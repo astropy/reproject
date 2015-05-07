@@ -3,23 +3,27 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 import signal
-import warnings
 
 import numpy as np
-
-from astropy.utils.exceptions import AstropyUserWarning
 
 from ..wcs_utils import convert_world_coordinates
 
 from ._overlap import _compute_overlap
 
 
-# Function to disable ctrl+c in the worker processes.
 def _init_worker():
+    """
+    Function to disable ctrl+c in the worker processes.
+    """
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
-def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _method="c"):
+def _reproject_slice(args):
+    from ._overlap import _reproject_slice_cython
+    return _reproject_slice_cython(*args)
+
+
+def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _legacy=False):
 
     # Check the parallel flag.
     if type(parallel) != bool and type(parallel) != int:
@@ -79,7 +83,7 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _meth
 
     xp_inout, yp_inout = wcs_out.wcs_world2pix(xw_in, yw_in, 0)
 
-    if _method == "legacy":
+    if _legacy:
         # Create output image
 
         array_new = np.zeros(shape_out)
@@ -130,69 +134,47 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _meth
     # Put together the parameters common both to the serial and parallel implementations. The aca
     # function is needed to enforce that the array will be contiguous when passed to the low-level
     # raw C function, otherwise Cython might complain.
-    from numpy import ascontiguousarray as aca
-    from ._overlap import _reproject_slice_cython
-    common_func_par = [0, ny_in, nx_out, ny_out, aca(xp_inout), aca(yp_inout), aca(xw_in), aca(yw_in), aca(xw_out), aca(yw_out), aca(array), shape_out]
 
-    # Abstract the serial implementation in a separate function so we can reuse it.
-    def serial_impl():
-        array_new, weights = _reproject_slice_cython(0, nx_in, *common_func_par)
+    aca = np.ascontiguousarray
+    common_func_par = [0, ny_in, nx_out, ny_out, aca(xp_inout), aca(yp_inout),
+                       aca(xw_in), aca(yw_in), aca(xw_out), aca(yw_out), aca(array),
+                       shape_out]
 
-        array_new /= weights
+    if nproc == 1:
 
-        return array_new, weights
-
-    if _method == "c" and nproc == 1:
-        return serial_impl()
-
-    # Abstract the parallel implementation as well.
-    def parallel_impl(nproc):
-        from multiprocessing import Pool, cpu_count
-        # If needed, establish the number of processors to use.
-        if nproc is None:
-            nproc = cpu_count()
-
-        # Create the pool.
-        pool = None
-        try:
-            # Prime each process in the pool with a small function that disables
-            # the ctrl+c signal in the child process.
-            pool = Pool(nproc, _init_worker)
-
-            # Accumulator for the results from the parallel processes.
-            results = []
-
-            for i in range(nproc):
-                start = int(nx_in) // nproc * i
-                end = int(nx_in) if i == nproc - 1 else int(nx_in) // nproc * (i + 1)
-                results.append(pool.apply_async(_reproject_slice_cython, [start, end] + common_func_par))
-
-            array_new = sum([_.get()[0] for _ in results])
-            weights = sum([_.get()[1] for _ in results])
-
-        except KeyboardInterrupt:  # pragma: no cover
-            # If we hit ctrl+c while running things in parallel, we want to terminate
-            # everything and erase the pool before re-raising. Note that since we inited the pool
-            # with the _init_worker function, we disabled catching ctrl+c from the subprocesses. ctrl+c
-            # can be handled only by the main process.
-            if not pool is None:
-                pool.terminate()
-                pool.join()
-                pool = None
-            raise
-
-        finally:
-            if not pool is None:
-                # Clean up the pool, if still alive.
-                pool.close()
-                pool.join()
+        array_new, weights = _reproject_slice([0, nx_in] + common_func_par)
 
         with np.errstate(invalid='ignore'):
             array_new /= weights
 
         return array_new, weights
 
-    if _method == "c" and (nproc is None or nproc > 1):
-        return parallel_impl(nproc)
+    elif (nproc is None or nproc > 1):
 
-    raise ValueError('unrecognized method "{0}"'.format(_method,))
+        from multiprocessing import Pool, cpu_count
+
+        # If needed, establish the number of processors to use.
+        if nproc is None:
+            nproc = cpu_count()
+
+        # Prime each process in the pool with a small function that disables
+        # the ctrl+c signal in the child process.
+        pool = Pool(nproc, _init_worker)
+
+        inputs = []
+        for i in range(nproc):
+            start = int(nx_in) // nproc * i
+            end = int(nx_in) if i == nproc - 1 else int(nx_in) // nproc * (i + 1)
+            inputs.append([start, end] + common_func_par)
+
+        results = pool.map(_reproject_slice, inputs)
+
+        array_new, weights = zip(*results)
+
+        array_new = sum(array_new)
+        weights = sum(weights)
+
+        with np.errstate(invalid='ignore'):
+            array_new /= weights
+
+        return array_new, weights
