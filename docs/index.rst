@@ -34,6 +34,13 @@ and the following optional dependencies:
 
 * `healpy <http://healpy.readthedocs.org>`_ 1.8 or later for HEALPIX image reprojection
 
+Installation
+============
+
+To install the *reproject* package, simply do::
+
+    pip install reproject
+
 .. _quickstart:
 
 Quick start
