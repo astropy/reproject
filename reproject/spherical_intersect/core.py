@@ -169,6 +169,8 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _lega
 
         results = pool.map(_reproject_slice, inputs)
 
+        pool.close()
+
         array_new, weights = zip(*results)
 
         array_new = sum(array_new)

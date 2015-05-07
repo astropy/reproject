@@ -70,9 +70,9 @@ def test_reproject_celestial_consistency():
     wcs_in = WCS(fits.Header.fromstring(INPUT_HDR, sep='\n'))
     wcs_out = WCS(fits.Header.fromstring(OUTPUT_HDR, sep='\n'))
 
-    array1, footprint1 = _reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), _method='legacy')
-    array2, footprint2 = _reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), _method='c', parallel=False)
-    array3, footprint3 = _reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), _method='c', parallel=True)
+    array1, footprint1 = _reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), _legacy=True)
+    array2, footprint2 = _reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), parallel=False)
+    array3, footprint3 = _reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), parallel=True)
 
     np.testing.assert_allclose(array1, array2, rtol=1.e-6)
     np.testing.assert_allclose(array1, array3, rtol=1.e-6)
@@ -88,7 +88,7 @@ def test_reproject_celestial_():
     wcs_in = WCS(fits.Header.fromstring(INPUT_HDR, sep='\n'))
     wcs_out = WCS(fits.Header.fromstring(OUTPUT_HDR, sep='\n'))
 
-    array, footprint = _reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), _method='c', parallel=False)
+    array, footprint = _reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), parallel=False)
 
     # TODO: improve agreement with Montage - at the moment agreement is ~10%
     np.testing.assert_allclose(array, MONTAGE_REF, rtol=0.09)
