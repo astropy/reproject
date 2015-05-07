@@ -2,6 +2,14 @@
 Image reprojection (resampling)
 *******************************
 
+
+.. important:: This is the first release of the *reproject* package, so please
+               use with caution at this point. If you encounter results that do
+               not make sense, or think that anything could be improved, please
+               open an issue in the
+               `issue tracker <https://github.com/astrofrog/reproject/issues>`__
+               on GitHub.
+
 Introduction
 ============
 
