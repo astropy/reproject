@@ -5,6 +5,8 @@ The 'reproject' package is a Python package to reproject astronomical images usi
 
 For more information, including on how to install the package, see http://reproject.readthedocs.org
 
+![screenshot](docs/images/index-4.png)
+
 Status
 ======
 
