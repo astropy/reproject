@@ -101,7 +101,7 @@ install:
     # packages. You should leave the `numpy=$NUMPY_VERSION` in the `conda` 
     # install since this ensures Numpy does not get automatically upgraded.
     # - if [[ $OPTIONAL_DEPS ]]; then $CONDA_INSTALL numpy=$NUMPY_VERSION ... ; fi
-    - if [[ $OPTIONAL_DEPS ]]; then $PIP_INSTALL healpy; fi
+    - if [[ $OPTIONAL_DEPS == true ]]; then $PIP_INSTALL healpy; fi
 
     # DOCUMENTATION DEPENDENCIES
     # build_sphinx needs sphinx and matplotlib (for plot_directive). Note that
