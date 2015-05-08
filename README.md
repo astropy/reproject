@@ -7,6 +7,15 @@ For more information, including on how to install the package, see http://reproj
 
 ![screenshot](docs/images/index-4.png)
 
+Note on license
+===============
+
+The code in this package is released under the BSD license. However, the
+functions relating to HEALPIX rely on the
+[healpy](https://github.com/healpy/healpy) package, which is GPLv2, so if you
+use these functions in your code, you are indirectly using healpy and therefore
+will need to abide with the GPLv2 license.
+
 Status
 ======
 

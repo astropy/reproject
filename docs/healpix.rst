@@ -2,6 +2,10 @@
 HEALPIX images
 **************
 
+.. note:: Because the functions presented below use healpy, which is licensed
+          under the GPLv2, any package using these funtions has to (for now)
+          abide with the GPLv2 rather than the BSD license.
+
 Images can also be stored using the HEALPIX representation, and the
 *reproject* package includes two functions,
 :func:`~reproject.reproject_from_healpix` and

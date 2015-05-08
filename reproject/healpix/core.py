@@ -32,6 +32,10 @@ def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
     Convert image in HEALPIX format to a normal FITS projection image (e.g.
     CAR or AIT).
 
+    .. note:: This function uses healpy, which is licensed
+              under the GPLv2, so any package using this funtions has to (for
+              now) abide with the GPLv2 rather than the BSD license.
+
     Parameters
     ----------
     healpix_data : `numpy.ndarray`
@@ -112,6 +116,10 @@ def image_to_healpix(data, wcs_in, coord_system_out,
                      nside, order='bilinear', nested=False):
     """
     Convert image in a normal WCS projection to HEALPIX format.
+
+    .. note:: This function uses healpy, which is licensed
+              under the GPLv2, so any package using this funtions has to (for
+              now) abide with the GPLv2 rather than the BSD license.
 
     Parameters
     ----------
