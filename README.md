@@ -7,6 +7,8 @@ For more information, including on how to install the package, see http://reproj
 
 ![screenshot](docs/images/index-4.png)
 
+![Powered by Astropy Badge](http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat)
+
 Note on license
 ===============
 
