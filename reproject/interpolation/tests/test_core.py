@@ -7,7 +7,7 @@ from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.utils.data import get_pkg_data_filename
 
-from ..core import _reproject_celestial
+from ..core import _reproject_celestial, map_coordinates
 
 # TODO: add reference comparisons
 
@@ -38,3 +38,16 @@ def test_reproject_celestial_slices_3d():
     wcs_out.wcs.crpix = [50., 50., wcs_in.wcs.crpix[2]]
 
     _reproject_celestial(array_in, wcs_in, wcs_out, (160, 170))
+
+
+def test_map_coordinates_rectangular():
+
+    # Regression test for a bug that was due to the resetting of the output
+    # of map_coordinates to be in the wrong x/y direction
+
+    image = np.ones((3, 10))
+    coords = np.array([(0, 1, 2), (1, 5, 9)])
+
+    result = map_coordinates(image, coords)
+
+    np.testing.assert_allclose(result, 1)

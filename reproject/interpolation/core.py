@@ -25,8 +25,8 @@ def map_coordinates(image, coords, **kwargs):
 
     values = scipy_map_coordinates(image, coords + 1, **kwargs)
 
-    reset = ((coords[0] < -0.5) | (coords[0] > nx - 0.5) |
-             (coords[1] < -0.5) | (coords[1] > ny - 0.5))
+    reset = ((coords[0] < -0.5) | (coords[0] > ny - 0.5) |
+             (coords[1] < -0.5) | (coords[1] > nx - 0.5))
     values[reset] = kwargs.get('cval', 0.)
 
     return values
