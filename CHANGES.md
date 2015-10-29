@@ -1,4 +1,4 @@
-0.2 (unreleased)
+0.2 (2015-10-29)
 ----------------
 
 - Fixed a bug that caused reprojection by interpolation to be truncated for
