@@ -14,6 +14,7 @@ enable_deprecations_as_exceptions()
 # when running the tests
 try:
     PYTEST_HEADER_MODULES['Astropy'] = 'astropy'
+    PYTEST_HEADER_MODULES['Healpy'] = 'healpy'
     del PYTEST_HEADER_MODULES['h5py']
     del PYTEST_HEADER_MODULES['Matplotlib']
 except NameError:  # needed to support Astropy < 1.0
