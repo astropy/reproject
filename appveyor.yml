@@ -28,7 +28,7 @@ platform:
 install:
 
     # Install Miniconda
-    - "git clone . ci-helpers"
+    - "git clone git://github.com/astropy/ci-helpers.git"
     - "powershell ci-helpers/appveyor/install-miniconda.ps1"
 
     # Set path again, need to find a way to avoid doing this again
