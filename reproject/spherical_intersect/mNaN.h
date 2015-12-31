@@ -4,4 +4,8 @@
 
 #include <math.h>
 
-#define mNaN(x) isnan(x) || !finite(x)
+#if defined(_MSC_VER)
+  #define mNaN(x) _isnan(x) || !_finite(x)
+#else
+  #define mNaN(x) isnan(x) || !finite(x)
+#endif
