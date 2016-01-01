@@ -4,70 +4,56 @@ python:
     - 2.7
     - 3.3
     - 3.4
-    # This is just for "egg_info".  All other builds are explicitly given in the matrix
+
+sudo: false
+
+addons:
+    apt:
+        packages:
+            - graphviz
+            - texlive-latex-extra
+            - dvipng
+
 env:
     global:
-        # The following versions are the 'default' for tests, unless
-        # overidden underneath. They are defined here in order to save having
-        # to repeat them for all configurations.
-        - NUMPY_VERSION=1.9
+        - NUMPY_VERSION=stable
         - ASTROPY_VERSION=stable
-        - CONDA_INSTALL='conda install -c astropy-ci-extras --yes'
-        - PIP_INSTALL='pip install'
-        - OPTIONAL_DEPS=false
+        - SETUP_CMD='test'
+        - PIP_DEPENDENCIES='healpy'
+        - CONDA_DEPENDENCIES='Cython scipy matplotlib'
     matrix:
+        # Make sure that egg_info works without dependencies
         - SETUP_CMD='egg_info'
+        # Try all python versions with the latest numpy
+        - SETUP_CMD='test'
 
 matrix:
     include:
 
         # Do a coverage test in Python 2.
         - python: 2.7
-          env: SETUP_CMD='test --coverage' OPTIONAL_DEPS=true
+          env: SETUP_CMD='test --coverage'
 
         # Check for sphinx doc build warnings - we do this first because it
         # may run for a long time
         - python: 2.7
-          env: SETUP_CMD='build_sphinx -w' OPTIONAL_DEPS=true
+          env: SETUP_CMD='build_sphinx -w'
 
-        # Try Astropy development version and disable optional deps
+        # Try Astropy development version
         - python: 2.7
-          env: ASTROPY_VERSION=development SETUP_CMD='test'
-        - python: 3.3
-          env: ASTROPY_VERSION=development SETUP_CMD='test'
-
-        # Try all python versions with the latest numpy
-        - python: 2.7
-          env: SETUP_CMD='test' OPTIONAL_DEPS=true
-        - python: 3.3
-          env: SETUP_CMD='test' OPTIONAL_DEPS=true
+          env: ASTROPY_VERSION=development
         - python: 3.4
-          env: SETUP_CMD='test' OPTIONAL_DEPS=true
+          env: ASTROPY_VERSION=development
 
         # Try older numpy versions
         - python: 2.7
-          env: NUMPY_VERSION=1.8 SETUP_CMD='test' OPTIONAL_DEPS=true
+          env: NUMPY_VERSION=1.8
         - python: 2.7
-          env: NUMPY_VERSION=1.7 SETUP_CMD='test' OPTIONAL_DEPS=true
+          env: NUMPY_VERSION=1.7
         - python: 2.7
-          env: NUMPY_VERSION=1.6 SETUP_CMD='test' OPTIONAL_DEPS=true
+          env: NUMPY_VERSION=1.6
 
 before_install:
-
-    # Use utf8 encoding. Should be default, but this is insurance against
-    # future changes
-    - export PYTHONIOENCODING=UTF8
-    - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
-    - chmod +x miniconda.sh
-    - ./miniconda.sh -b
-    - export PATH=/home/travis/miniconda/bin:$PATH
-    - conda update --yes conda
-
-    # UPDATE APT-GET LISTINGS
-    - sudo apt-get update
-
-    # DOCUMENTATION DEPENDENCIES
-    - if [[ $SETUP_CMD == build_sphinx* ]]; then sudo apt-get install graphviz texlive-latex-extra dvipng; fi
 
     # Make sure that interactive matplotlib backends work
     - export DISPLAY=:99.0
@@ -77,36 +63,8 @@ before_install:
     - export QT_API=pyqt
 
 install:
-
-    # CONDA
-    - conda create --yes -n test -c astropy-ci-extras python=$TRAVIS_PYTHON_VERSION
-    - source activate test
-
-    # CORE DEPENDENCIES
-    - if [[ $SETUP_CMD != egg_info ]]; then $CONDA_INSTALL numpy=$NUMPY_VERSION pytest pip Cython jinja2 scipy; fi
-    - if [[ $SETUP_CMD != egg_info ]]; then $PIP_INSTALL pytest-xdist; fi
-
-    # ASTROPY
-    - if [[ $SETUP_CMD != egg_info ]] && [[ $ASTROPY_VERSION == development ]]; then $PIP_INSTALL git+http://github.com/astropy/astropy.git#egg=astropy; fi
-    - if [[ $SETUP_CMD != egg_info ]] && [[ $ASTROPY_VERSION == stable ]]; then $CONDA_INSTALL numpy=$NUMPY_VERSION astropy; fi
-
-    # OPTIONAL DEPENDENCIES
-    # Here you can add any dependencies your package may have. You can use
-    # conda for packages available through conda, or pip for any other
-    # packages. You should leave the `numpy=$NUMPY_VERSION` in the `conda` 
-    # install since this ensures Numpy does not get automatically upgraded.
-    - if [[ $OPTIONAL_DEPS == true ]]; then $CONDA_INSTALL numpy=$NUMPY_VERSION matplotlib; fi
-    - if [[ $OPTIONAL_DEPS == true ]]; then $PIP_INSTALL healpy; fi
-
-    # DOCUMENTATION DEPENDENCIES
-    # build_sphinx needs sphinx and matplotlib (for plot_directive). Note that
-    # this matplotlib will *not* work with py 3.x, but our sphinx build is
-    # currently 2.7, so that's fine
-    - if [[ $SETUP_CMD == build_sphinx* ]]; then $CONDA_INSTALL numpy=$NUMPY_VERSION Sphinx=1.2 pyqt matplotlib; fi
-
-    # COVERAGE DEPENDENCIES
-    - if [[ $SETUP_CMD == 'test --coverage' ]]; then $CONDA_INSTALL coverage==3.7.1 pyyaml requests; fi
-    - if [[ $SETUP_CMD == 'test --coverage' ]]; then $PIP_INSTALL coveralls; fi
+    - git clone git://github.com/astropy/ci-helpers.git
+    - source ci-helpers/travis/setup_conda_$TRAVIS_OS_NAME.sh
 
 script:
    - python setup.py $SETUP_CMD
