@@ -22,7 +22,7 @@ def test_reproject_celestial_slices_2d():
 
     _reproject_celestial(array_in, wcs_in, wcs_out, (200, 200))
 
-DATA = np.array([[1, 2], [3, 4]])
+DATA = np.array([[1, 2], [3, 4]], dtype=np.int64)
 
 INPUT_HDR = """
 WCSAXES =                    2 / Number of coordinate axes
