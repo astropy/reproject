@@ -22,7 +22,7 @@ def test_reproject_celestial_slices_2d():
 
     _reproject_celestial(array_in, wcs_in, wcs_out, (200, 200))
 
-DATA = np.array([[1, 2], [3, 4]])
+DATA = np.array([[1, 2], [3, 4]], dtype=np.int64)
 
 INPUT_HDR = """
 WCSAXES =                    2 / Number of coordinate axes
@@ -74,11 +74,11 @@ def test_reproject_celestial_consistency():
     array2, footprint2 = _reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), parallel=False)
     array3, footprint3 = _reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), parallel=True)
 
-    np.testing.assert_allclose(array1, array2, rtol=1.e-6)
-    np.testing.assert_allclose(array1, array3, rtol=1.e-6)
+    np.testing.assert_allclose(array1, array2, rtol=1.e-5)
+    np.testing.assert_allclose(array1, array3, rtol=1.e-5)
 
-    np.testing.assert_allclose(footprint1, footprint2, rtol=1.e-6)
-    np.testing.assert_allclose(footprint1, footprint3, rtol=1.e-6)
+    np.testing.assert_allclose(footprint1, footprint2, rtol=3.e-5)
+    np.testing.assert_allclose(footprint1, footprint3, rtol=3.e-5)
 
 
 def test_reproject_celestial_():

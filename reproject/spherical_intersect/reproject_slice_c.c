@@ -1,7 +1,13 @@
 #include "overlapArea.h"
 #include "reproject_slice_c.h"
 
-static inline double min_4(const double *ptr)
+#if defined(_MSC_VER)
+  #define INLINE _inline
+#else
+  #define INLINE inline
+#endif
+
+static INLINE double min_4(const double *ptr)
 {
     double retval = ptr[0];
     int i;
@@ -13,7 +19,7 @@ static inline double min_4(const double *ptr)
     return retval;
 }
 
-static inline double max_4(const double *ptr)
+static INLINE double max_4(const double *ptr)
 {
     double retval = ptr[0];
     int i;
@@ -25,13 +31,13 @@ static inline double max_4(const double *ptr)
     return retval;
 }
 
-static inline double to_rad(double x)
+static INLINE double to_rad(double x)
 {
     return x * 0.017453292519943295;
 }
 
 // Kernel for overlap computation.
-static inline void _compute_overlap(double *overlap,
+static INLINE void _compute_overlap(double *overlap,
                                     double *area_ratio,
                                     double *ilon,
                                     double *ilat,
