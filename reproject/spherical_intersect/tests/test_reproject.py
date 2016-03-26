@@ -7,10 +7,10 @@ from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.utils.data import get_pkg_data_filename
 
-from ..core import _reproject_celestial
+from ..core import _reproject
 
 
-def test_reproject_celestial_slices_2d():
+def test_reproject_slices_2d():
 
     header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/gc_ga.hdr'))
     header_out = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/gc_eq.hdr'))
@@ -20,7 +20,7 @@ def test_reproject_celestial_slices_2d():
     wcs_in = WCS(header_in)
     wcs_out = WCS(header_out)
 
-    _reproject_celestial(array_in, wcs_in, wcs_out, (200, 200))
+    _reproject(array_in, wcs_in, wcs_out, (200, 200))
 
 DATA = np.array([[1, 2], [3, 4]], dtype=np.int64)
 
@@ -63,16 +63,16 @@ MONTAGE_REF = np.array([[np.nan, 2., 2., np.nan],
                         [np.nan, 3., 3., np.nan]])
 
 
-def test_reproject_celestial_consistency():
+def test_reproject_consistency():
 
     # Consistency between the different modes
 
     wcs_in = WCS(fits.Header.fromstring(INPUT_HDR, sep='\n'))
     wcs_out = WCS(fits.Header.fromstring(OUTPUT_HDR, sep='\n'))
 
-    array1, footprint1 = _reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), _legacy=True)
-    array2, footprint2 = _reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), parallel=False)
-    array3, footprint3 = _reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), parallel=True)
+    array1, footprint1 = _reproject(DATA, wcs_in, wcs_out, (4, 4), _legacy=True)
+    array2, footprint2 = _reproject(DATA, wcs_in, wcs_out, (4, 4), parallel=False)
+    array3, footprint3 = _reproject(DATA, wcs_in, wcs_out, (4, 4), parallel=True)
 
     np.testing.assert_allclose(array1, array2, rtol=1.e-5)
     np.testing.assert_allclose(array1, array3, rtol=1.e-5)
@@ -81,14 +81,14 @@ def test_reproject_celestial_consistency():
     np.testing.assert_allclose(footprint1, footprint3, rtol=3.e-5)
 
 
-def test_reproject_celestial_():
+def test_reproject_():
 
     # Accuracy compared to Montage
 
     wcs_in = WCS(fits.Header.fromstring(INPUT_HDR, sep='\n'))
     wcs_out = WCS(fits.Header.fromstring(OUTPUT_HDR, sep='\n'))
 
-    array, footprint = _reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), parallel=False)
+    array, footprint = _reproject(DATA, wcs_in, wcs_out, (4, 4), parallel=False)
 
     # TODO: improve agreement with Montage - at the moment agreement is ~10%
     np.testing.assert_allclose(array, MONTAGE_REF, rtol=0.09)

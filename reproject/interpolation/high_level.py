@@ -5,7 +5,7 @@ from __future__ import (absolute_import, division, print_function,
 from astropy.extern import six
 
 from ..utils import parse_input_data, parse_output_projection
-from .core import _reproject_celestial
+from .core import _reproject
 
 __all__ = ['reproject_interp']
 
@@ -74,6 +74,6 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=None,
 
     # For now only celestial reprojection is supported
     if wcs_in.has_celestial:
-        return _reproject_celestial(array_in, wcs_in, wcs_out, shape_out=shape_out, order=order)
+        return _reproject(array_in, wcs_in, wcs_out, shape_out=shape_out, order=order)
     else:
         raise NotImplementedError("Currently only data with a WCS that includes a celestial component can be reprojected")

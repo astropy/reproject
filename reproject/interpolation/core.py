@@ -67,7 +67,7 @@ def get_input_pixels(wcs_in, wcs_out, shape_out):
     return input_pixels
 
 
-def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
+def _reproject(array, wcs_in, wcs_out, shape_out, order=1):
     """
     Reproject data with celestial axes to a new projection using interpolation.
     """
