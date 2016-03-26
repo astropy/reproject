@@ -7,12 +7,12 @@ from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.utils.data import get_pkg_data_filename
 
-from ..core import _reproject_celestial, map_coordinates
+from ..core import _reproject, map_coordinates, get_input_pixels
 
 # TODO: add reference comparisons
 
 
-def test_reproject_celestial_slices_2d():
+def test_reproject_slices_2d():
 
     header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/gc_ga.hdr'))
     header_out = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/gc_eq.hdr'))
@@ -22,10 +22,10 @@ def test_reproject_celestial_slices_2d():
     wcs_in = WCS(header_in)
     wcs_out = WCS(header_out)
 
-    _reproject_celestial(array_in, wcs_in, wcs_out, (660, 680))
+    _reproject(array_in, wcs_in, wcs_out, (660, 680))
 
 
-def test_reproject_celestial_slices_3d():
+def test_reproject_slices_3d():
 
     header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
 
@@ -37,7 +37,7 @@ def test_reproject_celestial_slices_3d():
     wcs_out.wcs.crval = [158.0501, -21.530282, wcs_in.wcs.crval[2]]
     wcs_out.wcs.crpix = [50., 50., wcs_in.wcs.crpix[2]]
 
-    _reproject_celestial(array_in, wcs_in, wcs_out, (160, 170))
+    _reproject(array_in, wcs_in, wcs_out, (160, 170))
 
 
 def test_map_coordinates_rectangular():
@@ -51,3 +51,6 @@ def test_map_coordinates_rectangular():
     result = map_coordinates(image, coords)
 
     np.testing.assert_allclose(result, 1)
+
+def test_get_input_pixels():
+    pass

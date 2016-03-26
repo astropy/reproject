@@ -2,7 +2,6 @@
 from __future__ import absolute_import, division, print_function
 
 import numpy as np
-from astropy.wcs import WCSSUB_CELESTIAL
 
 from ..wcs_utils import convert_world_coordinates
 from ..array_utils import iterate_over_celestial_slices, pad_edge_1
@@ -85,6 +84,7 @@ def _reproject(array, wcs_in, wcs_out, shape_out, order=1):
         raise ValueError("The input and output WCS are not equivalent")
 
     if len(shape_out)>=3 and (shape_out[0] != array.shape[0]):
+        raise Exception("This cannot be reached in current tests")
         # do full 3D interpolation
         xp_in, yp_in, zp_in = get_input_pixels(wcs_in, wcs_out,
                                                shape_out)
