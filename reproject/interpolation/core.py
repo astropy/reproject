@@ -32,7 +32,7 @@ def map_coordinates(image, coords, **kwargs):
     return values
 
 
-def _get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
+def get_input_pixels(wcs_in, wcs_out, shape_out):
     """
     Get the pixel coordinates of the pixels in an array of shape ``shape_out``
     in the input WCS.
@@ -43,25 +43,35 @@ def _get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
     # arguments.
 
     # Generate pixel coordinates of output image
-    xp_out_ax = np.arange(shape_out[1])
-    yp_out_ax = np.arange(shape_out[0])
-    xp_out, yp_out = np.meshgrid(xp_out_ax, yp_out_ax)
+    # reversed because numpy and wcs index in opposite directions
+    # z,y,x if ::1
+    # x,y,z if ::-1
+    pixels_out = np.indices(shape_out)[::-1]
 
     # Convert output pixel coordinates to pixel coordinates in original image
     # (using pixel centers).
-    xw_out, yw_out = wcs_out.wcs_pix2world(xp_out, yp_out, 0)
+    # x,y,z
+    out_world = wcs_out.wcs_pix2world(*pixels_out, 0)
 
-    xw_in, yw_in = convert_world_coordinates(xw_out, yw_out, wcs_out, wcs_in)
+    xw_in, yw_in = convert_world_coordinates(*out_world[:2],
+                                             wcs_out.celestial,
+                                             wcs_in.celestial)
 
-    xp_in, yp_in = wcs_in.wcs_world2pix(xw_in, yw_in, 0)
+    xp_in, yp_in = wcs_in.celestial.wcs_world2pix(xw_in, yw_in, 0)
 
-    return xp_in, yp_in
+    input_pixels = [xp_in, yp_in,]
+    if pixels_out.ndim > 2:
+        input_pixels += list(pixels_out[2:])
+
+    # x,y,z
+    return input_pixels
 
 
 def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
     """
     Reproject data with celestial axes to a new projection using interpolation.
     """
+    from scipy.ndimage import map_coordinates
 
     # Make sure image is floating point
     array = np.asarray(array, dtype=float)
@@ -69,33 +79,47 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
     # For now, assume axes are independent in this routine
 
     # Check that WCSs are equivalent
-    if wcs_in.naxis == wcs_out.naxis and np.any(wcs_in.wcs.axis_types != wcs_out.wcs.axis_types):
+    if (wcs_in.naxis == wcs_out.naxis and np.any(wcs_in.wcs.axis_types !=
+                                                 wcs_out.wcs.axis_types)):
         raise ValueError("The input and output WCS are not equivalent")
 
-    # Extract celestial part of WCS in lon/lat order
-    wcs_in_celestial = wcs_in.sub([WCSSUB_CELESTIAL])
-    wcs_out_celestial = wcs_out.sub([WCSSUB_CELESTIAL])
+    if shape_out[0] != array.shape[0]:
+        # do full 3D interpolation
+        xp_in, yp_in, zp_in = get_input_pixels(wcs_in, wcs_out,
+                                               shape_out)
+        coordinates = [zp_in.ravel(), yp_in.ravel(), xp_in.ravel()]
+        bad_data = ~np.isfinite(array)
+        array[bad_data] = 0
+        array_new = map_coordinates(array, coordinates, order=order,
+                                    cval=np.nan,
+                                    mode='constant').reshape(shape_out)
 
-    # We create an output array with the required shape, then create an array
-    # that is in order of [rest, lat, lon] where rest is the flattened
-    # remainder of the array. We then operate on the view, but this will change
-    # the original array with the correct shape.
+    else:
 
-    array_new = np.zeros(shape_out)
+        # We create an output array with the required shape, then create an array
+        # that is in order of [rest, lat, lon] where rest is the flattened
+        # remainder of the array. We then operate on the view, but this will change
+        # the original array with the correct shape.
 
-    coordinates = None
+        array_new = np.zeros(shape_out)
 
-    # Loop over slices and interpolate
-    for slice_in, slice_out in iterate_over_celestial_slices(array, array_new, wcs_in):
+        xp_in = yp_in = None
 
-        if coordinates is None:  # Get position of output pixel centers in input image
-            xp_in, yp_in = _get_input_pixels_celestial(wcs_in_celestial, wcs_out_celestial, slice_out.shape)
-            coordinates = np.array([yp_in.ravel(), xp_in.ravel()])
+        # Loop over slices and interpolate
+        for slice_in, slice_out in iterate_over_celestial_slices(array,
+                                                                 array_new,
+                                                                 wcs_in):
 
-        slice_out[:, :] = map_coordinates(slice_in,
-                                          coordinates,
-                                          order=order, cval=np.nan,
-                                          mode='constant'
-                                          ).reshape(slice_out.shape)
+            if xp_in is None:  # Get position of output pixel centers in input image
+                xp_in, yp_in = get_input_pixels(wcs_in.celestial,
+                                                wcs_out.celestial,
+                                                slice_out.shape)
+                coordinates = [yp_in.ravel(), xp_in.ravel()]
+
+            slice_out[:,:] = map_coordinates(slice_in,
+                                             coordinates,
+                                             order=order, cval=np.nan,
+                                             mode='constant'
+                                             ).reshape(slice_out.shape)
 
     return array_new, (~np.isnan(array_new)).astype(float)
