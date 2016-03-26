@@ -123,9 +123,11 @@ def test_4d_fails():
     header_in['NAXIS'] = 4
 
     header_out = header_in.copy()
+    w_in = WCS(header_in)
+    w_out = WCS(header_out)
 
     with pytest.raises(ValueError) as ex:
-        x_out,y_out,z_out = get_input_pixels(WCS(header_in), WCS(header_out), [2,4,5])
+        x_out,y_out,z_out = get_input_pixels(w_in, w_out, [2,4,5,6])
     assert str(ex.value) == ">3 dimensional cube"
 
 def test_inequal_wcs_dims():
