@@ -112,7 +112,7 @@ def test_reproject_3d_full_correctness():
     # map_coordinates(inp_cube.astype('float'), new_coords, order=1, cval=np.nan, mode='constant')
     # np.testing.assert_allclose(inp_cube_interp, map_coordinates(inp_cube.astype('float'), new_coords, order=1, cval=np.nan, mode='constant'))
     assert out_cube.shape == (2,4,5)
-    assert out_cube_valid.sum() == 30.
+    assert out_cube_valid.sum() == 40.
 
     # We only check that the *valid* pixels are equal
     # but it's still nice to check that the "valid" array works as a mask
@@ -152,3 +152,39 @@ def test_inequal_wcs_dims():
     with pytest.raises(ValueError) as ex:
         out_cube, out_cube_valid = _reproject(inp_cube, wcs_in, wcs_out, (2, 4, 5))
     assert str(ex.value) == "The input and output WCS are not equivalent"
+
+
+def test_reproject_3d_full_correctness_ra2gal():
+    inp_cube = np.arange(3, dtype='float').repeat(7*8).reshape(3,7,8)
+
+    header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
+
+    header_in['NAXIS1'] = 8
+    header_in['NAXIS2'] = 7
+    header_in['NAXIS3'] = 3
+
+    header_out = header_in.copy()
+    header_out['CTYPE1'] = 'GLON-TAN'
+    header_out['CTYPE2'] = 'GLAT-TAN'
+    header_out['CRVAL1'] = 158.5644791
+    header_out['CRVAL2'] = -21.59589875
+    # make the cube a cutout approximately in the center of the other one, but smaller
+    header_out['NAXIS1'] = 4
+    header_out['CRPIX1'] = 2
+    header_out['NAXIS2'] = 3
+    header_out['CRPIX2'] = 1.5
+
+    header_out['NAXIS3'] = 2
+    header_out['CRPIX3'] -= 0.5
+
+    wcs_in = WCS(header_in)
+    wcs_out = WCS(header_out)
+
+    out_cube, out_cube_valid = _reproject(inp_cube, wcs_in, wcs_out,
+                                          (header_out['NAXIS3'], header_out['NAXIS2'], header_out['NAXIS1']))
+
+    assert out_cube.shape == (2,3,4)
+    assert out_cube_valid.sum() == out_cube.size
+
+    # only compare the spectral axis
+    np.testing.assert_allclose(out_cube[:,0,0], ((inp_cube[:-1]+inp_cube[1:])/2.)[:,0,0])
