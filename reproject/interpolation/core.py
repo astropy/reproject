@@ -51,11 +51,12 @@ def get_input_pixels(wcs_in, wcs_out, shape_out):
     # Convert output pixel coordinates to pixel coordinates in original image
     # (using pixel centers).
     # x,y,z
-    out_world = wcs_out.wcs_pix2world(*pixels_out, 0)
+    args = tuple(pixels_out) + (0,)
+    out_world = wcs_out.wcs_pix2world(*args)
 
-    xw_in, yw_in = convert_world_coordinates(*out_world[:2],
-                                             wcs_out.celestial,
-                                             wcs_in.celestial)
+    args = tuple(out_world[:2]) + (wcs_out.celestial, wcs_in.celestial)
+    xw_in, yw_in = convert_world_coordinates(*args)
+                                             
 
     xp_in, yp_in = wcs_in.celestial.wcs_world2pix(xw_in, yw_in, 0)
 
