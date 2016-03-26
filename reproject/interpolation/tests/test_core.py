@@ -6,6 +6,7 @@ import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.utils.data import get_pkg_data_filename
+from astropy.tests.helper import pytest
 
 from ..core import _reproject, map_coordinates, get_input_pixels
 
@@ -114,3 +115,30 @@ def test_reproject_3d_full_correctness():
 
     np.testing.assert_allclose(out_cube[out_cube_valid.astype('bool')],
                                ((inp_cube[:-1]+inp_cube[1:])/2.)[out_cube_valid.astype('bool')])
+
+def test_4d_fails():
+    header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
+
+    header_in['NAXIS4'] = 4
+    header_in['NAXIS'] = 4
+
+    header_out = header_in.copy()
+
+    with pytest.raises(ValueError) as ex:
+        x_out,y_out,z_out = get_input_pixels(WCS(header_in), WCS(header_out), [2,4,5])
+    assert str(ex.value) == ">3 dimensional cube"
+
+def test_inequal_wcs_dims():
+    inp_cube = np.arange(3, dtype='float').repeat(4*5).reshape(3,4,5)
+    header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
+
+    header_out = header_in.copy()
+    header_out['CTYPE3'] = 'VRAD'
+    header_in['CTYPE3'] = 'AWAV'
+    
+    wcs_in = WCS(header_in)
+    wcs_out = WCS(header_out)
+
+    with pytest.raises(ValueError) as ex:
+        out_cube, out_cube_valid = _reproject(inp_cube, wcs_in, wcs_out, (2, 4, 5))
+    assert str(ex.value) == "The input and output WCS are not equivalent"
