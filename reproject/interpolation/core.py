@@ -31,8 +31,23 @@ def map_coordinates(image, coords, **kwargs):
         values[reset] = kwargs.get('cval', 0.)
 
         return values
+    elif image.ndim == 3:
+        nz, ny, nx = image.shape
+
+        # will fail on np<1.7
+        image = np.pad(image, 1, mode='edge')
+
+        values = scipy_map_coordinates(image, coords + 1, **kwargs)
+
+        reset = ((coords[0] < -0.5) | (coords[0] > nz - 0.5) |
+                 (coords[1] < -0.5) | (coords[1] > ny - 0.5) |
+                 (coords[2] < -0.5) | (coords[2] > nx - 0.5)
+                )
+        values[reset] = kwargs.get('cval', 0.)
+
+        return values
     else:
-        # don't worry about those tricksy edge pixels, just give up...
+        # edge pixels will fail (be nan) for higher dimensional things
         return scipy_map_coordinates(image, coords, **kwargs)
 
 

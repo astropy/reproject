@@ -112,14 +112,15 @@ def test_reproject_3d_full_correctness():
     # map_coordinates(inp_cube.astype('float'), new_coords, order=1, cval=np.nan, mode='constant')
     # np.testing.assert_allclose(inp_cube_interp, map_coordinates(inp_cube.astype('float'), new_coords, order=1, cval=np.nan, mode='constant'))
     assert out_cube.shape == (2,4,5)
-    # should actually be 32, but there are 2 bad pixels in random locations (rounding issue?)
-    # if NaNs on edges are appropriately accounted for, should rise to 40
-    # this is included to make sure the next assertion actually does something
-    assert out_cube_valid.sum() >= 30.
+    assert out_cube_valid.sum() == 30.
 
     # We only check that the *valid* pixels are equal
+    # but it's still nice to check that the "valid" array works as a mask
     np.testing.assert_allclose(out_cube[out_cube_valid.astype('bool')],
                                ((inp_cube[:-1]+inp_cube[1:])/2.)[out_cube_valid.astype('bool')])
+
+    # Actually, I fixed it, so now we can test all
+    np.testing.assert_allclose(out_cube, ((inp_cube[:-1]+inp_cube[1:])/2.))
 
 def test_4d_fails():
     header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
