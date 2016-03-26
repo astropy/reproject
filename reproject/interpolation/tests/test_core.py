@@ -54,3 +54,12 @@ def test_map_coordinates_rectangular():
 
 def test_get_input_pixels():
     pass
+    header = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/gc_eq.hdr'))
+    result = get_input_pixels(WCS(header).celestial, WCS(header).celestial, [2,2])
+    
+    np.testing.assert_allclose(result,
+                               np.array((np.array([[ 5.05906428e-12,   1.00000000e+00],
+                                                   [-9.89075488e-12,   1.00000000e+00]]),
+                                         np.array([[6.19593266e-12,  -4.26325641e-12],
+                                                   [1.00000000e+00,   1.00000000e+00]])))
+                              )

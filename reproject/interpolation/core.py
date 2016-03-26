@@ -66,12 +66,35 @@ def get_input_pixels(wcs_in, wcs_out, shape_out):
     # x,y,z
     return input_pixels
 
+def _get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
+    """
+    Get the pixel coordinates of the pixels in an array of shape ``shape_out``
+    in the input WCS.
+    """
+
+    # TODO: for now assuming that coordinates are spherical, not
+    # necessarily the case. Also assuming something about the order of the
+    # arguments.
+
+    # Generate pixel coordinates of output image
+    xp_out_ax = np.arange(shape_out[1])
+    yp_out_ax = np.arange(shape_out[0])
+    xp_out, yp_out = np.meshgrid(xp_out_ax, yp_out_ax)
+
+    # Convert output pixel coordinates to pixel coordinates in original image
+    # (using pixel centers).
+    xw_out, yw_out = wcs_out.wcs_pix2world(xp_out, yp_out, 0)
+
+    xw_in, yw_in = convert_world_coordinates(xw_out, yw_out, wcs_out, wcs_in)
+
+    xp_in, yp_in = wcs_in.wcs_world2pix(xw_in, yw_in, 0)
+
+    return xp_in, yp_in
 
 def _reproject(array, wcs_in, wcs_out, shape_out, order=1):
     """
     Reproject data with celestial axes to a new projection using interpolation.
     """
-    from scipy.ndimage import map_coordinates
 
     # Make sure image is floating point
     array = np.asarray(array, dtype=float)
@@ -84,11 +107,10 @@ def _reproject(array, wcs_in, wcs_out, shape_out, order=1):
         raise ValueError("The input and output WCS are not equivalent")
 
     if len(shape_out)>=3 and (shape_out[0] != array.shape[0]):
-        raise Exception("This cannot be reached in current tests")
         # do full 3D interpolation
         xp_in, yp_in, zp_in = get_input_pixels(wcs_in, wcs_out,
                                                shape_out)
-        coordinates = [zp_in.ravel(), yp_in.ravel(), xp_in.ravel()]
+        coordinates = np.array([zp_in.ravel(), yp_in.ravel(), xp_in.ravel()])
         bad_data = ~np.isfinite(array)
         array[bad_data] = 0
         array_new = map_coordinates(array, coordinates, order=order,
@@ -115,7 +137,10 @@ def _reproject(array, wcs_in, wcs_out, shape_out, order=1):
                 xp_in, yp_in = get_input_pixels(wcs_in.celestial,
                                                 wcs_out.celestial,
                                                 slice_out.shape)
-                coordinates = [yp_in.ravel(), xp_in.ravel()]
+                xp_in, yp_in = _get_input_pixels_celestial(wcs_in.celestial,
+                                                wcs_out.celestial,
+                                                slice_out.shape)
+                coordinates = np.array([yp_in.ravel(), xp_in.ravel()])
 
             slice_out[:,:] = map_coordinates(slice_in,
                                              coordinates,
