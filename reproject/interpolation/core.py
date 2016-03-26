@@ -83,7 +83,7 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
                                                  wcs_out.wcs.axis_types)):
         raise ValueError("The input and output WCS are not equivalent")
 
-    if shape_out[0] != array.shape[0]:
+    if len(shape_out)>=3 and (shape_out[0] != array.shape[0]):
         # do full 3D interpolation
         xp_in, yp_in, zp_in = get_input_pixels(wcs_in, wcs_out,
                                                shape_out)
