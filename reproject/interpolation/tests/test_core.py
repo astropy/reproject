@@ -112,4 +112,5 @@ def test_reproject_3d_full_correctness():
     # np.testing.assert_allclose(inp_cube_interp, map_coordinates(inp_cube.astype('float'), new_coords, order=1, cval=np.nan, mode='constant'))
     assert out_cube.shape == (2,4,5)
 
-    np.testing.assert_allclose(out_cube, (inp_cube[:-1]+inp_cube[1:])/2.)
+    np.testing.assert_allclose(out_cube[out_cube_valid.astype('bool')],
+                               ((inp_cube[:-1]+inp_cube[1:])/2.)[out_cube_valid.astype('bool')])
