@@ -2,6 +2,7 @@
 from __future__ import absolute_import, division, print_function
 
 import numpy as np
+from astropy import wcs
 
 from ..wcs_utils import convert_world_coordinates
 from ..array_utils import iterate_over_celestial_slices, pad_edge_1
@@ -18,17 +19,21 @@ def map_coordinates(image, coords, **kwargs):
 
     from scipy.ndimage import map_coordinates as scipy_map_coordinates
 
-    ny, nx = image.shape
+    if image.ndim == 2:
+        ny, nx = image.shape
 
-    image = pad_edge_1(image)
+        image = pad_edge_1(image)
 
-    values = scipy_map_coordinates(image, coords + 1, **kwargs)
+        values = scipy_map_coordinates(image, coords + 1, **kwargs)
 
-    reset = ((coords[0] < -0.5) | (coords[0] > ny - 0.5) |
-             (coords[1] < -0.5) | (coords[1] > nx - 0.5))
-    values[reset] = kwargs.get('cval', 0.)
+        reset = ((coords[0] < -0.5) | (coords[0] > ny - 0.5) |
+                 (coords[1] < -0.5) | (coords[1] > nx - 0.5))
+        values[reset] = kwargs.get('cval', 0.)
 
-    return values
+        return values
+    else:
+        # don't worry about those tricksy edge pixels, just give up...
+        return scipy_map_coordinates(image, coords, **kwargs)
 
 
 def get_input_pixels(wcs_in, wcs_out, shape_out):
@@ -45,7 +50,7 @@ def get_input_pixels(wcs_in, wcs_out, shape_out):
     # reversed because numpy and wcs index in opposite directions
     # z,y,x if ::1
     # x,y,z if ::-1
-    pixels_out = np.indices(shape_out)[::-1]
+    pixels_out = np.indices(shape_out)[::-1].astype('float')
 
     # Convert output pixel coordinates to pixel coordinates in original image
     # (using pixel centers).
@@ -55,41 +60,22 @@ def get_input_pixels(wcs_in, wcs_out, shape_out):
 
     args = tuple(out_world[:2]) + (wcs_out.celestial, wcs_in.celestial)
     xw_in, yw_in = convert_world_coordinates(*args)
-                                             
 
     xp_in, yp_in = wcs_in.celestial.wcs_world2pix(xw_in, yw_in, 0)
 
     input_pixels = [xp_in, yp_in,]
-    if pixels_out.ndim > 2:
-        input_pixels += list(pixels_out[2:])
+    if pixels_out[0].ndim == 3:
+        zw_out = out_world[2]
+        zp_in = wcs_in.sub([wcs.WCSSUB_SPECTRAL]).wcs_world2pix(zw_out.ravel(),
+                                                                0)[0].reshape(zw_out.shape)
+        input_pixels += [zp_in]
+    elif pixels_out[0].ndim > 3:
+        raise ValueError(">3 dimensional cube")
 
     # x,y,z
-    return input_pixels
-
-def _get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
-    """
-    Get the pixel coordinates of the pixels in an array of shape ``shape_out``
-    in the input WCS.
-    """
-
-    # TODO: for now assuming that coordinates are spherical, not
-    # necessarily the case. Also assuming something about the order of the
-    # arguments.
-
-    # Generate pixel coordinates of output image
-    xp_out_ax = np.arange(shape_out[1])
-    yp_out_ax = np.arange(shape_out[0])
-    xp_out, yp_out = np.meshgrid(xp_out_ax, yp_out_ax)
-
-    # Convert output pixel coordinates to pixel coordinates in original image
-    # (using pixel centers).
-    xw_out, yw_out = wcs_out.wcs_pix2world(xp_out, yp_out, 0)
-
-    xw_in, yw_in = convert_world_coordinates(xw_out, yw_out, wcs_out, wcs_in)
-
-    xp_in, yp_in = wcs_in.wcs_world2pix(xw_in, yw_in, 0)
-
-    return xp_in, yp_in
+    retval = np.array(input_pixels)
+    assert retval.shape == (len(shape_out),)+tuple(shape_out)
+    return retval
 
 def _reproject(array, wcs_in, wcs_out, shape_out, order=1):
     """
@@ -135,9 +121,6 @@ def _reproject(array, wcs_in, wcs_out, shape_out, order=1):
 
             if xp_in is None:  # Get position of output pixel centers in input image
                 xp_in, yp_in = get_input_pixels(wcs_in.celestial,
-                                                wcs_out.celestial,
-                                                slice_out.shape)
-                xp_in, yp_in = _get_input_pixels_celestial(wcs_in.celestial,
                                                 wcs_out.celestial,
                                                 slice_out.shape)
                 coordinates = np.array([yp_in.ravel(), xp_in.ravel()])

@@ -53,15 +53,23 @@ def test_map_coordinates_rectangular():
     np.testing.assert_allclose(result, 1)
 
 def test_get_input_pixels():
-    pass
-    header = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/gc_eq.hdr'))
-    result = get_input_pixels(WCS(header).celestial, WCS(header).celestial, [2,2])
+    header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
+
+    header_in['NAXIS1'] = 5
+    header_in['NAXIS2'] = 4
+    header_in['NAXIS3'] = 3
+
+    header_out = header_in.copy()
+    header_out['NAXIS3'] = 2
+    header_out['CRPIX3'] -= 0.5
     
-    np.testing.assert_allclose(result,
-                               np.array((np.array([[ 5.05906428e-12,   1.00000000e+00],
-                                                   [-9.89075488e-12,   1.00000000e+00]]),
-                                         np.array([[6.19593266e-12,  -4.26325641e-12],
-                                                   [1.00000000e+00,   1.00000000e+00]])))
+    w_in = WCS(header_in)
+    w_out = WCS(header_out)
+    x_out,y_out,z_out = get_input_pixels(w_in, w_out, [2,4,5])
+    
+    np.testing.assert_allclose(z_out,
+                               np.array([np.ones([4,5])*0.5,
+                                         np.ones([4,5])*1.5,])
                               )
 
 def test_reproject_full_3d():
@@ -77,3 +85,31 @@ def test_reproject_full_3d():
     wcs_out.wcs.crpix = [50., 50., wcs_in.wcs.crpix[2]+0.5]
 
     _reproject(array_in, wcs_in, wcs_out, (3, 160, 170))
+
+def test_reproject_3d_full_correctness():
+    inp_cube = np.arange(3, dtype='float').repeat(4*5).reshape(3,4,5)
+
+    header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
+
+    header_in['NAXIS1'] = 5
+    header_in['NAXIS2'] = 4
+    header_in['NAXIS3'] = 3
+
+    header_out = header_in.copy()
+    header_out['NAXIS3'] = 2
+    header_out['CRPIX3'] -= 0.5
+    
+    wcs_in = WCS(header_in)
+    wcs_out = WCS(header_out)
+
+    out_cube, out_cube_valid = _reproject(inp_cube, wcs_in, wcs_out, (2, 4, 5))
+    # we expect to be projecting from
+    # inp_cube = np.arange(3, dtype='float').repeat(4*5).reshape(3,4,5)
+    # to
+    # inp_cube_interp = (inp_cube[:-1]+inp_cube[1:])/2.
+    # which is confirmed by
+    # map_coordinates(inp_cube.astype('float'), new_coords, order=1, cval=np.nan, mode='constant')
+    # np.testing.assert_allclose(inp_cube_interp, map_coordinates(inp_cube.astype('float'), new_coords, order=1, cval=np.nan, mode='constant'))
+    assert out_cube.shape == (2,4,5)
+
+    np.testing.assert_allclose(out_cube, (inp_cube[:-1]+inp_cube[1:])/2.)
