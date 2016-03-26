@@ -3,12 +3,15 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 import numpy as np
+from distutils.version import StrictVersion
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.utils.data import get_pkg_data_filename
 from astropy.tests.helper import pytest
 
 from ..core import _reproject, map_coordinates, get_input_pixels
+
+NP_LT_17 = StrictVersion(np.__version__) < StrictVersion('1.7')
 
 # TODO: add reference comparisons
 
@@ -87,6 +90,7 @@ def test_reproject_full_3d():
 
     _reproject(array_in, wcs_in, wcs_out, (3, 160, 170))
 
+@pytest.mark.xfail('NP_LT_17')
 def test_reproject_3d_full_correctness():
     inp_cube = np.arange(3, dtype='float').repeat(4*5).reshape(3,4,5)
 
@@ -154,6 +158,7 @@ def test_inequal_wcs_dims():
     assert str(ex.value) == "The input and output WCS are not equivalent"
 
 
+@pytest.mark.xfail('NP_LT_17')
 def test_reproject_3d_full_correctness_ra2gal():
     inp_cube = np.arange(3, dtype='float').repeat(7*8).reshape(3,7,8)
 
