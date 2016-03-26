@@ -136,7 +136,9 @@ def test_inequal_wcs_dims():
 
     header_out = header_in.copy()
     header_out['CTYPE3'] = 'VRAD'
+    header_out['CUNIT3'] = 'm/s'
     header_in['CTYPE3'] = 'AWAV'
+    header_in['CUNIT3'] = 'm'
     
     wcs_in = WCS(header_in)
     wcs_out = WCS(header_out)
