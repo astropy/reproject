@@ -63,3 +63,17 @@ def test_get_input_pixels():
                                          np.array([[6.19593266e-12,  -4.26325641e-12],
                                                    [1.00000000e+00,   1.00000000e+00]])))
                               )
+
+def test_reproject_full_3d():
+
+    header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
+
+    array_in = np.ones((3, 200, 180))
+
+    wcs_in = WCS(header_in)
+    wcs_out = wcs_in.deepcopy()
+    wcs_out.wcs.ctype = ['GLON-SIN', 'GLAT-SIN', wcs_in.wcs.ctype[2]]
+    wcs_out.wcs.crval = [158.0501, -21.530282, wcs_in.wcs.crval[2]]
+    wcs_out.wcs.crpix = [50., 50., wcs_in.wcs.crpix[2]+0.5]
+
+    _reproject(array_in, wcs_in, wcs_out, (3, 160, 170))
