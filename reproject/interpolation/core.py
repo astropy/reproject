@@ -46,6 +46,9 @@ def get_input_pixels(wcs_in, wcs_out, shape_out):
     # necessarily the case. Also assuming something about the order of the
     # arguments.
 
+    if len(shape_out) > 3:
+        raise ValueError(">3 dimensional cube")
+
     # Generate pixel coordinates of output image
     # reversed because numpy and wcs index in opposite directions
     # z,y,x if ::1
@@ -69,8 +72,6 @@ def get_input_pixels(wcs_in, wcs_out, shape_out):
         zp_in = wcs_in.sub([wcs.WCSSUB_SPECTRAL]).wcs_world2pix(zw_out.ravel(),
                                                                 0)[0].reshape(zw_out.shape)
         input_pixels += [zp_in]
-    elif pixels_out[0].ndim > 3:
-        raise ValueError(">3 dimensional cube")
 
     # x,y,z
     retval = np.array(input_pixels)
