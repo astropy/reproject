@@ -92,7 +92,12 @@ def test_reproject_full_3d():
     _reproject_celestial(array_in, wcs_in, wcs_out, (3, 160, 170))
 
 @pytest.mark.xfail('NP_LT_17')
-def test_reproject_3d_full_correctness():
+@pytest.mark.parametrize('reproject', (_reproject_celestial, _reproject_full))
+def test_reproject_3d_full_correctness(reproject):
+    """
+    Test both full_reproject and slicewise reprojection.  In this case, they
+    should be identical because they're in the same coordinate system.
+    """
     inp_cube = np.arange(3, dtype='float').repeat(4*5).reshape(3,4,5)
 
     header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
@@ -108,7 +113,7 @@ def test_reproject_3d_full_correctness():
     wcs_in = WCS(header_in)
     wcs_out = WCS(header_out)
 
-    out_cube, out_cube_valid = _reproject_celestial(inp_cube, wcs_in, wcs_out, (2, 4, 5))
+    out_cube, out_cube_valid = reproject(inp_cube, wcs_in, wcs_out, (2, 4, 5))
     # we expect to be projecting from
     # inp_cube = np.arange(3, dtype='float').repeat(4*5).reshape(3,4,5)
     # to
@@ -187,6 +192,11 @@ def test_different_wcs_types():
 
 @pytest.mark.xfail('NP_LT_17')
 def test_reproject_3d_full_correctness_ra2gal():
+    """
+    Unlike test_reproject_3d_full_correctness, this should *not* work with
+    _reproject_full because it doesn't handle coordinate changes before
+    transforming.
+    """
     inp_cube = np.arange(3, dtype='float').repeat(7*8).reshape(3,7,8)
 
     header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
@@ -213,9 +223,9 @@ def test_reproject_3d_full_correctness_ra2gal():
     wcs_out = WCS(header_out)
 
     out_cube, out_cube_valid = _reproject_celestial(inp_cube, wcs_in, wcs_out,
-                                               (header_out['NAXIS3'],
-                                                header_out['NAXIS2'],
-                                                header_out['NAXIS1']))
+                                                    (header_out['NAXIS3'],
+                                                     header_out['NAXIS2'],
+                                                     header_out['NAXIS1']))
 
     assert out_cube.shape == (2,3,4)
     assert out_cube_valid.sum() == out_cube.size
