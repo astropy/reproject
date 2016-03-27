@@ -57,7 +57,8 @@ def test_map_coordinates_rectangular():
 
     np.testing.assert_allclose(result, 1)
 
-def test_get_input_pixels():
+@pytest.mark.parametrize('get_input_pixels', (_get_input_pixels_celestial, _get_input_pixels_full))
+def test_get_input_pixels(get_input_pixels):
     header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
 
     header_in['NAXIS1'] = 5
@@ -70,12 +71,13 @@ def test_get_input_pixels():
     
     w_in = WCS(header_in)
     w_out = WCS(header_out)
-    x_out,y_out,z_out = _get_input_pixels_celestial(w_in, w_out, [2,4,5])
+    x_out,y_out,z_out = get_input_pixels(w_in, w_out, [2,4,5])
     
-    np.testing.assert_allclose(z_out,
-                               np.array([np.ones([4,5])*0.5,
-                                         np.ones([4,5])*1.5,])
-                              )
+    # expected is the average of the two planes, i.e. average of 0,1 and
+    # average of 1,2
+    expected_z_out = np.array([np.ones([4,5])*0.5, np.ones([4,5])*1.5,])
+
+    np.testing.assert_allclose(z_out, expected_z_out)
 
 def test_reproject_full_3d():
 
