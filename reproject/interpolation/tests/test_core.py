@@ -9,7 +9,8 @@ from astropy.wcs import WCS
 from astropy.utils.data import get_pkg_data_filename
 from astropy.tests.helper import pytest
 
-from ..core import _reproject_celestial, _reproject_full, map_coordinates, get_input_pixels
+from ..core import (_reproject_celestial, _reproject_full, map_coordinates,
+                    _get_input_pixels_full, _get_input_pixels_celestial)
 
 NP_LT_17 = StrictVersion(np.__version__) < StrictVersion('1.7')
 
@@ -69,7 +70,7 @@ def test_get_input_pixels():
     
     w_in = WCS(header_in)
     w_out = WCS(header_out)
-    x_out,y_out,z_out = get_input_pixels(w_in, w_out, [2,4,5])
+    x_out,y_out,z_out = _get_input_pixels_full(w_in, w_out, [2,4,5])
     
     np.testing.assert_allclose(z_out,
                                np.array([np.ones([4,5])*0.5,
@@ -137,7 +138,7 @@ def test_4d_fails():
     w_out = WCS(header_out)
 
     with pytest.raises(ValueError) as ex:
-        x_out,y_out,z_out = get_input_pixels(w_in, w_out, [2,4,5,6])
+        x_out,y_out,z_out = _get_input_pixels_full(w_in, w_out, [2,4,5,6])
     assert str(ex.value) == ">3 dimensional cube"
 
 def test_inequal_wcs_dims():
