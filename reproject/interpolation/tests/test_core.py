@@ -9,7 +9,7 @@ from astropy.wcs import WCS
 from astropy.utils.data import get_pkg_data_filename
 from astropy.tests.helper import pytest
 
-from ..core import _reproject, map_coordinates, get_input_pixels
+from ..core import _reproject_celestial, _reproject_full, map_coordinates, get_input_pixels
 
 NP_LT_17 = StrictVersion(np.__version__) < StrictVersion('1.7')
 
@@ -26,7 +26,7 @@ def test_reproject_slices_2d():
     wcs_in = WCS(header_in)
     wcs_out = WCS(header_out)
 
-    _reproject(array_in, wcs_in, wcs_out, (660, 680))
+    _reproject_celestial(array_in, wcs_in, wcs_out, (660, 680))
 
 
 def test_reproject_slices_3d():
@@ -41,7 +41,7 @@ def test_reproject_slices_3d():
     wcs_out.wcs.crval = [158.0501, -21.530282, wcs_in.wcs.crval[2]]
     wcs_out.wcs.crpix = [50., 50., wcs_in.wcs.crpix[2]]
 
-    _reproject(array_in, wcs_in, wcs_out, (160, 170))
+    _reproject_celestial(array_in, wcs_in, wcs_out, (160, 170))
 
 
 def test_map_coordinates_rectangular():
@@ -88,7 +88,7 @@ def test_reproject_full_3d():
     wcs_out.wcs.crval = [158.0501, -21.530282, wcs_in.wcs.crval[2]]
     wcs_out.wcs.crpix = [50., 50., wcs_in.wcs.crpix[2]+0.5]
 
-    _reproject(array_in, wcs_in, wcs_out, (3, 160, 170))
+    _reproject_full(array_in, wcs_in, wcs_out, (3, 160, 170))
 
 @pytest.mark.xfail('NP_LT_17')
 def test_reproject_3d_full_correctness():
@@ -107,7 +107,7 @@ def test_reproject_3d_full_correctness():
     wcs_in = WCS(header_in)
     wcs_out = WCS(header_out)
 
-    out_cube, out_cube_valid = _reproject(inp_cube, wcs_in, wcs_out, (2, 4, 5))
+    out_cube, out_cube_valid = _reproject_full(inp_cube, wcs_in, wcs_out, (2, 4, 5))
     # we expect to be projecting from
     # inp_cube = np.arange(3, dtype='float').repeat(4*5).reshape(3,4,5)
     # to
@@ -154,7 +154,7 @@ def test_inequal_wcs_dims():
     wcs_out = WCS(header_out)
 
     with pytest.raises(ValueError) as ex:
-        out_cube, out_cube_valid = _reproject(inp_cube, wcs_in, wcs_out, (2, 4, 5))
+        out_cube, out_cube_valid = _reproject_full(inp_cube, wcs_in, wcs_out, (2, 4, 5))
     assert str(ex.value) == "The input and output WCS are not equivalent"
 
 
@@ -185,8 +185,10 @@ def test_reproject_3d_full_correctness_ra2gal():
     wcs_in = WCS(header_in)
     wcs_out = WCS(header_out)
 
-    out_cube, out_cube_valid = _reproject(inp_cube, wcs_in, wcs_out,
-                                          (header_out['NAXIS3'], header_out['NAXIS2'], header_out['NAXIS1']))
+    out_cube, out_cube_valid = _reproject_full(inp_cube, wcs_in, wcs_out,
+                                               (header_out['NAXIS3'],
+                                                header_out['NAXIS2'],
+                                                header_out['NAXIS1']))
 
     assert out_cube.shape == (2,3,4)
     assert out_cube_valid.sum() == out_cube.size

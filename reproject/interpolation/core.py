@@ -49,9 +49,11 @@ def _get_input_pixels_full(wcs_in, wcs_out, shape_out):
 
     # Convert output pixel coordinates to pixel coordinates in original image
     # (using pixel centers).
-    w_out = wcs_out.wcs_pix2world(*p_out[::-1], 0)
+    args = tuple(p_out[::-1]) + (0,)
+    w_out = wcs_out.wcs_pix2world(*args)
 
-    p_in = wcs_in.wcs_world2pix(*w_out, 0)
+    args = tuple(w_out) + (0,)
+    p_in = wcs_in.wcs_world2pix(*args)
 
     return p_in[::-1]
 
