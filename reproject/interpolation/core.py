@@ -55,7 +55,8 @@ def _get_input_pixels_full(wcs_in, wcs_out, shape_out):
     args = tuple(w_out) + (0,)
     p_in = wcs_in.wcs_world2pix(*args)
 
-    return p_in[::-1]
+    # return x,y,z for consistency with _get_input_pixels_celestial
+    return p_in
 
 
 def _get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
@@ -184,9 +185,9 @@ def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1):
 
     array_new = np.zeros(shape_out)
 
-    p_in = _get_input_pixels_full(wcs_in, wcs_out, shape_out)
+    xp_in, yp_in, zp_in = _get_input_pixels_full(wcs_in, wcs_out, shape_out)
 
-    coordinates = np.array([p.ravel() for p in p_in])
+    coordinates = np.array([p.ravel() for p in (zp_in, yp_in, xp_in)])
 
     array_new = map_coordinates(array,
                                 coordinates,

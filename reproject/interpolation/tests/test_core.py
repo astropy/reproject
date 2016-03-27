@@ -93,9 +93,41 @@ def test_reproject_full_3d():
 
     _reproject_celestial(array_in, wcs_in, wcs_out, (3, 160, 170))
 
+
+@pytest.mark.xfail('NP_LT_17')
+def test_reproject_3d_full_and_celestial_consistent():
+    """
+    Test that full_reproject and slicewise reprojection return the same result
+    when there is no change in the celestial coordinate system
+
+    This can (& should...) be generalized to run over a few different shapes,
+    headers, etc.
+    """
+    inp_cube = np.arange(3, dtype='float').repeat(4*5).reshape(3,4,5)
+
+    header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
+
+    header_in['NAXIS1'] = 5
+    header_in['NAXIS2'] = 4
+    header_in['NAXIS3'] = 3
+
+    header_out = header_in.copy()
+    header_out['NAXIS3'] = 2
+    header_out['CRPIX3'] -= 0.5
+    
+    wcs_in = WCS(header_in)
+    wcs_out = WCS(header_out)
+
+    out_cube_full, out_cube_valid_full = _reproject_full(inp_cube, wcs_in, wcs_out, (2, 4, 5))
+    out_cube_celestial, out_cube_valid_celestial = _reproject_celestial(inp_cube, wcs_in, wcs_out, (2, 4, 5))
+
+    # Actually, I fixed it, so now we can test all
+    np.testing.assert_allclose(out_cube_full, out_cube_celestial)
+
+
 @pytest.mark.xfail('NP_LT_17')
 @pytest.mark.parametrize('reproject', (_reproject_celestial, _reproject_full))
-def test_reproject_3d_full_correctness(reproject):
+def test_reproject_3d_correctness(reproject):
     """
     Test both full_reproject and slicewise reprojection.  In this case, they
     should be identical because they're in the same coordinate system.
@@ -133,6 +165,7 @@ def test_reproject_3d_full_correctness(reproject):
 
     # Actually, I fixed it, so now we can test all
     np.testing.assert_allclose(out_cube, ((inp_cube[:-1]+inp_cube[1:])/2.))
+
 
 def test_4d_fails():
     header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
@@ -193,7 +226,7 @@ def test_different_wcs_types():
 
 
 @pytest.mark.xfail('NP_LT_17')
-def test_reproject_3d_full_correctness_ra2gal():
+def test_reproject_3d_celestial_correctness_ra2gal():
     """
     Unlike test_reproject_3d_full_correctness, this should *not* work with
     _reproject_full because it doesn't handle coordinate changes before
