@@ -173,7 +173,8 @@ def test_different_wcs_types():
 
     with pytest.raises(ValueError) as ex:
         out_cube, out_cube_valid = _reproject_celestial(inp_cube, wcs_in, wcs_out, (2, 4, 5))
-    assert str(ex.value) == "The input and output WCS are not equivalent"
+    assert str(ex.value) == ("The input and output spectral coordinate types "
+                             "are not equivalent.")
 
     header_in['CTYPE3'] = 'FREQ'
     header_in['CUNIT3'] = 'Hz'
@@ -181,7 +182,7 @@ def test_different_wcs_types():
 
     with pytest.raises(ValueError) as ex:
         out_cube, out_cube_valid = _reproject_celestial(inp_cube, wcs_in, wcs_out, (2, 4, 5))
-    assert str(ex.value) == "The input and output WCS are not equivalent"
+    assert str(ex.value) == ("The input and output WCS are not equivalent")
 
 
 @pytest.mark.xfail('NP_LT_17')

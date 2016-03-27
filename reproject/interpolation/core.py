@@ -112,9 +112,8 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
 
     # Check that WCSs are equivalent
     if ((wcs_in.naxis != wcs_out.naxis or
-         np.any(wcs_in.wcs.axis_types != wcs_out.wcs.axis_types) or
-         np.any(wcs_in.wcs.ctype != wcs_out.wcs.ctype) or
-         np.any(wcs_in.wcs.cunit != wcs_out.wcs.cunit))):
+         (list(wcs_in.wcs.axis_types) != list(wcs_out.wcs.axis_types)) or
+         (list(wcs_in.wcs.cunit) != list(wcs_out.wcs.cunit)))):
         raise ValueError("The input and output WCS are not equivalent")
 
     # We create an output array with the required shape, then create an array
@@ -125,6 +124,13 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
     array_new = np.zeros(shape_out)
 
     if len(shape_out)>=3 and (shape_out[0] != array.shape[0]):
+
+        if ((list(wcs_in.sub([wcs.WCSSUB_SPECTRAL]).wcs.ctype) !=
+             list(wcs_out.sub([wcs.WCSSUB_SPECTRAL]).wcs.ctype))):
+            raise ValueError("The input and output spectral coordinate types "
+                             "are not equivalent.")
+
+
         # do full 3D interpolation
         xp_in, yp_in, zp_in = _get_input_pixels_celestial(wcs_in, wcs_out,
                                                           shape_out)
