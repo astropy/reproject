@@ -70,7 +70,7 @@ def test_get_input_pixels():
     
     w_in = WCS(header_in)
     w_out = WCS(header_out)
-    x_out,y_out,z_out = _get_input_pixels_full(w_in, w_out, [2,4,5])
+    x_out,y_out,z_out = _get_input_pixels_celestial(w_in, w_out, [2,4,5])
     
     np.testing.assert_allclose(z_out,
                                np.array([np.ones([4,5])*0.5,
@@ -89,7 +89,7 @@ def test_reproject_full_3d():
     wcs_out.wcs.crval = [158.0501, -21.530282, wcs_in.wcs.crval[2]]
     wcs_out.wcs.crpix = [50., 50., wcs_in.wcs.crpix[2]+0.5]
 
-    _reproject_full(array_in, wcs_in, wcs_out, (3, 160, 170))
+    _reproject_celestial(array_in, wcs_in, wcs_out, (3, 160, 170))
 
 @pytest.mark.xfail('NP_LT_17')
 def test_reproject_3d_full_correctness():
@@ -108,7 +108,7 @@ def test_reproject_3d_full_correctness():
     wcs_in = WCS(header_in)
     wcs_out = WCS(header_out)
 
-    out_cube, out_cube_valid = _reproject_full(inp_cube, wcs_in, wcs_out, (2, 4, 5))
+    out_cube, out_cube_valid = _reproject_celestial(inp_cube, wcs_in, wcs_out, (2, 4, 5))
     # we expect to be projecting from
     # inp_cube = np.arange(3, dtype='float').repeat(4*5).reshape(3,4,5)
     # to
@@ -138,7 +138,7 @@ def test_4d_fails():
     w_out = WCS(header_out)
 
     with pytest.raises(ValueError) as ex:
-        x_out,y_out,z_out = _get_input_pixels_full(w_in, w_out, [2,4,5,6])
+        x_out,y_out,z_out = _get_input_pixels_celestial(w_in, w_out, [2,4,5,6])
     assert str(ex.value) == ">3 dimensional cube"
 
 def test_inequal_wcs_dims():
@@ -155,7 +155,7 @@ def test_inequal_wcs_dims():
     wcs_out = WCS(header_out)
 
     with pytest.raises(ValueError) as ex:
-        out_cube, out_cube_valid = _reproject_full(inp_cube, wcs_in, wcs_out, (2, 4, 5))
+        out_cube, out_cube_valid = _reproject_celestial(inp_cube, wcs_in, wcs_out, (2, 4, 5))
     assert str(ex.value) == "The input and output WCS are not equivalent"
 
 
@@ -186,7 +186,7 @@ def test_reproject_3d_full_correctness_ra2gal():
     wcs_in = WCS(header_in)
     wcs_out = WCS(header_out)
 
-    out_cube, out_cube_valid = _reproject_full(inp_cube, wcs_in, wcs_out,
+    out_cube, out_cube_valid = _reproject_celestial(inp_cube, wcs_in, wcs_out,
                                                (header_out['NAXIS3'],
                                                 header_out['NAXIS2'],
                                                 header_out['NAXIS1']))

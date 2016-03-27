@@ -122,24 +122,36 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
 
     array_new = np.zeros(shape_out)
 
-    xp_in = yp_in = None
+    if len(shape_out)>=3 and (shape_out[0] != array.shape[0]):
+        # do full 3D interpolation
+        xp_in, yp_in, zp_in = _get_input_pixels_celestial(wcs_in, wcs_out,
+                                                          shape_out)
+        coordinates = np.array([zp_in.ravel(), yp_in.ravel(), xp_in.ravel()])
+        bad_data = ~np.isfinite(array)
+        array[bad_data] = 0
+        array_new = map_coordinates(array, coordinates, order=order,
+                                    cval=np.nan,
+                                    mode='constant').reshape(shape_out)
 
-    # Loop over slices and interpolate
-    for slice_in, slice_out in iterate_over_celestial_slices(array,
-                                                             array_new,
-                                                             wcs_in):
+    else:
+        xp_in = yp_in = None
 
-        if xp_in is None:  # Get position of output pixel centers in input image
-            xp_in, yp_in = _get_input_pixels_celestial(wcs_in.celestial,
-                                                       wcs_out.celestial,
-                                                       slice_out.shape)
-            coordinates = np.array([yp_in.ravel(), xp_in.ravel()])
+        # Loop over slices and interpolate
+        for slice_in, slice_out in iterate_over_celestial_slices(array,
+                                                                 array_new,
+                                                                 wcs_in):
 
-        slice_out[:,:] = map_coordinates(slice_in,
-                                         coordinates,
-                                         order=order, cval=np.nan,
-                                         mode='constant'
-                                         ).reshape(slice_out.shape)
+            if xp_in is None:  # Get position of output pixel centers in input image
+                xp_in, yp_in = _get_input_pixels_celestial(wcs_in.celestial,
+                                                           wcs_out.celestial,
+                                                           slice_out.shape)
+                coordinates = np.array([yp_in.ravel(), xp_in.ravel()])
+
+            slice_out[:,:] = map_coordinates(slice_in,
+                                             coordinates,
+                                             order=order, cval=np.nan,
+                                             mode='constant'
+                                             ).reshape(slice_out.shape)
 
     return array_new, (~np.isnan(array_new)).astype(float)
 
