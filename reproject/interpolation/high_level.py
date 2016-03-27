@@ -5,7 +5,7 @@ from __future__ import (absolute_import, division, print_function,
 from astropy.extern import six
 
 from ..utils import parse_input_data, parse_output_projection
-from .core import _reproject
+from .core import _reproject_celestial, _reproject_full
 
 __all__ = ['reproject_interp']
 
@@ -16,7 +16,8 @@ ORDER['biquadratic'] = 2
 ORDER['bicubic'] = 3
 
 
-def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=None, order='bilinear'):
+def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
+                     order='bilinear', independent_celestial_slices=False):
     """
     Reproject data to a new projection using interpolation (this is typically
     the fastest way to reproject an image).
@@ -54,7 +55,19 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=None,
             * 'bicubic'
 
         or an integer. A value of ``0`` indicates nearest neighbor
-        interpolation. 
+        interpolation.
+    independent_celestial_slices : bool, optional
+        This can be set to `True` for n-dimensional input in the following case
+        (all conditions have to be fulfilled):
+            * The number of pixels in each non-celestial dimension is the same
+              between the input and target header.
+            * The WCS coordinates along the non-celestial dimensions are the
+              same between the input and target WCS.
+            * The celestial WCS component is independent from other WCS
+              coordinates.
+        In this special case, we can make things a little faster by
+        reprojecting each celestial slice independently using the same
+        transformation.
 
     Returns
     -------
@@ -72,8 +85,7 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=None,
     if isinstance(order, six.string_types):
         order = ORDER[order]
 
-    # For now only celestial reprojection is supported
-    if wcs_in.has_celestial:
-        return _reproject(array_in, wcs_in, wcs_out, shape_out=shape_out, order=order)
-    else:
-        raise NotImplementedError("Currently only data with a WCS that includes a celestial component can be reprojected")
+    if (wcs_in.celestial and wcs.naxes == 2) or independent_celestial_slices:
+        return _reproject_celestial(array_in, wcs_in, wcs_out, shape_out=shape_out, order=order)
+    elif:
+        return _reproject_full(array_in, wcs_in, wcs_out, shape_out=shape_out, order=order)

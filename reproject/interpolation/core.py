@@ -19,39 +19,44 @@ def map_coordinates(image, coords, **kwargs):
 
     from scipy.ndimage import map_coordinates as scipy_map_coordinates
 
-    if image.ndim == 2:
-        ny, nx = image.shape
+    image = pad_edge_1(image)
 
-        image = pad_edge_1(image)
+    values = scipy_map_coordinates(image, coords + 1, **kwargs)
 
-        values = scipy_map_coordinates(image, coords + 1, **kwargs)
+    reset = np.zeros(coords.shape[1], dtype=bool)
 
-        reset = ((coords[0] < -0.5) | (coords[0] > ny - 0.5) |
-                 (coords[1] < -0.5) | (coords[1] > nx - 0.5))
-        values[reset] = kwargs.get('cval', 0.)
+    for i in range(coords.shape[0]):
+        reset |= (coords[i] < -0.5)
+        reset |= (coords[i] > image.shape[i] - 0.5)
 
-        return values
-    elif image.ndim == 3:
-        nz, ny, nx = image.shape
+    values[reset] = kwargs.get('cval', 0.)
 
-        # will fail on np<1.7
-        image = np.pad(image, 1, mode='edge')
-
-        values = scipy_map_coordinates(image, coords + 1, **kwargs)
-
-        reset = ((coords[0] < -0.5) | (coords[0] > nz - 0.5) |
-                 (coords[1] < -0.5) | (coords[1] > ny - 0.5) |
-                 (coords[2] < -0.5) | (coords[2] > nx - 0.5)
-                )
-        values[reset] = kwargs.get('cval', 0.)
-
-        return values
-    else:
-        # edge pixels will fail (be nan) for higher dimensional things
-        return scipy_map_coordinates(image, coords, **kwargs)
+    return values
 
 
-def get_input_pixels(wcs_in, wcs_out, shape_out):
+def _get_input_pixels_full(wcs_in, wcs_out, shape_out):
+    """
+    Get the pixel coordinates of the pixels in an array of shape ``shape_out``
+    in the input WCS.
+    """
+
+    # Generate pixel coordinates of output image
+    p_out_ax = []
+    for size in shape_out:
+        p_out_ax.append(np.arange(size))
+
+    p_out = np.meshgrid(*p_out_ax, indexing='ij')
+
+    # Convert output pixel coordinates to pixel coordinates in original image
+    # (using pixel centers).
+    w_out = wcs_out.wcs_pix2world(*p_out[::-1], 0)
+
+    p_in = wcs_in.wcs_world2pix(*w_out, 0)
+
+    return p_in[::-1]
+
+
+def _get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
     """
     Get the pixel coordinates of the pixels in an array of shape ``shape_out``
     in the input WCS.
@@ -93,7 +98,7 @@ def get_input_pixels(wcs_in, wcs_out, shape_out):
     assert retval.shape == (len(shape_out),)+tuple(shape_out)
     return retval
 
-def _reproject(array, wcs_in, wcs_out, shape_out, order=1):
+def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
     """
     Reproject data with celestial axes to a new projection using interpolation.
     """
@@ -108,43 +113,63 @@ def _reproject(array, wcs_in, wcs_out, shape_out, order=1):
                                                  wcs_out.wcs.axis_types)):
         raise ValueError("The input and output WCS are not equivalent")
 
-    if len(shape_out)>=3 and (shape_out[0] != array.shape[0]):
-        # do full 3D interpolation
-        xp_in, yp_in, zp_in = get_input_pixels(wcs_in, wcs_out,
-                                               shape_out)
-        coordinates = np.array([zp_in.ravel(), yp_in.ravel(), xp_in.ravel()])
-        bad_data = ~np.isfinite(array)
-        array[bad_data] = 0
-        array_new = map_coordinates(array, coordinates, order=order,
-                                    cval=np.nan,
-                                    mode='constant').reshape(shape_out)
+    # We create an output array with the required shape, then create an array
+    # that is in order of [rest, lat, lon] where rest is the flattened
+    # remainder of the array. We then operate on the view, but this will change
+    # the original array with the correct shape.
 
-    else:
+    array_new = np.zeros(shape_out)
 
-        # We create an output array with the required shape, then create an array
-        # that is in order of [rest, lat, lon] where rest is the flattened
-        # remainder of the array. We then operate on the view, but this will change
-        # the original array with the correct shape.
+    xp_in = yp_in = None
 
-        array_new = np.zeros(shape_out)
+    # Loop over slices and interpolate
+    for slice_in, slice_out in iterate_over_celestial_slices(array,
+                                                             array_new,
+                                                             wcs_in):
 
-        xp_in = yp_in = None
+        if xp_in is None:  # Get position of output pixel centers in input image
+            xp_in, yp_in = _get_input_pixels_celestial(wcs_in.celestial,
+                                                       wcs_out.celestial,
+                                                       slice_out.shape)
+            coordinates = np.array([yp_in.ravel(), xp_in.ravel()])
 
-        # Loop over slices and interpolate
-        for slice_in, slice_out in iterate_over_celestial_slices(array,
-                                                                 array_new,
-                                                                 wcs_in):
+        slice_out[:,:] = map_coordinates(slice_in,
+                                         coordinates,
+                                         order=order, cval=np.nan,
+                                         mode='constant'
+                                         ).reshape(slice_out.shape)
 
-            if xp_in is None:  # Get position of output pixel centers in input image
-                xp_in, yp_in = get_input_pixels(wcs_in.celestial,
-                                                wcs_out.celestial,
-                                                slice_out.shape)
-                coordinates = np.array([yp_in.ravel(), xp_in.ravel()])
+    return array_new, (~np.isnan(array_new)).astype(float)
 
-            slice_out[:,:] = map_coordinates(slice_in,
-                                             coordinates,
-                                             order=order, cval=np.nan,
-                                             mode='constant'
-                                             ).reshape(slice_out.shape)
+
+def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1):
+    """
+    Reproject n-dimensional data to a new projection using interpolation.
+    """
+
+    # Make sure image is floating point
+    array = np.asarray(array, dtype=float)
+
+    # Check that WCSs are equivalent
+    if wcs_in.naxis == wcs_out.naxis and np.any(wcs_in.wcs.axis_types != wcs_out.wcs.axis_types):
+        raise ValueError("The input and output WCS are not equivalent")
+
+
+    # We create an output array with the required shape, then create an array
+    # that is in order of [rest, lat, lon] where rest is the flattened
+    # remainder of the array. We then operate on the view, but this will change
+    # the original array with the correct shape.
+
+    array_new = np.zeros(shape_out)
+
+    p_in = _get_input_pixels_full(wcs_in, wcs_out, shape_out)
+
+    coordinates = np.array([p.ravel() for p in p_in])
+
+    array_new = map_coordinates(array,
+                                coordinates,
+                                order=order, cval=np.nan,
+                                mode='constant'
+                                ).reshape(shape_out)
 
     return array_new, (~np.isnan(array_new)).astype(float)
