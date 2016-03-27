@@ -158,6 +158,31 @@ def test_inequal_wcs_dims():
         out_cube, out_cube_valid = _reproject_celestial(inp_cube, wcs_in, wcs_out, (2, 4, 5))
     assert str(ex.value) == "The input and output WCS are not equivalent"
 
+def test_different_wcs_types():
+    inp_cube = np.arange(3, dtype='float').repeat(4*5).reshape(3,4,5)
+    header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
+
+    header_out = header_in.copy()
+    header_out['CTYPE3'] = 'VRAD'
+    header_out['CUNIT3'] = 'm/s'
+    header_in['CTYPE3'] = 'VELO'
+    header_in['CUNIT3'] = 'm/s'
+    
+    wcs_in = WCS(header_in)
+    wcs_out = WCS(header_out)
+
+    with pytest.raises(ValueError) as ex:
+        out_cube, out_cube_valid = _reproject_celestial(inp_cube, wcs_in, wcs_out, (2, 4, 5))
+    assert str(ex.value) == "The input and output WCS are not equivalent"
+
+    header_in['CTYPE3'] = 'FREQ'
+    header_in['CUNIT3'] = 'Hz'
+    wcs_in = WCS(header_in)
+
+    with pytest.raises(ValueError) as ex:
+        out_cube, out_cube_valid = _reproject_celestial(inp_cube, wcs_in, wcs_out, (2, 4, 5))
+    assert str(ex.value) == "The input and output WCS are not equivalent"
+
 
 @pytest.mark.xfail('NP_LT_17')
 def test_reproject_3d_full_correctness_ra2gal():
