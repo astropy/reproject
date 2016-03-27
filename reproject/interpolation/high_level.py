@@ -57,14 +57,16 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
         or an integer. A value of ``0`` indicates nearest neighbor
         interpolation.
     independent_celestial_slices : bool, optional
-        This can be set to `True` for n-dimensional input in the following case
+        This can be set to ``True`` for n-dimensional input in the following case
         (all conditions have to be fulfilled):
+
             * The number of pixels in each non-celestial dimension is the same
               between the input and target header.
             * The WCS coordinates along the non-celestial dimensions are the
               same between the input and target WCS.
             * The celestial WCS component is independent from other WCS
               coordinates.
+
         In this special case, we can make things a little faster by
         reprojecting each celestial slice independently using the same
         transformation.
