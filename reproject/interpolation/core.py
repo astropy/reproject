@@ -111,8 +111,10 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
     # For now, assume axes are independent in this routine
 
     # Check that WCSs are equivalent
-    if (wcs_in.naxis == wcs_out.naxis and np.any(wcs_in.wcs.axis_types !=
-                                                 wcs_out.wcs.axis_types)):
+    if ((wcs_in.naxis != wcs_out.naxis or
+         np.any(wcs_in.wcs.axis_types != wcs_out.wcs.axis_types) or
+         np.any(wcs_in.wcs.ctype != wcs_out.wcs.ctype) or
+         np.any(wcs_in.wcs.cunit != wcs_out.wcs.cunit))):
         raise ValueError("The input and output WCS are not equivalent")
 
     # We create an output array with the required shape, then create an array
