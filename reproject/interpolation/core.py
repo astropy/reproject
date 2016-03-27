@@ -19,17 +19,41 @@ def map_coordinates(image, coords, **kwargs):
 
     from scipy.ndimage import map_coordinates as scipy_map_coordinates
 
-    ny, nx = image.shape
-
     image = pad_edge_1(image)
 
     values = scipy_map_coordinates(image, coords + 1, **kwargs)
 
-    reset = ((coords[0] < -0.5) | (coords[0] > ny - 0.5) |
-             (coords[1] < -0.5) | (coords[1] > nx - 0.5))
+    reset = np.zeros(coords.shape[1], dtype=bool)
+
+    for i in range(coords.shape[0]):
+        reset |= (coords[i] < -0.5)
+        reset |= (coords[i] > image.shape[i] - 0.5)
+
     values[reset] = kwargs.get('cval', 0.)
 
     return values
+
+
+def _get_input_pixels_full(wcs_in, wcs_out, shape_out):
+    """
+    Get the pixel coordinates of the pixels in an array of shape ``shape_out``
+    in the input WCS.
+    """
+
+    # Generate pixel coordinates of output image
+    p_out_ax = []
+    for size in shape_out:
+        p_out_ax.append(np.arange(size))
+
+    p_out = np.meshgrid(*p_out_ax, indexing='ij')
+
+    # Convert output pixel coordinates to pixel coordinates in original image
+    # (using pixel centers).
+    w_out = wcs_out.wcs_pix2world(*p_out[::-1], 0)
+
+    p_in = wcs_in.wcs_world2pix(*w_out, 0)
+
+    return p_in[::-1]
 
 
 def _get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
@@ -97,5 +121,43 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
                                           order=order, cval=np.nan,
                                           mode='constant'
                                           ).reshape(slice_out.shape)
+
+    return array_new, (~np.isnan(array_new)).astype(float)
+
+
+def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1):
+    """
+    Reproject n-dimensional data to a new projection using interpolation.
+    """
+
+    # Make sure image is floating point
+    array = np.asarray(array, dtype=float)
+
+    # Check that WCSs are equivalent
+    if wcs_in.naxis == wcs_out.naxis and np.any(wcs_in.wcs.axis_types != wcs_out.wcs.axis_types):
+        raise ValueError("The input and output WCS are not equivalent")
+
+
+    # We create an output array with the required shape, then create an array
+    # that is in order of [rest, lat, lon] where rest is the flattened
+    # remainder of the array. We then operate on the view, but this will change
+    # the original array with the correct shape.
+
+    array_new = np.zeros(shape_out)
+
+    p_in = _get_input_pixels_full(wcs_in, wcs_out, shape_out)
+
+    from astropy.io import fits
+    fits.writeto('p0.fits', p_in[0], clobber=True)
+    fits.writeto('p1.fits', p_in[1], clobber=True)
+    fits.writeto('p2.fits', p_in[2], clobber=True)
+
+    coordinates = np.array([p.ravel() for p in p_in])
+
+    array_new = map_coordinates(array,
+                                coordinates,
+                                order=order, cval=np.nan,
+                                mode='constant'
+                                ).reshape(shape_out)
 
     return array_new, (~np.isnan(array_new)).astype(float)
