@@ -4,6 +4,9 @@ from __future__ import absolute_import, division, print_function
 import numpy as np
 from astropy import wcs
 
+from distutils.version import StrictVersion
+NP_LT_17 = StrictVersion(np.__version__) < StrictVersion('1.7')
+
 from ..wcs_utils import convert_world_coordinates
 from ..array_utils import iterate_over_celestial_slices, pad_edge_1
 
@@ -39,6 +42,8 @@ def _get_input_pixels_full(wcs_in, wcs_out, shape_out):
     Get the pixel coordinates of the pixels in an array of shape ``shape_out``
     in the input WCS.
     """
+    if NP_LT_17:
+        raise NotImplementedError("The grid determination requires numpy >=1.7")
 
     # Generate pixel coordinates of output image
     p_out_ax = []

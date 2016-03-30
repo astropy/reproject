@@ -57,6 +57,7 @@ def test_map_coordinates_rectangular():
 
     np.testing.assert_allclose(result, 1)
 
+@pytest.mark.xfail("NP_LT_17")
 @pytest.mark.parametrize('get_input_pixels', (_get_input_pixels_celestial, _get_input_pixels_full))
 def test_get_input_pixels(get_input_pixels):
     header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
@@ -79,7 +80,7 @@ def test_get_input_pixels(get_input_pixels):
 
     np.testing.assert_allclose(z_out, expected_z_out)
 
-def test_reproject_full_3d():
+def test_reproject_celestial_3d():
 
     header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
 
