@@ -1,7 +1,8 @@
 0.3 (unreleased)
 ----------------
 
-- No changes yet
+- Allow users to pass a ``field=`` option to ``reproject_from_healpix``
+  to access different fields in a HEALPIX file. [#86]
 
 0.2 (2015-10-29)
 ----------------
