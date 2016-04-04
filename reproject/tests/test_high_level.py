@@ -144,8 +144,8 @@ CD2_2   = 5.92479929826863E-05 / WCS transform matrix element
 def test_identity_projection(projection_type):
     header_in = fits.Header.fromstring(IDENTITY_TEST_HDR, sep='\n')
     data_in = np.ones((header_in['NAXIS2'], header_in['NAXIS1']))
-    data_out, footprint = reproject((data_in, header_in), header_in,
-                                    projection_type=projection_type)
+    data_out, footprint = reproject_interp((data_in, header_in), header_in,
+                                           projection_type=projection_type)
     # When reprojecting with an identical input and output header,
     # we may expect the input and output data to be similar,
     # and the footprint values to be ~ones.
