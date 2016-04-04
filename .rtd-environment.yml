@@ -1,0 +1,11 @@
+name: astropy
+
+channels:
+  - astropy
+
+dependencies:
+  - numpy
+  - cython
+  - matplotlib
+  - astropy-helpers
+  - astropy
