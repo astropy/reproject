@@ -5,7 +5,7 @@ from ..utils import parse_input_data, parse_output_projection
 __all__ = ['reproject_from_healpix', 'reproject_to_healpix']
 
 
-def reproject_from_healpix(input_data, output_projection, shape_out=None, hdu_in=None, order='bilinear', nested=False):
+def reproject_from_healpix(input_data, output_projection, shape_out=None, hdu_in=None, order='bilinear', nested=False, field=0):
     """
     Reproject data from a HEALPIX projection to a standard projection.
 
@@ -42,8 +42,12 @@ def reproject_from_healpix(input_data, output_projection, shape_out=None, hdu_in
 
         or an integer. A value of ``0`` indicates nearest neighbor
         interpolation.
-    nested : bool
+    nested : bool, optional
         The order of the healpix_data, either nested (True) or ring (False)
+    field : int, optional
+        The column to read from the HEALPIX FITS file. If the fits file is a
+        partial-sky file, field=0 corresponds to the first column after the
+        pixel index column.
 
     Returns
     -------
@@ -55,7 +59,7 @@ def reproject_from_healpix(input_data, output_projection, shape_out=None, hdu_in
         indicate valid values.
     """
 
-    array_in, coord_system_in = parse_input_healpix_data(input_data, hdu_in=hdu_in)
+    array_in, coord_system_in = parse_input_healpix_data(input_data, hdu_in=hdu_in, field=field)
     wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
 
     return healpix_to_image(array_in, coord_system_in, wcs_out, shape_out, order=order, nested=nested)
