@@ -32,7 +32,7 @@ This package has the following hard dependencies:
 
 and the following optional dependencies:
 
-* `healpy <http://healpy.readthedocs.org>`_ 1.8 or later for HEALPIX image reprojection
+* `healpy <http://healpy.readthedocs.io>`_ 1.8 or later for HEALPIX image reprojection
 
 Installation
 ============
@@ -58,7 +58,7 @@ namely a 2MASS K-band image and an MSX band E image of the Galactic center::
     hdu2 = fits.open(get_pkg_data_filename('galactic_center/gc_msx_e.fits'))[0]
 
 We can examine the two images (this makes use of the
-`wcsaxes <wcsaxes.readthedocs.org>`_ package behind the scenes)::
+`wcsaxes <wcsaxes.readthedocs.io>`_ package behind the scenes)::
 
     from astropy.wcs import WCS
     import matplotlib.pyplot as plt
