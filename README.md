@@ -3,7 +3,7 @@ About
 
 The 'reproject' package is a Python package to reproject astronomical images using various techniques via a uniform interface. By *reprojection*, we mean the re-gridding of images from one world coordinate system to another (for example changing the pixel resolution, orientation, coordinate system). Currently, we have implemented reprojection of celestial images by interpolation (like [SWARP](http://www.astromatic.net/software/swarp)), as well as by finding the exact overlap between pixels on the celestial sphere (like [Montage](http://montage.ipac.caltech.edu/index.html)). It can also reproject to/from HEALPIX projections by relying on the [healpy](https://github.com/healpy/healpy) package. 
 
-For more information, including on how to install the package, see http://reproject.readthedocs.org
+For more information, including on how to install the package, see http://reproject.readthedocs.io
 
 ![screenshot](docs/images/index-4.png)
 
