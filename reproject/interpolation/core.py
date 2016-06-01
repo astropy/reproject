@@ -4,8 +4,8 @@ from __future__ import absolute_import, division, print_function
 import numpy as np
 from astropy import wcs
 
-from distutils.version import StrictVersion
-NP_LT_17 = StrictVersion(np.__version__) < StrictVersion('1.7')
+from distutils.version import LooseVersion
+NP_LT_17 = LooseVersion(np.__version__) < LooseVersion('1.7')
 
 from ..wcs_utils import convert_world_coordinates
 from ..array_utils import iterate_over_celestial_slices, pad_edge_1

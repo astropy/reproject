@@ -3,7 +3,7 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 import numpy as np
-from distutils.version import StrictVersion
+from distutils.version import LooseVersion
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.utils.data import get_pkg_data_filename
@@ -12,7 +12,7 @@ from astropy.tests.helper import pytest
 from ..core import (_reproject_celestial, _reproject_full, map_coordinates,
                     _get_input_pixels_full, _get_input_pixels_celestial)
 
-NP_LT_17 = StrictVersion(np.__version__) < StrictVersion('1.7')
+NP_LT_17 = LooseVersion(np.__version__) < LooseVersion('1.7')
 
 # TODO: add reference comparisons
 
