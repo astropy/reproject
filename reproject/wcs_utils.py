@@ -58,7 +58,7 @@ def convert_world_coordinates(lon_in, lat_in, wcs_in, wcs_out):
     coords_in = frame_in.realize_frame(data)
     coords_out = coords_in.transform_to(frame_out)
 
-    lon_out = coords_out.spherical.lon.to(lon_out_unit).value
-    lat_out = coords_out.spherical.lat.to(lat_out_unit).value
+    lon_out = coords_out.unit_spherical.lon.to(lon_out_unit).value
+    lat_out = coords_out.unit_spherical.lat.to(lat_out_unit).value
 
     return lon_out, lat_out
