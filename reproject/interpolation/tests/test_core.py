@@ -34,7 +34,7 @@ def test_reproject_slices_3d():
 
     header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
 
-    array_in = np.ones((200, 180))
+    array_in = np.ones((10, 200, 180))
 
     wcs_in = WCS(header_in)
     wcs_out = wcs_in.deepcopy()
@@ -42,7 +42,7 @@ def test_reproject_slices_3d():
     wcs_out.wcs.crval = [158.0501, -21.530282, wcs_in.wcs.crval[2]]
     wcs_out.wcs.crpix = [50., 50., wcs_in.wcs.crpix[2]]
 
-    _reproject_celestial(array_in, wcs_in, wcs_out, (160, 170))
+    _reproject_celestial(array_in, wcs_in, wcs_out, (10, 160, 170))
 
 
 def test_map_coordinates_rectangular():
@@ -69,11 +69,11 @@ def test_get_input_pixels(get_input_pixels):
     header_out = header_in.copy()
     header_out['NAXIS3'] = 2
     header_out['CRPIX3'] -= 0.5
-    
+
     w_in = WCS(header_in)
     w_out = WCS(header_out)
     x_out,y_out,z_out = get_input_pixels(w_in, w_out, [2,4,5])
-    
+
     # expected is the average of the two planes, i.e. average of 0,1 and
     # average of 1,2
     expected_z_out = np.array([np.ones([4,5])*0.5, np.ones([4,5])*1.5,])
@@ -115,7 +115,7 @@ def test_reproject_3d_full_and_celestial_consistent():
     header_out = header_in.copy()
     header_out['NAXIS3'] = 2
     header_out['CRPIX3'] -= 0.5
-    
+
     wcs_in = WCS(header_in)
     wcs_out = WCS(header_out)
 
@@ -144,7 +144,7 @@ def test_reproject_3d_correctness(reproject):
     header_out = header_in.copy()
     header_out['NAXIS3'] = 2
     header_out['CRPIX3'] -= 0.5
-    
+
     wcs_in = WCS(header_in)
     wcs_out = WCS(header_out)
 
@@ -180,7 +180,7 @@ def test_4d_fails():
 
     with pytest.raises(ValueError) as ex:
         x_out,y_out,z_out = _get_input_pixels_celestial(w_in, w_out, [2,4,5,6])
-    assert str(ex.value) == ">3 dimensional cube"
+    assert str(ex.value) == "Length of shape_out should match number of dimensions in wcs_out"
 
 def test_inequal_wcs_dims():
     inp_cube = np.arange(3, dtype='float').repeat(4*5).reshape(3,4,5)
@@ -191,7 +191,7 @@ def test_inequal_wcs_dims():
     header_out['CUNIT3'] = 'm/s'
     header_in['CTYPE3'] = 'STOKES'
     header_in['CUNIT3'] = ''
-    
+
     wcs_in = WCS(header_in)
     wcs_out = WCS(header_out)
 
@@ -208,7 +208,7 @@ def test_different_wcs_types():
     header_out['CUNIT3'] = 'm/s'
     header_in['CTYPE3'] = 'VELO'
     header_in['CUNIT3'] = 'm/s'
-    
+
     wcs_in = WCS(header_in)
     wcs_out = WCS(header_out)
 

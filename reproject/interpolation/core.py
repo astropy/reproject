@@ -67,44 +67,68 @@ def _get_input_pixels_full(wcs_in, wcs_out, shape_out):
 def _get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
     """
     Get the pixel coordinates of the pixels in an array of shape ``shape_out``
-    in the input WCS.
+    in the input WCS. This function assumes that there are two celestial
+    WCS dimensions (which may differ in terms of coordinate systems) and that
+    the remaining dimensions match.
     """
 
     # TODO: for now assuming that coordinates are spherical, not
-    # necessarily the case. Also assuming something about the order of the
-    # arguments.
+    # necessarily the case.
 
-    if len(shape_out) > 3:
-        raise ValueError(">3 dimensional cube")
+    if not wcs_in.has_celestial:
+        raise ValueError("Input WCS does not have a celestial component")
 
-    # Generate pixel coordinates of output image
-    # reversed because numpy and wcs index in opposite directions
-    # z,y,x if ::1
-    # x,y,z if ::-1
-    pixels_out = np.indices(shape_out)[::-1].astype('float')
+    if not wcs_out.has_celestial:
+        raise ValueError("Output WCS does not have a celestial component")
+
+    if wcs_in.wcs.naxis != wcs_out.wcs.naxis:
+        raise ValueError("Number of dimensions between input and output WCS should match")
+
+    if len(shape_out) != wcs_out.wcs.naxis:
+        raise ValueError("Length of shape_out should match number of dimensions in wcs_out")
+
+    # Generate pixel coordinates of output image. This is reversed because
+    # numpy and wcs index in opposite directions.
+    pixel_out = np.indices(shape_out)[::-1].astype('float')
 
     # Convert output pixel coordinates to pixel coordinates in original image
     # (using pixel centers).
-    # x,y,z
-    args = tuple(pixels_out) + (0,)
-    out_world = wcs_out.wcs_pix2world(*args)
+    world_out = wcs_out.wcs_pix2world(*(tuple(pixel_out) + (0,)))
 
-    args = tuple(out_world[:2]) + (wcs_out.celestial, wcs_in.celestial)
-    xw_in, yw_in = convert_world_coordinates(*args)
+    # Now we extract the longitude and latitude from the world_out array, and
+    # convert these, before converting back to pixel coordinates.
+    lon_out, lat_out = world_out[wcs_out.wcs.lng], world_out[wcs_out.wcs.lat]
 
-    xp_in, yp_in = wcs_in.celestial.wcs_world2pix(xw_in, yw_in, 0)
+    lon_in, lat_in = convert_world_coordinates(lon_out, lat_out, wcs_out, wcs_in)
 
-    input_pixels = [xp_in, yp_in,]
-    if pixels_out[0].ndim == 3:
-        zw_out = out_world[2]
-        zp_in = wcs_in.sub([wcs.WCSSUB_SPECTRAL]).wcs_world2pix(zw_out.ravel(),
-                                                                0)[0].reshape(zw_out.shape)
-        input_pixels += [zp_in]
+    # We now make an array of *input* world coordinates, taking into account
+    # that the order of the axes may be different. However, we can't do this if
+    # any items in axis_types is not unique, so we first have to make sure that
+    # is the case.
+    if np.any(wcs_in.wcs.axis_types != wcs_out.wcs.axis_types):
+        if (len(np.unique(wcs_in.wcs.axis_types)) < wcs_in.wcs.naxis or
+                len(np.unique(wcs_out.wcs.axis_types)) < wcs_out.wcs.naxis):
+            raise ValueError("axis_types contains non-unique elements, and "
+                             "input order does not match output order")
 
-    # x,y,z
-    retval = np.array(input_pixels)
-    assert retval.shape == (len(shape_out),)+tuple(shape_out)
-    return retval
+    # We start off by creating an empty array of input world coordinates, and
+    # populating it index by index
+    world_in = np.zeros_like(world_out)
+    axis_types_in = list(wcs_out.wcs.axis_types)
+    axis_types_out = list(wcs_out.wcs.axis_types)
+    for index_in, axis_type in enumerate(axis_types_in):
+        index_out = axis_types_out.index(axis_type)
+        if index_in == wcs_in.wcs.lng:
+            world_in[index_in] = lon_in
+        elif index_in == wcs_in.wcs.lat:
+            world_in[index_in] = lat_in
+        else:
+            world_in[index_in] = world_out[index_out]
+
+    pixel_in = wcs_in.wcs_world2pix(*(tuple(world_in) + (0,)))
+
+    return tuple(pixel_in)
+
 
 def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
     """
@@ -129,13 +153,13 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
 
     array_new = np.zeros(shape_out)
 
-    if len(shape_out)>=3 and (shape_out[0] != array.shape[0]):
+    # TODO: Make this more general, we should check all dimensions that aren't lon/lat
+    if len(shape_out) >= 3 and (shape_out[0] != array.shape[0]):
 
         if ((list(wcs_in.sub([wcs.WCSSUB_SPECTRAL]).wcs.ctype) !=
              list(wcs_out.sub([wcs.WCSSUB_SPECTRAL]).wcs.ctype))):
             raise ValueError("The input and output spectral coordinate types "
                              "are not equivalent.")
-
 
         # do full 3D interpolation
         xp_in, yp_in, zp_in = _get_input_pixels_celestial(wcs_in, wcs_out,
