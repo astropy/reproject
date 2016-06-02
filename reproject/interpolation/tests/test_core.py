@@ -9,10 +9,9 @@ from astropy.wcs import WCS
 from astropy.utils.data import get_pkg_data_filename
 from astropy.tests.helper import pytest
 
-from ..core import (_reproject_celestial, _reproject_full, map_coordinates,
-                    _get_input_pixels_full, _get_input_pixels_celestial)
-
-NP_LT_17 = LooseVersion(np.__version__) < LooseVersion('1.7')
+from ...array_utils import map_coordinates
+from ..core_celestial import _reproject_celestial
+from ..core_full import _reproject_full
 
 # TODO: add reference comparisons
 
@@ -58,30 +57,6 @@ def test_map_coordinates_rectangular():
     np.testing.assert_allclose(result, 1)
 
 
-@pytest.mark.xfail("NP_LT_17")
-def test_get_input_pixels():
-
-    header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
-
-    header_in['NAXIS1'] = 5
-    header_in['NAXIS2'] = 4
-    header_in['NAXIS3'] = 3
-
-    header_out = header_in.copy()
-    header_out['NAXIS3'] = 2
-    header_out['CRPIX3'] -= 0.5
-
-    w_in = WCS(header_in)
-    w_out = WCS(header_out)
-    x_out, y_out, z_out = _get_input_pixels_full(w_in, w_out, [2, 4, 5])
-
-    # expected is the average of the two planes, i.e. average of 0,1 and
-    # average of 1,2
-    expected_z_out = np.array([np.ones([4, 5]) * 0.5, np.ones([4, 5]) * 1.5, ])
-
-    np.testing.assert_allclose(z_out, expected_z_out)
-
-
 def test_reproject_celestial_3d():
     """
     Test both full_reproject and slicewise reprojection. We use a case where the
@@ -110,7 +85,6 @@ def test_reproject_celestial_3d():
     np.testing.assert_allclose(foot_full, foot_celestial)
 
 
-@pytest.mark.xfail('NP_LT_17')
 def test_slice_reprojection():
     """
     Test case where only the slices change and the celestial projection doesn't
@@ -157,15 +131,16 @@ def test_4d_fails():
 
     header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
 
-    header_in['NAXIS4'] = 4
     header_in['NAXIS'] = 4
 
     header_out = header_in.copy()
     w_in = WCS(header_in)
     w_out = WCS(header_out)
 
+    array_in = np.zeros((2, 3, 4, 5))
+
     with pytest.raises(ValueError) as ex:
-        x_out, y_out, z_out = _get_input_pixels_full(w_in, w_out, [2, 4, 5, 6])
+        x_out, y_out, z_out = _reproject_full(array_in, w_in, w_out, [2, 4, 5, 6])
     assert str(ex.value) == "Length of shape_out should match number of dimensions in wcs_out"
 
 
@@ -184,7 +159,7 @@ def test_inequal_wcs_dims():
 
     with pytest.raises(ValueError) as ex:
         out_cube, out_cube_valid = _reproject_full(inp_cube, wcs_in, wcs_out, (2, 4, 5))
-    assert str(ex.value) == "The input and output WCS are not equivalent"
+    assert str(ex.value) == "Output WCS has a spectral component but input WCS does not"
 
 
 def test_different_wcs_types():
@@ -209,7 +184,6 @@ def test_different_wcs_types():
 # TODO: add a test to check the units are the same.
 
 
-@pytest.mark.xfail('NP_LT_17')
 def test_reproject_3d_celestial_correctness_ra2gal():
 
     inp_cube = np.arange(3, dtype='float').repeat(7 * 8).reshape(3, 7, 8)
