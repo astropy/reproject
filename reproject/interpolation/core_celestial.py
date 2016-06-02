@@ -88,9 +88,17 @@ def _get_input_pixels_celestial(wcs_in, wcs_out, shape_out):
     # Convert output pixel coordinates to pixel coordinates in original image
     # (using pixel centers).
     xw_out, yw_out = wcs_out.wcs_pix2world(xp_out, yp_out, 0)
-
     xw_in, yw_in = convert_world_coordinates(xw_out, yw_out, wcs_out, wcs_in)
-
     xp_in, yp_in = wcs_in.wcs_world2pix(xw_in, yw_in, 0)
+
+    # Now convert back to check that coordinates round-trip, if not then set to NaN
+    xw_in, yw_in = wcs_in.wcs_pix2world(xp_in, yp_in, 0)
+    xw_out, yw_out = convert_world_coordinates(xw_in, yw_in, wcs_in, wcs_out)
+    xp_out_check, yp_out_check = wcs_out.wcs_world2pix(xw_out, yw_out, 0)
+
+    reset = (np.abs(xp_out - xp_out_check) > 1) | (np.abs(yp_out - yp_out_check) > 1)
+
+    xp_in[reset] = np.nan
+    yp_in[reset] = np.nan
 
     return xp_in, yp_in
