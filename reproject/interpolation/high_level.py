@@ -5,7 +5,8 @@ from __future__ import (absolute_import, division, print_function,
 from astropy.extern import six
 
 from ..utils import parse_input_data, parse_output_projection
-from .core import _reproject_celestial, _reproject_full
+from .core_celestial import _reproject_celestial
+from .core_full import _reproject_full
 
 __all__ = ['reproject_interp']
 
