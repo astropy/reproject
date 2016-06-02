@@ -48,7 +48,7 @@ def convert_world_coordinates(xw_in, yw_in, wcs_in, wcs_out):
     coords_in = frame_in.realize_frame(data)
     coords_out = coords_in.transform_to(frame_out)
 
-    xw_out = coords_out.unit_spherical.lon.to(xw_out_unit).value
-    yw_out = coords_out.unit_spherical.lat.to(yw_out_unit).value
+    xw_out = coords_out.represent_as('unitspherical').lon.to(xw_out_unit).value
+    yw_out = coords_out.represent_as('unitspherical').lat.to(yw_out_unit).value
 
     return xw_out, yw_out
