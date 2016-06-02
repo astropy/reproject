@@ -15,40 +15,50 @@ from astropy.wcs import WCS
 __all__ = ['convert_world_coordinates']
 
 
-def convert_world_coordinates(xw_in, yw_in, wcs_in, wcs_out):
+def convert_world_coordinates(lon_in, lat_in, wcs_in, wcs_out):
     """
-    Convert world coordinates from an input frame to an output frame.
+    Convert longitude/latitude coordinates from an input frame to an output
+    frame.
 
     Parameters
     ----------
-    xw_in, yw_in : `~numpy.ndarray`
-        The input coordinates to convert
+    lon_in, lat_in : `~numpy.ndarray`
+        The longitude and latitude to convert
     wcs_in, wcs_out : tuple or `~astropy.wcs.WCS`
         The input and output frames, which can be passed either as a tuple of
-        ``(frame, x_unit, y_unit)`` or as a `~astropy.wcs.WCS` instance.
+        ``(frame, lon_unit, lat_unit)`` or as a `~astropy.wcs.WCS` instance.
+
+    Returns
+    -------
+    lon_out, lat_out : `~numpy.ndarray`
+        The output longitude and latitude
     """
 
     if isinstance(wcs_in, WCS):
+        # Extract the celestial component of the WCS in (lon, lat) order
+        wcs_in = wcs_in.celestial
         frame_in = wcs_to_celestial_frame(wcs_in)
-        xw_in_unit = u.Unit(wcs_in.wcs.cunit[0])
-        yw_in_unit = u.Unit(wcs_in.wcs.cunit[1])
+        lon_in_unit = u.Unit(wcs_in.wcs.cunit[0])
+        lat_in_unit = u.Unit(wcs_in.wcs.cunit[1])
     else:
-        frame_in, xw_in_unit, yw_in_unit = wcs_in
+        frame_in, lon_in_unit, lat_in_unit = wcs_in
 
     if isinstance(wcs_out, WCS):
+        # Extract the celestial component of the WCS in (lon, lat) order
+        wcs_out = wcs_out.celestial
         frame_out = wcs_to_celestial_frame(wcs_out)
-        xw_out_unit = u.Unit(wcs_out.wcs.cunit[0])
-        yw_out_unit = u.Unit(wcs_out.wcs.cunit[1])
+        lon_out_unit = u.Unit(wcs_out.wcs.cunit[0])
+        lat_out_unit = u.Unit(wcs_out.wcs.cunit[1])
     else:
-        frame_out, xw_out_unit, yw_out_unit = wcs_out
+        frame_out, lon_out_unit, lat_out_unit = wcs_out
 
-    data = UnitSphericalRepresentation(xw_in * xw_in_unit,
-                                       yw_in * yw_in_unit)
+    data = UnitSphericalRepresentation(lon_in * lon_in_unit,
+                                       lat_in * lat_in_unit)
 
     coords_in = frame_in.realize_frame(data)
     coords_out = coords_in.transform_to(frame_out)
 
-    xw_out = coords_out.spherical.lon.to(xw_out_unit).value
-    yw_out = coords_out.spherical.lat.to(yw_out_unit).value
+    lon_out = coords_out.spherical.lon.to(lon_out_unit).value
+    lat_out = coords_out.spherical.lat.to(lat_out_unit).value
 
-    return xw_out, yw_out
+    return lon_out, lat_out

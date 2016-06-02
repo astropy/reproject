@@ -29,7 +29,10 @@ def iterate_over_celestial_slices(array_in, array_out, wcs):
     """
 
     # First put lng/lat as first two dimensions in WCS/last two in Numpy
-    if wcs.wcs.lng == 1 and wcs.wcs.lat == 0:
+    if wcs.wcs.lng == 0 and wcs.wcs.lat == 1:
+        array_in_view = array_in
+        array_out_view = array_out
+    elif wcs.wcs.lng == 1 and wcs.wcs.lat == 0:
         array_in_view = array_in.swapaxes(-1, -2)
         array_out_view = array_out.swapaxes(-1, -2)
     else:
@@ -70,3 +73,29 @@ def pad_edge_1(array):
         new_array[:, 0] = new_array[:, 1]
         new_array[:, -1] = new_array[:, -2]
         return new_array
+
+
+def map_coordinates(image, coords, **kwargs):
+
+    # In the built-in scipy map_coordinates, the values are defined at the
+    # center of the pixels. This means that map_coordinates does not
+    # correctly treat pixels that are in the outer half of the outer pixels.
+    # We solve this by extending the array, updating the pixel coordinates,
+    # then getting rid of values that were sampled in the range -1 to -0.5
+    # and n to n - 0.5.
+
+    from scipy.ndimage import map_coordinates as scipy_map_coordinates
+
+    image = pad_edge_1(image)
+
+    values = scipy_map_coordinates(image, coords + 1, **kwargs)
+
+    reset = np.zeros(coords.shape[1], dtype=bool)
+
+    for i in range(coords.shape[0]):
+        reset |= (coords[i] < -0.5)
+        reset |= (coords[i] > image.shape[i] - 0.5)
+
+    values[reset] = kwargs.get('cval', 0.)
+
+    return values
