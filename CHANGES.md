@@ -4,6 +4,9 @@
 - Allow users to pass a ``field=`` option to ``reproject_from_healpix``
   to access different fields in a HEALPIX file. [#86]
 
+- Significant improvements to performance when the input data is a large
+  memory-mapped array. [#105]
+
 0.2 (2015-10-29)
 ----------------
 
