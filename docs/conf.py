@@ -42,8 +42,12 @@ except ImportError:
 from astropy_helpers.sphinx.conf import *
 
 # Get configuration information from setup.cfg
-from distutils import config
-conf = config.ConfigParser()
+try:
+    from ConfigParser import ConfigParser
+except ImportError:
+    from configparser import ConfigParser
+conf = ConfigParser()
+
 conf.read([os.path.join(os.path.dirname(__file__), '..', 'setup.cfg')])
 setup_cfg = dict(conf.items('metadata'))
 
@@ -90,6 +94,12 @@ release = package.__version__
 # the options for this theme can be modified by overriding some of the
 # variables set in the global configuration. The variables set in the
 # global configuration are listed below, commented out.
+
+html_theme_options = {
+    'logotext1': 're',  # white,  semi-bold
+    'logotext2': 'project',  # orange, light
+    'logotext3': ':docs'   # white,  light
+    }
 
 # Add any paths that contain custom themes here, relative to this directory.
 # To use a different custom theme, add the directory containing the theme.
@@ -143,8 +153,8 @@ if eval(setup_cfg.get('edit_on_github')):
 
     versionmod = __import__(setup_cfg['package_name'] + '.version')
     edit_on_github_project = setup_cfg['github_project']
-    if versionmod.release:
-        edit_on_github_branch = "v" + versionmod.version
+    if versionmod.version.release:
+        edit_on_github_branch = "v" + versionmod.version.version
     else:
         edit_on_github_branch = "master"
 
