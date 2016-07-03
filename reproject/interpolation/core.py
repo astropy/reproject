@@ -111,9 +111,6 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
     Reproject data with celestial axes to a new projection using interpolation.
     """
 
-    # Make sure image is floating point
-    array = np.asarray(array, dtype=float)
-
     # For now, assume axes are independent in this routine
 
     # Check that WCSs are equivalent
@@ -148,26 +145,68 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
                                     mode='constant').reshape(shape_out)
 
     else:
+
         xp_in = yp_in = None
+
+        subset = None
 
         # Loop over slices and interpolate
         for slice_in, slice_out in iterate_over_celestial_slices(array,
                                                                  array_new,
                                                                  wcs_in):
 
-            if xp_in is None:  # Get position of output pixel centers in input image
+            if xp_in is None:
+
+                # Get position of output pixel centers in input image
                 xp_in, yp_in = _get_input_pixels_celestial(wcs_in.celestial,
                                                            wcs_out.celestial,
                                                            slice_out.shape)
                 coordinates = np.array([yp_in.ravel(), xp_in.ravel()])
 
-            slice_out[:,:] = map_coordinates(slice_in,
-                                             coordinates,
-                                             order=order, cval=np.nan,
-                                             mode='constant'
-                                             ).reshape(slice_out.shape)
+                # Now map_coordinates is actually inefficient in that if we
+                # pass it a large array, it will be much slower than a small
+                # array, even if we only need to reproject part of the image.
+                # So here we can instead check what the bounding box of the
+                # requested coordinates are. We allow for a 1-pixel padding
+                # because map_coordinates needs this
+                jmin, imin = np.floor(coordinates.min(axis=1)) - 1
+                jmax, imax = np.ceil(coordinates.max(axis=1)) + 1
+
+                ny, nx = array.shape
+
+                # Check first if we are completely outside the image. If this is
+                # the case, we should just give up and return an array full of
+                # NaN values
+                if imin >= nx or imax < 0 or jmin >= ny or jmax < 0:
+                    return array_new * np.nan, array_new.astype(float)
+
+                # Now, we check whether there is any point in defining a subset
+                if imin > 0 or imax < nx - 1 or jmin > 0 or jmax < ny - 1:
+                    subset = (slice(max(jmin, 0), min(jmax, ny - 1)),
+                              slice(max(imin, 0), min(imax, nx - 1)))
+                    if imin > 0:
+                        coordinates[1] -= imin
+                    if jmin > 0:
+                        coordinates[0] -= jmin
+
+
+            # If possible, only consider a subset of the array for reprojection.
+            # We have already adjusted the coordinates above.
+            if subset is not None:
+                slice_in = slice_in[subset]
+
+            # Make sure image is floating point. We do this only now because
+            # we want to avoid converting the whole input array if possible
+            slice_in = np.asarray(slice_in, dtype=float)
+
+            slice_out[:, :] = map_coordinates(slice_in,
+                                              coordinates,
+                                              order=order, cval=np.nan,
+                                              mode='constant'
+                                              ).reshape(slice_out.shape)
 
     return array_new, (~np.isnan(array_new)).astype(float)
+
 
 
 def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1):
