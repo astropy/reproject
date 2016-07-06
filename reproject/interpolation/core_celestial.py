@@ -35,7 +35,7 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
     if not wcs_in.has_celestial:
         raise ValueError("Input WCS does not have celestial components")
     elif not wcs_out.has_celestial:
-        raise ValueError("Output WCS does not have celestial components")
+        raise ValueError("Input WCS has celestial components but output WCS does not")
 
     if tuple(wcs_in.wcs.axis_types) != tuple(wcs_out.wcs.axis_types):
         raise ValueError("axis_types should match between the input and output WCS")

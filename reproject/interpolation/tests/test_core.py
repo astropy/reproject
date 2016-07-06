@@ -135,6 +135,46 @@ def test_small_cutout_outside():
     assert np.all(np.isnan(array_out))
     assert np.all(footprint_out == 0)
 
+
+def test_celestial_mismatch():
+    """
+    Make sure an error is raised if the input image has celestial WCS
+    information and the output does not (and vice-versa)
+    """
+
+    hdu_in = fits.open(os.path.join(DATA, 'galactic_2d.fits'))[0]
+
+    header_out = hdu_in.header.copy()
+    header_out['CTYPE1'] = 'APPLES'
+    header_out['CTYPE2'] = 'ORANGES'
+
+    data = hdu_in.data
+    wcs1 = WCS(hdu_in.header)
+    wcs2 = WCS(header_out)
+
+    with pytest.raises(ValueError) as exc:
+        array_out, footprint_out = reproject_interp((data, wcs1), wcs2, shape_out=(2, 2))
+    assert exc.value.args[0] == "Input WCS has celestial components but output WCS does not"
+
+    hdu_in = fits.open(os.path.join(DATA, 'equatorial_3d.fits'))[0]
+
+    header_out = hdu_in.header.copy()
+    header_out['CTYPE1'] = 'APPLES'
+    header_out['CTYPE2'] = 'ORANGES'
+    header_out['CTYPE3'] = 'BANANAS'
+
+    data = hdu_in.data
+    wcs1 = WCS(hdu_in.header)
+    wcs2 = WCS(header_out)
+
+    with pytest.raises(ValueError) as exc:
+        array_out, footprint_out = reproject_interp((data, wcs1), wcs2, shape_out=(1, 2, 3))
+    assert exc.value.args[0] == "Input WCS has celestial components but output WCS does not"
+
+    with pytest.raises(ValueError) as exc:
+        array_out, footprint_out = reproject_interp((data, wcs2), wcs1, shape_out=(1, 2, 3))
+    assert exc.value.args[0] == "Output WCS has celestial components but input WCS does not"
+
 def test_slice_reprojection():
     """
     Test case where only the slices change and the celestial projection doesn't
