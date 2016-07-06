@@ -69,7 +69,7 @@ def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1):
 
     # Determine mapping from output to input WCS
     if needs_reorder:
-        axis_types_in = tuple(wcs_out.wcs.axis_types)
+        axis_types_in = tuple(wcs_in.wcs.axis_types)
         axis_types_out = tuple(wcs_out.wcs.axis_types)
         indices_out = [axis_types_out.index(axis_type) for axis_type in axis_types_in]
     else:
