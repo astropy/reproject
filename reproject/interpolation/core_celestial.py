@@ -76,7 +76,7 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
             jmin, imin = np.floor(coordinates.min(axis=1)) - 1
             jmax, imax = np.ceil(coordinates.max(axis=1)) + 1
 
-            ny, nx = array.shape
+            ny, nx = slice_in.shape
 
             # Check first if we are completely outside the image. If this is
             # the case, we should just give up and return an array full of
