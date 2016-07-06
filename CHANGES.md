@@ -1,4 +1,4 @@
-0.3 (unreleased)
+0.3 (2016-07-06)
 ----------------
 
 - Allow users to pass a ``field=`` option to ``reproject_from_healpix``
@@ -9,7 +9,7 @@
 
 - Significant refactoring of interpolating reprojection to improve support for
   n-dimensional arrays, optionally including two celestial axes (in which
-  case the coordinate transformation is taken into account). [#102]
+  case the coordinate transformation is taken into account). [#96, #102]
 
 0.2 (2015-10-29)
 ----------------
