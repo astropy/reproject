@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/astrofrog/reproject.svg?branch=master)](https://travis-ci.org/astrofrog/reproject) [![Build status](https://ci.appveyor.com/api/projects/status/0ifg4xonlyrc6eu4/branch/master?svg=true)](https://ci.appveyor.com/project/Astropy/reproject/branch/master) [![Coverage Status](https://coveralls.io/repos/astrofrog/reproject/badge.svg?branch=master)](https://coveralls.io/r/astrofrog/reproject?branch=master) [![asv](http://img.shields.io/badge/benchmarked%20by-asv-green.svg?style=flat)](http://astrofrog.github.io/reproject-benchmarks/) ![Powered by Astropy Badge](http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat)
+
 About
 =====
 
@@ -7,8 +9,6 @@ For more information, including on how to install the package, see http://reproj
 
 ![screenshot](docs/images/index-4.png)
 
-![Powered by Astropy Badge](http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat)
-
 Note on license
 ===============
 
@@ -17,8 +17,3 @@ functions relating to HEALPIX rely on the
 [healpy](https://github.com/healpy/healpy) package, which is GPLv2, so if you
 use these functions in your code, you are indirectly using healpy and therefore
 will need to abide with the GPLv2 license.
-
-Status
-======
-
-[![Build Status](https://travis-ci.org/astrofrog/reproject.svg?branch=master)](https://travis-ci.org/astrofrog/reproject) [![Coverage Status](https://coveralls.io/repos/astrofrog/reproject/badge.svg?branch=master)](https://coveralls.io/r/astrofrog/reproject?branch=master) [![asv](http://img.shields.io/badge/benchmarked%20by-asv-green.svg?style=flat)](http://astrofrog.github.io/reproject-benchmarks/)
