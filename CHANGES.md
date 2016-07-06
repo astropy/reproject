@@ -7,6 +7,10 @@
 - Significant improvements to performance when the input data is a large
   memory-mapped array. [#105]
 
+- Significant refactoring of interpolating reprojection to improve support for
+  n-dimensional arrays, optionally including two celestial axes (in which
+  case the coordinate transformation is taken into account). [#102]
+
 0.2 (2015-10-29)
 ----------------
 
