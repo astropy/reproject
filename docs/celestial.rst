@@ -81,11 +81,6 @@ given the shape of the output image using the Numpy ``(ny, nx)`` convention
 :class:`~astropy.io.fits.Header`, does not contain information about image
 size).
 
-.. note:: The input data can be n-dimensional as long as it has two celestial
-          axes. However, at this time, we assume that the celestial axes are
-          independent from the other axes, so that the reprojection is the
-          same for all celestial slices.
-
 As an example, we start off by opening a FITS file using Astropy::
 
     >>> from astropy.io import fits
@@ -113,7 +108,8 @@ The :func:`~reproject.reproject_interp` function returns two arrays -
 the first is the reprojected input image, and the second is a 'footprint'
 array which shows the fraction of overlap of the input image on the output
 image grid. This footprint is 0 for output pixels that fall outside the input
-image, 1 for output pixels that fall inside the input image. For more information about footprint arrays, see the :doc:`footprints` section.
+image, 1 for output pixels that fall inside the input image. For more
+information about footprint arrays, see the :doc:`footprints` section.
 
 We can then easily write out the reprojected image to a new FITS file::
 
