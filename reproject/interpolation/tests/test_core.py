@@ -1,6 +1,10 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
+
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
+
+import os
+import itertools
 
 import numpy as np
 from distutils.version import LooseVersion
@@ -12,77 +16,83 @@ from astropy.tests.helper import pytest
 from ...array_utils import map_coordinates
 from ..core_celestial import _reproject_celestial
 from ..core_full import _reproject_full
+from ..high_level import reproject_interp
 
 # TODO: add reference comparisons
 
 
-def test_reproject_slices_2d():
+DATA = os.path.join(os.path.dirname(__file__), '..', '..', 'tests', 'data')
 
-    header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/gc_ga.hdr'))
-    header_out = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/gc_eq.hdr'))
-
-    array_in = np.ones((700, 690))
-
-    wcs_in = WCS(header_in)
-    wcs_out = WCS(header_out)
-
-    _reproject_celestial(array_in, wcs_in, wcs_out, (660, 680))
+# --- CELESTIAL TESTS --- #
 
 
-def test_reproject_slices_3d():
-
-    header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
-
-    array_in = np.ones((10, 200, 180))
-
-    wcs_in = WCS(header_in)
-    wcs_out = wcs_in.deepcopy()
-    wcs_out.wcs.ctype = ['GLON-SIN', 'GLAT-SIN', wcs_in.wcs.ctype[2]]
-    wcs_out.wcs.crval = [158.0501, -21.530282, wcs_in.wcs.crval[2]]
-    wcs_out.wcs.crpix = [50., 50., wcs_in.wcs.crpix[2]]
-
-    _reproject_celestial(array_in, wcs_in, wcs_out, (10, 160, 170))
+def array_footprint_to_hdulist(array, footprint, header):
+    hdulist = fits.HDUList()
+    hdulist.append(fits.PrimaryHDU(array, header))
+    hdulist.append(fits.ImageHDU(footprint, header, name='footprint'))
+    return hdulist
 
 
-def test_map_coordinates_rectangular():
-
-    # Regression test for a bug that was due to the resetting of the output
-    # of map_coordinates to be in the wrong x/y direction
-
-    image = np.ones((3, 10))
-    coords = np.array([(0, 1, 2), (1, 5, 9)])
-
-    result = map_coordinates(image, coords)
-
-    np.testing.assert_allclose(result, 1)
-
-
-def test_reproject_celestial_3d():
+@pytest.mark.fits_compare()
+def test_reproject_celestial_2d_gal2equ():
     """
-    Test both full_reproject and slicewise reprojection. We use a case where the
-    non-celestial slices are the same and therefore where both algorithms can
-    work.
+    Test reprojection of a 2D celestial image, which includes a coordinate
+    system conversion.
+    """
+    hdu_in = fits.open(os.path.join(DATA, 'galactic_2d.fits'))[0]
+    header_out = hdu_in.header.copy()
+    header_out['CTYPE1'] = 'RA---TAN'
+    header_out['CTYPE2'] = 'DEC--TAN'
+    header_out['CRVAL1'] = 266.39311
+    header_out['CRVAL2'] = -28.939779
+    array_out, footprint_out = reproject_interp(hdu_in, header_out)
+    return array_footprint_to_hdulist(array_out, footprint_out, header_out)
+
+
+# Note that we can't use independent_celestial_slices=True and reorder the
+# axes, hence why we need to prepare the combinations in this way.
+AXIS_ORDER = list(itertools.permutations((0, 1, 2)))
+COMBINATIONS = [(True, (0, 1, 2))]
+for axis_order in AXIS_ORDER:
+    COMBINATIONS.append((False, axis_order))
+
+@pytest.mark.fits_compare(single_reference=True)
+@pytest.mark.parametrize(('indep_slices', 'axis_order'), tuple(COMBINATIONS))
+def test_reproject_celestial_3d_equ2gal(indep_slices, axis_order):
+    """
+    Test reprojection of a 3D cube with celestial components, which includes a
+    coordinate system conversion (the original header is in equatorial
+    coordinates). We test using both the 'fast' method which assumes celestial
+    slices are independent, and the 'full' method. We also scramble the input
+    dimensions of the data and header to make sure that the reprojection can
+    deal with this.
     """
 
-    header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
+    # Read in the input cube
+    hdu_in = fits.open(os.path.join(DATA, 'equatorial_3d.fits'))[0]
 
-    array_in = np.ones((3, 200, 180))
+    # Define the output header - this should be the same for all versions of
+    # this test to make sure we can use a single reference file.
+    header_out = hdu_in.header.copy()
+    header_out['NAXIS1'] = 10
+    header_out['NAXIS2'] = 9
+    header_out['CTYPE1'] = 'GLON-SIN'
+    header_out['CTYPE2'] = 'GLAT-SIN'
+    header_out['CRVAL1'] = 163.16724
+    header_out['CRVAL2'] = -15.777405
+    header_out['CRPIX1'] = 6
+    header_out['CRPIX2'] = 5
 
-    # TODO: here we can check that if we change the order of the dimensions in
-    # the WCS, things still work properly
+    # We now scramble the input axes
+    if axis_order != (0, 1, 2):
+        wcs_in = WCS(hdu_in.header)
+        wcs_in = wcs_in.sub((3 - np.array(axis_order)[::-1]).tolist())
+        hdu_in.header = wcs_in.to_header()
+        hdu_in.data = np.transpose(hdu_in.data, axis_order)
 
-    wcs_in = WCS(header_in)
-    wcs_out = wcs_in.deepcopy()
-    wcs_out.wcs.ctype = ['GLON-SIN', 'GLAT-SIN', wcs_in.wcs.ctype[2]]
-    wcs_out.wcs.crval = [158.0501, -21.530282, wcs_in.wcs.crval[2]]
-    wcs_out.wcs.crpix = [50., 50., wcs_in.wcs.crpix[2] + 0.5]
-
-    out_full, foot_full = _reproject_full(array_in, wcs_in, wcs_out, (3, 160, 170))
-
-    out_celestial, foot_celestial = _reproject_celestial(array_in, wcs_in, wcs_out, (3, 160, 170))
-
-    np.testing.assert_allclose(out_full, out_celestial)
-    np.testing.assert_allclose(foot_full, foot_celestial)
+    array_out, footprint_out = reproject_interp(hdu_in, header_out,
+                                                independent_celestial_slices=indep_slices)
+    return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 
 
 def test_slice_reprojection():
@@ -140,7 +150,7 @@ def test_4d_fails():
     array_in = np.zeros((2, 3, 4, 5))
 
     with pytest.raises(ValueError) as ex:
-        x_out, y_out, z_out = _reproject_full(array_in, w_in, w_out, [2, 4, 5, 6])
+        x_out, y_out, z_out = reproject_interp((array_in, w_in), w_out, shape_out=[2, 4, 5, 6])
     assert str(ex.value) == "Length of shape_out should match number of dimensions in wcs_out"
 
 
@@ -154,11 +164,10 @@ def test_inequal_wcs_dims():
     header_in['CTYPE3'] = 'STOKES'
     header_in['CUNIT3'] = ''
 
-    wcs_in = WCS(header_in)
     wcs_out = WCS(header_out)
 
     with pytest.raises(ValueError) as ex:
-        out_cube, out_cube_valid = _reproject_full(inp_cube, wcs_in, wcs_out, (2, 4, 5))
+        out_cube, out_cube_valid = reproject_interp((inp_cube, header_in), wcs_out, shape_out=(2, 4, 5))
     assert str(ex.value) == "Output WCS has a spectral component but input WCS does not"
 
 
@@ -177,7 +186,7 @@ def test_different_wcs_types():
     wcs_out = WCS(header_out)
 
     with pytest.raises(ValueError) as ex:
-        out_cube, out_cube_valid = _reproject_full(inp_cube, wcs_in, wcs_out, (2, 4, 5))
+        out_cube, out_cube_valid = reproject_interp((inp_cube, header_in), wcs_out, shape_out=(2, 4, 5))
     assert str(ex.value) == ("The input (VELO) and output (VRAD) spectral "
                              "coordinate types are not equivalent.")
 
@@ -211,13 +220,41 @@ def test_reproject_3d_celestial_correctness_ra2gal():
     wcs_in = WCS(header_in)
     wcs_out = WCS(header_out)
 
-    out_cube, out_cube_valid = _reproject_full(inp_cube, wcs_in, wcs_out,
-                                               (header_out['NAXIS3'],
-                                                header_out['NAXIS2'],
-                                                header_out['NAXIS1']))
+    out_cube, out_cube_valid = reproject_interp((inp_cube, wcs_in), wcs_out, shape_out=(2, 3, 4))
 
     assert out_cube.shape == (2, 3, 4)
     assert out_cube_valid.sum() == out_cube.size
 
     # only compare the spectral axis
     np.testing.assert_allclose(out_cube[:, 0, 0], ((inp_cube[:-1] + inp_cube[1:]) / 2.)[:, 0, 0])
+
+
+# --- COMBINED --- #
+
+
+def test_reproject_celestial_3d():
+    """
+    Test both full_reproject and slicewise reprojection. We use a case where the
+    non-celestial slices are the same and therefore where both algorithms can
+    work.
+    """
+
+    header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
+
+    array_in = np.ones((3, 200, 180))
+
+    # TODO: here we can check that if we change the order of the dimensions in
+    # the WCS, things still work properly
+
+    wcs_in = WCS(header_in)
+    wcs_out = wcs_in.deepcopy()
+    wcs_out.wcs.ctype = ['GLON-SIN', 'GLAT-SIN', wcs_in.wcs.ctype[2]]
+    wcs_out.wcs.crval = [158.0501, -21.530282, wcs_in.wcs.crval[2]]
+    wcs_out.wcs.crpix = [50., 50., wcs_in.wcs.crpix[2] + 0.5]
+
+    out_full, foot_full = _reproject_full(array_in, wcs_in, wcs_out, (3, 160, 170))
+
+    out_celestial, foot_celestial = _reproject_celestial(array_in, wcs_in, wcs_out, (3, 160, 170))
+
+    np.testing.assert_allclose(out_full, out_celestial)
+    np.testing.assert_allclose(foot_full, foot_celestial)
