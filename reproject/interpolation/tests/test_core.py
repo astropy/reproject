@@ -95,6 +95,46 @@ def test_reproject_celestial_3d_equ2gal(indep_slices, axis_order):
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 
 
+@pytest.mark.fits_compare()
+def test_small_cutout():
+    """
+    Test reprojection of a cutout from a larger image (makes sure that the
+    pre-reprojection cropping works)
+    """
+    hdu_in = fits.open(os.path.join(DATA, 'galactic_2d.fits'))[0]
+    header_out = hdu_in.header.copy()
+    header_out['NAXIS1'] = 10
+    header_out['NAXIS2'] = 9
+    header_out['CTYPE1'] = 'RA---TAN'
+    header_out['CTYPE2'] = 'DEC--TAN'
+    header_out['CRVAL1'] = 266.39311
+    header_out['CRVAL2'] = -28.939779
+    header_out['CRPIX1'] = 5.1
+    header_out['CRPIX2'] = 4.7
+    array_out, footprint_out = reproject_interp(hdu_in, header_out)
+    return array_footprint_to_hdulist(array_out, footprint_out, header_out)
+
+
+def test_small_cutout_outside():
+    """
+    Test reprojection of a cutout from a larger image - in this case the
+    cutout is completely outside the region of the input image so we should
+    take a shortcut that returns arrays of NaNs.
+    """
+    hdu_in = fits.open(os.path.join(DATA, 'galactic_2d.fits'))[0]
+    header_out = hdu_in.header.copy()
+    header_out['NAXIS1'] = 10
+    header_out['NAXIS2'] = 9
+    header_out['CTYPE1'] = 'RA---TAN'
+    header_out['CTYPE2'] = 'DEC--TAN'
+    header_out['CRVAL1'] = 216.39311
+    header_out['CRVAL2'] = -21.939779
+    header_out['CRPIX1'] = 5.1
+    header_out['CRPIX2'] = 4.7
+    array_out, footprint_out = reproject_interp(hdu_in, header_out)
+    assert np.all(np.isnan(array_out))
+    assert np.all(footprint_out == 0)
+
 def test_slice_reprojection():
     """
     Test case where only the slices change and the celestial projection doesn't
