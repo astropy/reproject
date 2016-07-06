@@ -100,11 +100,11 @@ def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1):
         # We start off by creating an empty array of input world coordinates, and
         # we then populate it index by index
         world_in = np.zeros_like(world_out)
-        axis_types_in = list(wcs_out.wcs.axis_types)
+        axis_types_in = list(wcs_in.wcs.axis_types)
         axis_types_out = list(wcs_out.wcs.axis_types)
         for index_in, axis_type in enumerate(axis_types_in):
             index_out = axis_types_out.index(axis_type)
-            world_in[index_in] = world_out[index_out]
+            world_in[:, index_in] = world_out[:, index_out]
 
     else:
 
@@ -114,7 +114,7 @@ def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1):
 
         # Now we extract the longitude and latitude from the world_out array, and
         # convert these, before converting back to pixel coordinates.
-        lon_out, lat_out = world_in[:, wcs_in.wcs.lng], world_in[:, wcs_in.wcs.lat]
+        lon_out, lat_out = world_out[:, wcs_out.wcs.lng], world_out[:, wcs_out.wcs.lat]
 
         # We convert these coordinates between frames
         lon_in, lat_in = convert_world_coordinates(lon_out, lat_out, wcs_out, wcs_in)
