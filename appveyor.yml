@@ -40,6 +40,9 @@ install:
     - "conda --version"
     - "python --version"
 
+    # Install pytest-fits
+    - "pip install https://github.com/astrofrog/pytest-fits/archive/master.zip"
+
 # Not a .NET project, we build ci-helpers in the install step instead
 build: false
 

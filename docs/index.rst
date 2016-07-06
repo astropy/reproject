@@ -24,7 +24,7 @@ Requirements
 
 This package has the following hard dependencies:
 
-* `Numpy <http://www.numpy.org/>`__ 1.6 or later
+* `Numpy <http://www.numpy.org/>`__ 1.7 or later
 
 * `Astropy <http://www.astropy.org/>`__ 1.0 or later
 
