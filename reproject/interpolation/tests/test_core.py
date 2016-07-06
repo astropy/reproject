@@ -215,6 +215,21 @@ def test_spectral_mismatch_3d():
     assert exc.value.args[0] == "Output WCS has a spectral component but input WCS does not"
 
 
+def test_naxis_mismatch():
+    """
+    Make sure an error is raised if the input and output WCS have a different
+    number of dimensions.
+    """
+
+    data = np.ones((3, 2, 2))
+    wcs_in = WCS(naxis=3)
+    wcs_out = WCS(naxis=2)
+
+    with pytest.raises(ValueError) as exc:
+        array_out, footprint_out = reproject_interp((data, wcs_in), wcs_out, shape_out=(1, 2))
+    assert exc.value.args[0] == "Number of dimensions between input and output WCS should match"
+
+
 def test_slice_reprojection():
     """
     Test case where only the slices change and the celestial projection doesn't
