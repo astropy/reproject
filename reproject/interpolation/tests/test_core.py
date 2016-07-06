@@ -23,8 +23,6 @@ from ..high_level import reproject_interp
 
 DATA = os.path.join(os.path.dirname(__file__), '..', '..', 'tests', 'data')
 
-# --- CELESTIAL TESTS --- #
-
 
 def array_footprint_to_hdulist(array, footprint, header):
     hdulist = fits.HDUList()
@@ -136,10 +134,11 @@ def test_small_cutout_outside():
     assert np.all(footprint_out == 0)
 
 
-def test_celestial_mismatch():
+def test_celestial_mismatch_2d():
     """
     Make sure an error is raised if the input image has celestial WCS
-    information and the output does not (and vice-versa)
+    information and the output does not (and vice-versa). This example will
+    use the _reproject_celestial route.
     """
 
     hdu_in = fits.open(os.path.join(DATA, 'galactic_2d.fits'))[0]
@@ -155,6 +154,14 @@ def test_celestial_mismatch():
     with pytest.raises(ValueError) as exc:
         array_out, footprint_out = reproject_interp((data, wcs1), wcs2, shape_out=(2, 2))
     assert exc.value.args[0] == "Input WCS has celestial components but output WCS does not"
+
+
+def test_celestial_mismatch_3d():
+    """
+    Make sure an error is raised if the input image has celestial WCS
+    information and the output does not (and vice-versa). This example will
+    use the _reproject_full route.
+    """
 
     hdu_in = fits.open(os.path.join(DATA, 'equatorial_3d.fits'))[0]
 
@@ -174,6 +181,39 @@ def test_celestial_mismatch():
     with pytest.raises(ValueError) as exc:
         array_out, footprint_out = reproject_interp((data, wcs2), wcs1, shape_out=(1, 2, 3))
     assert exc.value.args[0] == "Output WCS has celestial components but input WCS does not"
+
+
+def test_spectral_mismatch_3d():
+    """
+    Make sure an error is raised if there are mismatches between the presence
+    or type of spectral axis.
+    """
+
+    hdu_in = fits.open(os.path.join(DATA, 'equatorial_3d.fits'))[0]
+
+    header_out = hdu_in.header.copy()
+    header_out['CTYPE3'] = 'FREQ'
+    header_out['CUNIT3'] = 'Hz'
+
+    data = hdu_in.data
+    wcs1 = WCS(hdu_in.header)
+    wcs2 = WCS(header_out)
+
+    with pytest.raises(ValueError) as exc:
+        array_out, footprint_out = reproject_interp((data, wcs1), wcs2, shape_out=(1, 2, 3))
+    assert exc.value.args[0] == "The input (VOPT) and output (FREQ) spectral coordinate types are not equivalent."
+
+    header_out['CTYPE3'] = 'BANANAS'
+    wcs2 = WCS(header_out)
+
+    with pytest.raises(ValueError) as exc:
+        array_out, footprint_out = reproject_interp((data, wcs1), wcs2, shape_out=(1, 2, 3))
+    assert exc.value.args[0] == "Input WCS has a spectral component but output WCS does not"
+
+    with pytest.raises(ValueError) as exc:
+        array_out, footprint_out = reproject_interp((data, wcs2), wcs1, shape_out=(1, 2, 3))
+    assert exc.value.args[0] == "Output WCS has a spectral component but input WCS does not"
+
 
 def test_slice_reprojection():
     """
@@ -307,9 +347,6 @@ def test_reproject_3d_celestial_correctness_ra2gal():
 
     # only compare the spectral axis
     np.testing.assert_allclose(out_cube[:, 0, 0], ((inp_cube[:-1] + inp_cube[1:]) / 2.)[:, 0, 0])
-
-
-# --- COMBINED --- #
 
 
 def test_reproject_celestial_3d():
