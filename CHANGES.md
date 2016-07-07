@@ -3,6 +3,13 @@
 
 - No changes yet.
 
+0.3.1 (2016-07-07)
+------------------
+
+- Include missing license file in tarball.
+
+- Updated documentation to remove warnings about early versions.
+
 0.3 (2016-07-06)
 ----------------
 
