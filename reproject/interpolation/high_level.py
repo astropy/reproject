@@ -47,8 +47,8 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
         If ``input_data`` is a FITS file or an `~astropy.io.fits.HDUList`
         instance, specifies the HDU to use.
     order : int or str, optional
-        The order of the interpolation (if ``mode`` is set to
-        ``'interpolation'``). This can be either one of the following strings:
+        The order of the interpolation. This can be any of the 
+        following strings:
 
             * 'nearest-neighbor'
             * 'bilinear'
