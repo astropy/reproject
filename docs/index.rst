@@ -24,7 +24,7 @@ This package has the following hard dependencies:
 
 and the following optional dependencies:
 
-* `healpy <http://healpy.readthedocs.io>`_ 1.8 or later for HEALPIX image reprojection
+* `healpy <https://healpy.readthedocs.io>`_ 1.8 or later for HEALPIX image reprojection
 
 Installation
 ============
