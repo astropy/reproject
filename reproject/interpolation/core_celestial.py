@@ -25,7 +25,8 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1, array_out=N
     """
 
     # Make sure image is floating point
-    array = np.asarray(array, dtype=float)
+    if not np.issubdtype(array.dtype, np.float):
+        array = np.asarray(array, dtype=float)
 
     # Check dimensionality of WCS and shape_out
     if wcs_in.wcs.naxis != wcs_out.wcs.naxis:
@@ -51,7 +52,8 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1, array_out=N
     # the original array with the correct shape.
 
     if array_out is not None:
-        assert array_out.shape == shape_out
+        if tuple(array_out.shape) != tuple(shape_out):
+            raise ValueError("Array sizes don't match")
         array_new = array_out
     else:
         array_new = np.zeros(shape_out)
