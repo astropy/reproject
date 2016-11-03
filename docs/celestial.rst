@@ -134,30 +134,34 @@ store the data.
 
 In theory, you can attempt the following::
 
-    >>> outhdr = fits.Header.fromtextfile('cube_header_gal.hdr') # doctest: +SKIP
-    >>> shape = (outhdr['NAXIS3'], outhdr['NAXIS2'], outhdr['NAXIS1']) # doctest: +SKIP
-    >>> outarray = np.memmap(filename='output.np', mode='w+', shape=shape, dtype='float32') # doctest: +SKIP
-    >>> hdu = fits.open('cube_file.fits') # doctest: +SKIP
-    >>> rslt = reproject.reproject_interp(hdu, outhdr, output_array=outarray, # doctest: +SKIP
+.. doctest-skip::
+
+    >>> outhdr = fits.Header.fromtextfile('cube_header_gal.hdr')
+    >>> shape = (outhdr['NAXIS3'], outhdr['NAXIS2'], outhdr['NAXIS1'])
+    >>> outarray = np.memmap(filename='output.np', mode='w+', shape=shape, dtype='float32')
+    >>> hdu = fits.open('cube_file.fits')
+    >>> rslt = reproject.reproject_interp(hdu, outhdr, output_array=outarray,
     ...                                   return_footprint=False,
     ...                                   independent_celestial_slices=True)
-    >>> newhdu = fits.PrimaryHDU(data=outarray, header=outhdr) # doctest: +SKIP
-    >>> newhdu.writeto('new_cube_file.fits') # doctest: +SKIP
+    >>> newhdu = fits.PrimaryHDU(data=outarray, header=outhdr)
+    >>> newhdu.writeto('new_cube_file.fits')
 
 Or better, skip the numpy memmap step and use `FITS large file creation
 <http://docs.astropy.org/en/stable/generated/examples/io/skip_create-large-fits.html>`_::
 
-    >>> outhdr = fits.Header.fromtextfile('cube_header_gal.hdr') # doctest: +SKIP
-    >>> outhdr.tofile('new_cube.fits') # doctest: +SKIP
-    >>> shape = tuple(outhdr['NAXIS{0}'.format(ii)] for ii in range(1, outhdr['NAXIS']+1)) # doctest: +SKIP
-    >>> with open('new_cube.fits', 'rb+') as fobj: # doctest: +SKIP
+.. doctest-skip::
+
+    >>> outhdr = fits.Header.fromtextfile('cube_header_gal.hdr')
+    >>> outhdr.tofile('new_cube.fits')
+    >>> shape = tuple(outhdr['NAXIS{0}'.format(ii)] for ii in range(1, outhdr['NAXIS']+1))
+    >>> with open('new_cube.fits', 'rb+') as fobj:
     >>>     fobj.seek(len(outhdr.tostring()) + (np.product(shape) * np.abs(outhdr['BITPIX']//8)) - 1)
     >>>     fobj.write(b'\0')
-    >>> outhdu = fits.open('new_cube.fits', mode='update') # doctest: +SKIP
-    >>> rslt = reproject.reproject_interp(hdu, outhdr, output_array=outhdu[0].data, # doctest: +SKIP
+    >>> outhdu = fits.open('new_cube.fits', mode='update')
+    >>> rslt = reproject.reproject_interp(hdu, outhdr, output_array=outhdu[0].data,
     ...                                   return_footprint=False,
     ...                                   independent_celestial_slices=True)
-    >>> outhdu.flush() # doctest: +SKIP
+    >>> outhdu.flush()
 
 Drizzling
 =========
