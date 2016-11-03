@@ -7,7 +7,8 @@ from ..wcs_utils import convert_world_coordinates
 from ..array_utils import map_coordinates
 
 
-def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1):
+def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
+                    return_footprint=True):
     """
     Reproject n-dimensional data to a new projection using interpolation.
 
@@ -126,10 +127,22 @@ def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1):
 
     coordinates = pixel_in.transpose()[::-1]
 
-    array_new = map_coordinates(array,
+    if array_out is not None:
+        assert array_out.shape == shape_out
+        array_new = array_out
+        array_new[:] = map_coordinates(array,
                                 coordinates,
                                 order=order, cval=np.nan,
                                 mode='constant'
                                 ).reshape(shape_out)
+    else:
+        array_new = map_coordinates(array,
+                                    coordinates,
+                                    order=order, cval=np.nan,
+                                    mode='constant'
+                                    ).reshape(shape_out)
 
-    return array_new, (~np.isnan(array_new)).astype(float)
+    if return_footprint:
+        return array_new, (~np.isnan(array_new)).astype(float)
+    else:
+        return array_new
