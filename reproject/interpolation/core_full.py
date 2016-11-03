@@ -128,19 +128,19 @@ def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
     coordinates = pixel_in.transpose()[::-1]
 
     if array_out is not None:
-        assert array_out.shape == shape_out
-        array_new = array_out
-        array_new[:] = map_coordinates(array,
+        if array_out.shape != tuple(shape_out):
+            raise ValueError("Array sizes don't match.  Output array shape"
+                             "should be {0}".format(str(tuple(shape_out))))
+
+    array_new = map_coordinates(array,
                                 coordinates,
                                 order=order, cval=np.nan,
                                 mode='constant'
                                 ).reshape(shape_out)
-    else:
-        array_new = map_coordinates(array,
-                                    coordinates,
-                                    order=order, cval=np.nan,
-                                    mode='constant'
-                                    ).reshape(shape_out)
+
+    if array_out is not None:
+        array_out[:] = array_new
+        array_new = array_out
 
     if return_footprint:
         return array_new, (~np.isnan(array_new)).astype(float)

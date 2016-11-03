@@ -52,8 +52,9 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1, array_out=N
     # the original array with the correct shape.
 
     if array_out is not None:
-        if tuple(array_out.shape) != tuple(shape_out):
-            raise ValueError("Array sizes don't match")
+        if array_out.shape != tuple(shape_out):
+            raise ValueError("Array sizes don't match.  Output array shape"
+                             "should be {0}".format(str(tuple(shape_out))))
         array_new = array_out
     else:
         array_new = np.zeros(shape_out)
