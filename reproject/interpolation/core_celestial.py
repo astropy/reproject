@@ -6,9 +6,10 @@ import numpy as np
 from ..wcs_utils import convert_world_coordinates
 from ..array_utils import iterate_over_celestial_slices, map_coordinates
 
+from astropy.utils.console import ProgressBar
 
 def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
-                         return_footprint=True):
+                         return_footprint=True, progressbar=True):
     """
     Reproject data with celestial axes to a new projection using interpolation,
     assuming that the non-celestial axes match exactly and thus don't need to be
@@ -58,6 +59,9 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1, array_out=N
     xp_in = yp_in = None
 
     subset = None
+
+    if progressbar:
+        pb = ProgressBar(len(array))
 
     # Loop over slices and interpolate
     for slice_in, slice_out in iterate_over_celestial_slices(array,
@@ -113,6 +117,9 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1, array_out=N
                                           order=order, cval=np.nan,
                                           mode='constant'
                                           ).reshape(slice_out.shape)
+
+        if progressbar:
+            pb.update()
 
     if return_footprint:
         return array_new, (~np.isnan(array_new)).astype(float)

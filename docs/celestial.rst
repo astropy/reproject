@@ -139,7 +139,8 @@ In theory, you can attempt the following:
     >>> outarray = np.memmap(filename='output.np', mode='w+', shape=shape, dtype='float32')
     >>> hdu = fits.open('cube_file.fits')
     >>> rslt = reproject.reproject_interp(hdu, outhdr, output_array=outarray,
-    ...                                   return_footprint=False)
+    ...                                   return_footprint=False,
+    ...                                   independent_celestial_slices=True)
 
 Drizzling
 =========
