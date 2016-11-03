@@ -124,6 +124,14 @@ interpolation. Supported strings include:
 * ``'biquadratic'``: second order interpolation
 * ``'bicubic'``: third order interpolation
 
+Very Large Cubes
+----------------
+If you have a very large cube to reproject, but one that is the same in each
+celestial axis - i.e., any normal IFU or radio spectral cube with many
+individual spectral channels - you may not be able to hold two copies of the
+cube in memory.  In this case, you can specify an output memory mapped array to
+store the data.
+
 Drizzling
 =========
 
