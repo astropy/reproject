@@ -57,6 +57,12 @@ matrix:
         - python: 2.7
           env: NUMPY_VERSION=1.7
 
+        # Try without optional dependencies
+        - python: 2.7
+          env: PIP_DEPENDENCIES=''
+        - python: 3.5
+          env: PIP_DEPENDENCIES=''
+
 before_install:
     # Make sure matplotlib uses PyQT not PySide
     - export QT_API=pyqt
