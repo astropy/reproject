@@ -14,7 +14,7 @@ one or more images may have incorrect or missing WCS.
 Requirements
 ============
 
-This package has the following hard dependencies:
+This package has the following hard run time dependencies:
 
 * `Numpy <http://www.numpy.org/>`__ 1.7 or later
 
@@ -26,12 +26,35 @@ and the following optional dependencies:
 
 * `healpy <https://healpy.readthedocs.io>`_ 1.8 or later for HEALPIX image reprojection
 
+If you build the package from the source, the following additional packages
+are required:
+
+* `Cython <http://cython.org>`__
+
+and to run the tests:
+
+* `Matplotlib <http://matplotlib.org/>`__
+
+* `pytest-arraydiff <https://github.com/astrofrog/pytest-fits>`__
+
+
 Installation
 ============
 
-To install the *reproject* package, simply do::
+Using pip
+---------
+
+To install *reproject* with `pip <http://www.pip-installer.org/en/latest/>`_,
+simply run:
 
     pip install reproject
+
+Using conda
+-----------
+
+To install *reproject* with `anaconda <https://continuum.io/>`_, simply run::
+
+    conda install -c astropy reproject
 
 .. _quickstart:
 
