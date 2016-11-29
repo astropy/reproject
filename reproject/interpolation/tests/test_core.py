@@ -7,13 +7,11 @@ import os
 import itertools
 
 import numpy as np
-from distutils.version import LooseVersion
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.utils.data import get_pkg_data_filename
 from astropy.tests.helper import pytest
 
-from ...array_utils import map_coordinates
 from ..core_celestial import _reproject_celestial
 from ..core_full import _reproject_full
 from ..high_level import reproject_interp
@@ -31,7 +29,7 @@ def array_footprint_to_hdulist(array, footprint, header):
     return hdulist
 
 
-@pytest.mark.fits_compare()
+@pytest.mark.array_compare()
 def test_reproject_celestial_2d_gal2equ():
     """
     Test reprojection of a 2D celestial image, which includes a coordinate
@@ -54,7 +52,8 @@ COMBINATIONS = [(True, (0, 1, 2))]
 for axis_order in AXIS_ORDER:
     COMBINATIONS.append((False, axis_order))
 
-@pytest.mark.fits_compare(single_reference=True)
+
+@pytest.mark.array_compare(single_reference=True)
 @pytest.mark.parametrize(('indep_slices', 'axis_order'), tuple(COMBINATIONS))
 def test_reproject_celestial_3d_equ2gal(indep_slices, axis_order):
     """
@@ -93,7 +92,7 @@ def test_reproject_celestial_3d_equ2gal(indep_slices, axis_order):
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 
 
-@pytest.mark.fits_compare()
+@pytest.mark.array_compare()
 def test_small_cutout():
     """
     Test reprojection of a cutout from a larger image (makes sure that the
