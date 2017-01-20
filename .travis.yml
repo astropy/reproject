@@ -4,6 +4,7 @@ python:
     - 2.7
     - 3.4
     - 3.5
+    - 3.6
 
 sudo: false
 
@@ -26,8 +27,6 @@ env:
     matrix:
         # Make sure that egg_info works without dependencies
         - SETUP_CMD='egg_info'
-        # Try all python versions with the latest numpy
-        - SETUP_CMD='test'
 
 matrix:
     include:
@@ -44,13 +43,15 @@ matrix:
         # Try Astropy development version
         - python: 2.7
           env: ASTROPY_VERSION=development
-        - python: 3.5
+        - python: 3.6
           env: ASTROPY_VERSION=development
 
         # Try older numpy versions
-        - python: 2.7
+        - python: 3.5
+          env: NUMPY_VERSION=1.11
+        - python: 3.5
           env: NUMPY_VERSION=1.10
-        - python: 2.7
+        - python: 3.4
           env: NUMPY_VERSION=1.9
         - python: 2.7
           env: NUMPY_VERSION=1.8
@@ -60,7 +61,7 @@ matrix:
         # Try without optional dependencies
         - python: 2.7
           env: PIP_DEPENDENCIES=''
-        - python: 3.5
+        - python: 3.6
           env: PIP_DEPENDENCIES=''
 
 before_install:
