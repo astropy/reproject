@@ -4,6 +4,9 @@
 - Refactored HEALPix reprojection code to use the astropy-healpix package
   instead of healpy. [#139]
 
+0.3.2 (2017-10-22)
+------------------
+
 - Fix a regression that caused certain all-sky images (e.g. the Mellinger Milky
   Way Panorama, http://www.milkywaysky.com) to be reprojected to all NaNs when
   the output WCS was in Mollweide coordinates. [#124]
