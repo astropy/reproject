@@ -73,8 +73,8 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
             # So here we can instead check what the bounding box of the
             # requested coordinates are. We allow for a 1-pixel padding
             # because map_coordinates needs this
-            jmin, imin = np.floor(coordinates.min(axis=1)).astype(int) - 1
-            jmax, imax = np.ceil(coordinates.max(axis=1)).astype(int) + 1
+            jmin, imin = np.floor(np.nanmin(coordinates, axis=1)).astype(int) - 1
+            jmax, imax = np.ceil(np.nanmax(coordinates, axis=1)).astype(int) + 1
 
             ny, nx = slice_in.shape
 
