@@ -112,6 +112,32 @@ def test_small_cutout():
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 
 
+def test_mwpan_car_to_mol():
+    """
+    Test reprojection of the Mellinger Milky Way Panorama from CAR to MOL,
+    which was returning all NaNs due to a regression that was introduced in
+    reproject 0.3 (https://github.com/astrofrog/reproject/pull/124).
+    """
+    hdu_in = fits.Header.fromtextfile(os.path.join(DATA, 'mwpan2_RGB_3600.hdr'))
+    wcs_in = WCS(hdu_in, naxis=2)
+    data_in = np.ones((hdu_in['NAXIS2'], hdu_in['NAXIS1']), dtype=np.float)
+    header_out = fits.Header()
+    header_out['NAXIS'] = 2
+    header_out['NAXIS1'] = 360
+    header_out['NAXIS2'] = 180
+    header_out['CRPIX1'] = 180
+    header_out['CRPIX2'] = 90
+    header_out['CRVAL1'] = 0
+    header_out['CRVAL2'] = 0
+    header_out['CDELT1'] = -2 * np.sqrt(2) / np.pi
+    header_out['CDELT2'] = 2 * np.sqrt(2) / np.pi
+    header_out['CTYPE1'] = 'GLON-MOL'
+    header_out['CTYPE2'] = 'GLAT-MOL'
+    header_out['RADESYS'] = 'ICRS'
+    array_out, footprint_out = reproject_interp((data_in, wcs_in), header_out)
+    assert np.isfinite(array_out).any()
+
+
 def test_small_cutout_outside():
     """
     Test reprojection of a cutout from a larger image - in this case the
