@@ -8,7 +8,7 @@ import itertools
 import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
-from astropy.tests.helper import pytest
+import pytest
 
 try:
     import healpy
