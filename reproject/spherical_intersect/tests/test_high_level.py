@@ -6,7 +6,7 @@ import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.utils.data import get_pkg_data_filename
-from astropy.tests.helper import pytest
+import pytest
 
 from ..high_level import reproject_exact
 
