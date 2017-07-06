@@ -61,18 +61,7 @@ def iterate_over_celestial_slices(array_in, array_out, wcs):
 
 
 def pad_edge_1(array):
-    try:
         return np.pad(array, 1, mode='edge')
-    except:  # numpy < 1.7 workaround pragma: no cover
-        new_array = np.zeros((array.shape[0] + 2,
-                              array.shape[1] + 2),
-                             dtype=array.dtype)
-        new_array[1:-1, 1:-1] = array
-        new_array[0, 1:-1] = new_array[1, 1:-1]
-        new_array[-1, 1:-1] = new_array[-2, 1:-1]
-        new_array[:, 0] = new_array[:, 1]
-        new_array[:, -1] = new_array[:, -2]
-        return new_array
 
 
 def map_coordinates(image, coords, **kwargs):

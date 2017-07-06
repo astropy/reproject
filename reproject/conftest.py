@@ -3,10 +3,18 @@
 # no matter how it is invoked within the source tree.
 
 from astropy.tests.pytest_plugins import *
+from distutils.version import LooseVersion
 
 # Uncomment the following line to treat all DeprecationWarnings as
 # exceptions
-enable_deprecations_as_exceptions()
+# TODO: remove warnings_to_ignore_entire_module once
+# https://github.com/astrofrog/pytest-arraydiff/pull/10 is sorted out and a
+# new release is available
+import astropy
+if LooseVersion(astropy.__version__) < LooseVersion('2.0'):
+    enable_deprecations_as_exceptions()
+else:
+    enable_deprecations_as_exceptions(warnings_to_ignore_entire_module=['astropy'])
 
 # Uncomment and customize the following lines to add/remove entries from
 # the list of packages for which version numbers are displayed when running
