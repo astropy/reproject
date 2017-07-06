@@ -14,7 +14,7 @@ import astropy
 if LooseVersion(astropy.__version__) < LooseVersion('2.0'):
     enable_deprecations_as_exceptions()
 else:
-    enable_deprecations_as_exceptions(warnings_to_ignore_entire_module=['astropy'])
+    enable_deprecations_as_exceptions(warnings_to_ignore_entire_module=['astropy.io.fits'])
 
 # Uncomment and customize the following lines to add/remove entries from
 # the list of packages for which version numbers are displayed when running
