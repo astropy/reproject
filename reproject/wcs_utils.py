@@ -10,7 +10,6 @@ from __future__ import (absolute_import, division, print_function,
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord, ICRS, UnitSphericalRepresentation
-from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.wcs.utils import (wcs_to_celestial_frame, pixel_to_skycoord, skycoord_to_pixel,
                                celestial_frame_to_wcs, proj_plane_pixel_scales)
@@ -148,9 +147,10 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
 
         # We now figure out the reference coordinate for the image in ICRS. The
         # easiest way to do this is actually to use pixel_to_skycoord with the
-        # reference position in pixel coordinates.
+        # reference position in pixel coordinates. We have to set origin=1
+        # because crpix values are 1-based.
         xp, yp = wcs.wcs.crpix
-        references.append(pixel_to_skycoord(xp, yp, wcs).icrs.frame)
+        references.append(pixel_to_skycoord(xp, yp, wcs, origin=1).icrs.frame)
 
         # Find the pixel scale at the reference position - we take the minimum
         # since we are going to set up a header with 'square' pixels with the
@@ -233,11 +233,13 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
     ymin = yp.min()
     ymax = yp.max()
 
-    # Update crpix so that the lower range falls on the bottom and left
-    wcs_final.wcs.crpix = -xmin, -ymin
+    # Update crpix so that the lower range falls on the bottom and left. We add
+    # 0.5 because in the final image the bottom left corner should be at (-0.5,
+    # -0.5) not (0, 0)
+    wcs_final.wcs.crpix = -(xmin + 0.5), -(ymin + 0.5)
 
     # Return the final image shape too
-    naxis1 = int(round(xmax - xmin)) + 1
-    naxis2 = int(round(ymax - ymin)) + 1
+    naxis1 = int(round(xmax - xmin))
+    naxis2 = int(round(ymax - ymin))
 
     return wcs_final, (naxis2, naxis1)
