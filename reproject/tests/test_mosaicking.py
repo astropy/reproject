@@ -1,4 +1,10 @@
+# Licensed under a 3-clause BSD style license - see LICENSE.rst
+
+from __future__ import absolute_import, division, print_function
+
 from copy import deepcopy
+
+import pytest
 
 import numpy as np
 from numpy.testing import assert_allclose
@@ -6,6 +12,13 @@ from numpy.testing import assert_allclose
 from astropy.wcs import WCS
 from astropy.coordinates import SkyCoord, FK5, Galactic
 from astropy import units as u
+
+try:
+    import shapely  # noqa
+except ImportError:
+    SHAPELY_INSTALLED = False
+else:
+    SHAPELY_INSTALLED = True
 
 from ..mosaicking import find_optimal_celestial_wcs
 
@@ -56,6 +69,7 @@ class TestOptimalWCS():
         wcs, shape = find_optimal_celestial_wcs([(self.array, self.wcs)], resolution=3 * u.arcmin)
         assert_allclose(wcs.wcs.cdelt, (-0.05, 0.05))
 
+    @pytest.mark.skipif('not SHAPELY_INSTALLED')
     def test_auto_rotate(self):
 
         # To test auto_rotate, we set the frame to Galactic and the final image

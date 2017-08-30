@@ -1,14 +1,14 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
-from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord, ICRS
 from astropy.wcs.utils import (pixel_to_skycoord, skycoord_to_pixel,
-                               celestial_frame_to_wcs, proj_plane_pixel_scales)
+                               proj_plane_pixel_scales)
 
+from .compat import celestial_frame_to_wcs
 from .utils import parse_input_data
 
 __all__ = ['find_optimal_celestial_wcs']
@@ -41,7 +41,8 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
     frame : `~astropy.coordinates.BaseCoordinateFrame`
         The coordinate system for the final image (defaults to ICRS)
     auto_rotate : bool
-        Whether to rotate the header to minimize the final image area
+        Whether to rotate the header to minimize the final image area (if
+        `True`, requires shapely to be installed)
     projection : str
         Three-letter code for the WCS projection
     resolution : `~astropy.units.Quantity`
