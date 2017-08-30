@@ -7,7 +7,7 @@ from astropy.wcs import WCS
 from astropy.coordinates import SkyCoord, FK5, Galactic
 from astropy import units as u
 
-from ..wcs_utils import find_optimal_celestial_wcs
+from ..mosaicking import find_optimal_celestial_wcs
 
 
 class TestOptimalWCS():
