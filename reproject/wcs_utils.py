@@ -143,7 +143,7 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
         # We have to do .frame here to make sure that we get an ICRS object
         # without any 'hidden' attributes, otherwise the stacking below won't
         # work. TODO: check if we need to enable distortions here.
-        corners.append(pixel_to_skycoord(xc, yc, wcs).icrs.frame)
+        corners.append(pixel_to_skycoord(xc, yc, wcs, origin=0).icrs.frame)
 
         # We now figure out the reference coordinate for the image in ICRS. The
         # easiest way to do this is actually to use pixel_to_skycoord with the
@@ -183,15 +183,17 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
 
     # Construct WCS object centered on position
     wcs_final = celestial_frame_to_wcs(frame, projection=projection)
+
     wcs_final.wcs.crval = reference.spherical.lon.degree, reference.spherical.lat.degree
     wcs_final.wcs.cdelt = -cdelt, cdelt
 
-    # For now, set crpix to 0 and we'll then figure out where all the images
+    # For now, set crpix to (1, 1) and we'll then figure out where all the images
     # fall in this projection, then we'll adjust crpix.
-    wcs_final.wcs.crpix = 0, 0
+    wcs_final.wcs.crpix = (1, 1)
 
-    # Find pixel coordinates of all corners in the final WCS projection
-    xp, yp = skycoord_to_pixel(corners, wcs_final)
+    # Find pixel coordinates of all corners in the final WCS projection. We use origin=1
+    # since we are trying to determine crpix values.
+    xp, yp = skycoord_to_pixel(corners, wcs_final, origin=1)
 
     if auto_rotate:
 
@@ -215,17 +217,14 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
         if angle > 45:
             angle -= 90
 
-        # Rotate the original corner coordinates by this angle and then find
-        # the range of coordinates. We do the following in one go so we can
-        # overwrite xp and yp in one go.
-        xp, yp = (xp * np.cos(-angle) - yp * np.sin(-angle),
-                  xp * np.sin(-angle) + yp * np.cos(-angle))
-
         # Set rotation matrix (use PC instead of CROTA2 since PC is the
         # recommended approach)
         pc = np.array([[np.cos(angle), -np.sin(angle)],
                        [np.sin(angle), np.cos(angle)]])
         wcs_final.wcs.pc = pc
+
+        # Recompute pixel coordinates (more accurate than simply rotating xp, yp)
+        xp, yp = skycoord_to_pixel(corners, wcs_final, origin=1)
 
     # Find the full range of values
     xmin = xp.min()
@@ -234,9 +233,9 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
     ymax = yp.max()
 
     # Update crpix so that the lower range falls on the bottom and left. We add
-    # 0.5 because in the final image the bottom left corner should be at (-0.5,
-    # -0.5) not (0, 0)
-    wcs_final.wcs.crpix = -(xmin + 0.5), -(ymin + 0.5)
+    # 0.5 because in the final image the bottom left corner should be at (0.5,
+    # 0.5) not (1, 1).
+    wcs_final.wcs.crpix = (1 - xmin) + 0.5, (1 - ymin) + 0.5
 
     # Return the final image shape too
     naxis1 = int(round(xmax - xmin))

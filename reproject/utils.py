@@ -14,8 +14,11 @@ def parse_input_data(input_data, hdu_in=None):
     if isinstance(input_data, six.string_types):
         return parse_input_data(fits.open(input_data), hdu_in=hdu_in)
     elif isinstance(input_data, HDUList):
-        if len(input_data) > 1 and hdu_in is None:
-            raise ValueError("More than one HDU is present, please specify HDU to use with ``hdu_in=`` option")
+        if hdu_in is None:
+            if len(input_data) > 1:
+                raise ValueError("More than one HDU is present, please specify HDU to use with ``hdu_in=`` option")
+            else:
+                hdu_in = 0
         return parse_input_data(input_data[hdu_in])
     elif isinstance(input_data, (PrimaryHDU, ImageHDU, CompImageHDU)):
         return input_data.data, WCS(input_data.header)
