@@ -7,6 +7,10 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from astropy.wcs import WCS
 from astropy.coordinates import BaseRADecFrame, FK4, FK4NoETerms, FK5, ICRS, Galactic
 
+__doctest_skip__ = ['celestial_frame_to_wcs']
+
+__all__ = ['celestial_frame_to_wcs']
+
 try:
 
     from astropy.wcs.utils import celestial_frame_to_wcs, custom_frame_to_wcs_mappings
