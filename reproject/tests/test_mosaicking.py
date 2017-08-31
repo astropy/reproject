@@ -88,7 +88,7 @@ class TestOptimalWCS():
         assert np.isnan(wcs.wcs.equinox)
         assert wcs.wcs.radesys == ''
 
-        assert_allclose(wcs.wcs.crpix, (31, 16))
+        assert_allclose(wcs.wcs.crpix, (10, 15))
         assert shape == (30, 40)
 
     @pytest.mark.skipif('not SHAPELY_INSTALLED')
