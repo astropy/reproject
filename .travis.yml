@@ -20,8 +20,8 @@ env:
         - NUMPY_VERSION=stable
         - ASTROPY_VERSION=stable
         - SETUP_CMD='test'
-        - PIP_DEPENDENCIES='healpy'
-        - CONDA_DEPENDENCIES='Cython scipy matplotlib shapely'
+        - CONDA_CHANNELS='conda-forge'
+        - CONDA_DEPENDENCIES='Cython scipy matplotlib shapely>=1.6 healpy'
         - SETUP_XVFB=True
 
     matrix:
