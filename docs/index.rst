@@ -26,12 +26,14 @@ and the following optional dependencies:
 
 * `healpy <https://healpy.readthedocs.io>`_ 1.8 or later for HEALPIX image reprojection
 
+* `shapely <https://toblerity.org/shapely/project.html>`_ 1.6 or later for some of the mosaicking functionality
+
 If you build the package from the source, the following additional packages
 are required:
 
 * `Cython <http://cython.org>`__
 
-and to run the tests:
+and to run the tests, you will also need:
 
 * `Matplotlib <http://matplotlib.org/>`__
 
@@ -163,4 +165,3 @@ Reference/API
 
 .. automodapi:: reproject
    :no-inheritance-diagram:
-

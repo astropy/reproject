@@ -9,8 +9,9 @@ from __future__ import (absolute_import, division, print_function,
 
 from astropy import units as u
 from astropy.coordinates import UnitSphericalRepresentation
-from astropy.wcs.utils import wcs_to_celestial_frame
 from astropy.wcs import WCS
+from astropy.wcs.utils import wcs_to_celestial_frame
+
 
 __all__ = ['convert_world_coordinates']
 
@@ -58,7 +59,9 @@ def convert_world_coordinates(lon_in, lat_in, wcs_in, wcs_out):
     coords_in = frame_in.realize_frame(data)
     coords_out = coords_in.transform_to(frame_out)
 
-    lon_out = coords_out.represent_as('unitspherical').lon.to(lon_out_unit).value
-    lat_out = coords_out.represent_as('unitspherical').lat.to(lat_out_unit).value
+    rep = coords_out.represent_as('unitspherical')
+
+    lon_out = rep.lon.to(lon_out_unit).value
+    lat_out = rep.lat.to(lat_out_unit).value
 
     return lon_out, lat_out
