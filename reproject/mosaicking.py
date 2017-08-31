@@ -42,7 +42,7 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
         The coordinate system for the final image (defaults to ICRS)
     auto_rotate : bool
         Whether to rotate the header to minimize the final image area (if
-        `True`, requires shapely to be installed)
+        `True`, requires shapely>=1.6 to be installed)
     projection : str
         Three-letter code for the WCS projection
     resolution : `~astropy.units.Quantity`
@@ -153,11 +153,18 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
         # 5 coordinates because shapely represents it as a closed polygon with
         # the same first/last vertex.
         xr, yr = mp.minimum_rotated_rectangle.exterior.coords.xy
+        xr, yr = xr[:4], yr[:4]
+
+        # The order of the vertices is not guaranteed to be constant so we
+        # take the vertices with the two smallest y values (which, for a
+        # rectangle, guarantees that the vertices are neighboring)
+        order = np.argsort(yr)
+        x1, y1, x2, y2 = xr[order[0]], yr[order[0]], xr[order[1]], yr[order[1]]
 
         # Determine angle between two of the vertices. It doesn't matter which
         # ones they are, we just want to know how far from being straight the
         # rectangle is.
-        angle = np.arctan2(yr[1] - yr[0], xr[1] - xr[0])
+        angle = np.arctan2(y2 - y1, x2 - x1)
 
         # Determine the smallest angle that would cause the rectangle to be
         # lined up with the axes.

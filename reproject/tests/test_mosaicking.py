@@ -87,8 +87,8 @@ class TestOptimalWCS():
         assert np.isnan(wcs.wcs.equinox)
         assert wcs.wcs.radesys == ''
 
-        assert_allclose(wcs.wcs.crpix, (15, 31))
-        assert shape == (40, 30)
+        assert_allclose(wcs.wcs.crpix, (31, 16))
+        assert shape == (30, 40)
 
     def test_multiple_size(self):
 
