@@ -168,9 +168,9 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
 
         # Determine the smallest angle that would cause the rectangle to be
         # lined up with the axes.
-        angle = angle % 90
-        if angle > 45:
-            angle -= 90
+        angle = angle % (np.pi / 2)
+        if angle > np.pi / 4:
+            angle -= np.pi / 2
 
         # Set rotation matrix (use PC instead of CROTA2 since PC is the
         # recommended approach)

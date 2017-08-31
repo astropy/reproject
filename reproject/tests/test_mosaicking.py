@@ -7,9 +7,10 @@ from copy import deepcopy
 import pytest
 
 import numpy as np
-from numpy.testing import assert_allclose
+from numpy.testing import assert_allclose, assert_equal
 
 from astropy.wcs import WCS
+from astropy.wcs.utils import pixel_to_skycoord, skycoord_to_pixel
 from astropy.coordinates import SkyCoord, FK5, Galactic
 from astropy import units as u
 
@@ -89,6 +90,36 @@ class TestOptimalWCS():
 
         assert_allclose(wcs.wcs.crpix, (31, 16))
         assert shape == (30, 40)
+
+    @pytest.mark.skipif('not SHAPELY_INSTALLED')
+    @pytest.mark.parametrize('angle', np.linspace(0, 360, 13))
+    def test_auto_rotate_systematic(self, angle):
+
+        # This is a test to make sure for a number of angles that the corners
+        # of the image are inside the final WCS but the next pixels outwards are
+        # not. We test the full 360 range of angles.
+
+        angle = np.radians(angle)
+        pc = np.array([[np.cos(angle), -np.sin(angle)],
+                       [np.sin(angle), np.cos(angle)]])
+        self.wcs.wcs.pc = pc
+
+        wcs, shape = find_optimal_celestial_wcs([(self.array, self.wcs)], auto_rotate=True)
+
+        ny, nx = self.array.shape
+
+        xp = np.array([0, 0, nx - 1, nx - 1, -1, -1, nx, nx])
+        yp = np.array([0, ny - 1, ny - 1, 0, -1, ny, ny, -1])
+
+        c = pixel_to_skycoord(xp, yp, self.wcs, origin=0)
+        xp_final, yp_final = skycoord_to_pixel(c, wcs, origin=0)
+
+        ny_final, nx_final = shape
+
+        inside = ((xp_final >= -0.5) & (xp_final <= nx_final - 0.5) &
+                  (yp_final >= -0.5) & (yp_final <= ny_final - 0.5))
+
+        assert_equal(inside, [1, 1, 1, 1, 0, 0, 0, 0])
 
     def test_multiple_size(self):
 
