@@ -21,7 +21,7 @@ env:
         - ASTROPY_VERSION=stable
         - SETUP_CMD='test'
         - PIP_DEPENDENCIES='healpy'
-        - CONDA_DEPENDENCIES='Cython scipy matplotlib'
+        - CONDA_DEPENDENCIES='Cython scipy matplotlib shapely'
         - SETUP_XVFB=True
 
     matrix:

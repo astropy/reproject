@@ -11,7 +11,7 @@ environment:
                         # of 32 bit and 64 bit builds are needed, move this
                         # to the matrix section.
       TEST_CMD: "test"
-      CONDA_DEPENDENCIES: "cython scipy pandas"
+      CONDA_DEPENDENCIES: "cython scipy pandas shapely"
 
   matrix:
 
