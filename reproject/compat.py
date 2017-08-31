@@ -45,11 +45,7 @@ except ImportError:  # Astropy < 3.0
         else:
             return None
 
-        wcs.wcs.ctype[0] = xcoord + '-' + projection
-        wcs.wcs.ctype[1] = ycoord + '-' + projection
-
-        # Make sure that e.g. LONPOLE and other parameters are set
-        # wcs.wcs.set()
+        wcs.wcs.ctype = xcoord + '-' + projection, ycoord + '-' + projection
 
         return wcs
 
