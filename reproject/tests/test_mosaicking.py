@@ -127,3 +127,29 @@ class TestOptimalWCS():
 
         wcs, shape = find_optimal_celestial_wcs(input_data)
         assert_allclose(wcs.wcs.cdelt, (-0.01, 0.01))
+
+    def test_invalid_array_shape(self):
+
+        array = np.ones((30, 20, 10))
+
+        with pytest.raises(ValueError) as exc:
+            wcs, shape = find_optimal_celestial_wcs([(array, self.wcs)])
+        assert exc.value.args[0] == 'Input data is not 2-dimensional'
+
+    def test_invalid_wcs_shape(self):
+
+        wcs = WCS(naxis=3)
+        wcs.wcs.ctype = 'RA---TAN', 'DEC--TAN', 'VELO-LSR'
+        wcs.wcs.set()
+
+        with pytest.raises(ValueError) as exc:
+            wcs, shape = find_optimal_celestial_wcs([(self.array, wcs)])
+        assert exc.value.args[0] == 'Input WCS is not 2-dimensional'
+
+    def test_invalid_not_celestial(self):
+
+        self.wcs.wcs.ctype = 'OFFSETX', 'OFFSETY'
+
+        with pytest.raises(TypeError) as exc:
+            wcs, shape = find_optimal_celestial_wcs([(self.array, self.wcs)])
+        assert exc.value.args[0] == 'WCS does not have celestial components'

@@ -72,13 +72,13 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
     for array, wcs in input_data:
 
         if array.ndim != 2:
-            raise ValueError("input data is not 2-dimensional")
+            raise ValueError("Input data is not 2-dimensional")
 
         if wcs.naxis != 2:
-            raise ValueError("input WCS is not 2-dimensional")
+            raise ValueError("Input WCS is not 2-dimensional")
 
         if not wcs.has_celestial:
-            raise TypeError("WCS does not have celestial component")
+            raise TypeError("WCS does not have celestial components")
 
         # Find pixel coordinates of corners. In future if we are worried about
         # significant distortions of the edges in the reprojection process we
