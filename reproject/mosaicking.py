@@ -4,9 +4,9 @@ from __future__ import absolute_import, division, print_function
 
 import numpy as np
 from astropy import units as u
-from astropy.coordinates import SkyCoord, ICRS
+from astropy.coordinates import SkyCoord
 from astropy.wcs.utils import (pixel_to_skycoord, skycoord_to_pixel,
-                               proj_plane_pixel_scales)
+                               proj_plane_pixel_scales, wcs_to_celestial_frame)
 
 from .compat import celestial_frame_to_wcs
 from .utils import parse_input_data
@@ -39,7 +39,8 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
               `~astropy.io.fits.Header` object
 
     frame : `~astropy.coordinates.BaseCoordinateFrame`
-        The coordinate system for the final image (defaults to ICRS)
+        The coordinate system for the final image (defaults to the frame of
+        the first image specified)
     auto_rotate : bool
         Whether to rotate the header to minimize the final image area (if
         `True`, requires shapely>=1.6 to be installed)
@@ -55,9 +56,6 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
 
     # TODO: support higher-dimensional datasets in future
     # TODO: take into account NaN values when determining the extent of the final WCS
-
-    if frame is None:
-        frame = ICRS()
 
     input_data = [parse_input_data(data) for data in input_data]
 
@@ -79,6 +77,10 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
 
         if not wcs.has_celestial:
             raise TypeError("WCS does not have celestial components")
+
+        # Determine frame if it wasn't specified
+        if frame is None:
+            frame = wcs_to_celestial_frame(wcs)
 
         # Find pixel coordinates of corners. In future if we are worried about
         # significant distortions of the edges in the reprojection process we

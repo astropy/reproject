@@ -44,5 +44,7 @@ def parse_output_projection(output_projection, shape_out=None):
         wcs_out = output_projection
         if shape_out is None:
             raise ValueError("Need to specify shape when specifying output_projection as WCS object")
+    else:
+        raise TypeError('output_projection should either be a Header or a WCS object')
 
     return wcs_out, shape_out
