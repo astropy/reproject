@@ -22,7 +22,7 @@ else:
 # the package uses other astropy affiliated packages.
 try:
     PYTEST_HEADER_MODULES['Astropy'] = 'astropy'
-    PYTEST_HEADER_MODULES['Healpy'] = 'healpy'
+    PYTEST_HEADER_MODULES['astropy-healpix'] = 'astropy_healpix'
     PYTEST_HEADER_MODULES['Cython'] = 'cython'
     del PYTEST_HEADER_MODULES['h5py']
     del PYTEST_HEADER_MODULES['Matplotlib']

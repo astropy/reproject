@@ -21,7 +21,7 @@ env:
         - ASTROPY_VERSION=stable
         - SETUP_CMD='test'
         - CONDA_CHANNELS='conda-forge'
-        - CONDA_DEPENDENCIES='Cython scipy matplotlib shapely>=1.6 healpy'
+        - CONDA_DEPENDENCIES='Cython scipy matplotlib shapely>=1.6 astropy-healpix'
         - SETUP_XVFB=True
 
     matrix:

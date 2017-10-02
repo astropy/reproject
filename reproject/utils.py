@@ -6,7 +6,7 @@ from astropy.wcs import WCS
 from astropy.extern import six
 
 
-def parse_input_data(input_data, hdu_in=None):
+def parse_input_data(input_data, hdu_in=1):
     """
     Parse input data to return a Numpy array and WCS object.
     """

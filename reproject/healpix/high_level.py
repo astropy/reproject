@@ -9,10 +9,6 @@ def reproject_from_healpix(input_data, output_projection, shape_out=None, hdu_in
     """
     Reproject data from a HEALPIX projection to a standard projection.
 
-    .. note:: This function uses healpy, which is licensed
-              under the GPLv2, so any package using this funtions has to (for
-              now) abide with the GPLv2 rather than the BSD license.
-
     Parameters
     ----------
     input_data : str or `~astropy.io.fits.TableHDU` or `~astropy.io.fits.BinTableHDU` or tuple
@@ -68,10 +64,6 @@ def reproject_from_healpix(input_data, output_projection, shape_out=None, hdu_in
 def reproject_to_healpix(input_data, coord_system_out, hdu_in=None, order='bilinear', nested=False, nside=128):
     """
     Reproject data from a standard projection to a HEALPIX projection.
-
-    .. note:: This function uses healpy, which is licensed
-              under the GPLv2, so any package using this funtions has to (for
-              now) abide with the GPLv2 rather than the BSD license.
 
     Parameters
     ----------
