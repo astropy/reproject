@@ -5,20 +5,14 @@ from __future__ import (absolute_import, division, print_function,
 import os
 import itertools
 
+import pytest
 import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
-import pytest
-
-try:
-    import healpy
-    HAS_HEALPY = True
-except:
-    HAS_HEALPY = False
+from astropy_healpix import nside_to_npix
 
 from ..high_level import reproject_from_healpix, reproject_to_healpix
 from ...tests.test_high_level import ALL_DTYPES
-
 
 
 DATA = os.path.join(os.path.dirname(__file__), 'data')
@@ -45,16 +39,14 @@ def get_reference_header(oversample=2, nside=1):
     return reference_header
 
 
-@pytest.mark.skipif('not HAS_HEALPY')
 @pytest.mark.parametrize("nside,nested,healpix_system,image_system,dtype",
                          itertools.product([1, 2, 4, 8, 16, 32, 64], [True, False], 'C', 'C', ALL_DTYPES))
 def test_reproject_healpix_to_image_round_trip(
         nside, nested, healpix_system, image_system, dtype):
     """Test round-trip HEALPix->WCS->HEALPix conversion for a random map,
     with a WCS projection large enough to store each HEALPix pixel"""
-    import healpy as hp
 
-    npix = hp.nside2npix(nside)
+    npix = nside_to_npix(nside)
     healpix_data = np.random.uniform(size=npix).astype(dtype)
 
     reference_header = get_reference_header(oversample=2, nside=nside)
@@ -73,15 +65,14 @@ def test_reproject_healpix_to_image_round_trip(
     np.testing.assert_array_equal(healpix_data, healpix_data_2)
 
 
-@pytest.mark.skipif('not HAS_HEALPY')
 def test_reproject_file():
     reference_header = get_reference_header(oversample=2, nside=8)
-    data, footprint = reproject_from_healpix(os.path.join(DATA, 'bayestar.fits.gz'), reference_header)
+    data, footprint = reproject_from_healpix(os.path.join(DATA, 'bayestar.fits.gz'),
+                                             reference_header)
     reference_result = fits.getdata(os.path.join(DATA, 'reference_result.fits'))
-    np.testing.assert_allclose(data, reference_result)
+    np.testing.assert_allclose(data, reference_result, rtol=1.e-5)
 
 
-@pytest.mark.skipif('not HAS_HEALPY')
 def test_reproject_invalid_order():
     reference_header = get_reference_header(oversample=2, nside=8)
     with pytest.raises(ValueError) as exc:

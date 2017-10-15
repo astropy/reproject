@@ -12,7 +12,7 @@ environment:
                         # to the matrix section.
       TEST_CMD: "test"
       CONDA_CHANNELS: "conda-forge"
-      CONDA_DEPENDENCIES: "cython scipy pandas shapely>=1.6"
+      CONDA_DEPENDENCIES: "cython scipy pandas shapely>=1.6 astropy-healpix"
 
   matrix:
 
@@ -42,8 +42,8 @@ install:
     - "python --version"
     - "cython --version"
 
-    # Install pytest-fits
-    - "pip install https://github.com/astrofrog/pytest-fits/archive/master.zip"
+    # Install pytest-arraydiff
+    - "pip install https://github.com/astrofrog/pytest-arraydiff/archive/master.zip"
 
 # Not a .NET project, we build ci-helpers in the install step instead
 build: false

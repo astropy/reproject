@@ -22,9 +22,9 @@ This package has the following hard run time dependencies:
 
 * `Scipy <http://www.scipy.org/>`__ 0.9 or later
 
-and the following optional dependencies:
+* `astropy-healpix <https://astropy-healpix.readthedocs.io>`_ 1.8 or later for HEALPIX image reprojection
 
-* `healpy <https://healpy.readthedocs.io>`_ 1.8 or later for HEALPIX image reprojection
+and the following optional dependencies:
 
 * `shapely <https://toblerity.org/shapely/project.html>`_ 1.6 or later for some of the mosaicking functionality
 

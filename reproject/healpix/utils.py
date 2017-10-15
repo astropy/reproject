@@ -1,7 +1,6 @@
-import tempfile
-
 import numpy as np
 
+from astropy.io import fits
 from astropy.io.fits import TableHDU, BinTableHDU
 from astropy.extern import six
 from astropy.coordinates import BaseCoordinateFrame, frame_transform_graph, Galactic, ICRS
@@ -29,32 +28,25 @@ def parse_coord_system(system):
                 return system_new()
 
 
-def parse_input_healpix_data(input_data, field=0, hdu_in=None):
+def parse_input_healpix_data(input_data, field=0, hdu_in=None, nested=None):
     """
     Parse input HEALPIX data to return a Numpy array and coordinate frame object.
     """
 
     if isinstance(input_data, (TableHDU, BinTableHDU)):
-
-        # TODO: for now we have to write out to a temporary file. A pull
-        # request to healpy has been merged to allow ``read_map`` to take
-        # HDUList objects and HDUs, but we have to wait for a stable release
-        # before we can use that:
-        #
-        # https://github.com/healpy/healpy/pull/249
-
-        filename = tempfile.mktemp()
-        input_data.writeto(filename)
-        input_data = filename
-
-    if isinstance(input_data, six.string_types):
-        from healpy import read_map
-        array_in, header = read_map(input_data, verbose=False, h=True, field=field, hdu=1 if hdu_in is None else hdu_in)
-        coordinate_system_in = parse_coord_system(dict(header)['COORDSYS'])
+        data = input_data.data
+        header = input_data.header
+        coordinate_system_in = parse_coord_system(header['COORDSYS'])
+        array_in = data[data.columns[field].name].ravel()
+        if 'ORDERING' in header:
+            nested = header['ORDERING'].lower()
+    elif isinstance(input_data, six.string_types):
+        hdu = fits.open(input_data)[hdu_in or 1]
+        return parse_input_healpix_data(hdu, field=field)
     elif isinstance(input_data, tuple) and isinstance(input_data[0], np.ndarray):
         array_in = input_data[0]
         coordinate_system_in = parse_coord_system(input_data[1])
     else:
         raise TypeError("input_data should either be an HDU object or a tuple of (array, frame)")
 
-    return array_in, coordinate_system_in
+    return array_in, coordinate_system_in, nested

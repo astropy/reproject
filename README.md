@@ -3,17 +3,8 @@
 About
 =====
 
-The 'reproject' package is a Python package to reproject astronomical images using various techniques via a uniform interface. By *reprojection*, we mean the re-gridding of images from one world coordinate system to another (for example changing the pixel resolution, orientation, coordinate system). Currently, we have implemented reprojection of celestial images by interpolation (like [SWARP](http://www.astromatic.net/software/swarp)), as well as by finding the exact overlap between pixels on the celestial sphere (like [Montage](http://montage.ipac.caltech.edu/index.html)). It can also reproject to/from HEALPIX projections by relying on the [healpy](https://github.com/healpy/healpy) package. 
+The 'reproject' package is a Python package to reproject astronomical images using various techniques via a uniform interface. By *reprojection*, we mean the re-gridding of images from one world coordinate system to another (for example changing the pixel resolution, orientation, coordinate system). Currently, we have implemented reprojection of celestial images by interpolation (like [SWARP](http://www.astromatic.net/software/swarp)), as well as by finding the exact overlap between pixels on the celestial sphere (like [Montage](http://montage.ipac.caltech.edu/index.html)). It can also reproject to/from HEALPIX projections by relying on the [astropy-healpix](https://github.com/astropy/astropy-healpix) package.
 
 For more information, including on how to install the package, see https://reproject.readthedocs.io
 
 ![screenshot](docs/images/index-4.png)
-
-Note on license
-===============
-
-The code in this package is released under the BSD license. However, the
-functions relating to HEALPIX rely on the
-[healpy](https://github.com/healpy/healpy) package, which is GPLv2, so if you
-use these functions in your code, you are indirectly using healpy and therefore
-will need to abide with the GPLv2 license.

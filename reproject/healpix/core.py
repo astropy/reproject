@@ -1,18 +1,10 @@
-"""
-HEALPIX (Hierarchical Equal-Area and Isolatitude Pixelization) utility functions.
-
-These are convenience functions that are thin wrappers around `healpy`
-(http://code.google.com/p/healpy/) functionality.
-
-See https://github.com/healpy/healpy/issues/129 and https://github.com/gammapy/gammapy/blob/master/gammapy/image/healpix.py
-"""
-
 from __future__ import print_function, division
 
 import numpy as np
 
 from astropy import units as u
 from astropy.extern import six
+from astropy_healpix import npix_to_nside, HEALPix
 
 from ..wcs_utils import convert_world_coordinates
 from .utils import parse_coord_system
@@ -31,10 +23,6 @@ def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
     """
     Convert image in HEALPIX format to a normal FITS projection image (e.g.
     CAR or AIT).
-
-    .. note:: This function uses healpy, which is licensed
-              under the GPLv2, so any package using this funtions has to (for
-              now) abide with the GPLv2 rather than the BSD license.
 
     Parameters
     ----------
@@ -70,7 +58,6 @@ def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
         no coverage or valid values in the input image, while values of 1
         indicate valid values.
     """
-    import healpy as hp
 
     healpix_data = np.asarray(healpix_data, dtype=float)
 
@@ -83,31 +70,25 @@ def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
     with np.errstate(invalid='ignore'):
         lon_in, lat_in = convert_world_coordinates(lon_out, lat_out, wcs_out, (coord_system_in, u.deg, u.deg))
 
-    # Convert from lon, lat in degrees to colatitude theta, longitude phi,
-    # in radians
-    theta = np.radians(90. - lat_in)
-    phi = np.radians(lon_in)
-
-    # hp.ang2pix() raises an exception for invalid values of theta, so only
-    # process values for which WCS projection gives non-nan value
-    good = np.isfinite(theta)
-    data = np.empty(theta.shape, healpix_data.dtype)
-    data[~good] = np.nan
+    lon_in = u.Quantity(lon_in, unit=u.deg, copy=False)
+    lat_in = u.Quantity(lat_in, unit=u.deg, copy=False)
 
     if isinstance(order, six.string_types):
         order = ORDER[order]
 
+    nside = npix_to_nside(len(healpix_data))
+
+    hp = HEALPix(nside=nside, order='nested' if nested else 'ring')
+
     if order == 1:
-        data[good] = hp.get_interp_val(healpix_data, theta[good], phi[good], nested)
+        data = hp.interpolate_bilinear_lonlat(lon_in, lat_in, healpix_data)
     elif order == 0:
-        npix = len(healpix_data)
-        nside = hp.npix2nside(npix)
-        ipix = hp.ang2pix(nside, theta[good], phi[good], nested)
-        data[good] = healpix_data[ipix]
+        ipix = hp.lonlat_to_healpix(lon_in, lat_in)
+        data = healpix_data[ipix]
     else:
         raise ValueError("Only nearest-neighbor and bilinear interpolation are supported")
 
-    footprint = good.astype(int)
+    footprint = np.ones(data.shape, bool)
 
     return data, footprint
 
@@ -116,10 +97,6 @@ def image_to_healpix(data, wcs_in, coord_system_out,
                      nside, order='bilinear', nested=False):
     """
     Convert image in a normal WCS projection to HEALPIX format.
-
-    .. note:: This function uses healpy, which is licensed
-              under the GPLv2, so any package using this funtions has to (for
-              now) abide with the GPLv2 rather than the BSD license.
 
     Parameters
     ----------
@@ -155,16 +132,18 @@ def image_to_healpix(data, wcs_in, coord_system_out,
         no coverage or valid values in the input image, while values of 1
         indicate valid values.
     """
-    import healpy as hp
     from scipy.ndimage import map_coordinates
 
-    npix = hp.nside2npix(nside)
+    hp = HEALPix(nside=nside, order='nested' if nested else 'ring')
+
+    npix = hp.npix
 
     # Look up lon, lat of pixels in output system and convert colatitude theta
     # and longitude phi to longitude and latitude.
-    theta, phi = hp.pix2ang(nside, np.arange(npix), nested)
-    lon_out = np.degrees(phi)
-    lat_out = 90. - np.degrees(theta)
+    lon_out, lat_out = hp.healpix_to_lonlat(np.arange(npix))
+
+    lon_out = lon_out.to(u.deg).value
+    lat_out = lat_out.to(u.deg).value
 
     # Convert between celestial coordinates
     coord_system_out = parse_coord_system(coord_system_out)
