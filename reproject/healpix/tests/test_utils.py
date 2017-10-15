@@ -1,16 +1,11 @@
 import numpy as np
 
 import pytest
-from astropy.coordinates import FK5, Galactic, ICRS
+from astropy.coordinates import FK5, Galactic
 from astropy.io import fits
 
-try:
-    import healpy
-    HAS_HEALPY = True
-except:
-    HAS_HEALPY = False
-
 from ..utils import parse_coord_system, parse_input_healpix_data
+
 
 def test_parse_coord_system():
 
@@ -32,7 +27,6 @@ def test_parse_coord_system():
     assert exc.value.args[0] == "Could not determine frame for system=spam"
 
 
-@pytest.mark.skipif('not HAS_HEALPY')
 def test_parse_input_healpix_data(tmpdir):
 
     data = np.arange(3072)
@@ -43,17 +37,17 @@ def test_parse_input_healpix_data(tmpdir):
     hdu.header['COORDSYS'] = "G"
 
     # As HDU
-    array, coordinate_system = parse_input_healpix_data(hdu)
+    array, coordinate_system, nested = parse_input_healpix_data(hdu)
     np.testing.assert_allclose(array, data)
 
     # As filename
     filename = tmpdir.join('test.fits').strpath
     hdu.writeto(filename)
-    array, coordinate_system = parse_input_healpix_data(filename)
+    array, coordinate_system, nested = parse_input_healpix_data(filename)
     np.testing.assert_allclose(array, data)
 
     # As array
-    array, coordinate_system = parse_input_healpix_data((data, "galactic"))
+    array, coordinate_system, nested = parse_input_healpix_data((data, "galactic"))
     np.testing.assert_allclose(array, data)
 
     # Invalid
