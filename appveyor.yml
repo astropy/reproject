@@ -40,6 +40,7 @@ install:
     # Test that PATH is set correctly
     - "conda --version"
     - "python --version"
+    - "cython --version"
 
     # Install pytest-fits
     - "pip install https://github.com/astrofrog/pytest-fits/archive/master.zip"
