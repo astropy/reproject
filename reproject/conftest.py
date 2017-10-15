@@ -23,6 +23,7 @@ else:
 try:
     PYTEST_HEADER_MODULES['Astropy'] = 'astropy'
     PYTEST_HEADER_MODULES['Healpy'] = 'healpy'
+    PYTEST_HEADER_MODULES['Cython'] = 'cython'
     del PYTEST_HEADER_MODULES['h5py']
     del PYTEST_HEADER_MODULES['Matplotlib']
 except (NameError, KeyError):  # NameError is needed to support Astropy < 1.0
