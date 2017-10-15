@@ -104,16 +104,23 @@ input data in the same form as :func:`~reproject.reproject_interp`
 second argument, either as a string or as a
 :class:`~astropy.coordinates.BaseCoordinateFrame` instance e.g.::
 
-    array, footprint = reproject_to_healpix((array, target_header), 'galactic')
+    array, footprint = reproject_to_healpix((array, target_header), 'galactic', nside=128)
 
-The array returned is a 1-D array which can be stored in a HEALPIX file using ``healpy.write_map``::
+The array returned is a 1-D array which can be stored in a HEALPIX FITS file.
+We can use the `~astropy.table.Table` object to easily write the array to a
+HEALPix FITS file::
 
-    from healpy import write_map
-    write_map('healpix_map.fits', array)
+    from astropy.table import Table
+    t = Table()
+    t['flux'] = array
+    t.meta['ORDERING'] = 'RING'
+    t.meta['COORDSYS'] = 'G'
+    t.meta['NSIDE'] = 128
+    t.meta['INDXSCHM'] = 'IMPLICIT'
+    t.write('healpix_map.fits')
 
 .. note:: When converting to a HEALPIX array, it is important to be aware
           that the order of the array matters (nested or ring). The
           :func:`~reproject.reproject_to_healpix` function takes a ``nested``
-          argument, and the ``write_map`` function from healpy takes a
-          ``nest`` argument. Both default to `False`, so the above example
-          works as expected.
+          argument that defaults to `False`, hence why we set ``ORDERING`` to
+          ``'RING'``.
