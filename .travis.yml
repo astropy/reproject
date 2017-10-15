@@ -8,13 +8,6 @@ python:
 
 sudo: false
 
-addons:
-    apt:
-        packages:
-            - graphviz
-            - texlive-latex-extra
-            - dvipng
-
 env:
     global:
         - NUMPY_VERSION=stable
