@@ -67,9 +67,10 @@ def test_reproject_healpix_to_image_round_trip(
 
 def test_reproject_file():
     reference_header = get_reference_header(oversample=2, nside=8)
-    data, footprint = reproject_from_healpix(os.path.join(DATA, 'bayestar.fits.gz'), reference_header)
+    data, footprint = reproject_from_healpix(os.path.join(DATA, 'bayestar.fits.gz'),
+                                             reference_header)
     reference_result = fits.getdata(os.path.join(DATA, 'reference_result.fits'))
-    np.testing.assert_allclose(data, reference_result)
+    np.testing.assert_allclose(data, reference_result, rtol=1.e-5)
 
 
 def test_reproject_invalid_order():

@@ -28,7 +28,7 @@ def parse_coord_system(system):
                 return system_new()
 
 
-def parse_input_healpix_data(input_data, field=0, hdu_in=None):
+def parse_input_healpix_data(input_data, field=0, hdu_in=None, nested=None):
     """
     Parse input HEALPIX data to return a Numpy array and coordinate frame object.
     """
@@ -37,7 +37,9 @@ def parse_input_healpix_data(input_data, field=0, hdu_in=None):
         data = input_data.data
         header = input_data.header
         coordinate_system_in = parse_coord_system(header['COORDSYS'])
-        array_in = data[data.columns[field].name]
+        array_in = data[data.columns[field].name].ravel()
+        if 'ORDERING' in header:
+            nested = header['ORDERING'].lower()
     elif isinstance(input_data, six.string_types):
         hdu = fits.open(input_data)[hdu_in or 1]
         return parse_input_healpix_data(hdu, field=field)
@@ -47,4 +49,4 @@ def parse_input_healpix_data(input_data, field=0, hdu_in=None):
     else:
         raise TypeError("input_data should either be an HDU object or a tuple of (array, frame)")
 
-    return array_in, coordinate_system_in
+    return array_in, coordinate_system_in, nested
