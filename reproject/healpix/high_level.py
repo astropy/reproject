@@ -6,7 +6,7 @@ __all__ = ['reproject_from_healpix', 'reproject_to_healpix']
 
 
 def reproject_from_healpix(input_data, output_projection, shape_out=None,
-                           hdu_in=None, order='bilinear', nested=None,
+                           hdu_in=1, order='bilinear', nested=None,
                            field=0):
     """
     Reproject data from a HEALPIX projection to a standard projection.
