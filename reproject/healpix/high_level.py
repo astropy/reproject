@@ -5,7 +5,9 @@ from ..utils import parse_input_data, parse_output_projection
 __all__ = ['reproject_from_healpix', 'reproject_to_healpix']
 
 
-def reproject_from_healpix(input_data, output_projection, shape_out=None, hdu_in=None, order='bilinear', nested=None, field=0):
+def reproject_from_healpix(input_data, output_projection, shape_out=None,
+                           hdu_in=1, order='bilinear', nested=None,
+                           field=0):
     """
     Reproject data from a HEALPIX projection to a standard projection.
 
@@ -29,6 +31,8 @@ def reproject_from_healpix(input_data, output_projection, shape_out=None, hdu_in
         shape of the output data should be specified separately.
     hdu_in : int or str, optional
         If ``input_data`` is a FITS file, specifies the HDU to use.
+        (the default HDU for HEALPIX data is 1, unlike with image files where
+        it is generally 0)
     order : int or str, optional
         The order of the interpolation (if ``mode`` is set to
         ``'interpolation'``). This can be either one of the following strings:
@@ -69,7 +73,8 @@ def reproject_from_healpix(input_data, output_projection, shape_out=None, hdu_in
                             order=order, nested=nested)
 
 
-def reproject_to_healpix(input_data, coord_system_out, hdu_in=None, order='bilinear', nested=False, nside=128):
+def reproject_to_healpix(input_data, coord_system_out, hdu_in=0,
+                         order='bilinear', nested=False, nside=128):
     """
     Reproject data from a standard projection to a HEALPIX projection.
 
