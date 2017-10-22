@@ -1,4 +1,4 @@
-0.3.2 (unreleased)
+0.3.2 (2017-10-22)
 ------------------
 
 - Fix a regression that caused certain all-sky images (e.g. the Mellinger Milky
