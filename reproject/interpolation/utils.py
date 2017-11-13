@@ -60,7 +60,7 @@ def rebin(data, subsample_factor, wcs=None):
         else:
             subsample_factor = float(subsample_factor)
 
-        step_size = np.array(data.shape) / subsample_factor
+        step_size = np.array([int(x) for x in np.array(data.shape) / subsample_factor])
 
         if len(data.shape) == 2:
             y = np.linspace(0, data.shape[0], step_size[0])
