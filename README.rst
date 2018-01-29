@@ -1,5 +1,4 @@
-|Build Status| |Build status| |Coverage Status| |asv| |Powered by
-Astropy Badge|
+|Build Status| |Build status| |Coverage Status| |asv| |Powered by Astropy Badge|
 
 About
 =====
