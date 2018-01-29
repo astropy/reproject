@@ -4,6 +4,16 @@
 - Refactored HEALPix reprojection code to use the astropy-healpix package
   instead of healpy. [#139]
 
+- Fix test 32-bit test failures. [#146]
+
+- Fix an issue with reprojecting images where there are two solutions along
+  the line of sight by forcing round-tripping of coordinate conversions [#129]
+
+- Explicitly define default HDU as 0 for normal reprojection and 1 for
+  HEALPix reprojection. [#119]
+
+- Added a function to find the optimal WCS for a set of images. [#136, #137]
+
 0.3.2 (2017-10-22)
 ------------------
 
