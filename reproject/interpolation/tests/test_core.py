@@ -407,7 +407,7 @@ def test_reproject_celestial_3d():
     wcs_out = wcs_in.deepcopy()
     wcs_out.wcs.ctype = ['GLON-SIN', 'GLAT-SIN', wcs_in.wcs.ctype[2]]
     wcs_out.wcs.crval = [158.0501, -21.530282, wcs_in.wcs.crval[2]]
-    wcs_out.wcs.crpix = [50., 50., wcs_in.wcs.crpix[2] + 0.5]
+    wcs_out.wcs.crpix = [50., 50., wcs_in.wcs.crpix[2] + 0.4]
 
     out_full, foot_full = _reproject_full(array_in, wcs_in, wcs_out, (3, 160, 170))
 
