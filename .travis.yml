@@ -38,11 +38,11 @@ matrix:
         - python: 3.6
           env: ASTROPY_VERSION=development
 
-        # Try older numpy versions
+        # Try older numpy/astropy versions
         - python: 3.5
-          env: NUMPY_VERSION=1.11
+          env: NUMPY_VERSION=1.11 ASTROPY_VERSION=1.1
         - python: 3.4
-          env: NUMPY_VERSION=1.10
+          env: NUMPY_VERSION=1.10 ASTROPY_VERSION=1.0
 
         # Try without optional dependencies
         - python: 2.7
