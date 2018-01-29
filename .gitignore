@@ -29,6 +29,10 @@ docs/_build
 # Pycharm editor project files
 .idea
 
+# Floobits project files
+.floo
+.flooignore
+
 # Packages/installer info
 *.egg
 *.egg-info
@@ -48,6 +52,9 @@ distribute-*.tar.gz
 .tox
 .*.sw[op]
 *~
+.project
+.pydevproject
+.settings
 
 # Mac OSX
 .DS_Store
