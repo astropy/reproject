@@ -18,11 +18,11 @@ environment:
   matrix:
 
       - PYTHON_VERSION: "2.7"
-        NUMPY_VERSION: "stable"
+        NUMPY_VERSION: "1.13"
         ASTROPY_VERSION: "stable"
 
       - PYTHON_VERSION: "3.6"
-        NUMPY_VERSION: "stable"
+        NUMPY_VERSION: "1.13"
         ASTROPY_VERSION: "stable"
 
 platform:
