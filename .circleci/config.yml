@@ -9,15 +9,13 @@ jobs:
       - run:
           name: Install dependencies
           command: |
-            /opt/python/cp36-cp36m/bin/pip install numpy scipy pytest-remotedata pytest-doctestplus astropy cython jinja2
+            /opt/python/cp36-cp36m/bin/pip install numpy scipy pytest-remotedata pytest-doctestplus astropy cython jinja2 pytest-arraydiff
             /opt/python/cp36-cp36m/bin/pip install astropy-healpix
-            /opt/python/cp36-cp36m/bin/pip install https://github.com/astrofrog/pytest-arraydiff/archive/master.zip
       - run:
           name: Build
           command: |
             /opt/python/cp36-cp36m/bin/python setup.py build
       - run:
-          name: Run tests    
+          name: Run tests
           command: |
             /opt/python/cp36-cp36m/bin/python setup.py test
-

@@ -15,6 +15,7 @@ env:
         - SETUP_CMD='test'
         - CONDA_CHANNELS='conda-forge'
         - CONDA_DEPENDENCIES='Cython scipy matplotlib shapely>=1.6 astropy-healpix'
+        - PIP_DEPENDENCIES='pytest-arraydiff'
         - SETUP_XVFB=True
 
     matrix:
@@ -45,9 +46,9 @@ matrix:
 
         # Try without optional dependencies
         - python: 2.7
-          env: PIP_DEPENDENCIES=''
+          env: PIP_DEPENDENCIES='pytest-arraydiff'
         - python: 3.6
-          env: PIP_DEPENDENCIES=''
+          env: PIP_DEPENDENCIES='pytest-arraydiff'
 
 before_install:
     # Make sure matplotlib uses PyQT not PySide
@@ -56,7 +57,6 @@ before_install:
 install:
     - git clone git://github.com/astropy/ci-helpers.git
     - source ci-helpers/travis/setup_conda.sh
-    - pip install https://github.com/astrofrog/pytest-arraydiff/archive/master.zip
 
 script:
    - python setup.py $SETUP_CMD

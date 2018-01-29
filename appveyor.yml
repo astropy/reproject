@@ -13,6 +13,7 @@ environment:
       TEST_CMD: "test"
       CONDA_CHANNELS: "conda-forge"
       CONDA_DEPENDENCIES: "cython scipy pandas shapely>=1.6 astropy-healpix"
+      PIP_DEPENDENCIES: "pytest-arraydiff"
 
   matrix:
 
@@ -41,9 +42,6 @@ install:
     - "conda --version"
     - "python --version"
     - "cython --version"
-
-    # Install pytest-arraydiff
-    - "pip install https://github.com/astrofrog/pytest-arraydiff/archive/master.zip"
 
 # Not a .NET project, we build ci-helpers in the install step instead
 build: false
