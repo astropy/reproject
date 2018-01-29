@@ -1,4 +1,4 @@
-0.4 (unreleased)
+0.4 (2018-01-29)
 ----------------
 
 - Refactored HEALPix reprojection code to use the astropy-healpix package
