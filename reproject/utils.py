@@ -1,5 +1,5 @@
 import numpy as np
-from six import string_types
+
 from astropy.io import fits
 from astropy.io.fits import PrimaryHDU, ImageHDU, CompImageHDU, Header, HDUList
 from astropy.wcs import WCS
@@ -44,7 +44,7 @@ def parse_output_projection(output_projection, shape_out=None):
         wcs_out = output_projection
         if shape_out is None:
             raise ValueError("Need to specify shape when specifying output_projection as WCS object")
-    elif isinstance(output_projection, string_types):
+    elif isinstance(output_projection, six.string_types):
         hdu_list = fits.open(output_projection)
         shape_out = hdu_list[0].data.shape
         header = hdu_list[0].header
