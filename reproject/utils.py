@@ -45,11 +45,11 @@ def parse_output_projection(output_projection, shape_out=None):
         if shape_out is None:
             raise ValueError("Need to specify shape when specifying output_projection as WCS object")
     elif isinstance(output_projection, string_type):
-        print(string_type)
         hdu_list = fits.open(output_projection)
         shape_out = hdu_list[0].data.shape
         header = hdu_list[0].header
         wcs_out = WCS(header)
+        hdu_list.close()
     else:
         raise TypeError('output_projection should either be a Header, a WCS object, or a filename')
 
