@@ -1,5 +1,5 @@
 import numpy as np
-
+import sys
 from astropy.io import fits
 from astropy.io.fits import PrimaryHDU, ImageHDU, CompImageHDU, Header, HDUList
 from astropy.wcs import WCS
@@ -32,7 +32,7 @@ def parse_input_data(input_data, hdu_in=None):
 
 
 def parse_output_projection(output_projection, shape_out=None):
-
+    string_type = str if sys.version_info[0] == 3 else basestring
     if isinstance(output_projection, Header):
         wcs_out = WCS(output_projection)
         try:
@@ -40,13 +40,19 @@ def parse_output_projection(output_projection, shape_out=None):
         except KeyError:
             if shape_out is None:
                 raise ValueError("Need to specify shape since output header does not contain complete shape information")
-        if output_projection['NAXIS'] == 0:
-            raise ValueError("The shape of the output header should not be an empty tuple")
     elif isinstance(output_projection, WCS):
         wcs_out = output_projection
         if shape_out is None:
             raise ValueError("Need to specify shape when specifying output_projection as WCS object")
+    elif isinstance(output_projection, string_type):
+        print(string_type)
+        hdu_list = fits.open(output_projection)
+        shape_out = hdu_list[0].data.shape
+        header = hdu_list[0].header
+        wcs_out = WCS(header)
     else:
-        raise TypeError('output_projection should either be a Header or a WCS object')
+        raise TypeError('output_projection should either be a Header, a WCS object, or a filename')
 
+    if len(shape_out) == 0:
+        raise ValueError("The shape of the output header should not be an empty tuple")
     return wcs_out, shape_out
