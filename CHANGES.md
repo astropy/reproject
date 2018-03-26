@@ -1,7 +1,7 @@
 0.5 (unreleased)
 ----------------
 
-- No changes yet.
+- Improve parse_output_projection. [#150]
 
 0.4 (2018-01-29)
 ----------------
