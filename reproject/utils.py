@@ -40,8 +40,8 @@ def parse_output_projection(output_projection, shape_out=None):
         except KeyError:
             if shape_out is None:
                 raise ValueError("Need to specify shape since output header does not contain complete shape information")
-        if output_projection['NAXIS'] == 0:
-            raise ValueError("The shape of the output header should not be an empty tuple")
+		if output_projection['NAXIS'] == 0:
+			raise ValueError("The shape of the output header should not be an empty tuple")
     elif isinstance(output_projection, WCS):
         wcs_out = output_projection
         if shape_out is None:
