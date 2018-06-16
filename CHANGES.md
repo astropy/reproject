@@ -1,7 +1,8 @@
 0.5 (unreleased)
 ----------------
 
-- No changes yet.
+- Improve parse_output_projection to make it so that the output projection
+  can be specified as a filename. [#150]
 
 0.4 (2018-01-29)
 ----------------
