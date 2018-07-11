@@ -15,21 +15,7 @@ else:
 
 from astropy.tests.helper import enable_deprecations_as_exceptions
 
-# Uncomment the following line to treat all DeprecationWarnings as
-# exceptions. For Astropy v2.0 or later, there are 2 additional keywords,
-# as follow (although default should work for most cases).
-# To ignore some packages that produce deprecation warnings on import
-# (in addition to 'compiler', 'scipy', 'pygments', 'ipykernel', and
-# 'setuptools'), add:
-#     modules_to_ignore_on_import=['module_1', 'module_2']
-# To ignore some specific deprecation warning messages for Python version
-# MAJOR.MINOR or later, add:
-#     warnings_to_ignore_by_pyver={(MAJOR, MINOR): ['Message to ignore']}
-from distutils.version import LooseVersion
-if LooseVersion(astropy_version) < LooseVersion('2.0'):
-    enable_deprecations_as_exceptions()
-else:
-    enable_deprecations_as_exceptions(warnings_to_ignore_entire_module=['astropy.io.fits'])
+enable_deprecations_as_exceptions()
 
 # Uncomment and customize the following lines to add/remove entries from
 # the list of packages for which version numbers are displayed when running
