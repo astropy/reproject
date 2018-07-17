@@ -37,11 +37,16 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
     elif not wcs_out.has_celestial:
         raise ValueError("Input WCS has celestial components but output WCS does not")
 
-    if tuple(wcs_in.wcs.axis_types) != tuple(wcs_out.wcs.axis_types):
+    # it is possible to have axes reversed, so we check that they have a common set
+    if set(wcs_in.wcs.axis_types) != set(wcs_out.wcs.axis_types):
         raise ValueError("axis_types should match between the input and output WCS")
 
-    if tuple(wcs_in.wcs.cunit) != tuple(wcs_out.wcs.cunit):
-        raise ValueError("units should match between the input and output WCS")
+    # we're checking the set here to match the previous.
+    # Since it's probably (?) nonsense to have different units on the different axes,
+    # we try to catch that case too
+    if set(wcs_in.wcs.cunit) != set(wcs_out.wcs.cunit) or len(set(wcs_in.wcs.cunit)) > 1:
+        raise ValueError("units should match between the input and output WCS "
+                         "and should be the same for both axes")
 
     # We create an output array with the required shape, then create an array
     # that is in order of [rest, lat, lon] where rest is the flattened
