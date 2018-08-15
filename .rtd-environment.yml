@@ -1,11 +1,11 @@
-name: astropy
+name: reproject
 
 channels:
   - astropy
 
 dependencies:
+  - python>=2.7
   - numpy
   - cython
   - matplotlib
-  - astropy-helpers
   - astropy

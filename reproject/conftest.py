@@ -49,7 +49,7 @@ except (NameError, KeyError):  # NameError is needed to support Astropy < 1.0
 # running the tests.
 import os
 
-# This is to figure out the affiliated package version, rather than
+# This is to figure out the package version, rather than
 # using Astropy's
 try:
     from .version import version

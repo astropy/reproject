@@ -10,41 +10,32 @@ environment:
       PYTHON_ARCH: "64" # needs to be set for CMD_IN_ENV to succeed. If a mix
                         # of 32 bit and 64 bit builds are needed, move this
                         # to the matrix section.
-      TEST_CMD: "test"
-      CONDA_CHANNELS: "conda-forge"
       CONDA_DEPENDENCIES: "cython scipy pandas shapely>=1.6 astropy-healpix"
       PIP_DEPENDENCIES: "pytest-arraydiff"
+      CONDA_CHANNELS: "conda-forge"
 
   matrix:
-
+      # We test Python 2.7 for Python 2 support.
       - PYTHON_VERSION: "2.7"
-        NUMPY_VERSION: "1.13"
         ASTROPY_VERSION: "stable"
+        NUMPY_VERSION: "stable"
 
-      - PYTHON_VERSION: "3.6"
-        NUMPY_VERSION: "1.13"
+      # We test Python 3.7 for Python 3 support.
+      - PYTHON_VERSION: "3.7"
         ASTROPY_VERSION: "stable"
+        NUMPY_VERSION: "stable"
 
 platform:
     -x64
 
 install:
-
-    # Install Miniconda
-    - "git clone git://github.com/astropy/ci-helpers.git"
+    - "git clone --depth 1 git://github.com/astropy/ci-helpers.git"
     - "powershell ci-helpers/appveyor/install-miniconda.ps1"
-
-    # Set path again, need to find a way to avoid doing this again
     - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
     - "activate test"
 
-    # Test that PATH is set correctly
-    - "conda --version"
-    - "python --version"
-    - "cython --version"
-
-# Not a .NET project, we build ci-helpers in the install step instead
+# Not a .NET project, we build the package in the install step instead
 build: false
 
 test_script:
-  - "%CMD_IN_ENV% python setup.py %TEST_CMD%"
+    - "%CMD_IN_ENV% python setup.py test"
