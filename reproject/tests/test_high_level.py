@@ -10,7 +10,7 @@ from astropy.wcs import WCS
 from astropy.utils.data import get_pkg_data_filename
 import pytest
 
-from .. import reproject_interp, reproject_exact
+from .. import reproject_interp, reproject_exact, reproject_drizzle
 
 # TODO: add reference comparisons
 

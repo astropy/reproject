@@ -10,6 +10,7 @@ from ._astropy_init import *
 # ----------------------------------------------------------------------------
 
 if not _ASTROPY_SETUP_:
+    from .drizzle import reproject_drizzle
     from .interpolation import reproject_interp
     from .spherical_intersect import reproject_exact
     from .healpix import reproject_from_healpix, reproject_to_healpix
