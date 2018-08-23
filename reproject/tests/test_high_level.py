@@ -7,8 +7,8 @@ import itertools
 import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
+from abc import ABC, abstractmethod
 from astropy.utils.data import get_pkg_data_filename
-from abc import ABC, abstractmethod, abstractclassmethod
 import pytest
 
 from .. import reproject_interp, reproject_exact, reproject_drizzle
@@ -31,10 +31,10 @@ for endian in ('<', '>'):
 
 class Func2Test(ABC):
     @abstractmethod
-    def func_to_test(self, *args, **kargs):
+    def func_to_test(self, *args, **kwargs):
         pass
 
-class Reproject(object, Func2Test):
+class Reproject(Func2Test):
 
     def setup_method(self, method):
 
@@ -80,12 +80,12 @@ class Reproject(object, Func2Test):
         self.func_to_test((self.array_in, self.header_in), self.header_out_size)
 
 class TestReprojectInterp(Reproject):
-    def func_to_test(self, *args, **kargs):
-        return reproject_interp(*args, *kargs)
+    def func_to_test(self, *args, **kwargs):
+        return reproject_interp(*args, **kwargs)
 
 class TestReprojectDrizzle(Reproject):
     def func_to_test(self, *args, **kargs):
-        return reproject_drizzle(*args, *kargs)
+        return reproject_drizzle(*args, **kargs)
 
 INPUT_HDR = """
 WCSAXES =                    2 / Number of coordinate axes
