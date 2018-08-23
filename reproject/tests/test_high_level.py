@@ -8,6 +8,7 @@ import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.utils.data import get_pkg_data_filename
+from abc import ABC, abstractmethod, abstractclassmethod
 import pytest
 
 from .. import reproject_interp, reproject_exact, reproject_drizzle
@@ -28,8 +29,12 @@ for endian in ('<', '>'):
                 continue
             ALL_DTYPES.append(np.dtype(endian + kind + size))
 
+class Func2Test(ABC):
+    @abstractmethod
+    def func_to_test(self, *args, **kargs):
+        pass
 
-class TestReproject(object):
+class Reproject(object, Func2Test):
 
     def setup_method(self, method):
 
@@ -52,28 +57,35 @@ class TestReproject(object):
     def test_hdu_header(self):
 
         with pytest.raises(ValueError) as exc:
-            reproject_interp(self.hdu_in, self.header_out)
+            self.func_to_test(self.hdu_in, self.header_out)
         assert exc.value.args[0] == "Need to specify shape since output header does not contain complete shape information"
 
-        reproject_interp(self.hdu_in, self.header_out_size)
+        self.func_to_test(self.hdu_in, self.header_out_size)
 
     def test_hdu_wcs(self):
-        reproject_interp(self.hdu_in, self.wcs_out, shape_out=self.shape_out)
+        self.func_to_test(self.hdu_in, self.wcs_out, shape_out=self.shape_out)
 
     def test_array_wcs_header(self):
 
         with pytest.raises(ValueError) as exc:
-            reproject_interp((self.array_in, self.wcs_in), self.header_out)
+            self.func_to_test((self.array_in, self.wcs_in), self.header_out)
         assert exc.value.args[0] == "Need to specify shape since output header does not contain complete shape information"
 
-        reproject_interp((self.array_in, self.wcs_in), self.header_out_size)
+        self.func_to_test((self.array_in, self.wcs_in), self.header_out_size)
 
     def test_array_wcs_wcs(self):
-        reproject_interp((self.array_in, self.wcs_in), self.wcs_out, shape_out=self.shape_out)
+        self.func_to_test((self.array_in, self.wcs_in), self.wcs_out, shape_out=self.shape_out)
 
     def test_array_header_header(self):
-        reproject_interp((self.array_in, self.header_in), self.header_out_size)
+        self.func_to_test((self.array_in, self.header_in), self.header_out_size)
 
+class TestReprojectInterp(Reproject):
+    def func_to_test(self, *args, **kargs):
+        return reproject_interp(*args, *kargs)
+
+class TestReprojectDrizzle(Reproject):
+    def func_to_test(self, *args, **kargs):
+        return reproject_drizzle(*args, *kargs)
 
 INPUT_HDR = """
 WCSAXES =                    2 / Number of coordinate axes
