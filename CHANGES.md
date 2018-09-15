@@ -4,6 +4,9 @@
 - Improve parse_output_projection to make it so that the output projection
   can be specified as a filename. [#150]
 
+- Fixed a bug that caused HEALPix maps in RING order to not be correctly
+  interpreted. [#163]
+
 0.4 (2018-01-29)
 ----------------
 
