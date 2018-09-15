@@ -39,7 +39,7 @@ def parse_input_healpix_data(input_data, field=0, hdu_in=None, nested=None):
         coordinate_system_in = parse_coord_system(header['COORDSYS'])
         array_in = data[data.columns[field].name].ravel()
         if 'ORDERING' in header:
-            nested = header['ORDERING'].lower()
+            nested = header['ORDERING'].lower() == 'nested'
     elif isinstance(input_data, six.string_types):
         hdu = fits.open(input_data)[hdu_in or 1]
         return parse_input_healpix_data(hdu, field=field)
