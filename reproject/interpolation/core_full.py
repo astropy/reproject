@@ -29,6 +29,9 @@ def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
     elif len(shape_out) != wcs_out.wcs.naxis:
         raise ValueError("Length of shape_out should match number of dimensions in wcs_out")
 
+    # shape_out must be exact a tuple type
+    shape_out = tuple(shape_out)
+
     # Check whether celestial components are present
     if wcs_in.has_celestial and wcs_out.has_celestial:
         has_celestial = True
@@ -129,20 +132,24 @@ def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
 
     if array_out is not None:
         if array_out.shape != tuple(shape_out):
-            raise ValueError("Array sizes don't match.  Output array shape"
+            raise ValueError("Array sizes don't match.  Output array shape "
                              "should be {0}".format(str(tuple(shape_out))))
+        elif array_out.dtype != array.dtype:
+            raise ValueError("An output array of a different type than the "
+                             "input array was specified, which will create an "
+                             "undesired duplicate copy of the input array "
+                             "in memory.") 
+        else:
+            array_out = array_out.ravel()
+    else:
+        array_out = np.empty(shape_out).ravel()
 
-    array_new = map_coordinates(array,
-                                coordinates,
-                                order=order, cval=np.nan,
-                                mode='constant',
-                                output=array_out,
-                                ).reshape(shape_out)
+    map_coordinates(array, coordinates, order=order, cval=np.nan,
+                    mode='constant', output=array_out,).reshape(shape_out)
 
-    if array_out is not None:
-        assert array_out is array_new
+    array_out.shape = shape_out
 
     if return_footprint:
-        return array_new, (~np.isnan(array_new)).astype(float)
+        return array_out, (~np.isnan(array_out)).astype(float)
     else:
-        return array_new
+        return array_out
