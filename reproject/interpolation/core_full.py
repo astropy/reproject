@@ -135,12 +135,12 @@ def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
     array_new = map_coordinates(array,
                                 coordinates,
                                 order=order, cval=np.nan,
-                                mode='constant'
+                                mode='constant',
+                                output=array_out,
                                 ).reshape(shape_out)
 
     if array_out is not None:
-        array_out[:] = array_new
-        array_new = array_out
+        assert array_out is array_new
 
     if return_footprint:
         return array_new, (~np.isnan(array_new)).astype(float)
