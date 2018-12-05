@@ -427,8 +427,9 @@ def test_reproject_celestial_3d_withoutputarray():
     header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
 
     array_in = np.ones((3, 200, 180))
-    out_full = np.empty((3, 160, 170))
-    out_celestial = np.empty((3, 160, 170))
+    outshape = (3, 160, 170)
+    out_full = np.empty(outshape)
+    out_celestial = np.empty(outshape)
 
     # TODO: here we can check that if we change the order of the dimensions in
     # the WCS, things still work properly
@@ -440,10 +441,10 @@ def test_reproject_celestial_3d_withoutputarray():
     wcs_out.wcs.crpix = [50., 50., wcs_in.wcs.crpix[2] + 0.4]
 
     # TODO when someone learns how to do it: make sure the memory isn't duplicated...
-    _ = _reproject_full(array_in, wcs_in, wcs_out, (3, 160, 170),
+    _ = _reproject_full(array_in, wcs_in, wcs_out, shape_out=outshape,
                         array_out=out_full, return_footprint=False)
 
-    _ = _reproject_celestial(array_in, wcs_in, wcs_out, (3, 160, 170),
+    _ = _reproject_celestial(array_in, wcs_in, wcs_out, shape_out=outshape,
                              array_out=out_celestial, return_footprint=False)
 
     np.testing.assert_allclose(out_full, out_celestial)
