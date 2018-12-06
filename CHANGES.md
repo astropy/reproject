@@ -13,6 +13,10 @@
 - Refactored HEALPix reprojection code to use the astropy-healpix package
   instead of healpy. [#139]
 
+- Added the ability to specify an output array in ``reproject_interp``, which
+  permits the use of memory-mapped arrays and therefore provides the capability
+  to handle data cubes much larger than memory [#115]
+
 - Fix test 32-bit test failures. [#146]
 
 - Fix an issue with reprojecting images where there are two solutions along

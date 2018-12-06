@@ -6,8 +6,8 @@ import numpy as np
 from ..wcs_utils import convert_world_coordinates
 from ..array_utils import iterate_over_celestial_slices, map_coordinates
 
-
-def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
+def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
+                         return_footprint=True):
     """
     Reproject data with celestial axes to a new projection using interpolation,
     assuming that the non-celestial axes match exactly and thus don't need to be
@@ -23,7 +23,8 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
     """
 
     # Make sure image is floating point
-    array = np.asarray(array, dtype=float)
+    if not np.issubdtype(array.dtype, np.float):
+        array = np.asarray(array, dtype=float)
 
     # Check dimensionality of WCS and shape_out
     if wcs_in.wcs.naxis != wcs_out.wcs.naxis:
@@ -48,7 +49,13 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
     # remainder of the array. We then operate on the view, but this will change
     # the original array with the correct shape.
 
-    array_new = np.zeros(shape_out)
+    if array_out is not None:
+        if array_out.shape != tuple(shape_out):
+            raise ValueError("Array sizes don't match.  Output array shape"
+                             "should be {0}".format(str(tuple(shape_out))))
+        array_new = array_out
+    else:
+        array_new = np.zeros(shape_out)
 
     xp_in = yp_in = None
 
@@ -109,7 +116,10 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, order=1):
                                           mode='constant'
                                           ).reshape(slice_out.shape)
 
-    return array_new, (~np.isnan(array_new)).astype(float)
+    if return_footprint:
+        return array_new, (~np.isnan(array_new)).astype(float)
+    else:
+        return array_new
 
 
 def _get_input_pixels_celestial(wcs_in, wcs_out, shape_out):

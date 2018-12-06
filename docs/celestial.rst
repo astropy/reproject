@@ -124,6 +124,44 @@ interpolation. Supported strings include:
 * ``'biquadratic'``: second order interpolation
 * ``'bicubic'``: third order interpolation
 
+Very Large Cubes
+----------------
+If you have a very large cube to reproject, i.e., any normal IFU or radio spectral cube with many
+individual spectral channels - you may not be able to hold two copies of the
+cube in memory.  In this case, you can specify an output memory mapped array to
+store the data.
+
+You can use the following approach for large data, but only with the interpolation reprojection methods::
+
+.. doctest-skip::
+
+    >>> outhdr = fits.Header.fromtextfile('cube_header_gal.hdr')
+    >>> shape = (outhdr['NAXIS3'], outhdr['NAXIS2'], outhdr['NAXIS1'])
+    >>> outarray = np.memmap(filename='output.np', mode='w+', shape=shape, dtype='float32')
+    >>> hdu = fits.open('cube_file.fits')
+    >>> rslt = reproject.reproject_interp(hdu, outhdr, output_array=outarray,
+    ...                                   return_footprint=False,
+    ...                                   independent_celestial_slices=True)
+    >>> newhdu = fits.PrimaryHDU(data=outarray, header=outhdr)
+    >>> newhdu.writeto('new_cube_file.fits')
+
+Or if you're dealing with FITS files, you can skip the numpy memmap step and use `FITS large file creation
+<http://docs.astropy.org/en/stable/generated/examples/io/skip_create-large-fits.html>`_::
+
+.. doctest-skip::
+
+    >>> outhdr = fits.Header.fromtextfile('cube_header_gal.hdr')
+    >>> outhdr.tofile('new_cube.fits')
+    >>> shape = tuple(outhdr['NAXIS{0}'.format(ii)] for ii in range(1, outhdr['NAXIS']+1))
+    >>> with open('new_cube.fits', 'rb+') as fobj:
+    >>>     fobj.seek(len(outhdr.tostring()) + (np.product(shape) * np.abs(outhdr['BITPIX']//8)) - 1)
+    >>>     fobj.write(b'\0')
+    >>> outhdu = fits.open('new_cube.fits', mode='update')
+    >>> rslt = reproject.reproject_interp(hdu, outhdr, output_array=outhdu[0].data,
+    ...                                   return_footprint=False,
+    ...                                   independent_celestial_slices=True)
+    >>> outhdu.flush()
+
 Drizzling
 =========
 
