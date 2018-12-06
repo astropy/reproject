@@ -443,8 +443,10 @@ def test_reproject_celestial_3d_withoutputarray():
     # TODO when someone learns how to do it: make sure the memory isn't duplicated...
     _ = _reproject_full(array_in, wcs_in, wcs_out, shape_out=outshape,
                         array_out=out_full, return_footprint=False)
+    assert out_full is _
 
     _ = _reproject_celestial(array_in, wcs_in, wcs_out, shape_out=outshape,
                              array_out=out_celestial, return_footprint=False)
+    assert out_celestial is _
 
     np.testing.assert_allclose(out_full, out_celestial)
