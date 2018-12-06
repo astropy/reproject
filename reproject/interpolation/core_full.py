@@ -138,9 +138,9 @@ def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
             raise ValueError("An output array of a different type than the "
                              "input array was specified, which will create an "
                              "undesired duplicate copy of the input array "
-                             "in memory.") 
+                             "in memory.")
         else:
-            array_out = array_out.ravel()
+            array_out.shape = (array_out.size,)
     else:
         array_out = np.empty(shape_out).ravel()
 
