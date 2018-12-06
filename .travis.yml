@@ -14,7 +14,7 @@ env:
         - SETUP_CMD='test'
         - CONDA_CHANNELS='astropy'
         - CONDA_DEPENDENCIES='Cython scipy matplotlib shapely>=1.6 astropy-healpix'
-        - PIP_DEPENDENCIES='pytest-arraydiff'
+        - PIP_DEPENDENCIES='pytest-arraydiff codecov'
         - SETUP_XVFB=True
 
     matrix:
@@ -61,4 +61,4 @@ script:
    - python setup.py $SETUP_CMD
 
 after_success:
-    - if [[ $SETUP_CMD == 'test --coverage' ]]; then coveralls --rcfile='reproject/tests/coveragerc'; fi
+    - if [[ $SETUP_CMD == 'test --coverage' ]]; then codecov; fi
