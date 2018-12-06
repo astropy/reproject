@@ -126,13 +126,12 @@ interpolation. Supported strings include:
 
 Very Large Cubes
 ----------------
-If you have a very large cube to reproject, but one that is the same in each
-celestial axis - i.e., any normal IFU or radio spectral cube with many
+If you have a very large cube to reproject, i.e., any normal IFU or radio spectral cube with many
 individual spectral channels - you may not be able to hold two copies of the
 cube in memory.  In this case, you can specify an output memory mapped array to
 store the data.
 
-In theory, you can attempt the following::
+You can use the following approach for large data, but only with the interpolation reprojection methods::
 
 .. doctest-skip::
 
@@ -146,7 +145,7 @@ In theory, you can attempt the following::
     >>> newhdu = fits.PrimaryHDU(data=outarray, header=outhdr)
     >>> newhdu.writeto('new_cube_file.fits')
 
-Or better, skip the numpy memmap step and use `FITS large file creation
+Or if you're dealing with FITS files, you can skip the numpy memmap step and use `FITS large file creation
 <http://docs.astropy.org/en/stable/generated/examples/io/skip_create-large-fits.html>`_::
 
 .. doctest-skip::
