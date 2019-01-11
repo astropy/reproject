@@ -131,7 +131,7 @@ individual spectral channels - you may not be able to hold two copies of the
 cube in memory.  In this case, you can specify an output memory mapped array to
 store the data.
 
-You can use the following approach for large data, but only with the interpolation reprojection methods::
+You can use the following approach for large data, but only with the interpolation reprojection methods.
 
 .. doctest-skip::
 
@@ -146,7 +146,7 @@ You can use the following approach for large data, but only with the interpolati
     >>> newhdu.writeto('new_cube_file.fits')
 
 Or if you're dealing with FITS files, you can skip the numpy memmap step and use `FITS large file creation
-<http://docs.astropy.org/en/stable/generated/examples/io/skip_create-large-fits.html>`_::
+<http://docs.astropy.org/en/stable/generated/examples/io/skip_create-large-fits.html>`_.
 
 .. doctest-skip::
 
