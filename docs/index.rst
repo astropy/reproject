@@ -26,6 +26,8 @@ This package has the following hard run time dependencies:
 
 * `astropy-healpix <https://astropy-healpix.readthedocs.io>`_ 0.2 or later for HEALPIX image reprojection
 
+* `six <http://pypi.python.org/pypi/six/>`__
+
 and the following optional dependencies:
 
 * `shapely <https://toblerity.org/shapely/project.html>`_ 1.6 or later for some of the mosaicking functionality
