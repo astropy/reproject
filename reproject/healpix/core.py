@@ -1,9 +1,10 @@
 from __future__ import print_function, division
 
+import six
+
 import numpy as np
 
 from astropy import units as u
-from astropy.extern import six
 from astropy_healpix import npix_to_nside, HEALPix
 
 from ..wcs_utils import convert_world_coordinates

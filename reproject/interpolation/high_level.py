@@ -2,7 +2,7 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-from astropy.extern import six
+import six
 
 from ..utils import parse_input_data, parse_output_projection
 from .core_celestial import _reproject_celestial
@@ -48,7 +48,7 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
         If ``input_data`` is a FITS file or an `~astropy.io.fits.HDUList`
         instance, specifies the HDU to use.
     order : int or str, optional
-        The order of the interpolation. This can be any of the 
+        The order of the interpolation. This can be any of the
         following strings:
 
             * 'nearest-neighbor'
