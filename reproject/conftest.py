@@ -1,8 +1,16 @@
 # This file is used to configure the behavior of pytest when using the Astropy
 # test infrastructure.
-
+import os
+from distutils.version import LooseVersion
 from astropy.version import version as astropy_version
-if astropy_version < '3.0':
+
+if LooseVersion(astropy_version) < LooseVersion('2.0.3'):
+    # Astropy is not compatible with the standalone plugins prior this while
+    # astroquery requires them, so we need this workaround. This will mess
+    # up the test header, but everything else will work.
+    from astropy.tests.pytest_plugins import (PYTEST_HEADER_MODULES,
+                                              TESTED_VERSIONS)
+elif astropy_version < '3.0':
     # With older versions of Astropy, we actually need to import the pytest
     # plugins themselves in order to make them discoverable by pytest.
     from astropy.tests.pytest_plugins import *
@@ -33,17 +41,11 @@ except (NameError, KeyError):  # NameError is needed to support Astropy < 1.0
 # Uncomment the following lines to display the version number of the
 # package rather than the version number of Astropy in the top line when
 # running the tests.
-import os
 
-# This is to figure out the affiliated package version, rather than
+# This is to figure out the reproject's version, rather than
 # using Astropy's
-try:
-    from .version import version
-except ImportError:
-    version = 'dev'
+from .version import version, astropy_helpers_version
 
-try:
-    packagename = os.path.basename(os.path.dirname(__file__))
-    TESTED_VERSIONS[packagename] = version
-except NameError:   # Needed to support Astropy <= 1.0.0
-    pass
+packagename = os.path.basename(os.path.dirname(__file__))
+TESTED_VERSIONS[packagename] = version
+TESTED_VERSIONS['astropy_helpers'] = astropy_helpers_version
