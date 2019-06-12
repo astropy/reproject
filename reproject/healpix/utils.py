@@ -1,8 +1,9 @@
+import six
+
 import numpy as np
 
 from astropy.io import fits
 from astropy.io.fits import TableHDU, BinTableHDU
-from astropy.extern import six
 from astropy.coordinates import BaseCoordinateFrame, frame_transform_graph, Galactic, ICRS
 
 FRAMES = {

@@ -1,9 +1,10 @@
+import six
+
 import numpy as np
 
 from astropy.io import fits
 from astropy.io.fits import PrimaryHDU, ImageHDU, CompImageHDU, Header, HDUList
 from astropy.wcs import WCS
-from astropy.extern import six
 
 
 def parse_input_data(input_data, hdu_in=None):
@@ -32,7 +33,7 @@ def parse_input_data(input_data, hdu_in=None):
 
 
 def parse_output_projection(output_projection, shape_out=None):
-    
+
     if isinstance(output_projection, Header):
         wcs_out = WCS(output_projection)
         try:

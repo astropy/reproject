@@ -1,53 +1,35 @@
-language: python
-
-python:
-    - 2.7
-    - 3.5
-    - 3.6
-
-sudo: false
+language: generic
 
 env:
     global:
-        - NUMPY_VERSION=1.13
+        - PYTHON_VERSION=3.7
+        - NUMPY_VERSION=stable
         - ASTROPY_VERSION=stable
         - SETUP_CMD='test'
         - CONDA_CHANNELS='astropy'
         - CONDA_DEPENDENCIES='Cython scipy matplotlib shapely>=1.6 astropy-healpix'
-        - PIP_DEPENDENCIES='pytest-arraydiff codecov'
+        - PIP_DEPENDENCIES='pytest-arraydiff'
         - SETUP_XVFB=True
-
-    matrix:
-        # Make sure that egg_info works without dependencies
-        - SETUP_CMD='egg_info'
 
 matrix:
     include:
+        # Make sure that egg_info works without dependencies
+        - env: SETUP_CMD='egg_info'
 
-        # Do a coverage test in Python 2.
-        - python: 2.7
-          env: SETUP_CMD='test --coverage'
+        - env: SETUP_CMD='test --coverage'
 
         # Check for sphinx doc build warnings - we do this first because it
         # may run for a long time
-        - python: 2.7
-          env: SETUP_CMD='build_sphinx -w'
+        - env: SETUP_CMD='build_sphinx -w'
 
         # Try Astropy development version
-        - python: 3.6
-          env: ASTROPY_VERSION=development
+        - env: ASTROPY_VERSION=development
 
-        # Try older numpy/astropy versions
-        - python: 3.6
-          env: NUMPY_VERSION=1.11 ASTROPY_VERSION=2.0
-        - python: 2.7
-          env: NUMPY_VERSION=1.10 ASTROPY_VERSION=2.0
-
-        # Try without optional dependencies
-        - python: 2.7
-          env: PIP_DEPENDENCIES='pytest-arraydiff'
-        - python: 3.6
-          env: PIP_DEPENDENCIES='pytest-arraydiff'
+        # Try older numpy/astropy versions and with optional dependencies only
+        - env: PYTHON_VERSION=3.6 NUMPY_VERSION=1.12 ASTROPY_VERSION=3.0
+        - env: PYTHON_VERSION=2.7 NUMPY_VERSION=1.10 ASTROPY_VERSION=2.0
+        - env: PYTHON_VERSION=2.7 UMPY_VERSION=1.14 PIP_DEPENDENCIES='pytest-arraydiff'
+        - env: PYTHON_VERSION=3.5 NUMPY_VERSION=1.15 PIP_DEPENDENCIES='pytest-arraydiff'
 
 before_install:
     # Make sure matplotlib uses PyQT not PySide
