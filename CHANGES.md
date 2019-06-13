@@ -1,4 +1,4 @@
-0.5 (unreleased)
+0.5 (2019-06-13)
 ----------------
 
 - Improve parse_output_projection to make it so that the output projection
@@ -6,6 +6,9 @@
 
 - Fixed a bug that caused HEALPix maps in RING order to not be correctly
   interpreted. [#163]
+
+- Make it possible to specify the output array for reprojection using the
+  ``output_array=`` keyword argument. [#115]
 
 0.4 (2018-01-29)
 ----------------
