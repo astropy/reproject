@@ -16,7 +16,7 @@ def reproject_exact(input_data, output_projection, shape_out=None, hdu_in=0,
 
     Parameters
     ----------
-    input_data : str or `~astropy.io.fits.HDUList` or `~astropy.io.fits.PrimaryHDU` or `~astropy.io.fits.ImageHDU` or tuple
+    input_data : `str` or `~astropy.io.fits.HDUList` or `~astropy.io.fits.PrimaryHDU` or `~astropy.io.fits.ImageHDU` or `~astropy.nddata.NDDataBase` or `tuple`
         The input data to reproject. This can be:
 
             * The name of a FITS file
@@ -24,6 +24,9 @@ def reproject_exact(input_data, output_projection, shape_out=None, hdu_in=0,
             * An image HDU object such as a `~astropy.io.fits.PrimaryHDU`,
               `~astropy.io.fits.ImageHDU`, or `~astropy.io.fits.CompImageHDU`
               instance
+            * A tuple where the first element is a `~numpy.ndarray` and the
+              second element is either a `~astropy.wcs.WCS` or a
+              `~astropy.io.fits.Header` object
             * A tuple where the first element is a `~numpy.ndarray` and the
               second element is either a `~astropy.wcs.WCS` or a
               `~astropy.io.fits.Header` object
@@ -55,7 +58,7 @@ def reproject_exact(input_data, output_projection, shape_out=None, hdu_in=0,
     """
 
     array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
-    wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
+    wcs_out, shape_out, _ = parse_output_projection(output_projection, shape_out=shape_out)
 
     if wcs_in.has_celestial and wcs_in.naxis == 2:
         return _reproject_celestial(array_in, wcs_in, wcs_out, shape_out=shape_out, parallel=parallel)

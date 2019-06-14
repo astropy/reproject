@@ -62,7 +62,7 @@ def reproject_from_healpix(input_data, output_projection, shape_out=None,
 
     array_in, coord_system_in, nested = parse_input_healpix_data(input_data, hdu_in=hdu_in,
                                                                  field=field, nested=nested)
-    wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
+    wcs_out, shape_out, _ = parse_output_projection(output_projection, shape_out=shape_out)
 
     if nested is None:
         raise ValueError("Could not determine whether the data follows the "
@@ -80,13 +80,16 @@ def reproject_to_healpix(input_data, coord_system_out, hdu_in=0,
 
     Parameters
     ----------
-    input_data : str or `~astropy.io.fits.HDUList` or `~astropy.io.fits.PrimaryHDU` or `~astropy.io.fits.ImageHDU` or tuple
+    input_data : `str` or `~astropy.io.fits.HDUList` or `~astropy.io.fits.PrimaryHDU` or `~astropy.io.fits.ImageHDU` or `~astropy.nddata.NDDataBase` or `tuple`
         The input data to reproject. This can be:
 
             * The name of a FITS file
             * An `~astropy.io.fits.HDUList` object
             * An image HDU object such as a `~astropy.io.fits.PrimaryHDU` or
               `~astropy.io.fits.ImageHDU` instance
+            * A tuple where the first element is a `~numpy.ndarray` and the
+              second element is either a `~astropy.wcs.WCS` or a
+              `~astropy.io.fits.Header` object
             * A tuple where the first element is a `~numpy.ndarray` and the
               second element is either a `~astropy.wcs.WCS` or a
               `~astropy.io.fits.Header` object

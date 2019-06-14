@@ -26,7 +26,7 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
 
     Parameters
     ----------
-    input_data : str or `~astropy.io.fits.HDUList` or `~astropy.io.fits.PrimaryHDU` or `~astropy.io.fits.ImageHDU` or tuple
+    input_data : `str` or `~astropy.io.fits.HDUList` or `~astropy.io.fits.PrimaryHDU` or `~astropy.io.fits.ImageHDU` or `~astropy.nddata.NDDataBase` or `tuple`
         The input data to reproject. This can be:
 
             * The name of a FITS file
@@ -34,13 +34,22 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
             * An image HDU object such as a `~astropy.io.fits.PrimaryHDU`,
               `~astropy.io.fits.ImageHDU`, or `~astropy.io.fits.CompImageHDU`
               instance
+            * An `~astropy.nddata.NDDataBase` object, where the ``.data``
+              attribute will be used as the input array and the ``.wcs``
+              attribute will be used as the input projection.
             * A tuple where the first element is a `~numpy.ndarray` and the
               second element is either a `~astropy.wcs.WCS` or a
               `~astropy.io.fits.Header` object
 
-    output_projection : `~astropy.wcs.WCS` or `~astropy.io.fits.Header`
-        The output projection, which can be either a `~astropy.wcs.WCS`
-        or a `~astropy.io.fits.Header` instance.
+    output_projection : `~astropy.wcs.WCS` or `~astropy.io.fits.Header` or `~astropy.nddata.NDDataBase`
+        The output projection, which can be either a:
+            * `~astropy.wcs.WCS` instance.
+            * A `~astropy.io.fits.Header` instance.
+            * An `~astropy.nddata.NDDataBase` object, where the ``.data``
+              attribute will be used as the output array (and modified in place
+              as if ``output_array`` had been specified) and the ``.wcs``
+              attribute will be used as the output projection.
+
     shape_out : tuple, optional
         If ``output_projection`` is a `~astropy.wcs.WCS` instance, the
         shape of the output data should be specified separately.
@@ -90,7 +99,7 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
     """
 
     array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
-    wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
+    wcs_out, shape_out, output_array = parse_output_projection(output_projection, shape_out, output_array)
 
     if isinstance(order, six.string_types):
         order = ORDER[order]
@@ -100,4 +109,4 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
                                     array_out=output_array, return_footprint=return_footprint)
     else:
         return _reproject_full(array_in, wcs_in, wcs_out, shape_out=shape_out, order=order,
-                               return_footprint=return_footprint)
+                               array_out=output_array, return_footprint=return_footprint)
