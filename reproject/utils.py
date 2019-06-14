@@ -27,7 +27,7 @@ def parse_input_data(input_data, hdu_in=None):
     elif isinstance(input_data, NDDataBase):
         return (input_data.data, input_data.wcs)
     elif isinstance(input_data, tuple) and isinstance(input_data[0], np.ndarray):
-        if isinstance(input_data[1], Header):
+        if isinstance(input_data[1], (Header, dict)):
             return input_data[0], WCS(input_data[1])
         else:
             return input_data
@@ -40,7 +40,7 @@ def parse_output_projection(output_projection, shape_out=None, output_array=None
         if output_array is not None:
             shape_out = output_array.shape
 
-    if isinstance(output_projection, Header):
+    if isinstance(output_projection, (Header, dict)):
         wcs_out = WCS(output_projection)
         try:
             shape_out = [output_projection['NAXIS{0}'.format(i + 1)] for i in range(output_projection['NAXIS'])][::-1]
