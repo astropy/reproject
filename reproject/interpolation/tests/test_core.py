@@ -9,15 +9,20 @@ import itertools
 import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
+from astropy.wcs.wcsapi import HighLevelWCSWrapper, SlicedLowLevelWCS
 from astropy.utils.data import get_pkg_data_filename
+
 import pytest
 
 from ..high_level import reproject_interp
 
 # TODO: add reference comparisons
 
-
 DATA = os.path.join(os.path.dirname(__file__), '..', '..', 'tests', 'data')
+
+
+def as_high_level_wcs(wcs):
+    return HighLevelWCSWrapper(SlicedLowLevelWCS(wcs, Ellipsis))
 
 
 def array_footprint_to_hdulist(array, footprint, header):
@@ -27,8 +32,9 @@ def array_footprint_to_hdulist(array, footprint, header):
     return hdulist
 
 
-@pytest.mark.array_compare()
-def test_reproject_celestial_2d_gal2equ():
+@pytest.mark.array_compare(single_reference=True)
+@pytest.mark.parametrize('wcsapi', (False, True))
+def test_reproject_celestial_2d_gal2equ(wcsapi):
     """
     Test reprojection of a 2D celestial image, which includes a coordinate
     system conversion.
@@ -39,21 +45,31 @@ def test_reproject_celestial_2d_gal2equ():
     header_out['CTYPE2'] = 'DEC--TAN'
     header_out['CRVAL1'] = 266.39311
     header_out['CRVAL2'] = -28.939779
-    array_out, footprint_out = reproject_interp(hdu_in, header_out)
+
+    if wcsapi:  # Enforce a pure wcsapi API
+        wcs_in, data_in = as_high_level_wcs(WCS(hdu_in.header)), hdu_in.data
+        wcs_out = as_high_level_wcs(WCS(header_out))
+        shape_out = header_out['NAXIS2'], header_out['NAXIS1']
+        array_out, footprint_out = reproject_interp((data_in, wcs_in),
+                                                    wcs_out, shape_out=shape_out)
+    else:
+        array_out, footprint_out = reproject_interp(hdu_in, header_out)
+
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 
 
 # Note that we can't use independent_celestial_slices=True and reorder the
 # axes, hence why we need to prepare the combinations in this way.
 AXIS_ORDER = list(itertools.permutations((0, 1, 2)))
-COMBINATIONS = [(True, (0, 1, 2))]
-for axis_order in AXIS_ORDER:
-    COMBINATIONS.append((False, axis_order))
+COMBINATIONS = []
+for wcsapi in (False, True):
+    for axis_order in AXIS_ORDER:
+        COMBINATIONS.append((wcsapi, axis_order))
 
 
 @pytest.mark.array_compare(single_reference=True)
-@pytest.mark.parametrize(('indep_slices', 'axis_order'), tuple(COMBINATIONS))
-def test_reproject_celestial_3d_equ2gal(indep_slices, axis_order):
+@pytest.mark.parametrize(('wcsapi', 'axis_order'), tuple(COMBINATIONS))
+def test_reproject_celestial_3d_equ2gal(wcsapi, axis_order):
     """
     Test reprojection of a 3D cube with celestial components, which includes a
     coordinate system conversion (the original header is in equatorial
@@ -85,13 +101,21 @@ def test_reproject_celestial_3d_equ2gal(indep_slices, axis_order):
         hdu_in.header = wcs_in.to_header()
         hdu_in.data = np.transpose(hdu_in.data, axis_order)
 
-    array_out, footprint_out = reproject_interp(hdu_in, header_out,
-                                                independent_celestial_slices=indep_slices)
+    if wcsapi:  # Enforce a pure wcsapi API
+        wcs_in, data_in = as_high_level_wcs(WCS(hdu_in.header)), hdu_in.data
+        wcs_out = as_high_level_wcs(WCS(header_out))
+        shape_out = header_out['NAXIS3'], header_out['NAXIS2'], header_out['NAXIS1']
+        array_out, footprint_out = reproject_interp((data_in, wcs_in),
+                                                    wcs_out, shape_out=shape_out)
+    else:
+        array_out, footprint_out = reproject_interp(hdu_in, header_out)
+
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 
 
-@pytest.mark.array_compare()
-def test_small_cutout():
+@pytest.mark.array_compare(single_reference=True)
+@pytest.mark.parametrize('wcsapi', (False, True))
+def test_small_cutout(wcsapi):
     """
     Test reprojection of a cutout from a larger image (makes sure that the
     pre-reprojection cropping works)
@@ -106,7 +130,16 @@ def test_small_cutout():
     header_out['CRVAL2'] = -28.939779
     header_out['CRPIX1'] = 5.1
     header_out['CRPIX2'] = 4.7
-    array_out, footprint_out = reproject_interp(hdu_in, header_out)
+
+    if wcsapi:  # Enforce a pure wcsapi API
+        wcs_in, data_in = as_high_level_wcs(WCS(hdu_in.header)), hdu_in.data
+        wcs_out = as_high_level_wcs(WCS(header_out))
+        shape_out = header_out['NAXIS2'], header_out['NAXIS1']
+        array_out, footprint_out = reproject_interp((data_in, wcs_in),
+                                                    wcs_out, shape_out=shape_out)
+    else:
+        array_out, footprint_out = reproject_interp(hdu_in, header_out)
+
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 
 

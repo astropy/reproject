@@ -2,12 +2,14 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
+import pytest
 import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.utils.data import get_pkg_data_filename
 
 from ..core import _reproject_celestial
+from ...interpolation.tests.test_core import as_high_level_wcs
 
 
 def test_reproject_celestial_slices_2d():
@@ -81,12 +83,16 @@ def test_reproject_celestial_consistency():
     np.testing.assert_allclose(footprint1, footprint3, rtol=3.e-5)
 
 
-def test_reproject_celestial_montage():
+@pytest.mark.parametrize('wcsapi', (False, True))
+def test_reproject_celestial_montage(wcsapi):
 
     # Accuracy compared to Montage
 
     wcs_in = WCS(fits.Header.fromstring(INPUT_HDR, sep='\n'))
     wcs_out = WCS(fits.Header.fromstring(OUTPUT_HDR, sep='\n'))
+
+    if wcsapi:  # Enforce a pure wcsapi API
+        wcs_in, wcs_out = as_high_level_wcs(wcs_in), as_high_level_wcs(wcs_out)
 
     array, footprint = _reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), parallel=False)
 

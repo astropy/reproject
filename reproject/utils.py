@@ -5,6 +5,7 @@ import numpy as np
 from astropy.io import fits
 from astropy.io.fits import PrimaryHDU, ImageHDU, CompImageHDU, Header, HDUList
 from astropy.wcs import WCS
+from astropy.wcs.wcsapi import BaseHighLevelWCS
 
 
 def parse_input_data(input_data, hdu_in=None):
@@ -48,7 +49,7 @@ def parse_output_projection(output_projection, shape_out=None, output_array=None
         except KeyError:
             if shape_out is None:
                 raise ValueError("Need to specify shape since output header does not contain complete shape information")
-    elif isinstance(output_projection, WCS):
+    elif isinstance(output_projection, BaseHighLevelWCS):
         wcs_out = output_projection
         if shape_out is None:
             raise ValueError("Need to specify shape when specifying output_projection as WCS object")
