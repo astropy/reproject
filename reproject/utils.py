@@ -32,7 +32,14 @@ def parse_input_data(input_data, hdu_in=None):
         raise TypeError("input_data should either be an HDU object or a tuple of (array, WCS) or (array, Header)")
 
 
-def parse_output_projection(output_projection, shape_out=None):
+def parse_output_projection(output_projection, shape_out=None, output_array=None):
+
+    if shape_out is None:
+        if output_array is not None:
+            shape_out = output_array.shape
+    elif shape_out is not None and output_array is not None:
+        if shape_out != output_array.shape:
+            raise ValueError("shape_out does not match shape of output_array")
 
     if isinstance(output_projection, Header):
         wcs_out = WCS(output_projection)

@@ -387,7 +387,7 @@ def test_reproject_3d_celestial_correctness_ra2gal():
     np.testing.assert_allclose(out_cube[:, 0, 0], ((inp_cube[:-1] + inp_cube[1:]) / 2.)[:, 0, 0])
 
 
-def test_reproject_celestial_3d_withoutputarray():
+def test_reproject_with_output_array():
     """
     Test both full_reproject and slicewise reprojection. We use a case where the
     non-celestial slices are the same and therefore where both algorithms can
@@ -397,12 +397,8 @@ def test_reproject_celestial_3d_withoutputarray():
     header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
 
     array_in = np.ones((3, 200, 180))
-    outshape = (3, 160, 170)
-    out_full = np.empty(outshape)
-    out_celestial = np.empty(outshape)
-
-    # TODO: here we can check that if we change the order of the dimensions in
-    # the WCS, things still work properly
+    shape_out = (3, 160, 170)
+    out_full = np.empty(shape_out)
 
     wcs_in = WCS(header_in)
     wcs_out = wcs_in.deepcopy()
@@ -411,12 +407,7 @@ def test_reproject_celestial_3d_withoutputarray():
     wcs_out.wcs.crpix = [50., 50., wcs_in.wcs.crpix[2] + 0.4]
 
     # TODO when someone learns how to do it: make sure the memory isn't duplicated...
-    _ = _reproject_full(array_in, wcs_in, wcs_out, shape_out=outshape,
-                        array_out=out_full, return_footprint=False)
-    assert out_full is _
+    returned_array = reproject_interp((array_in, wcs_in), wcs_out,
+                                      output_array=out_full, return_footprint=False)
 
-    _ = _reproject_celestial(array_in, wcs_in, wcs_out, shape_out=outshape,
-                             array_out=out_celestial, return_footprint=False)
-    assert out_celestial is _
-
-    np.testing.assert_allclose(out_full, out_celestial)
+    assert out_full is returned_array

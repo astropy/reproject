@@ -89,7 +89,8 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
     """
 
     array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
-    wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
+    wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out,
+                                                 output_array=output_array)
 
     if isinstance(order, six.string_types):
         order = ORDER[order]
