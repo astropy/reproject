@@ -40,11 +40,11 @@ def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
 
     # Convert output pixel coordinates to pixel coordinates in original image
     # (using pixel centers).
-    world_in = wcs_out.pixel_to_world(*pixel_out)
+    world_in = wcs_out.array_index_to_world(*pixel_out)
 
     # TODO: it would be good to avoid this if statement if possible. Also need
     # to do [;:-1] rather than use array_index since the latter rounds to an int.
-    if isinstance(world_in, tuple):
+    if isinstance(world_in, (list, tuple)):
         pixel_in = wcs_in.world_to_pixel(*world_in)[::-1]
     else:
         pixel_in = wcs_in.world_to_pixel(world_in)[::-1]
