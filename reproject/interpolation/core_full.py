@@ -54,7 +54,9 @@ def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
         elif wcs_out.wcs.spec >= 0:
             raise ValueError("Output WCS has a spectral component but input WCS does not")
 
-    pixel_out = [p.ravel() for p in np.indices(shape_out, dtype=float)]
+    pixel_out = np.meshgrid(*[np.arange(size, dtype=float) for size in shape_out],
+                            indexing='ij', sparse=False, copy=False)
+    pixel_out = [p.ravel() for p in pixel_out]
     pixel_in = efficient_pixel_to_pixel(wcs_out, wcs_in, *pixel_out[::-1])[::-1]
     pixel_in = np.array(pixel_in)
 
