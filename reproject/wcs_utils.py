@@ -11,11 +11,12 @@ import numpy as np
 from numpy.lib.stride_tricks import as_strided
 
 from astropy import units as u
-from astropy.coordinates import UnitSphericalRepresentation
+from astropy.coordinates import SkyCoord, UnitSphericalRepresentation
 from astropy.wcs import WCS
 from astropy.wcs.utils import wcs_to_celestial_frame
 
-__all__ = ['convert_world_coordinates', 'efficient_pixel_to_pixel']
+__all__ = ['convert_world_coordinates', 'efficient_pixel_to_pixel',
+           'has_celestial']
 
 
 def convert_world_coordinates(lon_in, lat_in, wcs_in, wcs_out):
@@ -111,9 +112,9 @@ def pixel_to_world_correlation_matrix(wcs):
     # combined into the same high-level objects.
 
     # Get the following in advance as getting these properties can be expensive
-    all_components = wcs.world_axis_object_components
-    all_classes = wcs.world_axis_object_classes
-    axis_correlation_matrix = wcs.axis_correlation_matrix
+    all_components = wcs.low_level_wcs.world_axis_object_components
+    all_classes = wcs.low_level_wcs.world_axis_object_classes
+    axis_correlation_matrix = wcs.low_level_wcs.axis_correlation_matrix
 
     components = unique_with_order_preserved([c[0] for c in all_components])
 
@@ -255,3 +256,16 @@ def efficient_pixel_to_pixel(wcs1, wcs2, *inputs):
                 outputs[ipix] = np.broadcast_to(pixel_outputs[ipix], original_shape)
 
     return outputs
+
+
+def has_celestial(wcs):
+    """
+    Returns `True` if there are celestial coordinates in the WCS.
+    """
+    if isinstance(wcs, WCS):
+        return wcs.has_celestial
+    else:
+        for world_axis_class in wcs.low_level_wcs.world_axis_object_classes.values():
+            if issubclass(world_axis_class[0], SkyCoord):
+                return True
+        return False

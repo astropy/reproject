@@ -1,6 +1,7 @@
 from .core import healpix_to_image, image_to_healpix
 from .utils import parse_input_healpix_data, parse_coord_system
 from ..utils import parse_input_data, parse_output_projection
+from ..wcs_utils import has_celestial
 
 __all__ = ['reproject_from_healpix', 'reproject_to_healpix']
 
@@ -125,7 +126,7 @@ def reproject_to_healpix(input_data, coord_system_out, hdu_in=0,
     array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
     coord_system_out = parse_coord_system(coord_system_out)
 
-    if wcs_in.has_celestial and wcs_in.naxis == 2:
+    if has_celestial(wcs_in) and wcs_in.naxis == 2:
         return image_to_healpix(array_in, wcs_in, coord_system_out, nside=nside, order=order, nested=nested)
     else:
         raise NotImplementedError("Only data with a 2-d celestial WCS can be reprojected to a HEALPIX projection")

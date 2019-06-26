@@ -5,8 +5,7 @@ from __future__ import (absolute_import, division, print_function,
 import signal
 
 import numpy as np
-
-from ..wcs_utils import convert_world_coordinates
+from astropy import units as u
 
 from ._overlap import _compute_overlap
 
@@ -44,7 +43,7 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _lega
     array = np.asarray(array, dtype=float)
 
     # TODO: make this work for n-dimensional arrays
-    if wcs_in.naxis != 2:
+    if wcs_in.pixel_n_dim != 2:
         raise NotImplementedError("Only 2-dimensional arrays can be reprojected at this time")
 
     # TODO: at the moment, we compute the coordinates of all of the corners,
@@ -58,9 +57,9 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _lega
     x = np.arange(nx_in + 1.) - 0.5
     y = np.arange(ny_in + 1.) - 0.5
 
-    xp_in, yp_in = np.meshgrid(x, y)
+    xp_in, yp_in = np.meshgrid(x, y, indexing='xy', sparse=False, copy=False)
 
-    xw_in, yw_in = wcs_in.wcs_pix2world(xp_in, yp_in, 0)
+    world_in = wcs_in.pixel_to_world(xp_in, yp_in)
 
     # Now compute the world positions of all the corners in the output header
 
@@ -69,19 +68,25 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _lega
     x = np.arange(nx_out + 1.) - 0.5
     y = np.arange(ny_out + 1.) - 0.5
 
-    xp_out, yp_out = np.meshgrid(x, y)
+    xp_out, yp_out = np.meshgrid(x, y, indexing='xy', sparse=False, copy=False)
 
-    xw_out, yw_out = wcs_out.wcs_pix2world(xp_out, yp_out, 0)
+    world_out = wcs_out.pixel_to_world(xp_out, yp_out)
 
     # Convert the input world coordinates to the frame of the output world
     # coordinates.
 
-    xw_in, yw_in = convert_world_coordinates(xw_in, yw_in, wcs_in, wcs_out)
+    world_in = world_in.transform_to(world_out.frame)
 
     # Finally, compute the pixel positions in the *output* image of the pixels
     # from the *input* image.
 
-    xp_inout, yp_inout = wcs_out.wcs_world2pix(xw_in, yw_in, 0)
+    xp_inout, yp_inout = wcs_out.world_to_pixel(world_in)
+
+    world_in_unitsph = world_in.represent_as('unitspherical')
+    xw_in, yw_in = world_in_unitsph.lon.to_value(u.deg), world_in_unitsph.lat.to_value(u.deg)
+
+    world_out_unitsph = world_out.represent_as('unitspherical')
+    xw_out, yw_out = world_out_unitsph.lon.to_value(u.deg), world_out_unitsph.lat.to_value(u.deg)
 
     if _legacy:
         # Create output image

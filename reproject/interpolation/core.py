@@ -6,7 +6,7 @@ import numpy as np
 from astropy.wcs import WCS
 
 from ..array_utils import map_coordinates
-from ..wcs_utils import efficient_pixel_to_pixel
+from ..wcs_utils import efficient_pixel_to_pixel, has_celestial
 
 
 def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
@@ -36,9 +36,9 @@ def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
 
     if isinstance(wcs_in, WCS) and isinstance(wcs_out, WCS):
 
-        if wcs_in.has_celestial and not wcs_out.has_celestial:
+        if has_celestial(wcs_in) and not has_celestial(wcs_out):
             raise ValueError("Input WCS has celestial components but output WCS does not")
-        elif wcs_out.has_celestial and not wcs_in.has_celestial:
+        elif has_celestial(wcs_out) and not has_celestial(wcs_in):
             raise ValueError("Output WCS has celestial components but input WCS does not")
 
         # Check whether a spectral component is present, and if so, check that
