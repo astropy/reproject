@@ -126,7 +126,9 @@ def reproject_to_healpix(input_data, coord_system_out, hdu_in=0,
     array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
     coord_system_out = parse_coord_system(coord_system_out)
 
-    if has_celestial(wcs_in) and wcs_in.naxis == 2:
-        return image_to_healpix(array_in, wcs_in, coord_system_out, nside=nside, order=order, nested=nested)
+    if (has_celestial(wcs_in) and wcs_in.low_level_wcs.pixel_n_dim == 2 and
+            wcs_in.low_level_wcs.world_n_dim == 2):
+        return image_to_healpix(array_in, wcs_in, coord_system_out,
+                                nside=nside, order=order, nested=nested)
     else:
         raise NotImplementedError("Only data with a 2-d celestial WCS can be reprojected to a HEALPIX projection")
