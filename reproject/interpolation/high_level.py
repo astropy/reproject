@@ -5,7 +5,6 @@ from __future__ import (absolute_import, division, print_function,
 import six
 
 from ..utils import parse_input_data, parse_output_projection
-from .core_celestial import _reproject_celestial
 from .core_full import _reproject_full
 
 __all__ = ['reproject_interp']
@@ -95,9 +94,5 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
     if isinstance(order, six.string_types):
         order = ORDER[order]
 
-    # TODO: fix the celestial case
-    # if (wcs_in.is_celestial and wcs_in.naxis == 2) or independent_celestial_slices:
-    #     return _reproject_celestial(array_in, wcs_in, wcs_out, shape_out=shape_out, order=order)
-    # else:
     return _reproject_full(array_in, wcs_in, wcs_out, shape_out=shape_out, order=order,
                            array_out=output_array, return_footprint=return_footprint)

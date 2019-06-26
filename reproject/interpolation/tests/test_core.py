@@ -12,7 +12,6 @@ from astropy.wcs import WCS
 from astropy.utils.data import get_pkg_data_filename
 import pytest
 
-from ..core_celestial import _reproject_celestial
 from ..core_full import _reproject_full
 from ..high_level import reproject_interp
 
@@ -387,34 +386,6 @@ def test_reproject_3d_celestial_correctness_ra2gal():
 
     # only compare the spectral axis
     np.testing.assert_allclose(out_cube[:, 0, 0], ((inp_cube[:-1] + inp_cube[1:]) / 2.)[:, 0, 0])
-
-
-def test_reproject_celestial_3d():
-    """
-    Test both full_reproject and slicewise reprojection. We use a case where the
-    non-celestial slices are the same and therefore where both algorithms can
-    work.
-    """
-
-    header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
-
-    array_in = np.ones((3, 200, 180))
-
-    # TODO: here we can check that if we change the order of the dimensions in
-    # the WCS, things still work properly
-
-    wcs_in = WCS(header_in)
-    wcs_out = wcs_in.deepcopy()
-    wcs_out.wcs.ctype = ['GLON-SIN', 'GLAT-SIN', wcs_in.wcs.ctype[2]]
-    wcs_out.wcs.crval = [158.0501, -21.530282, wcs_in.wcs.crval[2]]
-    wcs_out.wcs.crpix = [50., 50., wcs_in.wcs.crpix[2] + 0.4]
-
-    out_full, foot_full = _reproject_full(array_in, wcs_in, wcs_out, (3, 160, 170))
-
-    out_celestial, foot_celestial = _reproject_celestial(array_in, wcs_in, wcs_out, (3, 160, 170))
-
-    np.testing.assert_allclose(out_full, out_celestial)
-    np.testing.assert_allclose(foot_full, foot_celestial)
 
 
 def test_reproject_celestial_3d_withoutputarray():
