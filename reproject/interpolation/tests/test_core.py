@@ -12,7 +12,6 @@ from astropy.wcs import WCS
 from astropy.utils.data import get_pkg_data_filename
 import pytest
 
-from ..core_full import _reproject_full
 from ..high_level import reproject_interp
 
 # TODO: add reference comparisons
@@ -274,7 +273,7 @@ def test_slice_reprojection():
     wcs_in = WCS(header_in)
     wcs_out = WCS(header_out)
 
-    out_cube, out_cube_valid = _reproject_full(inp_cube, wcs_in, wcs_out, (2, 4, 5))
+    out_cube, out_cube_valid = reproject_interp((inp_cube, wcs_in), wcs_out, shape_out=(2, 4, 5))
 
     # we expect to be projecting from
     # inp_cube = np.arange(3, dtype='float').repeat(4*5).reshape(3,4,5)

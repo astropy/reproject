@@ -5,7 +5,7 @@ from __future__ import (absolute_import, division, print_function,
 import six
 
 from ..utils import parse_input_data, parse_output_projection
-from .core_full import _reproject_full
+from .core import _reproject_full
 
 __all__ = ['reproject_interp']
 
