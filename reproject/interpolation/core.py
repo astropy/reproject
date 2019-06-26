@@ -34,12 +34,12 @@ def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
     # shape_out must be exact a tuple type
     shape_out = tuple(shape_out)
 
-    if isinstance(wcs_in, WCS) and isinstance(wcs_out, WCS):
+    if has_celestial(wcs_in) and not has_celestial(wcs_out):
+        raise ValueError("Input WCS has celestial components but output WCS does not")
+    elif has_celestial(wcs_out) and not has_celestial(wcs_in):
+        raise ValueError("Output WCS has celestial components but input WCS does not")
 
-        if has_celestial(wcs_in) and not has_celestial(wcs_out):
-            raise ValueError("Input WCS has celestial components but output WCS does not")
-        elif has_celestial(wcs_out) and not has_celestial(wcs_in):
-            raise ValueError("Output WCS has celestial components but input WCS does not")
+    if isinstance(wcs_in, WCS) and isinstance(wcs_out, WCS):
 
         # Check whether a spectral component is present, and if so, check that
         # the CTYPEs match.
