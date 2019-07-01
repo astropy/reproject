@@ -20,7 +20,7 @@ matrix:
 
         # Check for sphinx doc build warnings - we do this first because it
         # may run for a long time
-        - env: SETUP_CMD='build_sphinx -w'
+        - env: SETUP_CMD='build_sphinx -w' PIP_DEPENDENCIES='sphinx-astropy'
 
         # Try Astropy development version
         - env: ASTROPY_VERSION=development
