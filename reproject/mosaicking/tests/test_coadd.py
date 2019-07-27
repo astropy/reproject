@@ -11,16 +11,10 @@ from numpy.testing import assert_allclose, assert_equal
 
 from astropy.wcs import WCS
 
-try:
-    import shapely  # noqa
-except ImportError:
-    SHAPELY_INSTALLED = False
-else:
-    SHAPELY_INSTALLED = True
-
 from ... import reproject_interp
 
 from ..coadd import reproject_and_coadd
+
 
 class TestReprojectAndCoAdd():
 
