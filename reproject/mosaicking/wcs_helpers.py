@@ -11,83 +11,9 @@ from astropy.nddata import Cutout2D
 
 from astropy.wcs.utils import celestial_frame_to_wcs
 from ..utils import parse_input_data, parse_output_projection
-
+from .subset_array import ReprojectedArraySubset
 
 __all__ = ['reproject_and_coadd', 'find_optimal_celestial_wcs']
-
-
-class ReprojectedArraySubset:
-
-    # NOTE: we can't use Cutout2D here because it's much more convenient
-    # to work with position being the lower left corner of the cutout
-    # rather than the center, which is not well defined for even-sized
-    # cutouts.
-
-    def __init__(self, array, footprint, imin, imax, jmin, jmax):
-        self.array = array
-        self.footprint = footprint
-        self.imin = imin
-        self.imax = imax
-        self.jmin = jmin
-        self.jmax = jmax
-
-    def __repr__(self):
-        return '<ReprojectedArraySubset at [{0}:{1},{2}:{3}]>'.format(self.imin, self.imax,
-                                                                      self.jmin, self.jmax)
-    @property
-    def view_in_original_array(self):
-        return (slice(self.jmin, self.jmax), slice(self.imin, self.imax))
-
-    @property
-    def shape(self):
-        return (self.jmax - self.jmin, self.imax - self.imin)
-
-    def overlaps(self, other):
-        # Note that the use of <= or >= instead of < and > is due to
-        # the fact that the max values are exclusive (so +1 above the
-        # last value).
-        return not (self.imax <= other.imin or other.imax <= self.imin or
-                    self.jmax <= other.jmin or other.jmax <= self.jmin)
-
-    def __add__(self, other):
-        return self._operation(other, operator.add)
-
-    def __sub__(self, other):
-        return self._operation(other, operator.sub)
-
-    def __mul__(self, other):
-        return self._operation(other, operator.mul)
-
-    def __truediv__(self, other):
-        return self._operation(other, operator.truediv)
-
-    def _operation(self, other, op):
-
-        # Determine cutout parameters for overlap region
-
-        imin = max(self.imin, other.imin)
-        imax = min(self.imax, other.imax)
-        jmin = max(self.jmin, other.jmin)
-        jmax = min(self.jmax, other.jmax)
-
-        # Extract cutout from each
-
-        self_array = self.array[jmin - self.jmin:jmax - self.jmin,
-                                imin - self.imin:imax - self.imin]
-        self_footprint = self.footprint[jmin - self.jmin:jmax - self.jmin,
-                                        imin - self.imin:imax - self.imin]
-
-        other_array = other.array[jmin - other.jmin:jmax - other.jmin,
-                                  imin - other.imin:imax - other.imin]
-        other_footprint = other.footprint[jmin - other.jmin:jmax - other.jmin,
-                                          imin - other.imin:imax - other.imin]
-
-        # Carry out operator and store result in ReprojectedArraySubset
-
-        array = op(self_array, other_array)
-        footprint = (self_footprint > 0) & (other_footprint > 0)
-
-        return ReprojectedArraySubset(array, footprint, imin, imax, jmin, jmax)
 
 
 def _match_backgrounds(arrays):
