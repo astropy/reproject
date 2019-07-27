@@ -10,10 +10,10 @@ from astropy.wcs.utils import (pixel_to_skycoord, skycoord_to_pixel,
 from astropy.nddata import Cutout2D
 
 from astropy.wcs.utils import celestial_frame_to_wcs
-from .utils import parse_input_data, parse_output_projection
+from ..utils import parse_input_data, parse_output_projection
 
 
-__all__ = ['find_optimal_celestial_wcs']
+__all__ = ['reproject_and_coadd', 'find_optimal_celestial_wcs']
 
 
 class ReprojectedArraySubset:

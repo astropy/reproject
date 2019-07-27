@@ -20,8 +20,8 @@ except ImportError:
 else:
     SHAPELY_INSTALLED = True
 
-from .. import reproject_interp
-from ..mosaicking import find_optimal_celestial_wcs, reproject_and_coadd
+from ... import reproject_interp
+from .. import find_optimal_celestial_wcs, reproject_and_coadd
 
 
 class TestOptimalWCS():
