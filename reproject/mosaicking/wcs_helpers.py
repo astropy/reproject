@@ -12,59 +12,9 @@ from astropy.nddata import Cutout2D
 from astropy.wcs.utils import celestial_frame_to_wcs
 from ..utils import parse_input_data, parse_output_projection
 from .subset_array import ReprojectedArraySubset
+from .background import match_backgrounds_inplace
 
 __all__ = ['reproject_and_coadd', 'find_optimal_celestial_wcs']
-
-
-def _match_backgrounds(arrays):
-
-    N = len(arrays)
-
-    # Set up matrix to record differences
-    offsets = np.ones((N, N)) * np.nan
-
-    # Loop over all pairs of images and check for overlap
-    for i1, array1 in enumerate(arrays):
-        for i2, array2 in enumerate(arrays):
-            if i2 <= i1:
-                continue
-            if array1.overlaps(array2):
-                difference = array1 - array2
-                if np.any(difference.footprint):
-                    offsets[i1, i2] = np.median(difference.array[difference.footprint])
-                    offsets[i2, i1] = -offsets[i1, i2]
-
-    # We now need to iterate to find an optimal solution to the offsets
-
-    inds = np.arange(N)
-    b = np.zeros(N)
-    eta0 = 1. / N  # Initial learning rate.
-
-    red = 1.
-
-    for main_iter in range(10000):
-
-        if main_iter > 0 and main_iter % 500 == 0:
-            red /= 2.
-
-        np.random.shuffle(inds)
-
-        # Update learning rate
-        eta = eta0 * red
-
-        for i in inds:
-
-            if np.isnan(b[i]):
-                continue
-
-            keep = ~np.isnan(offsets[i, :])
-            b[i] += eta * np.sum(offsets[i, keep] - b[i, np.newaxis] + b[keep][np.newaxis, :])
-
-        mn = np.mean(b[~np.isnan(b)])
-        b -= mn
-
-    for array, offset in zip(arrays, b):
-        array.array -= offset
 
 
 def reproject_and_coadd(input_data, output_projection, shape_out=None, hdu_in=None,
@@ -183,7 +133,7 @@ def reproject_and_coadd(input_data, output_projection, shape_out=None, hdu_in=No
 
     # If requested, try and match the backgrounds.
     if match_background:
-        _match_backgrounds(arrays)
+        match_backgrounds_inplace(arrays)
 
     # At this point, the images are now ready to be co-added.
 
