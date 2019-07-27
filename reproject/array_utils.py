@@ -18,6 +18,8 @@ def map_coordinates(image, coords, **kwargs):
 
     from scipy.ndimage import map_coordinates as scipy_map_coordinates
 
+    original_shape = image.shape
+
     image = pad_edge_1(image)
 
     values = scipy_map_coordinates(image, coords + 1, **kwargs)
@@ -26,7 +28,7 @@ def map_coordinates(image, coords, **kwargs):
 
     for i in range(coords.shape[0]):
         reset |= (coords[i] < -0.5)
-        reset |= (coords[i] > image.shape[i] - 0.5)
+        reset |= (coords[i] > original_shape[i] - 0.5)
 
     values[reset] = kwargs.get('cval', 0.)
 

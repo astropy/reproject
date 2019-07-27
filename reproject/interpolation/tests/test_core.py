@@ -4,6 +4,8 @@ import os
 import itertools
 
 import numpy as np
+from numpy.testing import assert_allclose
+
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy import units as u
@@ -482,3 +484,29 @@ def test_reproject_roundtrip(file_format):
     output, footprint = reproject_interp((data, wcs), target_wcs, (128, 128))
 
     return array_footprint_to_hdulist(output, footprint, target_wcs.to_header())
+
+
+def test_identity_with_offset():
+
+    # Reproject an array and WCS to itself but with a margin, which should
+    # end up empty. This is a regression test for a bug that caused some
+    # values to extend beyond the original footprint.
+
+    wcs = WCS(naxis=2)
+    wcs.wcs.ctype = 'RA---TAN', 'DEC--TAN'
+    wcs.wcs.crpix = 322, 151
+    wcs.wcs.crval = 43, 23
+    wcs.wcs.cdelt = -0.1, 0.1
+    wcs.wcs.equinox = 2000.
+
+    array_in = np.random.random((233, 123))
+
+    wcs_out = wcs.deepcopy()
+    wcs_out.wcs.crpix += 1
+    shape_out = (array_in.shape[0] + 2, array_in.shape[1] + 2)
+
+    array_out, footprint = reproject_interp((array_in, wcs), wcs_out, shape_out=shape_out)
+
+    expected = np.pad(array_in, 1, 'constant', constant_values=np.nan)
+
+    assert_allclose(expected, array_out)
