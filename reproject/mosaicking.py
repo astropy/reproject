@@ -130,9 +130,9 @@ def _match_backgrounds(arrays):
 
     red = 1.
 
-    for main_iter in range(10):
+    for main_iter in range(10000):
 
-        if main_iter > 0 and main_iter % 5000 == 0:
+        if main_iter > 0 and main_iter % 500 == 0:
             red /= 2.
 
         np.random.shuffle(inds)
