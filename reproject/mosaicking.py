@@ -7,9 +7,135 @@ from astropy.wcs.utils import (pixel_to_skycoord, skycoord_to_pixel,
                                proj_plane_pixel_scales, wcs_to_celestial_frame)
 
 from astropy.wcs.utils import celestial_frame_to_wcs
-from .utils import parse_input_data
+from .utils import parse_input_data, parse_output_projection
+
 
 __all__ = ['find_optimal_celestial_wcs']
+
+
+# Steps to mosaicking:
+# - take input images and find optimal WCS and shape (optional)
+# - reproject individual images, optionally with auto-cliping to avoid creating many large arrays
+# - co-adding of individual images into a final image
+#
+# Possible add-ons:
+# - background matching by looking at overlap of images
+#
+# Things to be aware of:
+# - need a way of making sure that we can tell if individual tiles are destined.
+#   for the same moasic. The easiest way is probably to make sure that the headers
+#   are identical except for the CRPIX values.
+
+
+def mosaic(input_data, output_projection, shape_out=None, hdu_in=None,
+           reproject_function=None, combine_function='mean',
+           match_background=False, **kwargs):
+    """
+    Given a set of input images, reproject and co-add these to a single
+    final image.
+
+    This currently only works with 2-d images with celestial WCS.
+
+    Parameters
+    ----------
+    input_data : iterable
+        One or more input datasets to include in the calculation of the final WCS.
+        This should be an iterable containing one entry for each dataset, where
+        a single dataset is one of:
+
+            * The name of a FITS file
+            * An `~astropy.io.fits.HDUList` object
+            * An image HDU object such as a `~astropy.io.fits.PrimaryHDU`,
+              `~astropy.io.fits.ImageHDU`, or `~astropy.io.fits.CompImageHDU`
+              instance
+            * A tuple where the first element is a `~numpy.ndarray` and the
+              second element is either a `~astropy.wcs.WCS` or a
+              `~astropy.io.fits.Header` object
+    output_projection : `~astropy.wcs.WCS` or `~astropy.io.fits.Header`
+        The output projection, which can be either a `~astropy.wcs.WCS`
+        or a `~astropy.io.fits.Header` instance.
+    shape_out : tuple, optional
+        If ``output_projection`` is a `~astropy.wcs.WCS` instance, the
+        shape of the output data should be specified separately.
+    hdu_in : int or str, optional
+        If one or more items in ``input_data`` is a FITS file or an
+        `~astropy.io.fits.HDUList` instance, specifies the HDU to use.
+    reproject_function : callable
+        The function to use for the reprojection
+    combine_function : { 'mean', 'sum', 'median' }
+        The type of function to use for combining the values into the final
+        image.
+    match_background : bool
+        Whether to match the backgrounds of the images.
+    kwargs
+        Keyword arguments to be passed to the reprojection function.
+    """
+
+    # TODO: add support for saving intermediate files to disk to avoid blowing
+    # up memory usage. We could probably still have references to array objects,
+    # but we'd just make sure these were memory mapped
+
+    # TODO: add support for specifying output array
+
+    # Validate inputs
+
+    if combine_function not in ('mean', 'sum', 'median'):
+        raise ValueError("combine_function should be one of mean/sum/median")
+
+    if reproject_function is None:
+        raise ValueError("reprojection function should be specified with reprojection_function")
+
+    # Parse the output projection to avoid having to do it for each
+    wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
+
+    # Start off by reprojecting individual images to the final projection
+
+    arrays = []
+
+    for input_data_indiv in input_data:
+        array, footprint = reproject_function(input_data_indiv,
+                                              output_projection=wcs_out,
+                                              shape_out=shape_out,
+                                              hdu_in=hdu_in,
+                                              **kwargs)
+        arrays.append((array, footprint))
+
+    # If requested, try and match the backgrounds.
+    if match_background:
+        raise NotImplementedError()
+
+    # At this point, the images are now ready to be co-added.
+
+    # TODO: provide control over final dtype?
+
+    final_array = np.zeros(shape_out)
+    final_footprint = np.zeros(shape_out)
+
+    if combine_function in ('mean', 'sum'):
+
+        for array, footprint in arrays:
+
+            # TODO: apply offset if needed
+
+            # By default, values outside of the footprint are set to NaN
+            # but we set these to 0 here to avoid getting NaNs in the
+            # means/sums.
+            array[footprint == 0] = 0
+
+            final_array += array
+            final_footprint += footprint
+
+        if combine_function == 'mean':
+            final_array /= final_footprint
+
+    elif combine_function == 'median':
+
+        # Here we need to operate in chunks since we could otherwise run
+        # into memory issues
+
+        raise NotImplementedError("combine_function='median' is not yet implemented")
+
+    return final_array, final_footprint
 
 
 def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
@@ -50,6 +176,13 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
     reference : `~astropy.coordinates.SkyCoord`
         The reference coordinate for the final header. If not specified, this
         is determined automatically from the input images.
+
+    Returns
+    -------
+    wcs : :class:`~astropy.wcs.WCS`
+        The optimal WCS determined from the input images.
+    shape : tuple
+        The optimal shape required to cover all the output.
     """
 
     # TODO: support higher-dimensional datasets in future
