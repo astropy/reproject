@@ -36,34 +36,25 @@ class ReprojectedArraySubset:
     # rather than the center, which is not well defined for even-sized
     # cutouts.
 
-    def __init__(self, array, footprint, position, shape):
+    def __init__(self, array, footprint, imin, imax, jmin, jmax):
         self.array = array
         self.footprint = footprint
-        self.position = position
-        self.shape = shape
+        self.imin = imin
+        self.imax = imax
+        self.jmin = jmin
+        self.jmax = jmax
 
     def __repr__(self):
-        return '<ReprojectedArraySubset at {0} with shape {1}>'.format(self.position, self.shape)
+        return '<ReprojectedArraySubset at [{0}:{1},{2}:{3}]>'.format(self.imin, self.imax,
+                                                                      self.jmin, self.jmax)
 
     @property
     def view_in_original_array(self):
         return (slice(self.jmin, self.jmax), slice(self.imin, self.imax))
 
     @property
-    def jmin(self):
-        return self.position[0]
-
-    @property
-    def jmax(self):
-        return self.position[0] + self.shape[0]
-
-    @property
-    def imin(self):
-        return self.position[1]
-
-    @property
-    def imax(self):
-        return self.position[1] + self.shape[1]
+    def shape(self):
+        return (self.jmax - self.jmin, self.imax - self.imin)
 
     def overlaps(self, other):
         # Note that the use of <= or >= instead of < and > is due to
@@ -232,29 +223,48 @@ def mosaic(input_data, output_projection, shape_out=None, hdu_in=None,
     arrays = []
 
     for input_data_indiv in input_data:
+
+        # We need to pre-parse the data here since we need to figure out
+        # how to optimize/minimize the size of each output tile (see below).
+        array_in, wcs_in = parse_input_data(input_data_indiv, hdu_in=hdu_in)
+
+        # Since we might be reprojecting small images into a large mosaic
+        # we want to make sure that for each image we reproject to an array
+        # with minimal footprint. We therefore find the pixel coordinates of
+        # corners in the initial image and transform this to pixel coordinates
+        # in the final image to figure out the final WCS and shape to reproject
+        # to for each tile. Note that in future if we are worried about
+        # significant distortions of the edges in the reprojection process we
+        # could simply add arbitrary numbers of midpoints to this list.
+        ny, nx = array_in.shape
+        xc = np.array([-0.5, nx - 0.5, nx - 0.5, -0.5])
+        yc = np.array([-0.5, -0.5, ny - 0.5, ny - 0.5])
+        xc_out, yc_out = wcs_out.world_to_pixel(wcs_in.pixel_to_world(xc, yc))
+
+        # Determine the cutout parameters
+        imin = max(0, int(np.floor(xc_out.min() + 0.5)))
+        imax = min(shape_out[1], int(np.ceil(xc_out.max() + 0.5)))
+        jmin = max(0, int(np.floor(yc_out.min() + 0.5)))
+        jmax = min(shape_out[0], int(np.ceil(yc_out.max() + 0.5)))
+
+        # FIXME: for now, assume we are dealing with FITS-WCS, but once the APE14
+        # changes are merged in for reproject we can change to using a sliced WCS
+        wcs_out_indiv = wcs_out.copy()
+        wcs_out_indiv.wcs.crpix[0] -= imin
+        wcs_out_indiv.wcs.crpix[1] -= jmin
+        shape_out_indiv = (jmax - jmin, imax - imin)
+
         array, footprint = reproject_function(input_data_indiv,
-                                              output_projection=wcs_out,
-                                              shape_out=shape_out,
+                                              output_projection=wcs_out_indiv,
+                                              shape_out=shape_out_indiv,
                                               hdu_in=hdu_in,
                                               **kwargs)
 
-        # TODO: in future, we should make the reprojection functions smart
-        # and able to return cutouts rather than the full array. For now
-        # we post-process the output above and convert it to a more
-        # memory-efficient Cutout2D object which retains information
+        array = ReprojectedArraySubset(array, footprint, imin, imax, jmin, jmax)
 
-        # FIXME: make sure we gracefully handle the case where the
+        print(array, array.view_in_original_array)
+        # TODO: make sure we gracefully handle the case where the
         # output image is empty (due e.g. to no overlap).
-
-        iproj = np.nonzero(np.sum(footprint, axis=0))[0]
-        jproj = np.nonzero(np.sum(footprint, axis=1))[0]
-        imin, imax = iproj[0], iproj[-1] + 1
-        jmin, jmax = jproj[0], jproj[-1] + 1
-
-        array = ReprojectedArraySubset(array[jmin:jmax, imin:imax],
-                                       footprint[jmin:jmax, imin:imax],
-                                       (jmin, imin),
-                                       (jmax - jmin, imax - imin))
 
         arrays.append(array)
 
@@ -264,7 +274,7 @@ def mosaic(input_data, output_projection, shape_out=None, hdu_in=None,
 
     # At this point, the images are now ready to be co-added.
 
-    # TODO: provide control over final dtype?
+    # TODO: provide control over final dtype
 
     final_array = np.zeros(shape_out)
     final_footprint = np.zeros(shape_out)
