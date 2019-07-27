@@ -16,19 +16,6 @@ from .utils import parse_input_data, parse_output_projection
 __all__ = ['find_optimal_celestial_wcs']
 
 
-# Steps to mosaicking:
-# - take input images and find optimal WCS and shape (optional)
-# - reproject individual images, optionally with auto-cliping to avoid creating many large arrays
-# - co-adding of individual images into a final image
-#
-# Possible add-ons:
-# - background matching by looking at overlap of images
-#
-# Things to be aware of:
-# - need a way of making sure that we can tell if individual tiles are destined.
-#   for the same moasic. The easiest way is probably to make sure that the headers
-#   are identical except for the CRPIX values.
-
 class ReprojectedArraySubset:
 
     # NOTE: we can't use Cutout2D here because it's much more convenient
@@ -47,7 +34,6 @@ class ReprojectedArraySubset:
     def __repr__(self):
         return '<ReprojectedArraySubset at [{0}:{1},{2}:{3}]>'.format(self.imin, self.imax,
                                                                       self.jmin, self.jmax)
-
     @property
     def view_in_original_array(self):
         return (slice(self.jmin, self.jmax), slice(self.imin, self.imax))
