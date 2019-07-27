@@ -155,9 +155,9 @@ def _match_backgrounds(arrays):
         array.array -= offset
 
 
-def mosaic(input_data, output_projection, shape_out=None, hdu_in=None,
-           reproject_function=None, combine_function='mean',
-           match_background=False, **kwargs):
+def reproject_and_coadd(input_data, output_projection, shape_out=None, hdu_in=None,
+                        reproject_function=None, combine_function='mean',
+                        match_background=False, **kwargs):
     """
     Given a set of input images, reproject and co-add these to a single
     final image.
@@ -255,12 +255,6 @@ def mosaic(input_data, output_projection, shape_out=None, hdu_in=None,
         wcs_out_indiv.wcs.crpix[0] -= imin
         wcs_out_indiv.wcs.crpix[1] -= jmin
         shape_out_indiv = (jmax - jmin, imax - imin)
-
-        imin, imax = 0, shape_out[1]
-        jmin, jmax = 0, shape_out[0]
-
-        wcs_out_indiv = wcs_out
-        shape_out_indiv = shape_out
 
         array, footprint = reproject_function(input_data_indiv,
                                               output_projection=wcs_out_indiv,

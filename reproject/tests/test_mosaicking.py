@@ -19,7 +19,8 @@ except ImportError:
 else:
     SHAPELY_INSTALLED = True
 
-from ..mosaicking import find_optimal_celestial_wcs
+from .. import reproject_interp
+from ..mosaicking import find_optimal_celestial_wcs, reproject_and_coadd
 
 
 class TestOptimalWCS():
@@ -182,3 +183,75 @@ class TestOptimalWCS():
         with pytest.raises(TypeError) as exc:
             wcs, shape = find_optimal_celestial_wcs([(self.array, self.wcs)])
         assert exc.value.args[0] == 'WCS does not have celestial components'
+
+
+class TestReprojectAndCoAdd():
+
+    def setup_method(self, method):
+
+        self.wcs = WCS(naxis=2)
+        self.wcs.wcs.ctype = 'RA---TAN', 'DEC--TAN'
+        self.wcs.wcs.crpix = 322, 151
+        self.wcs.wcs.crval = 43, 23
+        self.wcs.wcs.cdelt = -0.1, 0.1
+        self.wcs.wcs.equinox = 2000.
+
+        self.array = np.random.random((423, 344))
+
+    def _get_tiles(self, views):
+
+        # Given a list of views as (imin, imax, jmin, jmax), construct
+        #  tiles that can be passed into the co-adding code
+
+        input_data = []
+
+        for (jmin, jmax, imin, imax) in views:
+            array = self.array[jmin:jmax, imin:imax]
+            wcs = self.wcs.deepcopy()
+            wcs.wcs.crpix[0] -= imin
+            wcs.wcs.crpix[1] -= jmin
+            input_data.append((array, wcs))
+
+        return input_data
+
+    @pytest.mark.parametrize('combine_function', ['mean', 'sum'])
+    def test_coadd_no_overlap(self, combine_function):
+
+        # Make sure that if all tiles are exactly non-overlapping, and
+        # we use 'sum' or 'mean', we get the exact input array back.
+
+        ie = (0, 122, 233, 245, 344)
+        je = (0, 44, 45, 333, 335, 423)
+
+        views = []
+        for i in range(4):
+            for j in range(5):
+                views.append((je[j], je[j+1], ie[i], ie[i+1]))
+
+        input_data = self._get_tiles(views)
+
+        array, footprint = reproject_and_coadd(input_data, self.wcs, shape_out=self.array.shape,
+                                               combine_function=combine_function, reproject_function=reproject_interp)
+
+        assert_allclose(array, self.array)
+        assert_equal(footprint, 1)
+
+    def test_coadd_with_overlap(self):
+
+        # Here we make the input tiles overlapping. We can only check the
+        # mean, not the sum.
+
+        ie = (0, 122, 233, 245, 344)
+        je = (0, 44, 45, 333, 335, 423)
+
+        views = []
+        for i in range(4):
+            for j in range(5):
+                views.append((je[j], je[j+1] + 10, ie[i], ie[i+1] + 10))
+
+        input_data = self._get_tiles(views)
+
+        array, footprint = reproject_and_coadd(input_data, self.wcs, shape_out=self.array.shape,
+                                               combine_function='mean', reproject_function=reproject_interp)
+
+        assert_allclose(array, self.array)
