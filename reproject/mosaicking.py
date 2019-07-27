@@ -101,8 +101,7 @@ class ReprojectedArraySubset:
         array = op(self_array, other_array)
         footprint = (self_footprint > 0) & (other_footprint > 0)
 
-        return ReprojectedArraySubset(array, footprint, (jmin, imin),
-                                      (jmax - jmin, imax - imin))
+        return ReprojectedArraySubset(array, footprint, imin, imax, jmin, jmax)
 
 
 def _match_backgrounds(arrays):
@@ -247,12 +246,21 @@ def mosaic(input_data, output_projection, shape_out=None, hdu_in=None,
         jmin = max(0, int(np.floor(yc_out.min() + 0.5)))
         jmax = min(shape_out[0], int(np.ceil(yc_out.max() + 0.5)))
 
+        if imax < imin or jmax < jmin:
+            continue
+
         # FIXME: for now, assume we are dealing with FITS-WCS, but once the APE14
         # changes are merged in for reproject we can change to using a sliced WCS
-        wcs_out_indiv = wcs_out.copy()
+        wcs_out_indiv = wcs_out.deepcopy()
         wcs_out_indiv.wcs.crpix[0] -= imin
         wcs_out_indiv.wcs.crpix[1] -= jmin
         shape_out_indiv = (jmax - jmin, imax - imin)
+
+        imin, imax = 0, shape_out[1]
+        jmin, jmax = 0, shape_out[0]
+
+        wcs_out_indiv = wcs_out
+        shape_out_indiv = shape_out
 
         array, footprint = reproject_function(input_data_indiv,
                                               output_projection=wcs_out_indiv,
@@ -262,7 +270,6 @@ def mosaic(input_data, output_projection, shape_out=None, hdu_in=None,
 
         array = ReprojectedArraySubset(array, footprint, imin, imax, jmin, jmax)
 
-        print(array, array.view_in_original_array)
         # TODO: make sure we gracefully handle the case where the
         # output image is empty (due e.g. to no overlap).
 
