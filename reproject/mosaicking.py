@@ -1,10 +1,13 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
+import operator
+
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.wcs.utils import (pixel_to_skycoord, skycoord_to_pixel,
                                proj_plane_pixel_scales, wcs_to_celestial_frame)
+from astropy.nddata import Cutout2D
 
 from astropy.wcs.utils import celestial_frame_to_wcs
 from .utils import parse_input_data, parse_output_projection
@@ -25,6 +28,141 @@ __all__ = ['find_optimal_celestial_wcs']
 # - need a way of making sure that we can tell if individual tiles are destined.
 #   for the same moasic. The easiest way is probably to make sure that the headers
 #   are identical except for the CRPIX values.
+
+class ReprojectedArraySubset:
+
+    # NOTE: we can't use Cutout2D here because it's much more convenient
+    # to work with position being the lower left corner of the cutout
+    # rather than the center, which is not well defined for even-sized
+    # cutouts.
+
+    def __init__(self, array, footprint, position, shape):
+        self.array = array
+        self.footprint = footprint
+        self.position = position
+        self.shape = shape
+
+    def __repr__(self):
+        return '<ReprojectedArraySubset at {0} with shape {1}>'.format(self.position, self.shape)
+
+    @property
+    def view_in_original_array(self):
+        return (slice(self.jmin, self.jmax), slice(self.imin, self.imax))
+
+    @property
+    def jmin(self):
+        return self.position[0]
+
+    @property
+    def jmax(self):
+        return self.position[0] + self.shape[0]
+
+    @property
+    def imin(self):
+        return self.position[1]
+
+    @property
+    def imax(self):
+        return self.position[1] + self.shape[1]
+
+    def overlaps(self, other):
+        # Note that the use of <= or >= instead of < and > is due to
+        # the fact that the max values are exclusive (so +1 above the
+        # last value).
+        return not (self.imax <= other.imin or other.imax <= self.imin or
+                    self.jmax <= other.jmin or other.jmax <= self.jmin)
+
+    def __add__(self, other):
+        return self._operation(other, operator.add)
+
+    def __sub__(self, other):
+        return self._operation(other, operator.sub)
+
+    def __mul__(self, other):
+        return self._operation(other, operator.mul)
+
+    def __truediv__(self, other):
+        return self._operation(other, operator.truediv)
+
+    def _operation(self, other, op):
+
+        # Determine cutout parameters for overlap region
+
+        imin = max(self.imin, other.imin)
+        imax = min(self.imax, other.imax)
+        jmin = max(self.jmin, other.jmin)
+        jmax = min(self.jmax, other.jmax)
+
+        # Extract cutout from each
+
+        self_array = self.array[jmin - self.jmin:jmax - self.jmin,
+                                imin - self.imin:imax - self.imin]
+        self_footprint = self.footprint[jmin - self.jmin:jmax - self.jmin,
+                                        imin - self.imin:imax - self.imin]
+
+        other_array = other.array[jmin - other.jmin:jmax - other.jmin,
+                                  imin - other.imin:imax - other.imin]
+        other_footprint = other.footprint[jmin - other.jmin:jmax - other.jmin,
+                                          imin - other.imin:imax - other.imin]
+
+        # Carry out operator and store result in ReprojectedArraySubset
+
+        array = op(self_array, other_array)
+        footprint = (self_footprint > 0) & (other_footprint > 0)
+
+        return ReprojectedArraySubset(array, footprint, (jmin, imin),
+                                      (jmax - jmin, imax - imin))
+
+
+def _match_backgrounds(arrays):
+
+    N = len(arrays)
+
+    # Set up matrix to record differences
+    offsets = np.ones((N, N)) * np.nan
+
+    # Loop over all pairs of images and check for overlap
+    for i1, array1 in enumerate(arrays):
+        for i2, array2 in enumerate(arrays):
+            if i2 <= i1:
+                continue
+            if array1.overlaps(array2):
+                difference = array1 - array2
+                if np.any(difference.footprint):
+                    offsets[i1, i2] = np.median(difference.array[difference.footprint])
+                    offsets[i2, i1] = -offsets[i1, i2]
+
+    # We now need to iterate to find an optimal solution to the offsets
+
+    inds = np.arange(N)
+    b = np.zeros(N)
+    eta0 = 1. / N  # Initial learning rate.
+
+    red = 1.
+
+    for main_iter in range(10):
+
+        if main_iter > 0 and main_iter % 5000 == 0:
+            red /= 2.
+
+        np.random.shuffle(inds)
+
+        # Update learning rate
+        eta = eta0 * red
+
+        for i in inds:
+
+            if np.isnan(b[i]):
+                continue
+
+            keep = ~np.isnan(offsets[i, :])
+            b[i] += eta * np.sum(offsets[i, keep] - b[i, np.newaxis] + b[keep][np.newaxis, :])
+
+        mn = np.mean(b[~np.isnan(b)])
+        b -= mn
+
+    for array, offset in zip(arrays, b):
+        array.array -= offset
 
 
 def mosaic(input_data, output_projection, shape_out=None, hdu_in=None,
@@ -86,6 +224,7 @@ def mosaic(input_data, output_projection, shape_out=None, hdu_in=None,
         raise ValueError("reprojection function should be specified with reprojection_function")
 
     # Parse the output projection to avoid having to do it for each
+
     wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
 
     # Start off by reprojecting individual images to the final projection
@@ -98,11 +237,30 @@ def mosaic(input_data, output_projection, shape_out=None, hdu_in=None,
                                               shape_out=shape_out,
                                               hdu_in=hdu_in,
                                               **kwargs)
-        arrays.append((array, footprint))
+
+        # TODO: in future, we should make the reprojection functions smart
+        # and able to return cutouts rather than the full array. For now
+        # we post-process the output above and convert it to a more
+        # memory-efficient Cutout2D object which retains information
+
+        # FIXME: make sure we gracefully handle the case where the
+        # output image is empty (due e.g. to no overlap).
+
+        iproj = np.nonzero(np.sum(footprint, axis=0))[0]
+        jproj = np.nonzero(np.sum(footprint, axis=1))[0]
+        imin, imax = iproj[0], iproj[-1] + 1
+        jmin, jmax = jproj[0], jproj[-1] + 1
+
+        array = ReprojectedArraySubset(array[jmin:jmax, imin:imax],
+                                       footprint[jmin:jmax, imin:imax],
+                                       (jmin, imin),
+                                       (jmax - jmin, imax - imin))
+
+        arrays.append(array)
 
     # If requested, try and match the backgrounds.
     if match_background:
-        raise NotImplementedError()
+        _match_backgrounds(arrays)
 
     # At this point, the images are now ready to be co-added.
 
@@ -113,20 +271,19 @@ def mosaic(input_data, output_projection, shape_out=None, hdu_in=None,
 
     if combine_function in ('mean', 'sum'):
 
-        for array, footprint in arrays:
-
-            # TODO: apply offset if needed
+        for array in arrays:
 
             # By default, values outside of the footprint are set to NaN
             # but we set these to 0 here to avoid getting NaNs in the
             # means/sums.
-            array[footprint == 0] = 0
+            array.array[array.footprint == 0] = 0
 
-            final_array += array
-            final_footprint += footprint
+            final_array[array.view_in_original_array] += array.array
+            final_footprint[array.view_in_original_array] += array.footprint
 
         if combine_function == 'mean':
-            final_array /= final_footprint
+            with np.errstate(invalid='ignore'):
+                final_array /= final_footprint
 
     elif combine_function == 'median':
 
