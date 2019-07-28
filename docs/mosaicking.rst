@@ -58,7 +58,7 @@ should be a list where each element is either a filename, an HDU object (e.g.
 example above, we have passed a list of HDUs. We can now look at the output
 WCS and shape::
 
-    >>> wcs_out.to_header()
+    >>> wcs_out.to_header()  # doctest: +FLOAT_CMP
     WCSAXES =                    2 / Number of coordinate axes
     CRPIX1  =      900.07981909507 / Pixel coordinate of reference point
     CRPIX2  =      1099.9484609446 / Pixel coordinate of reference point
@@ -93,7 +93,7 @@ object such as :class:`astropy.coordinates.Galactic`::
 
 the resulting WCS is then in Galactic coordinates::
 
-    >>> wcs_out.to_header()
+    >>> wcs_out.to_header()  # doctest: +FLOAT_CMP
     WCSAXES =                    2 / Number of coordinate axes
     CRPIX1  =      1214.1034417971 / Pixel coordinate of reference point
     CRPIX2  =      1310.1351675461 / Pixel coordinate of reference point
@@ -126,7 +126,7 @@ the area of the final mosaic file::
 Note that this requires `Shapely <...>`_ 1.6 or later to be installed. We can now
 look at the final WCS and shape::
 
-    >>> wcs_out.to_header()
+    >>> wcs_out.to_header()  # doctest: +FLOAT_CMP
     WCSAXES =                    2 / Number of coordinate axes
     CRPIX1  =      1102.3949574309 / Pixel coordinate of reference point
     CRPIX2  =      900.46211361965 / Pixel coordinate of reference point
