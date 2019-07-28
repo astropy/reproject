@@ -2,7 +2,7 @@
 ----------------
 
 - Added support for using any WCS that conforms to the WCS API described
-  in the Astropy Proposal for Enhancements 14 (APE 14). [#]166]
+  in the Astropy Proposal for Enhancements 14 (APE 14). [#166]
 
 0.5.2 (unreleased)
 ------------------
