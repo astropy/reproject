@@ -18,14 +18,13 @@ For the examples on this page we will use the `PyVO
 <https://pyvo.readthedocs.io>`_ module to retrieve tiles from the 2MASS survey
 around the M17 region::
 
-    >>> from astropy import units as u
     >>> from astropy.io import fits
     >>> from astropy.coordinates import SkyCoord
     >>> from pyvo.dal import imagesearch
 
     >>> pos = SkyCoord.from_name('M17')
     >>> table = imagesearch('https://irsa.ipac.caltech.edu/cgi-bin/2MASS/IM/nph-im_sia?type=at&ds=asky&',
-    ...                    pos, size=0.25 * u.deg).to_table()
+    ...                    pos, size=0.25).to_table()
     >>> table = table[(table['band'] == b'K') & (table['format'] == b'image/fits')]
     >>> m17_hdus = [fits.open(row['download'].decode('ascii'))[0] for row in table]
 
@@ -228,14 +227,13 @@ We can take a look at the output:
    :context: reset
    :nofigs:
 
-    from astropy import units as u
     from astropy.io import fits
     from astropy.coordinates import SkyCoord
     from pyvo.dal import imagesearch
 
     pos = SkyCoord.from_name('M17')
     table = imagesearch('https://irsa.ipac.caltech.edu/cgi-bin/2MASS/IM/nph-im_sia?type=at&ds=asky&',
-                       pos, size=0.25 * u.deg).to_table()
+                       pos, size=0.25).to_table()
     table = table[(table['band'] == b'K') & (table['format'] == b'image/fits')]
     m17_hdus = [fits.open(row['download'].decode('ascii'))[0] for row in table]
 
