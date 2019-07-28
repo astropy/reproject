@@ -170,7 +170,8 @@ Projection and reference coordinate
 Finally, you can customize the projection to use as well as the reference
 coordinate. To change the projection from the default (which is the
 gnomonic projection, or ``TAN``), you can use the ``projection=`` keyword
-argument, which should be set to a valid three-letter FITS-WCS projection code::
+argument, which should be set to a `valid three-letter FITS-WCS projection
+code <http://adsabs.harvard.edu/abs/2002A%26A...395.1061G>`_::
 
   >>> wcs_out, shape_out = find_optimal_celestial_wcs(m17_hdus,
   ...                                                 projection='CAR')
