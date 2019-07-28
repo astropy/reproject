@@ -220,9 +220,10 @@ size).
 Finally, the ``reproject_function`` should be used to specify which function to
 use to reproject individual tiles - this should be either
 :func:`~reproject.reproject_interp` or :func:`~reproject.reproject_exact` - with
-the latter being slower but more accurate. Keyword arguments for these functions
-(e.g. ``order`` for :func:`~reproject.reproject_interp`) can be passed as keyword
-arguments to :func:`~reproject.mosaicking.reproject_and_coadd`.
+the latter being slower but more accurate (and necessary for flux conservation).
+Keyword arguments for these functions (e.g. ``order`` for
+:func:`~reproject.reproject_interp`) can be passed as keyword arguments to
+:func:`~reproject.mosaicking.reproject_and_coadd`.
 
 The example above will return an array which is the mosaic itself, and a
 footprint, which shows how many input images contributed to each output pixel.
