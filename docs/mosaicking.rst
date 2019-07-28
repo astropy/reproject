@@ -310,3 +310,14 @@ without shows vertical striping, especially on the left.
     ax2 = plt.subplot(1, 2, 2)
     im2 = ax2.imshow(array_bgmatch, origin='lower', vmin=635, vmax=660)
     ax2.set_title('Background matching')
+
+The background matching works by finding all overlapping pairs of images and
+determining the median difference for each pair, then using a `stochastic
+gradient descent <https://en.wikipedia.org/wiki/Stochastic_gradient_descent>`_
+method to find the optimal additive corrections (a positive or negative constant
+for each image) to minimize differences. We additionally place the constraint
+that the average correction should be zero, but since there's no reason that
+the average correction should be exactly zero, you should be aware that the
+final mosaic may be offset from the absolute surface brightness/flux by a
+constant additive factor. The algorithm should be robust for many situations
+and does not currently have any exposed options for fine tuning.
