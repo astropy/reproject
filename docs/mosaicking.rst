@@ -153,12 +153,12 @@ Note that this requires `Shapely <https://shapely.readthedocs.io/en/stable/manua
 
 As expected, the optimal shape is smaller than was returned previously.
 
-Resolution
-----------
+Pixel resolution
+----------------
 
-By default, the final mosaic will have the resolution of the highest resolution
-input image, but this can be overriden using the ``resolution=`` keyword
-argument::
+By default, the final mosaic will have the pixel resolution (i.e. the pixel
+scale along the pixel axes) of the highest resolution input image, but this can
+be overriden using the ``resolution=`` keyword argument::
 
     >>> from astropy import units as u
     >>> wcs_out, shape_out = find_optimal_celestial_wcs(m17_hdus,
