@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 from numpy.testing import assert_allclose
 
-from ..background import solve_backgrounds_sgd
+from ..background import solve_corrections_sgd
 
 
 # Try and cover a range of matrix sizes and absolute scales of corrections
@@ -15,7 +15,7 @@ CASES = [(4, 1.),
 
 
 @pytest.mark.parametrize(('N', 'scale'), CASES)
-def test_solve_backgrounds_sgd(N, scale):
+def test_solve_corrections_sgd(N, scale):
 
     # Generate random corrections
     expected = np.random.uniform(-scale, scale, N)
@@ -27,9 +27,8 @@ def test_solve_backgrounds_sgd(N, scale):
     offset_matrix[1, 2] = np.nan
 
     # Determine corrections
-    actual = solve_backgrounds_sgd(offset_matrix)
+    actual = solve_corrections_sgd(offset_matrix)
 
     # Compare the mean-subtracted corrections since there might be an
     # arbitrary offset
     assert_allclose(actual - np.mean(actual), expected - np.mean(expected))
-

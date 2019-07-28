@@ -3,10 +3,36 @@ from math import exp
 
 import numpy as np
 
-__all__ = ['match_backgrounds_inplace']
+__all__ = ['solve_corrections_sgd', 'determine_offset_matrix']
 
 
-def solve_backgrounds_sgd(offset_matrix, eta_initial=1, eta_half_life=100,
+def determine_offset_matrix(arrays):
+    """
+    Given a list of ReprojectedArraySubset, determine the offset
+    matrix between all arrays.
+    """
+
+    N = len(arrays)
+
+    # Set up matrix to record differences
+    offset_matrix = np.ones((N, N)) * np.nan
+
+    # Loop over all pairs of images and check for overlap
+    for i1, array1 in enumerate(arrays):
+        for i2, array2 in enumerate(arrays):
+            if i2 <= i1:
+                continue
+            if array1.overlaps(array2):
+                difference = array1 - array2
+                if np.any(difference.footprint):
+                    values = difference.array[difference.footprint]
+                    offset_matrix[i1, i2] = np.median(values)
+                    offset_matrix[i2, i1] = -offset_matrix[i1, i2]
+
+    return offset_matrix
+
+
+def solve_corrections_sgd(offset_matrix, eta_initial=1, eta_half_life=100,
                           rtol=1e-10, atol=0):
     r"""
     Given a matrix of offsets from each image to each other image, find the
@@ -102,28 +128,3 @@ def solve_backgrounds_sgd(offset_matrix, eta_initial=1, eta_half_life=100,
         previous_corrections = corrections.copy()
 
     return corrections
-
-
-def match_backgrounds_inplace(arrays):
-
-    N = len(arrays)
-
-    # Set up matrix to record differences
-    offset_matrix = np.ones((N, N)) * np.nan
-
-    # Loop over all pairs of images and check for overlap
-    for i1, array1 in enumerate(arrays):
-        for i2, array2 in enumerate(arrays):
-            if i2 <= i1:
-                continue
-            if array1.overlaps(array2):
-                difference = array1 - array2
-                if np.any(difference.footprint):
-                    values = difference.array[difference.footprint]
-                    offset_matrix[i1, i2] = np.median(values)
-                    offset_matrix[i2, i1] = -offset_matrix[i1, i2]
-
-    corrections = solve_backgrounds_sgd(offset_matrix)
-
-    for array, correction in zip(arrays, corrections):
-        array.array -= correction

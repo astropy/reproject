@@ -7,7 +7,7 @@ import numpy as np
 
 from ..utils import parse_input_data, parse_output_projection
 from .subset_array import ReprojectedArraySubset
-from .background import match_backgrounds_inplace
+from .background import determine_offset_matrix, solve_corrections_sgd
 
 __all__ = ['reproject_and_coadd']
 
@@ -133,7 +133,10 @@ def reproject_and_coadd(input_data, output_projection, shape_out=None,
 
     # If requested, try and match the backgrounds.
     if match_background:
-        match_backgrounds_inplace(arrays)
+        offset_matrix = determine_offset_matrix(arrays)
+        corrections = solve_corrections_sgd(offset_matrix)
+        for array, correction in zip(arrays, corrections):
+            array.array -= correction
 
     # At this point, the images are now ready to be co-added.
 
