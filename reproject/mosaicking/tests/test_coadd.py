@@ -84,7 +84,7 @@ class TestReprojectAndCoAdd():
                                                combine_function=combine_function,
                                                reproject_function=reproject_interp)
 
-        assert_allclose(array, self.array, atol=1e-10)
+        assert_allclose(array, self.array, atol=1e-9)
         assert_equal(footprint, 1)
 
     def test_coadd_with_overlap(self):
@@ -99,7 +99,7 @@ class TestReprojectAndCoAdd():
                                                combine_function='mean',
                                                reproject_function=reproject_interp)
 
-        assert_allclose(array, self.array, atol=1e-10)
+        assert_allclose(array, self.array, atol=1e-9)
 
     def test_coadd_background_matching(self):
 
@@ -117,7 +117,7 @@ class TestReprojectAndCoAdd():
                                                combine_function='mean',
                                                reproject_function=reproject_interp)
 
-        assert not np.allclose(array, self.array, atol=1e-10)
+        assert not np.allclose(array, self.array, atol=1e-9)
 
         # Now check that once the backgrounds are matched the values agree
 
@@ -131,4 +131,4 @@ class TestReprojectAndCoAdd():
         # solution that reproduces the offsets between images is valid
 
         assert_allclose(array - np.mean(array),
-                        self.array - np.mean(self.array), atol=1e-10)
+                        self.array - np.mean(self.array), atol=1e-9)
