@@ -16,7 +16,8 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
                                projection='TAN', resolution=None,
                                reference=None):
     """
-    Given one or more images, return an optimal WCS projection object and shape.
+    Given one or more images, return an optimal WCS projection object and
+    shape.
 
     This currently only works with 2-d images with celestial WCS.
 
@@ -125,8 +126,8 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
     if reference is None:
         reference = SkyCoord(references.data.mean(), frame=references.frame)
 
-    # In any case, we need to convert the reference coordinate (either specified
-    # or automatically determined) to the requested final frame.
+    # In any case, we need to convert the reference coordinate (either
+    # specified or automatically determined) to the requested final frame.
     reference = reference.transform_to(frame)
 
     # Determine resolution if not specified
@@ -143,8 +144,8 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
     wcs_final.wcs.crval = rep.lon.degree, rep.lat.degree
     wcs_final.wcs.cdelt = -cdelt, cdelt
 
-    # For now, set crpix to (1, 1) and we'll then figure out where all the images
-    # fall in this projection, then we'll adjust crpix.
+    # For now, set crpix to (1, 1) and we'll then figure out where all the
+    # images fall in this projection, then we'll adjust crpix.
     wcs_final.wcs.crpix = (1, 1)
 
     # Find pixel coordinates of all corners in the final WCS projection. We use
@@ -158,9 +159,9 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
         from shapely.geometry import MultiPoint
         mp = MultiPoint(list(zip(xp, yp)))
 
-        # The following returns a list of rectangle vertices - in fact there are
-        # 5 coordinates because shapely represents it as a closed polygon with
-        # the same first/last vertex.
+        # The following returns a list of rectangle vertices - in fact there
+        # are 5 coordinates because shapely represents it as a closed polygon
+        # with the same first/last vertex.
         xr, yr = mp.minimum_rotated_rectangle.exterior.coords.xy
         xr, yr = xr[:4], yr[:4]
 

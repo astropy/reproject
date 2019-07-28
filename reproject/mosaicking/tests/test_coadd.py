@@ -77,11 +77,12 @@ class TestReprojectAndCoAdd():
         # Make sure that if all tiles are exactly non-overlapping, and
         # we use 'sum' or 'mean', we get the exact input array back.
 
-
         input_data = self._get_tiles(self._nonoverlapping_views)
 
-        array, footprint = reproject_and_coadd(input_data, self.wcs, shape_out=self.array.shape,
-                                               combine_function=combine_function, reproject_function=reproject_interp)
+        array, footprint = reproject_and_coadd(input_data, self.wcs,
+                                               shape_out=self.array.shape,
+                                               combine_function=combine_function,
+                                               reproject_function=reproject_interp)
 
         assert_allclose(array, self.array, atol=1e-10)
         assert_equal(footprint, 1)
@@ -93,8 +94,10 @@ class TestReprojectAndCoAdd():
 
         input_data = self._get_tiles(self._overlapping_views)
 
-        array, footprint = reproject_and_coadd(input_data, self.wcs, shape_out=self.array.shape,
-                                               combine_function='mean', reproject_function=reproject_interp)
+        array, footprint = reproject_and_coadd(input_data, self.wcs,
+                                               shape_out=self.array.shape,
+                                               combine_function='mean',
+                                               reproject_function=reproject_interp)
 
         assert_allclose(array, self.array, atol=1e-10)
 
@@ -109,19 +112,23 @@ class TestReprojectAndCoAdd():
 
         # First check that without background matching the arrays don't match
 
-        array, footprint = reproject_and_coadd(input_data, self.wcs, shape_out=self.array.shape,
-                                               combine_function='mean', reproject_function=reproject_interp)
+        array, footprint = reproject_and_coadd(input_data, self.wcs,
+                                               shape_out=self.array.shape,
+                                               combine_function='mean',
+                                               reproject_function=reproject_interp)
 
         assert not np.allclose(array, self.array, atol=1e-10)
 
         # Now check that once the backgrounds are matched the values agree
 
-        array, footprint = reproject_and_coadd(input_data, self.wcs, shape_out=self.array.shape,
-                                               combine_function='mean', reproject_function=reproject_interp,
+        array, footprint = reproject_and_coadd(input_data, self.wcs,
+                                               shape_out=self.array.shape,
+                                               combine_function='mean',
+                                               reproject_function=reproject_interp,
                                                match_background=True)
 
-        # The absolute values of the two arrays will be offset since any solution
-        # that reproduces the offsets between images is valid
+        # The absolute values of the two arrays will be offset since any
+        # solution that reproduces the offsets between images is valid
 
         assert_allclose(array - np.mean(array),
                         self.array - np.mean(self.array), atol=1e-10)

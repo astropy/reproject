@@ -2,7 +2,6 @@
 
 from __future__ import absolute_import, division, print_function
 
-
 import numpy as np
 
 from ..utils import parse_input_data, parse_output_projection
