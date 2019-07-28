@@ -2,7 +2,7 @@
 
 import numpy as np
 from astropy import units as u
-from astropy.coordinates import SkyCoord
+from astropy.coordinates import SkyCoord, frame_transform_graph
 from astropy.wcs.utils import (pixel_to_skycoord, skycoord_to_pixel,
                                proj_plane_pixel_scales, wcs_to_celestial_frame)
 
@@ -37,7 +37,7 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
               second element is either a `~astropy.wcs.WCS` or a
               `~astropy.io.fits.Header` object
 
-    frame : `~astropy.coordinates.BaseCoordinateFrame`
+    frame : str or `~astropy.coordinates.BaseCoordinateFrame`
         The coordinate system for the final image (defaults to the frame of
         the first image specified)
     auto_rotate : bool
@@ -63,6 +63,9 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
     # TODO: support higher-dimensional datasets in future
     # TODO: take into account NaN values when determining the extent of the
     #       final WCS
+
+    if isinstance(frame, str):
+        frame = frame_transform_graph.lookup_name(frame)()
 
     input_data = [parse_input_data(data) for data in input_data]
 

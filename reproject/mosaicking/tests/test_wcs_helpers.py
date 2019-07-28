@@ -64,6 +64,10 @@ class TestOptimalWCS():
         assert_allclose(wcs.wcs.crpix, (16.21218937, 28.86119519))
         assert shape == (47, 50)
 
+    def test_frame_str(self):
+        wcs, shape = find_optimal_celestial_wcs([(self.array, self.wcs)], frame='galactic')
+        assert tuple(wcs.wcs.ctype) == ('GLON-TAN', 'GLAT-TAN')
+
     def test_resolution(self):
         wcs, shape = find_optimal_celestial_wcs([(self.array, self.wcs)], resolution=3 * u.arcmin)
         assert_allclose(wcs.wcs.cdelt, (-0.05, 0.05))

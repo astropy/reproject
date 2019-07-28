@@ -85,11 +85,11 @@ WCS is set up so that North (in that coordinate system) is up. In the
 case above, the images are in equatorial coordinates, so the final WCS is also
 in equatorial coordinates. We can force the output WCS to instead be in
 Galactic coordinates by setting the ``frame=`` argument to a coordinate frame
-object such as :class:`astropy.coordinates.Galactic`::
+object such as :class:`~astropy.coordinates.Galactic` or one of the string
+shortcuts defined in astropy (e.g. ``'fk5'``, ``'galactic'``, etc.)::
 
-    >>> from astropy.coordinates import Galactic
     >>> wcs_out, shape_out = find_optimal_celestial_wcs(m17_hdus,
-    ...                                                 frame=Galactic())
+    ...                                                 frame='galactic')
 
 the resulting WCS is then in Galactic coordinates::
 
@@ -122,11 +122,11 @@ the area of the final mosaic file:
 .. doctest-requires:: shapely
 
     >>> wcs_out, shape_out = find_optimal_celestial_wcs(m17_hdus,
-    ...                                                 frame=Galactic(),
+    ...                                                 frame='galactic',
     ...                                                 auto_rotate=True)
 
-Note that this requires `Shapely <...>`_ 1.6 or later to be installed. We can now
-look at the final WCS and shape:
+Note that this requires `Shapely <https://shapely.readthedocs.io/en/stable/manual.html>`_
+1.6 or later to be installed. We can now look at the final WCS and shape:
 
 .. doctest-requires:: shapely
 
