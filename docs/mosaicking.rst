@@ -25,7 +25,7 @@ around the M17 region::
 
     >>> pos = SkyCoord.from_name('M17')
     >>> table = imagesearch('https://irsa.ipac.caltech.edu/cgi-bin/2MASS/IM/nph-im_sia?type=at&ds=asky&',
-    ...                    pos, size=0.2 * u.deg).to_table()
+    ...                    pos, size=0.25 * u.deg).to_table()
     >>> table = table[(table['band'] == b'K') & (table['format'] == b'image/fits')]
     >>> m17_hdus = [fits.open(row['download'].decode('ascii'))[0] for row in table]
 
@@ -61,22 +61,22 @@ WCS and shape::
 
     >>> wcs_out.to_header()
     WCSAXES =                    2 / Number of coordinate axes
-    CRPIX1  =      685.38327047514 / Pixel coordinate of reference point
-    CRPIX2  =       1065.338573536 / Pixel coordinate of reference point
+    CRPIX1  =      900.07981909507 / Pixel coordinate of reference point
+    CRPIX2  =      1099.9484609446 / Pixel coordinate of reference point
     CDELT1  =     -0.0002777777845 / [deg] Coordinate increment at reference point
     CDELT2  =      0.0002777777845 / [deg] Coordinate increment at reference point
     CUNIT1  = 'deg'                / Units of coordinate increment and value
     CUNIT2  = 'deg'                / Units of coordinate increment and value
     CTYPE1  = 'RA---TAN'           / Right ascension, gnomonic projection
     CTYPE2  = 'DEC--TAN'           / Declination, gnomonic projection
-    CRVAL1  =      275.24672931289 / [deg] Coordinate value at reference point
-    CRVAL2  =     -16.151011679997 / [deg] Coordinate value at reference point
+    CRVAL1  =      275.18472258448 / [deg] Coordinate value at reference point
+    CRVAL2  =     -16.141349044263 / [deg] Coordinate value at reference point
     LONPOLE =                180.0 / [deg] Native longitude of celestial pole
-    LATPOLE =     -16.151011679997 / [deg] Native latitude of celestial pole
+    LATPOLE =     -16.141349044263 / [deg] Native latitude of celestial pole
     RADESYS = 'FK5'                / Equatorial coordinate system
     EQUINOX =               2000.0 / [yr] Equinox of equatorial coordinates
     >>> shape_out
-    (2196, 1370)
+    (2201, 1800)
 
 Coordinate system
 -----------------
@@ -96,20 +96,20 @@ the resulting WCS is then in Galactic coordinates::
 
     >>> wcs_out.to_header()
     WCSAXES =                    2 / Number of coordinate axes
-    CRPIX1  =      1143.8045097031 / Pixel coordinate of reference point
-    CRPIX2  =      1104.5982721584 / Pixel coordinate of reference point
+    CRPIX1  =      1214.1034417971 / Pixel coordinate of reference point
+    CRPIX2  =      1310.1351675461 / Pixel coordinate of reference point
     CDELT1  =     -0.0002777777845 / [deg] Coordinate increment at reference point
     CDELT2  =      0.0002777777845 / [deg] Coordinate increment at reference point
     CUNIT1  = 'deg'                / Units of coordinate increment and value
     CUNIT2  = 'deg'                / Units of coordinate increment and value
     CTYPE1  = 'GLON-TAN'           / galactic longitude, gnomonic projection
     CTYPE2  = 'GLAT-TAN'           / galactic latitude, gnomonic projection
-    CRVAL1  =      15.136488477515 / [deg] Coordinate value at reference point
-    CRVAL2  =    -0.77875670517818 / [deg] Coordinate value at reference point
+    CRVAL1  =      15.116960053834 / [deg] Coordinate value at reference point
+    CRVAL2  =    -0.72166403860488 / [deg] Coordinate value at reference point
     LONPOLE =                180.0 / [deg] Native longitude of celestial pole
-    LATPOLE =    -0.77875670517818 / [deg] Native latitude of celestial pole
+    LATPOLE =    -0.72166403860488 / [deg] Native latitude of celestial pole
     >>> shape_out
-    (2146, 2404)
+    (2623, 2424)
 
 Orientation
 -----------
@@ -129,24 +129,24 @@ look at the final WCS and shape::
 
     >>> wcs_out.to_header()
     WCSAXES =                    2 / Number of coordinate axes
-    CRPIX1  =      1131.7542366532 / Pixel coordinate of reference point
-    CRPIX2  =      686.05506190775 / Pixel coordinate of reference point
-    PC1_1   =     0.88188501297661 / Coordinate transformation matrix element
-    PC1_2   =     0.47146455210041 / Coordinate transformation matrix element
-    PC2_1   =    -0.47146455210041 / Coordinate transformation matrix element
-    PC2_2   =     0.88188501297661 / Coordinate transformation matrix element
+    CRPIX1  =      1102.3949574309 / Pixel coordinate of reference point
+    CRPIX2  =      900.46211361965 / Pixel coordinate of reference point
+    PC1_1   =     0.88188439264557 / Coordinate transformation matrix element
+    PC1_2   =     0.47146571244169 / Coordinate transformation matrix element
+    PC2_1   =    -0.47146571244169 / Coordinate transformation matrix element
+    PC2_2   =     0.88188439264557 / Coordinate transformation matrix element
     CDELT1  =     -0.0002777777845 / [deg] Coordinate increment at reference point
     CDELT2  =      0.0002777777845 / [deg] Coordinate increment at reference point
     CUNIT1  = 'deg'                / Units of coordinate increment and value
     CUNIT2  = 'deg'                / Units of coordinate increment and value
     CTYPE1  = 'GLON-TAN'           / galactic longitude, gnomonic projection
     CTYPE2  = 'GLAT-TAN'           / galactic latitude, gnomonic projection
-    CRVAL1  =      15.136488477515 / [deg] Coordinate value at reference point
-    CRVAL2  =    -0.77875670517818 / [deg] Coordinate value at reference point
+    CRVAL1  =      15.116960053834 / [deg] Coordinate value at reference point
+    CRVAL2  =    -0.72166403860488 / [deg] Coordinate value at reference point
     LONPOLE =                180.0 / [deg] Native longitude of celestial pole
-    LATPOLE =    -0.77875670517818 / [deg] Native latitude of celestial pole
+    LATPOLE =    -0.72166403860488 / [deg] Native latitude of celestial pole
     >>> shape_out
-    (1370, 2196)
+    (1800, 2201)
 
 As expected, the optimal shape is smaller than was returned previously.
 
@@ -235,7 +235,7 @@ We can take a look at the output:
 
     pos = SkyCoord.from_name('M17')
     table = imagesearch('https://irsa.ipac.caltech.edu/cgi-bin/2MASS/IM/nph-im_sia?type=at&ds=asky&',
-                       pos, size=0.2 * u.deg).to_table()
+                       pos, size=0.25 * u.deg).to_table()
     table = table[(table['band'] == b'K') & (table['format'] == b'image/fits')]
     m17_hdus = [fits.open(row['download'].decode('ascii'))[0] for row in table]
 
