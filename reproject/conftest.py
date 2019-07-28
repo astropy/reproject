@@ -3,9 +3,9 @@
 import os
 
 from astropy.tests.plugins.display import PYTEST_HEADER_MODULES, TESTED_VERSIONS
-from astropy.tests.helper import enable_deprecations_as_exceptions
 
-enable_deprecations_as_exceptions()
+#from astropy.tests.helper import enable_deprecations_as_exceptions
+#enable_deprecations_as_exceptions()
 
 PYTEST_HEADER_MODULES['Astropy'] = 'astropy'
 PYTEST_HEADER_MODULES['astropy-healpix'] = 'astropy_healpix'
