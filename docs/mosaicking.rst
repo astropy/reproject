@@ -82,7 +82,7 @@ Coordinate system
 
 By default, the coordinate system of the first file is used, and the final
 WCS is set up so that North (in that coordinate system) is up. In the
-case above, the images are in equatorial coordinats, so the final WCS is also
+case above, the images are in equatorial coordinates, so the final WCS is also
 in equatorial coordinates. We can force the output WCS to instead be in
 Galactic coordinates by setting the ``frame=`` argument to a coordinate frame
 object such as :class:`astropy.coordinates.Galactic`::
