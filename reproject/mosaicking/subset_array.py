@@ -8,6 +8,11 @@ __all__ = ['ReprojectedArraySubset']
 
 
 class ReprojectedArraySubset:
+    """
+    The aim of this class is to represent a subset of an array and
+    footprint extracted (or meant to represent extracted) versions
+    from larger arrays and footprints.
+    """
 
     # NOTE: we can't use Cutout2D here because it's much more convenient
     # to work with position being the lower left corner of the cutout
@@ -24,7 +29,7 @@ class ReprojectedArraySubset:
 
     def __repr__(self):
         return ('<ReprojectedArraySubset at [{0}:{1},{2}:{3}]>'
-                .format(self.imin, self.imax, self.jmin, self.jmax))
+                .format(self.jmin, self.jmax, self.imin, self.imax))
 
     @property
     def view_in_original_array(self):
@@ -61,6 +66,12 @@ class ReprojectedArraySubset:
         imax = min(self.imax, other.imax)
         jmin = max(self.jmin, other.jmin)
         jmax = min(self.jmax, other.jmax)
+
+        if imax < imin:
+            imax = imin
+
+        if jmax < jmin:
+            jmax = jmin
 
         # Extract cutout from each
 
