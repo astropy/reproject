@@ -14,25 +14,20 @@ construct a single optimal WCS/shape that overlaps with multiple images, and
 target WCS/shape will reproject all the images then combine them into a mosaic.
 We describe these in the sections below.
 
-For the examples on this page we will use the following four FITS images which
-we read in using ``astropy.io.fits``::
+For the examples on this page we will use the `PyVO
+<https://pyvo.readthedocs.io>`_ module to retrieve tiles from the 2MASS survey
+around the M17 region::
 
+    >>> from astropy import units as u
     >>> from astropy.io import fits
-    >>> from astropy.utils.data import get_pkg_data_filename
-    >>> filelist = ['aK_asky_990502s1350080.fits',
-    ...             'aK_asky_990502s1350092.fits',
-    ...             'aK_asky_990502s1420186.fits',
-    ...             'aK_asky_990502s1420198.fits',
-    ...             'aK_asky_990502s1430080.fits',
-    ...             'aK_asky_990502s1430092.fits',
-    ...             'aK_asky_990502s1440186.fits',
-    ...             'aK_asky_990502s1440198.fits']
+    >>> from astropy.coordinates import SkyCoord
+    >>> from pyvo.dal import imagesearch
 
-.. >>> hdu1 = fits.open(get_pkg_data_filename('mosaic/tile1.fits'))
-.. >>> hdu2 = fits.open(get_pkg_data_filename('mosaic/tile2.fits'))
-.. >>> hdu3 = fits.open(get_pkg_data_filename('mosaic/tile3.fits'))
-.. >>> hdu4 = fits.open(get_pkg_data_filename('mosaic/tile4.fits'))
-
+    >>> pos = SkyCoord.from_name('M17')
+    >>> table = imagesearch('https://irsa.ipac.caltech.edu/cgi-bin/2MASS/IM/nph-im_sia?type=at&ds=asky&',
+    ...                    pos, size=0.2 * u.deg).to_table()
+    >>> table = table[(table['band'] == b'K') & (table['format'] == b'image/fits')]
+    >>> m17_hdus = [fits.open(row['download'].decode('ascii'))[0] for row in table]
 
 .. _optimal-wcs:
 
@@ -55,7 +50,7 @@ example, which is to call :func:`~reproject.mosaicking.find_optimal_celestial_wc
 with the files downloaded above, but no additional information::
 
     >>> from reproject.mosaicking import find_optimal_celestial_wcs
-    >>> wcs_out, shape_out = find_optimal_celestial_wcs(filelist)
+    >>> wcs_out, shape_out = find_optimal_celestial_wcs(m17_hdus)
 
 The first argument to :func:`~reproject.mosaicking.find_optimal_celestial_wcs`
 should be a list where each element is either a filename, an HDU object (e.g.
@@ -66,22 +61,22 @@ WCS and shape::
 
     >>> wcs_out.to_header()
     WCSAXES =                    2 / Number of coordinate axes
-    CRPIX1  =      900.07981909507 / Pixel coordinate of reference point
-    CRPIX2  =      1099.9484609446 / Pixel coordinate of reference point
+    CRPIX1  =      685.38327047514 / Pixel coordinate of reference point
+    CRPIX2  =       1065.338573536 / Pixel coordinate of reference point
     CDELT1  =     -0.0002777777845 / [deg] Coordinate increment at reference point
     CDELT2  =      0.0002777777845 / [deg] Coordinate increment at reference point
     CUNIT1  = 'deg'                / Units of coordinate increment and value
     CUNIT2  = 'deg'                / Units of coordinate increment and value
     CTYPE1  = 'RA---TAN'           / Right ascension, gnomonic projection
     CTYPE2  = 'DEC--TAN'           / Declination, gnomonic projection
-    CRVAL1  =      275.18472258448 / [deg] Coordinate value at reference point
-    CRVAL2  =     -16.141349044263 / [deg] Coordinate value at reference point
+    CRVAL1  =      275.24672931289 / [deg] Coordinate value at reference point
+    CRVAL2  =     -16.151011679997 / [deg] Coordinate value at reference point
     LONPOLE =                180.0 / [deg] Native longitude of celestial pole
-    LATPOLE =     -16.141349044263 / [deg] Native latitude of celestial pole
+    LATPOLE =     -16.151011679997 / [deg] Native latitude of celestial pole
     RADESYS = 'FK5'                / Equatorial coordinate system
     EQUINOX =               2000.0 / [yr] Equinox of equatorial coordinates
     >>> shape_out
-    (2201, 1800)
+    (2196, 1370)
 
 Coordinate system
 -----------------
@@ -94,27 +89,27 @@ Galactic coordinates by setting the ``frame=`` argument to a coordinate frame
 object such as :class:`astropy.coordinates.Galactic`::
 
     >>> from astropy.coordinates import Galactic
-    >>> wcs_out, shape_out = find_optimal_celestial_wcs(filelist,
+    >>> wcs_out, shape_out = find_optimal_celestial_wcs(m17_hdus,
     ...                                                 frame=Galactic())
 
 the resulting WCS is then in Galactic coordinates::
 
     >>> wcs_out.to_header()
     WCSAXES =                    2 / Number of coordinate axes
-    CRPIX1  =      1214.1034417971 / Pixel coordinate of reference point
-    CRPIX2  =      1310.1351675461 / Pixel coordinate of reference point
+    CRPIX1  =      1143.8045097031 / Pixel coordinate of reference point
+    CRPIX2  =      1104.5982721584 / Pixel coordinate of reference point
     CDELT1  =     -0.0002777777845 / [deg] Coordinate increment at reference point
     CDELT2  =      0.0002777777845 / [deg] Coordinate increment at reference point
     CUNIT1  = 'deg'                / Units of coordinate increment and value
     CUNIT2  = 'deg'                / Units of coordinate increment and value
     CTYPE1  = 'GLON-TAN'           / galactic longitude, gnomonic projection
     CTYPE2  = 'GLAT-TAN'           / galactic latitude, gnomonic projection
-    CRVAL1  =      15.116960053834 / [deg] Coordinate value at reference point
-    CRVAL2  =    -0.72166403860488 / [deg] Coordinate value at reference point
+    CRVAL1  =      15.136488477515 / [deg] Coordinate value at reference point
+    CRVAL2  =    -0.77875670517818 / [deg] Coordinate value at reference point
     LONPOLE =                180.0 / [deg] Native longitude of celestial pole
-    LATPOLE =    -0.72166403860488 / [deg] Native latitude of celestial pole
+    LATPOLE =    -0.77875670517818 / [deg] Native latitude of celestial pole
     >>> shape_out
-    (2623, 2424)
+    (2146, 2404)
 
 Orientation
 -----------
@@ -125,7 +120,7 @@ North, there may be a lot of empty space in the final mosaic. The ``auto_rotate`
 option can therefore be used to find the optimal rotation for the WCS that minimizes
 the area of the final mosaic file::
 
-    >>> wcs_out, shape_out = find_optimal_celestial_wcs(filelist,
+    >>> wcs_out, shape_out = find_optimal_celestial_wcs(m17_hdus,
     ...                                                 frame=Galactic(),
     ...                                                 auto_rotate=True)
 
@@ -134,24 +129,24 @@ look at the final WCS and shape::
 
     >>> wcs_out.to_header()
     WCSAXES =                    2 / Number of coordinate axes
-    CRPIX1  =      1102.3949574309 / Pixel coordinate of reference point
-    CRPIX2  =      900.46211361965 / Pixel coordinate of reference point
-    PC1_1   =     0.88188439264557 / Coordinate transformation matrix element
-    PC1_2   =     0.47146571244169 / Coordinate transformation matrix element
-    PC2_1   =    -0.47146571244169 / Coordinate transformation matrix element
-    PC2_2   =     0.88188439264557 / Coordinate transformation matrix element
+    CRPIX1  =      1131.7542366532 / Pixel coordinate of reference point
+    CRPIX2  =      686.05506190775 / Pixel coordinate of reference point
+    PC1_1   =     0.88188501297661 / Coordinate transformation matrix element
+    PC1_2   =     0.47146455210041 / Coordinate transformation matrix element
+    PC2_1   =    -0.47146455210041 / Coordinate transformation matrix element
+    PC2_2   =     0.88188501297661 / Coordinate transformation matrix element
     CDELT1  =     -0.0002777777845 / [deg] Coordinate increment at reference point
     CDELT2  =      0.0002777777845 / [deg] Coordinate increment at reference point
     CUNIT1  = 'deg'                / Units of coordinate increment and value
     CUNIT2  = 'deg'                / Units of coordinate increment and value
     CTYPE1  = 'GLON-TAN'           / galactic longitude, gnomonic projection
     CTYPE2  = 'GLAT-TAN'           / galactic latitude, gnomonic projection
-    CRVAL1  =      15.116960053834 / [deg] Coordinate value at reference point
-    CRVAL2  =    -0.72166403860488 / [deg] Coordinate value at reference point
+    CRVAL1  =      15.136488477515 / [deg] Coordinate value at reference point
+    CRVAL2  =    -0.77875670517818 / [deg] Coordinate value at reference point
     LONPOLE =                180.0 / [deg] Native longitude of celestial pole
-    LATPOLE =    -0.72166403860488 / [deg] Native latitude of celestial pole
+    LATPOLE =    -0.77875670517818 / [deg] Native latitude of celestial pole
     >>> shape_out
-    (1800, 2201)
+    (1370, 2196)
 
 As expected, the optimal shape is smaller than was returned previously.
 
@@ -163,7 +158,7 @@ input image, but this can be overriden using the ``resolution=`` keyword
 argument::
 
     >>> from astropy import units as u
-    >>> wcs_out, shape_out = find_optimal_celestial_wcs(filelist,
+    >>> wcs_out, shape_out = find_optimal_celestial_wcs(m17_hdus,
     ...                                                 resolution=1.5 * u.arcsec)
 
 Projection and reference coordinate
@@ -174,7 +169,7 @@ coordinate. To change the projection from the default (which is the
 gnomonic projection, or ``TAN``), you can use the ``projection=`` keyword
 argument, which should be set to a valid three-letter FITS-WCS projection code::
 
-  >>> wcs_out, shape_out = find_optimal_celestial_wcs(filelist,
+  >>> wcs_out, shape_out = find_optimal_celestial_wcs(m17_hdus,
   ...                                                 projection='CAR')
 
 To customize the reference coordinate (where the projection is centered) you
@@ -183,7 +178,7 @@ can set the ``reference=`` keyword argument to an astropy
 
     >>> from astropy.coordinates import SkyCoord
     >>> coord = SkyCoord.from_name('M17')
-    >>> wcs_out, shape_out = find_optimal_celestial_wcs(filelist,
+    >>> wcs_out, shape_out = find_optimal_celestial_wcs(m17_hdus,
     ...                                                 reference=coord)
 
 .. _coadding:
@@ -199,7 +194,7 @@ mosaic::
 
     >>> from reproject import reproject_interp
     >>> from reproject.mosaicking import reproject_and_coadd
-    >>> array, footprint = reproject_and_coadd(filelist,
+    >>> array, footprint = reproject_and_coadd(m17_hdus,
     ...                                        wcs_out, shape_out=shape_out,
     ...                                        reproject_function=reproject_interp)
 
@@ -220,7 +215,10 @@ size).
 
 Finally, the ``reproject_function`` should be used to specify which function to
 use to reproject individual tiles - this should be either
-:func:`~reproject.reproject_interp` or :func:`~reproject.reproject_exact`.
+:func:`~reproject.reproject_interp` or :func:`~reproject.reproject_exact` - with
+the latter being slower but more accurate. Keyword arguments for these functions
+(e.g. ``order`` for :func:`~reproject.reproject_interp`) can be passed as keyword
+arguments to :func:`~reproject.mosaicking.reproject_and_coadd`.
 
 The example above will return an array which is the mosaic itself, and a
 footprint, which shows how many input images contributed to each output pixel.
@@ -230,26 +228,26 @@ We can take a look at the output:
    :context: reset
    :nofigs:
 
+    from astropy import units as u
     from astropy.io import fits
-    from astropy.utils.data import get_pkg_data_filename
-    filelist = ['aK_asky_990502s1350080.fits',
-                'aK_asky_990502s1350092.fits',
-                'aK_asky_990502s1420186.fits',
-                'aK_asky_990502s1420198.fits',
-                'aK_asky_990502s1430080.fits',
-                'aK_asky_990502s1430092.fits',
-                'aK_asky_990502s1440186.fits',
-                'aK_asky_990502s1440198.fits']
+    from astropy.coordinates import SkyCoord
+    from pyvo.dal import imagesearch
+
+    pos = SkyCoord.from_name('M17')
+    table = imagesearch('https://irsa.ipac.caltech.edu/cgi-bin/2MASS/IM/nph-im_sia?type=at&ds=asky&',
+                       pos, size=0.2 * u.deg).to_table()
+    table = table[(table['band'] == b'K') & (table['format'] == b'image/fits')]
+    m17_hdus = [fits.open(row['download'].decode('ascii'))[0] for row in table]
 
     from astropy.coordinates import SkyCoord
     from reproject.mosaicking import find_optimal_celestial_wcs
     coord = SkyCoord.from_name('M17')
-    wcs_out, shape_out = find_optimal_celestial_wcs(filelist,
+    wcs_out, shape_out = find_optimal_celestial_wcs(m17_hdus,
                                              reference=coord)
 
     from reproject import reproject_interp
     from reproject.mosaicking import reproject_and_coadd
-    array, footprint = reproject_and_coadd(filelist,
+    array, footprint = reproject_and_coadd(m17_hdus,
                                            wcs_out, shape_out=shape_out,
                                            reproject_function=reproject_interp)
 
@@ -274,7 +272,7 @@ the mosaic has an arbitrary offset due e.g. to different observing conditions.
 The :func:`~reproject.mosaicking.reproject_and_coadd` includes an option to
 match the backgrounds (assuming a constant additive offset in each image)::
 
-    >>> array_bgmatch, _ = reproject_and_coadd(filelist,
+    >>> array_bgmatch, _ = reproject_and_coadd(m17_hdus,
     ...                                        wcs_out, shape_out=shape_out,
     ...                                        reproject_function=reproject_interp,
     ...                                        match_background=True)
@@ -287,7 +285,7 @@ without shows vertical striping, especially on the left.
    :context:
    :nofigs:
 
-    array_bgmatch, _ = reproject_and_coadd(filelist,
+    array_bgmatch, _ = reproject_and_coadd(m17_hdus,
                                            wcs_out, shape_out=shape_out,
                                            reproject_function=reproject_interp,
                                            match_background=True)
