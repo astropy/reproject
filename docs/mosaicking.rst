@@ -117,14 +117,18 @@ As mentioned above, by default the image will be lined up so that North is up,
 but this may not always be optimal because if the mosaic is rotated compared to
 North, there may be a lot of empty space in the final mosaic. The ``auto_rotate``
 option can therefore be used to find the optimal rotation for the WCS that minimizes
-the area of the final mosaic file::
+the area of the final mosaic file:
+
+.. doctest-requires:: shapely
 
     >>> wcs_out, shape_out = find_optimal_celestial_wcs(m17_hdus,
     ...                                                 frame=Galactic(),
     ...                                                 auto_rotate=True)
 
 Note that this requires `Shapely <...>`_ 1.6 or later to be installed. We can now
-look at the final WCS and shape::
+look at the final WCS and shape:
+
+.. doctest-requires:: shapely
 
     >>> wcs_out.to_header()  # doctest: +FLOAT_CMP
     WCSAXES =                    2 / Number of coordinate axes
