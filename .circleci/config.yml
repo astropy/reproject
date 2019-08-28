@@ -9,7 +9,7 @@ jobs:
       - run:
           name: Install dependencies
           command: |
-            /opt/python/cp36-cp36m/bin/pip install numpy scipy pytest-remotedata pytest-doctestplus astropy cython jinja2 pytest-arraydiff
+            /opt/python/cp36-cp36m/bin/pip install numpy scipy pytest==4.* pytest-remotedata pytest-doctestplus astropy cython jinja2 pytest-arraydiff
             /opt/python/cp36-cp36m/bin/pip install astropy-healpix
       - run:
           name: Build
