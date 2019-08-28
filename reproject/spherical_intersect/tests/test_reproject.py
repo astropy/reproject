@@ -92,3 +92,32 @@ def test_reproject_celestial_():
 
     # TODO: improve agreement with Montage - at the moment agreement is ~10%
     np.testing.assert_allclose(array, MONTAGE_REF, rtol=0.09)
+
+
+def test_reproject_flipping():
+
+    # Regression test for a bug that caused issues when the WCS was oriented
+    # in a way that meant polygon vertices were clockwise.
+
+    wcs_in = WCS(fits.Header.fromstring(INPUT_HDR, sep='\n'))
+    wcs_out = WCS(fits.Header.fromstring(OUTPUT_HDR, sep='\n'))
+    array1, footprint1 = _reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), parallel=False)
+
+    # Repeat with an input that is flipped horizontally with the equivalent WCS
+    wcs_in_flipped = WCS(fits.Header.fromstring(INPUT_HDR, sep='\n'))
+    wcs_in_flipped.wcs.cdelt[0] = -wcs_in_flipped.wcs.cdelt[0]
+    wcs_in_flipped.wcs.crpix[0] = 3 - wcs_in_flipped.wcs.crpix[0]
+    array2, footprint2 = _reproject_celestial(DATA[:, ::-1], wcs_in_flipped, wcs_out, (4, 4), parallel=False)
+
+    # Repeat with an output that is flipped horizontally with the equivalent WCS
+    wcs_out_flipped = WCS(fits.Header.fromstring(OUTPUT_HDR, sep='\n'))
+    wcs_out_flipped.wcs.cdelt[0] = -wcs_out_flipped.wcs.cdelt[0]
+    wcs_out_flipped.wcs.crpix[0] = 5 - wcs_out_flipped.wcs.crpix[0]
+    array3, footprint3 = _reproject_celestial(DATA, wcs_in, wcs_out_flipped, (4, 4), parallel=False)
+    array3, footprint3 = array3[:, ::-1], footprint3[:, ::-1]
+
+    np.testing.assert_allclose(array1, array2, rtol=1.e-5)
+    np.testing.assert_allclose(array1, array3, rtol=1.e-5)
+
+    np.testing.assert_allclose(footprint1, footprint2, rtol=3.e-5)
+    np.testing.assert_allclose(footprint1, footprint3, rtol=3.e-5)
