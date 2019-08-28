@@ -125,6 +125,7 @@ package_info['package_data'][PACKAGENAME].extend(c_files)
 setup(name=PACKAGENAME,
       version=VERSION,
       description=DESCRIPTION,
+      python_requires='>=2.7',
       scripts=scripts,
       install_requires=[s.strip() for s in metadata.get('install_requires', 'astropy').split(',')],
       author=AUTHOR,
