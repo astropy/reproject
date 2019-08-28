@@ -3,6 +3,12 @@
 
 - No changes yet.
 
+0.5.1 (unreleased)
+------------------
+
+- Fixed a bug that caused 'exact' reprojection to fail if one or more of
+  the WCSes was oriented such that E and W were flipped. [#188]
+
 0.5 (2019-06-13)
 ----------------
 
