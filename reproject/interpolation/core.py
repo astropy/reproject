@@ -58,6 +58,17 @@ def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
                             indexing='ij', sparse=False, copy=False)
     pixel_out = [p.ravel() for p in pixel_out]
     pixel_in = efficient_pixel_to_pixel(wcs_out, wcs_in, *pixel_out[::-1])[::-1]
+
+    # Now convert back to check that coordinates round-trip, if not then set to NaN
+    pixel_out_check = efficient_pixel_to_pixel(wcs_in, wcs_out, *pixel_in[::-1])[::-1]
+    reset = np.zeros(pixel_out_check[0].shape, dtype=bool)
+    for ipix in range(len(pixel_out_check)):
+        reset |= (np.abs(pixel_out_check[ipix] - pixel_out[ipix]) > 1)
+    if np.any(reset):
+        for ipix in range(len(pixel_out_check)):
+            pixel_in[ipix] = pixel_in[ipix].copy()
+            pixel_in[ipix][reset] = np.nan
+
     pixel_in = np.array(pixel_in)
 
     if array_out is not None:
