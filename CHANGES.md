@@ -3,7 +3,7 @@
 
 - No changes yet.
 
-0.5.1 (unreleased)
+0.5.1 (2019-09-01)
 ------------------
 
 - Fixed a bug that caused 'exact' reprojection to fail if one or more of
