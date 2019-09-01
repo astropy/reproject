@@ -27,9 +27,9 @@ def compute_overlap(ilon, ilat, olon, olat):
     area_ratio : np.ndarray of length N
         TODO
     """
-    ilon = np.asarray(ilon, dtype=np.float64)
-    ilat = np.asarray(ilat, dtype=np.float64)
-    olon = np.asarray(olon, dtype=np.float64)
-    olat = np.asarray(olat, dtype=np.float64)
+    ilon = np.ascontiguousarray(ilon, dtype=np.float64)
+    ilat = np.ascontiguousarray(ilat, dtype=np.float64)
+    olon = np.ascontiguousarray(olon, dtype=np.float64)
+    olat = np.ascontiguousarray(olat, dtype=np.float64)
 
     return _compute_overlap(ilon, ilat, olon, olat)
