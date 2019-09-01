@@ -58,6 +58,7 @@ void SaveSharedSeg(Vec *p, Vec *q);
 void PrintPolygon();
 
 void ComputeIntersection(Vec *P, Vec *Q);
+void EnsureCounterClockWise(Vec *V);
 
 int UpdateInteriorFlag(Vec *p, int interiorFlag, int pEndpointFromQdir,
                        int qEndpointFromPdir);
@@ -122,9 +123,48 @@ double computeOverlap(double *ilon, double *ilat, double *olon, double *olat,
     Q[i].z = sin(olat[i]);
   }
 
+  EnsureCounterClockWise(P);
+  EnsureCounterClockWise(Q);
+
   ComputeIntersection(P, Q);
 
   return (Girard());
+}
+
+void EnsureCounterClockWise(Vec *V) {
+
+  // Make sure that the polygon is counter-clockwise. For now we assume that we
+  // are dealing with convex quadrilaterals, and therefore we can just check
+  // the two first sides of the polygon.
+
+  Vec S1, S2, C;
+  double dir;
+  double tmp;
+
+  S1.x = V[1].x - V[0].x;
+  S1.y = V[1].y - V[0].y;
+  S1.z = V[1].z - V[0].z;
+
+  S2.x = V[2].x - V[1].x;
+  S2.y = V[2].y - V[1].y;
+  S2.z = V[2].z - V[1].z;
+
+  Cross(&S1, &S2, &C);
+
+  dir = Dot(&V[1], &C);
+
+  if (dir < 0) {
+    tmp = V[2].x;
+    V[2].x = V[0].x;
+    V[0].x = tmp;
+    tmp = V[2].y;
+    V[2].y = V[0].y;
+    V[0].y = tmp;
+    tmp = V[2].z;
+    V[2].z = V[0].z;
+    V[0].z = tmp;
+  }
+
 }
 
 /*
