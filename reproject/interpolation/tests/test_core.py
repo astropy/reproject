@@ -9,6 +9,7 @@ import itertools
 import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
+from astropy import units as u
 from astropy.wcs.wcsapi import HighLevelWCSWrapper, SlicedLowLevelWCS
 from astropy.utils.data import get_pkg_data_filename
 
@@ -444,3 +445,29 @@ def test_reproject_with_output_array():
                                       output_array=out_full, return_footprint=False)
 
     assert out_full is returned_array
+
+
+@pytest.mark.array_compare()
+def test_reproject_roundtrip():
+
+    pytest.importorskip('sunpy')
+    from sunpy.map import Map
+    from sunpy.coordinates.ephemeris import get_body_heliographic_stonyhurst
+
+    # Test the reprojection with solar data, which ensures that the masking of
+    # pixels based on round-tripping works correctly.
+
+    map_aia = Map(os.path.join(DATA, 'aia_171_level1.fits'))
+
+    # Reproject to an observer on Venus
+
+    venus_wcs = map_aia.wcs.deepcopy()
+
+    venus_wcs.wcs.cdelt = ([24, 24]*u.arcsec).to(u.deg)
+    venus_wcs.wcs.crpix = [64, 64]
+    venus = get_body_heliographic_stonyhurst('venus', map_aia.date)
+    venus_wcs.heliographic_observer = venus
+
+    output, footprint = reproject_interp((map_aia.data, map_aia.wcs), venus_wcs, (128, 128))
+
+    return array_footprint_to_hdulist(output, footprint, venus_wcs.to_header())
