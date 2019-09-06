@@ -447,27 +447,41 @@ def test_reproject_with_output_array():
     assert out_full is returned_array
 
 
-@pytest.mark.array_compare()
-def test_reproject_roundtrip():
+@pytest.mark.array_compare(single_reference=True)
+@pytest.mark.parametrize('file_format', ['fits', 'asdf'])
+def test_reproject_roundtrip(file_format):
+
+    # Test the reprojection with solar data, which ensures that the masking of
+    # pixels based on round-tripping works correctly. Using asdf is not just
+    # about testing a different format but making sure that GWCS works.
 
     pytest.importorskip('sunpy')
     from sunpy.map import Map
     from sunpy.coordinates.ephemeris import get_body_heliographic_stonyhurst
 
-    # Test the reprojection with solar data, which ensures that the masking of
-    # pixels based on round-tripping works correctly.
-
-    map_aia = Map(os.path.join(DATA, 'aia_171_level1.fits'))
+    if file_format == 'fits':
+        map_aia = Map(os.path.join(DATA, 'aia_171_level1.fits'))
+        data = map_aia.data
+        wcs = map_aia.wcs
+        date = map_aia.date
+        target_wcs = wcs.deepcopy()
+    elif file_format == 'asdf':
+        asdf = pytest.importorskip('asdf')
+        aia = asdf.open(os.path.join(DATA, 'aia_171_level1.asdf'))
+        data = aia['data'][...]
+        wcs = aia['wcs']
+        date = wcs.output_frame.reference_frame.obstime
+        target_wcs = Map(os.path.join(DATA, 'aia_171_level1.fits')).wcs.deepcopy()
+    else:
+        raise ValueError('file_format should be fits or asdf')
 
     # Reproject to an observer on Venus
 
-    venus_wcs = map_aia.wcs.deepcopy()
+    target_wcs.wcs.cdelt = ([24, 24]*u.arcsec).to(u.deg)
+    target_wcs.wcs.crpix = [64, 64]
+    venus = get_body_heliographic_stonyhurst('venus', date)
+    target_wcs.heliographic_observer = venus
 
-    venus_wcs.wcs.cdelt = ([24, 24]*u.arcsec).to(u.deg)
-    venus_wcs.wcs.crpix = [64, 64]
-    venus = get_body_heliographic_stonyhurst('venus', map_aia.date)
-    venus_wcs.heliographic_observer = venus
+    output, footprint = reproject_interp((data, wcs), target_wcs, (128, 128))
 
-    output, footprint = reproject_interp((map_aia.data, map_aia.wcs), venus_wcs, (128, 128))
-
-    return array_footprint_to_hdulist(output, footprint, venus_wcs.to_header())
+    return array_footprint_to_hdulist(output, footprint, target_wcs.to_header())
