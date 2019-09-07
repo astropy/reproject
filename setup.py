@@ -5,8 +5,7 @@
 import os
 import builtins
 
-# Ensure that astropy-helpers is available
-import ah_bootstrap  # noqa
+from setuptools import setup
 
 from setuptools import setup
 from setuptools.config import read_configuration
