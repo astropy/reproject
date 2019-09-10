@@ -11,9 +11,15 @@ from numpy.testing import assert_allclose, assert_equal
 
 from astropy.wcs import WCS
 
-from ... import reproject_interp
+from ... import reproject_interp, reproject_exact
 
 from ..coadd import reproject_and_coadd
+
+
+@pytest.fixture(params=[reproject_interp, reproject_exact],
+                ids=["interp", "exact"])
+def reproject_function(request):
+    return request.param
 
 
 class TestReprojectAndCoAdd():
@@ -72,7 +78,7 @@ class TestReprojectAndCoAdd():
         return views
 
     @pytest.mark.parametrize('combine_function', ['mean', 'sum'])
-    def test_coadd_no_overlap(self, combine_function):
+    def test_coadd_no_overlap(self, combine_function, reproject_function):
 
         # Make sure that if all tiles are exactly non-overlapping, and
         # we use 'sum' or 'mean', we get the exact input array back.
@@ -82,12 +88,12 @@ class TestReprojectAndCoAdd():
         array, footprint = reproject_and_coadd(input_data, self.wcs,
                                                shape_out=self.array.shape,
                                                combine_function=combine_function,
-                                               reproject_function=reproject_interp)
+                                               reproject_function=reproject_function)
 
         assert_allclose(array, self.array, atol=1e-9)
         assert_equal(footprint, 1)
 
-    def test_coadd_with_overlap(self):
+    def test_coadd_with_overlap(self, reproject_function):
 
         # Here we make the input tiles overlapping. We can only check the
         # mean, not the sum.
@@ -97,11 +103,11 @@ class TestReprojectAndCoAdd():
         array, footprint = reproject_and_coadd(input_data, self.wcs,
                                                shape_out=self.array.shape,
                                                combine_function='mean',
-                                               reproject_function=reproject_interp)
+                                               reproject_function=reproject_function)
 
         assert_allclose(array, self.array, atol=1e-9)
 
-    def test_coadd_background_matching(self):
+    def test_coadd_background_matching(self, reproject_function):
 
         # Test out the background matching
 
@@ -115,7 +121,7 @@ class TestReprojectAndCoAdd():
         array, footprint = reproject_and_coadd(input_data, self.wcs,
                                                shape_out=self.array.shape,
                                                combine_function='mean',
-                                               reproject_function=reproject_interp)
+                                               reproject_function=reproject_function)
 
         assert not np.allclose(array, self.array, atol=1e-9)
 
@@ -124,7 +130,36 @@ class TestReprojectAndCoAdd():
         array, footprint = reproject_and_coadd(input_data, self.wcs,
                                                shape_out=self.array.shape,
                                                combine_function='mean',
-                                               reproject_function=reproject_interp,
+                                               reproject_function=reproject_function,
+                                               match_background=True)
+
+        # The absolute values of the two arrays will be offset since any
+        # solution that reproduces the offsets between images is valid
+
+        assert_allclose(array - np.mean(array),
+                        self.array - np.mean(self.array), atol=1e-9)
+
+    def test_coadd_background_matching_with_nan(self, reproject_function):
+
+        # Test out the background matching when NaN values are present. We do
+        # this by using three arrays with the same footprint but with different
+        # parts masked.
+
+        array1 = self.array.copy() + random.uniform(-3, 3)
+        array2 = self.array.copy() + random.uniform(-3, 3)
+        array3 = self.array.copy() + random.uniform(-3, 3)
+
+        array1[:, 122:] = np.nan
+        array2[:, :50] = np.nan
+        array2[:, 266:] = np.nan
+        array3[:, :199] = np.nan
+
+        input_data = [(array1, self.wcs), (array2, self.wcs), (array3, self.wcs)]
+
+        array, footprint = reproject_and_coadd(input_data, self.wcs,
+                                               shape_out=self.array.shape,
+                                               combine_function='mean',
+                                               reproject_function=reproject_function,
                                                match_background=True)
 
         # The absolute values of the two arrays will be offset since any
