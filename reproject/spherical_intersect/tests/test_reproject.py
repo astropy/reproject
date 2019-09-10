@@ -81,7 +81,7 @@ def test_reproject_celestial_consistency():
     np.testing.assert_allclose(footprint1, footprint3, rtol=3.e-5)
 
 
-def test_reproject_celestial_():
+def test_reproject_celestial_montage():
 
     # Accuracy compared to Montage
 

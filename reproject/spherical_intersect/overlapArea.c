@@ -916,9 +916,42 @@ double Girard() {
 
   for (i = 0; i < nv; ++i) {
     Cross(&V[i], &V[(i + 1) % nv], &side[i]);
-
-    Normalize(&side[i]);
   }
+
+  // De-duplicate vertices that are extremely close to each other otherwise
+  // the angles determined in the next steps are not accurate.
+
+  for (i = 0; i < nv; ++i) {
+
+    // We don't use TOLERANCE here since it is too large for our purposes here
+
+    if (Dot(&side[i], &side[i]) < 1e-30) {
+
+      if (DEBUG >= 4) {
+        printf("Girard(): ---------- Corner %d duplicate; "
+               "Remove point %d -------------\n",
+               i, i);
+        fflush(stdout);
+      }
+
+      --nv;
+
+      for (j = i; j < nv; ++j) {
+        V[j].x = V[j + 1].x;
+        V[j].y = V[j + 1].y;
+        V[j].z = V[j + 1].z;
+        side[j].x = side[j + 1].x;
+        side[j].y = side[j + 1].y;
+        side[j].z = side[j + 1].z;
+      }
+
+    } else {
+        Normalize(&side[i]);
+    }
+  }
+
+  if (nv < 3)
+    return 0;
 
   for (i = 0; i < nv; ++i) {
     Cross(&side[i], &side[(i + 1) % nv], &tmp);

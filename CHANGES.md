@@ -3,6 +3,12 @@
 
 - No changes yet.
 
+0.5.2 (unreleased)
+------------------
+
+- Fixed a bug that caused 'exact' reprojection results to have numerical
+  issues when doing identity transformations. [#190]
+
 0.5.1 (2019-09-01)
 ------------------
 
