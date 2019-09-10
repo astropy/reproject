@@ -122,6 +122,12 @@ def reproject_and_coadd(input_data, output_projection, shape_out=None,
                                               hdu_in=hdu_in,
                                               **kwargs)
 
+        # For the purposes of mosaicking, we mask out NaN values from the array
+        # and set the footprint to 0 at these locations.
+        reset = np.isnan(array)
+        array[reset] = 0.
+        footprint[reset] = 0.
+
         array = ReprojectedArraySubset(array, footprint,
                                        imin, imax, jmin, jmax)
 
@@ -153,7 +159,7 @@ def reproject_and_coadd(input_data, output_projection, shape_out=None,
             # means/sums.
             array.array[array.footprint == 0] = 0
 
-            final_array[array.view_in_original_array] += array.array
+            final_array[array.view_in_original_array] += array.array * array.footprint
             final_footprint[array.view_in_original_array] += array.footprint
 
         if combine_function == 'mean':

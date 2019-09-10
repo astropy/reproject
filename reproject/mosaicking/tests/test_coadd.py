@@ -16,6 +16,8 @@ from ... import reproject_interp, reproject_exact
 from ..coadd import reproject_and_coadd
 
 
+ATOL = 1.e-9
+
 @pytest.fixture(params=[reproject_interp, reproject_exact],
                 ids=["interp", "exact"])
 def reproject_function(request):
@@ -33,7 +35,7 @@ class TestReprojectAndCoAdd():
         self.wcs.wcs.cdelt = -0.1, 0.1
         self.wcs.wcs.equinox = 2000.
 
-        self.array = np.random.random((423, 344))
+        self.array = np.random.random((399, 334))
 
     def _get_tiles(self, views):
 
@@ -54,8 +56,8 @@ class TestReprojectAndCoAdd():
     @property
     def _nonoverlapping_views(self):
 
-        ie = (0, 122, 233, 245, 344)
-        je = (0, 44, 45, 333, 335, 423)
+        ie = (0, 122, 233, 245, 334)
+        je = (0, 44, 45, 333, 335, 399)
 
         views = []
         for i in range(4):
@@ -67,8 +69,8 @@ class TestReprojectAndCoAdd():
     @property
     def _overlapping_views(self):
 
-        ie = (0, 122, 233, 245, 344)
-        je = (0, 44, 45, 333, 335, 423)
+        ie = (0, 122, 233, 245, 334)
+        je = (0, 44, 45, 333, 335, 399)
 
         views = []
         for i in range(4):
@@ -85,13 +87,14 @@ class TestReprojectAndCoAdd():
 
         input_data = self._get_tiles(self._nonoverlapping_views)
 
+        input_data = [(self.array, self.wcs)]
         array, footprint = reproject_and_coadd(input_data, self.wcs,
                                                shape_out=self.array.shape,
                                                combine_function=combine_function,
                                                reproject_function=reproject_function)
 
-        assert_allclose(array, self.array, atol=1e-9)
-        assert_equal(footprint, 1)
+        assert_allclose(array, self.array, atol=ATOL)
+        assert_allclose(footprint, 1, atol=ATOL)
 
     def test_coadd_with_overlap(self, reproject_function):
 
@@ -105,7 +108,7 @@ class TestReprojectAndCoAdd():
                                                combine_function='mean',
                                                reproject_function=reproject_function)
 
-        assert_allclose(array, self.array, atol=1e-9)
+        assert_allclose(array, self.array, atol=ATOL)
 
     def test_coadd_background_matching(self, reproject_function):
 
@@ -123,7 +126,7 @@ class TestReprojectAndCoAdd():
                                                combine_function='mean',
                                                reproject_function=reproject_function)
 
-        assert not np.allclose(array, self.array, atol=1e-9)
+        assert not np.allclose(array, self.array, atol=ATOL)
 
         # Now check that once the backgrounds are matched the values agree
 
@@ -137,7 +140,7 @@ class TestReprojectAndCoAdd():
         # solution that reproduces the offsets between images is valid
 
         assert_allclose(array - np.mean(array),
-                        self.array - np.mean(self.array), atol=1e-9)
+                        self.array - np.mean(self.array), atol=ATOL)
 
     def test_coadd_background_matching_with_nan(self, reproject_function):
 
@@ -166,4 +169,4 @@ class TestReprojectAndCoAdd():
         # solution that reproduces the offsets between images is valid
 
         assert_allclose(array - np.mean(array),
-                        self.array - np.mean(self.array), atol=1e-9)
+                        self.array - np.mean(self.array), atol=ATOL)
