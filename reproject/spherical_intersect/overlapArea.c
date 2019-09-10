@@ -837,7 +837,7 @@ int Cross(Vec *v1, Vec *v2, Vec *v3) {
   v3->y = -v1->x * v2->z + v2->x * v1->z;
   v3->z = v1->x * v2->y - v2->x * v1->y;
 
-  if (v3->x == 0. && v3->y == 0. && v3->z == 0.)
+  if (fabs(v3->x) < 1.e-18 && fabs(v3->y) < 1.e-18 && fabs(v3->z) < 1.e-18)
     return 0;
 
   return 1;
@@ -916,7 +916,43 @@ double Girard() {
 
   for (i = 0; i < nv; ++i) {
     Cross(&V[i], &V[(i + 1) % nv], &side[i]);
+  }
 
+  // De-duplicate vertices that are extremely close to each other otherwise
+  // the angles determined in the next steps are not accurate. Need to loop
+  // backwards to avoid affecting future sides that need to be checked.
+
+  for (i = nv - 1; i >= 0; --i) {
+
+    // We don't use TOLERANCE here since it is too large for our purposes here
+
+    if (Dot(&side[i], &side[i]) < 1e-30) {
+
+      if (DEBUG >= 4) {
+        printf("Girard(): ---------- Corner %d duplicate; "
+               "Remove point %d -------------\n",
+               i, i);
+        fflush(stdout);
+      }
+
+      --nv;
+
+      for (j = i; j < nv; ++j) {
+        V[j].x = V[j + 1].x;
+        V[j].y = V[j + 1].y;
+        V[j].z = V[j + 1].z;
+        side[j].x = side[j + 1].x;
+        side[j].y = side[j + 1].y;
+        side[j].z = side[j + 1].z;
+      }
+
+    }
+  }
+
+  if (nv < 3)
+    return 0;
+
+  for (i = 0; i < nv; ++i) {
     Normalize(&side[i]);
   }
 

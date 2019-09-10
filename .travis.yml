@@ -1,4 +1,4 @@
-language: generic
+language: c
 
 env:
     global:
@@ -17,6 +17,12 @@ matrix:
         - env: SETUP_CMD='egg_info'
 
         - env: SETUP_CMD='test --coverage'
+
+        - os: osx
+          env: SETUP_CMD='test --coverage'
+
+        - os: windows
+          env: SETUP_CMD='test --coverage'
 
         # Check for sphinx doc build warnings - we do this first because it
         # may run for a long time

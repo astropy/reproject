@@ -3,6 +3,7 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 import numpy as np
+from numpy.testing import assert_allclose
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.utils.data import get_pkg_data_filename
@@ -40,3 +41,23 @@ class TestReprojectExact(object):
         with pytest.raises(ValueError) as exc:
             reproject_exact((self.array_in, self.header_in), self.header_out, parallel=-1)
         assert exc.value.args[0] == "The number of processors to use must be strictly positive"
+
+
+def test_identity():
+
+    # Reproject an array and WCS to itself
+
+    wcs = WCS(naxis=2)
+    wcs.wcs.ctype = 'RA---TAN', 'DEC--TAN'
+    wcs.wcs.crpix = 322, 151
+    wcs.wcs.crval = 43, 23
+    wcs.wcs.cdelt = -0.1, 0.1
+    wcs.wcs.equinox = 2000.
+
+    np.random.seed(1249)
+
+    array_in = np.random.random((423, 344))
+    array_out, footprint = reproject_exact((array_in, wcs), wcs,
+                                           shape_out=array_in.shape)
+
+    assert_allclose(array_out, array_in, atol=1e-10)
