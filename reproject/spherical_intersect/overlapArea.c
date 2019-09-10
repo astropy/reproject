@@ -837,8 +837,7 @@ int Cross(Vec *v1, Vec *v2, Vec *v3) {
   v3->y = -v1->x * v2->z + v2->x * v1->z;
   v3->z = v1->x * v2->y - v2->x * v1->y;
 
-  if (v3->x == 0. && v3->y == 0. && v3->z == 0.)
-  if (fabs(v3->x) < 1.e-20 && fabs(v3->y) < 1.e-20 && fabs(v3->z) < 1.e-20)
+  if (fabs(v3->x) < 1.e-18 && fabs(v3->y) < 1.e-18 && fabs(v3->z) < 1.e-18)
     return 0;
 
   return 1;
