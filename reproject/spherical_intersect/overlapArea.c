@@ -919,9 +919,10 @@ double Girard() {
   }
 
   // De-duplicate vertices that are extremely close to each other otherwise
-  // the angles determined in the next steps are not accurate.
+  // the angles determined in the next steps are not accurate. Need to loop
+  // backwards to avoid affecting future sides that need to be checked.
 
-  for (i = 0; i < nv; ++i) {
+  for (i = nv - 1; i >= 0; --i) {
 
     // We don't use TOLERANCE here since it is too large for our purposes here
 
@@ -945,13 +946,15 @@ double Girard() {
         side[j].z = side[j + 1].z;
       }
 
-    } else {
-        Normalize(&side[i]);
     }
   }
 
   if (nv < 3)
     return 0;
+
+  for (i = 0; i < nv; ++i) {
+    Normalize(&side[i]);
+  }
 
   for (i = 0; i < nv; ++i) {
     Cross(&side[i], &side[(i + 1) % nv], &tmp);
