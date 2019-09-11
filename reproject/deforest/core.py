@@ -3,13 +3,11 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 import numpy as np
-from astropy.wcs import WCSSUB_CELESTIAL
-from ..wcs_utils import wcs_to_celestial_frame, convert_world_coordinates
-from ..array_utils import iterate_over_celestial_slices
 
-from astropy.io import fits
+from .deforest import map_coordinates
 
-__all__ = ['reproject_celestial']
+
+__all__ = ['_reproject_deforest_2d']
 
 
 class CoordinateTransformer(object):
@@ -19,15 +17,13 @@ class CoordinateTransformer(object):
         self.wcs_out = wcs_out
 
     def __call__(self, input_pixel):
-        xp_in, yp_in = input_pixel[:,:,0], input_pixel[:,:,1]
-        xw_in, yw_in = self.wcs_in.wcs_pix2world(xp_in, yp_in, 0)
-        xw_out, yw_out = convert_world_coordinates(xw_in, yw_in, self.wcs_in, self.wcs_out)
-        xp_out, yp_out = self.wcs_out.wcs_world2pix(xw_out, yw_out, 0)
-        output_pixel = np.array([xp_out, yp_out]).transpose().swapaxes(0,1)
+        xp_in, yp_in = input_pixel[:, :, 0], input_pixel[:, :, 1]
+        xp_out, yp_out = self.wcs_in.world_to_pixel(self.wcs_out.pixel_to_world(xp_in, yp_in))
+        output_pixel = np.array([xp_out, yp_out]).transpose().swapaxes(0, 1)
         return output_pixel
 
 
-def reproject_celestial(array, wcs_in, wcs_out, shape_out):
+def _reproject_deforest_2d(array, wcs_in, wcs_out, shape_out):
     """
     Reproject celestial slices from an n-d array from one WCS to another
     using the DeForest (2003) algorithm, and assuming all other dimensions
@@ -54,33 +50,19 @@ def reproject_celestial(array, wcs_in, wcs_out, shape_out):
         indicate valid values.
     """
 
-    # For now, assume axes are independent in this routine
+    # Make sure image is floating point
+    array_in = np.asarray(array, dtype=float)
 
-    # Check that WCSs are equivalent
-    if wcs_in.naxis == wcs_out.naxis and np.any(wcs_in.wcs.axis_types != wcs_out.wcs.axis_types):
-        raise ValueError("The input and output WCS are not equivalent")
+    # Check dimensionality of WCS and shape_out
+    if wcs_in.low_level_wcs.pixel_n_dim != wcs_out.low_level_wcs.pixel_n_dim:
+        raise ValueError("Number of dimensions between input and output WCS should match")
+    elif len(shape_out) != wcs_out.low_level_wcs.pixel_n_dim:
+        raise ValueError("Length of shape_out should match number of dimensions in wcs_out")
 
-    # Extract celestial part of WCS in lon/lat order
-    wcs_in_celestial = wcs_in.sub([WCSSUB_CELESTIAL])
-    wcs_out_celestial = wcs_out.sub([WCSSUB_CELESTIAL])
+    # Create output array
+    array_out = np.zeros(shape_out)
 
-    # We create an output array with the required shape, then create an array
-    # that is in order of [rest, lat, lon] where rest is the flattened
-    # remainder of the array. We then operate on the view, but this will change
-    # the original array with the correct shape.
+    transformer = CoordinateTransformer(wcs_in, wcs_out)
+    map_coordinates(array_in, array_out, transformer)
 
-    array_new = np.zeros(shape_out)
-
-    from .deforest import map_coordinates
-
-    transformer = CoordinateTransformer(wcs_out, wcs_in)
-
-    # Loop over slices and interpolate
-    for slice_in, slice_out in iterate_over_celestial_slices(array, array_new, wcs_in):
-
-        map_coordinates(slice_in.astype(float),
-                        slice_out,
-                        transformer)
-
-
-    return array_new, (~np.isnan(array_new)).astype(float)
+    return array_out, (~np.isnan(array_out)).astype(float)

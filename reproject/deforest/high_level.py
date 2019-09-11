@@ -1,22 +1,16 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
 from ..utils import parse_input_data, parse_output_projection
-from .core import _reproject_full
+from .core import _reproject_deforest_2d
 
-__all__ = ['reproject_interp']
-
-ORDER = {}
-ORDER['nearest-neighbor'] = 0
-ORDER['bilinear'] = 1
-ORDER['biquadratic'] = 2
-ORDER['bicubic'] = 3
+__all__ = ['reproject_deforest']
 
 
-def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
-                     order='bilinear', output_array=None, return_footprint=True):
+def reproject_deforest(input_data, output_projection, shape_out=None, hdu_in=0,
+                       output_array=None, return_footprint=True):
     """
-    Reproject data to a new projection using interpolation (this is typically
-    the fastest way to reproject an image).
+    Reproject celestial slices from an 2d array from one WCS to another using
+    the DeForest (2003) algorithm.
 
     Parameters
     ----------
@@ -41,17 +35,6 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
     hdu_in : int or str, optional
         If ``input_data`` is a FITS file or an `~astropy.io.fits.HDUList`
         instance, specifies the HDU to use.
-    order : int or str, optional
-        The order of the interpolation. This can be any of the
-        following strings:
-
-            * 'nearest-neighbor'
-            * 'bilinear'
-            * 'biquadratic'
-            * 'bicubic'
-
-        or an integer. A value of ``0`` indicates nearest neighbor
-        interpolation.
     output_array : None or `~numpy.ndarray`
         An array in which to store the reprojected data.  This can be any numpy
         array including a memory map, which may be helpful when dealing with
@@ -69,12 +52,10 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
         indicate valid values.
     """
 
+    # TODO: add support for output_array and return_footprint
+
     array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
     wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out,
                                                  output_array=output_array)
 
-    if isinstance(order, str):
-        order = ORDER[order]
-
-    return _reproject_full(array_in, wcs_in, wcs_out, shape_out=shape_out, order=order,
-                           array_out=output_array, return_footprint=return_footprint)
+    return _reproject_deforest_2d(array_in, wcs_in, wcs_out, shape_out)

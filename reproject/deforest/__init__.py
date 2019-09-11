@@ -1,1 +1,1 @@
-from .core import reproject_celestial
+from .high_level import reproject_deforest  # noqa
