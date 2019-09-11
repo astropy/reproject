@@ -4,11 +4,8 @@ import six
 
 import numpy as np
 
-from astropy import units as u
+from astropy.coordinates import SkyCoord
 from astropy_healpix import npix_to_nside, HEALPix
-
-from ..wcs_utils import convert_world_coordinates
-from .utils import parse_coord_system
 
 __all__ = ['healpix_to_image', 'image_to_healpix']
 
@@ -62,17 +59,11 @@ def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
 
     healpix_data = np.asarray(healpix_data, dtype=float)
 
-    # Look up lon, lat of pixels in reference system
+    # Look up lon, lat of pixels in reference system and convert celestial coordinates
     yinds, xinds = np.indices(shape_out)
-    lon_out, lat_out = wcs_out.wcs_pix2world(xinds, yinds, 0)
-
-    # Convert between celestial coordinates
-    coord_system_in = parse_coord_system(coord_system_in)
-    with np.errstate(invalid='ignore'):
-        lon_in, lat_in = convert_world_coordinates(lon_out, lat_out, wcs_out, (coord_system_in, u.deg, u.deg))
-
-    lon_in = u.Quantity(lon_in, unit=u.deg, copy=False)
-    lat_in = u.Quantity(lat_in, unit=u.deg, copy=False)
+    world_in = wcs_out.pixel_to_world(xinds, yinds).transform_to(coord_system_in)
+    world_in_unitsph = world_in.represent_as('unitspherical')
+    lon_in, lat_in = world_in_unitsph.lon, world_in_unitsph.lat
 
     if isinstance(order, six.string_types):
         order = ORDER[order]
@@ -143,16 +134,10 @@ def image_to_healpix(data, wcs_in, coord_system_out,
     # and longitude phi to longitude and latitude.
     lon_out, lat_out = hp.healpix_to_lonlat(np.arange(npix))
 
-    lon_out = lon_out.to(u.deg).value
-    lat_out = lat_out.to(u.deg).value
+    world_out = SkyCoord(lon_out, lat_out, frame=coord_system_out)
 
-    # Convert between celestial coordinates
-    coord_system_out = parse_coord_system(coord_system_out)
-    with np.errstate(invalid='ignore'):
-        lon_in, lat_in = convert_world_coordinates(lon_out, lat_out, (coord_system_out, u.deg, u.deg), wcs_in)
-
-    # Look up pixels in input system
-    yinds, xinds = wcs_in.wcs_world2pix(lon_in, lat_in, 0)
+    # Look up pixels in input WCS
+    yinds, xinds = wcs_in.world_to_pixel(world_out)
 
     # Interpolate
 

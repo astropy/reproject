@@ -13,7 +13,7 @@ from astropy_healpix import nside_to_npix
 
 from ..high_level import reproject_from_healpix, reproject_to_healpix
 from ...tests.test_high_level import ALL_DTYPES
-
+from ...interpolation.tests.test_core import as_high_level_wcs
 
 DATA = os.path.join(os.path.dirname(__file__), 'data')
 
@@ -39,10 +39,11 @@ def get_reference_header(oversample=2, nside=1):
     return reference_header
 
 
-@pytest.mark.parametrize("nside,nested,healpix_system,image_system,dtype",
-                         itertools.product([1, 2, 4, 8, 16, 32, 64], [True, False], 'C', 'C', ALL_DTYPES))
-def test_reproject_healpix_to_image_round_trip(
-        nside, nested, healpix_system, image_system, dtype):
+@pytest.mark.parametrize("wcsapi,nside,nested,healpix_system,image_system,dtype",
+                         itertools.product([True, False], [1, 2, 4, 8, 16, 32, 64],
+                                           [True, False], 'C', 'C', ALL_DTYPES))
+def test_reproject_healpix_to_image_round_trip(wcsapi, nside, nested,
+                                               healpix_system, image_system, dtype):
     """Test round-trip HEALPix->WCS->HEALPix conversion for a random map,
     with a WCS projection large enough to store each HEALPix pixel"""
 
@@ -53,6 +54,9 @@ def test_reproject_healpix_to_image_round_trip(
 
     wcs_out = WCS(reference_header)
     shape_out = reference_header['NAXIS2'], reference_header['NAXIS1']
+
+    if wcsapi:
+        wcs_out = as_high_level_wcs(wcs_out)
 
     image_data, footprint = reproject_from_healpix(
         (healpix_data, healpix_system), wcs_out, shape_out=shape_out,
