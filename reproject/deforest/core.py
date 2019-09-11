@@ -5,6 +5,7 @@ from __future__ import (absolute_import, division, print_function,
 import numpy as np
 
 from .deforest import map_coordinates
+from ..wcs_utils import efficient_pixel_to_pixel, has_celestial
 
 
 __all__ = ['_reproject_deforest_2d']
@@ -18,7 +19,7 @@ class CoordinateTransformer(object):
 
     def __call__(self, input_pixel):
         xp_in, yp_in = input_pixel[:, :, 0], input_pixel[:, :, 1]
-        xp_out, yp_out = self.wcs_in.world_to_pixel(self.wcs_out.pixel_to_world(xp_in, yp_in))
+        xp_out, yp_out = efficient_pixel_to_pixel(self.wcs_out, self.wcs_in, xp_in, yp_in)
         output_pixel = np.array([xp_out, yp_out]).transpose().swapaxes(0, 1)
         return output_pixel
 
