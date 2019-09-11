@@ -1,7 +1,7 @@
-from .core import healpix_to_image, image_to_healpix
-from .utils import parse_input_healpix_data, parse_coord_system
 from ..utils import parse_input_data, parse_output_projection
 from ..wcs_utils import has_celestial
+from .core import healpix_to_image, image_to_healpix
+from .utils import parse_coord_system, parse_input_healpix_data
 
 __all__ = ['reproject_from_healpix', 'reproject_to_healpix']
 

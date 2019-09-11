@@ -1,10 +1,11 @@
 """Example how to reproject by interpolation.
 """
 import numpy as np
-from reproject.interpolation import reproject_celestial_slices
 from astropy.io import fits
 from astropy.wcs import WCS
 from wcsaxes import datasets
+
+from reproject.interpolation import reproject_celestial_slices
 
 # Test 2d interpolation, different frame, different projection
 

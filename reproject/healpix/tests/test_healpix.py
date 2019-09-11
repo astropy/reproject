@@ -3,15 +3,15 @@
 import os
 import itertools
 
-import pytest
 import numpy as np
+import pytest
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy_healpix import nside_to_npix
 
-from ..high_level import reproject_from_healpix, reproject_to_healpix
-from ...tests.test_high_level import ALL_DTYPES
 from ...interpolation.tests.test_core import as_high_level_wcs
+from ...tests.test_high_level import ALL_DTYPES
+from ..high_level import reproject_from_healpix, reproject_to_healpix
 
 DATA = os.path.join(os.path.dirname(__file__), 'data')
 

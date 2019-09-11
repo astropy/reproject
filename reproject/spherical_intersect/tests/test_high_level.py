@@ -1,11 +1,11 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
 import numpy as np
-from numpy.testing import assert_allclose
-from astropy.io import fits
-from astropy.wcs import WCS
-from astropy.utils.data import get_pkg_data_filename
 import pytest
+from astropy.io import fits
+from astropy.utils.data import get_pkg_data_filename
+from astropy.wcs import WCS
+from numpy.testing import assert_allclose
 
 from ..high_level import reproject_exact
 

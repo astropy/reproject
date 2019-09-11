@@ -2,15 +2,15 @@
 
 from copy import deepcopy
 
-import pytest
-
 import numpy as np
-from numpy.testing import assert_allclose, assert_equal
-
+import pytest
+from astropy import units as u
+from astropy.coordinates import FK5, Galactic, SkyCoord
 from astropy.wcs import WCS
 from astropy.wcs.utils import pixel_to_skycoord, skycoord_to_pixel
-from astropy.coordinates import SkyCoord, FK5, Galactic
-from astropy import units as u
+from numpy.testing import assert_allclose, assert_equal
+
+from ..wcs_helpers import find_optimal_celestial_wcs
 
 try:
     import shapely  # noqa
@@ -19,7 +19,6 @@ except ImportError:
 else:
     SHAPELY_INSTALLED = True
 
-from ..wcs_helpers import find_optimal_celestial_wcs
 
 
 class TestOptimalWCS():

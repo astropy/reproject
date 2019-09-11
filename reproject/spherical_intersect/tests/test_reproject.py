@@ -1,13 +1,13 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
-import pytest
 import numpy as np
+import pytest
 from astropy.io import fits
-from astropy.wcs import WCS
 from astropy.utils.data import get_pkg_data_filename
+from astropy.wcs import WCS
 
-from ..core import _reproject_celestial
 from ...interpolation.tests.test_core import as_high_level_wcs
+from ..core import _reproject_celestial
 
 
 def test_reproject_celestial_slices_2d():

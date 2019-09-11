@@ -1,8 +1,8 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
 from ..utils import parse_input_data, parse_output_projection
-from .core import _reproject_celestial
 from ..wcs_utils import has_celestial
+from .core import _reproject_celestial
 
 __all__ = ['reproject_exact']
 
