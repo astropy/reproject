@@ -103,7 +103,7 @@ cdef void svd2x2_compose(double[:,:] U, double[:] s, double[:,:] V, double[:,:] 
 @cython.nonecheck(False)
 @cython.cdivision(True)
 cdef double hanning_filter(double x, double y) nogil:
-    return (cos(min(x, 1.0)*pi)+1.0) * (cos(min(y, 1.0)*pi)+1.0) / 2.0
+    return (cos(min(fabs(x), 1) * pi)+1.0) * (cos(min(fabs(y), 1) * pi)+1.0) / 2.0
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -268,10 +268,10 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
                     else:
                         target[yi,xi] = nearest_neighbour_interpolation(source, pixel_source[yi,xi,0], pixel_source[yi,xi,1], x_cyclic, y_cyclic, out_of_range_nan)
                     continue
-                for yoff in range(-samples_width/2, samples_width/2, 1):
+                for yoff in range(-samples_width/2, samples_width/2 + 1):
                     current_offset[1] = yoff
                     current_pixel_source[1] = round(pixel_source[yi,xi,1] + yoff)
-                    for xoff in range(-samples_width/2, samples_width/2, 1):
+                    for xoff in range(-samples_width/2, samples_width/2 + 1):
                         current_offset[0] = xoff
                         current_pixel_source[0] = round(pixel_source[yi,xi,0] + xoff)
                         transformed[0] = J[0,0] * current_offset[0] + J[0,1] * current_offset[1]
