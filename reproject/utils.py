@@ -1,5 +1,3 @@
-import six
-
 import numpy as np
 
 from astropy.io import fits
@@ -13,7 +11,7 @@ def parse_input_data(input_data, hdu_in=None):
     Parse input data to return a Numpy array and WCS object.
     """
 
-    if isinstance(input_data, six.string_types):
+    if isinstance(input_data, str):
         return parse_input_data(fits.open(input_data), hdu_in=hdu_in)
     elif isinstance(input_data, HDUList):
         if hdu_in is None:
@@ -53,7 +51,7 @@ def parse_output_projection(output_projection, shape_out=None, output_array=None
         wcs_out = output_projection
         if shape_out is None:
             raise ValueError("Need to specify shape when specifying output_projection as WCS object")
-    elif isinstance(output_projection, six.string_types):
+    elif isinstance(output_projection, str):
         hdu_list = fits.open(output_projection)
         shape_out = hdu_list[0].data.shape
         header = hdu_list[0].header

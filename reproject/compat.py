@@ -2,8 +2,6 @@
 
 # Functions backported from other modules for compatibility
 
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from astropy.wcs import WCS
 from astropy.coordinates import BaseRADecFrame, FK4, FK4NoETerms, FK5, ICRS, Galactic
 

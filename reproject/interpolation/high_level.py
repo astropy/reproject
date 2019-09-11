@@ -1,8 +1,4 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
-from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
-
-import six
 
 from ..utils import parse_input_data, parse_output_projection
 from .core import _reproject_full
@@ -92,7 +88,7 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
     wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out,
                                                  output_array=output_array)
 
-    if isinstance(order, six.string_types):
+    if isinstance(order, str):
         order = ORDER[order]
 
     return _reproject_full(array_in, wcs_in, wcs_out, shape_out=shape_out, order=order,

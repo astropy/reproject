@@ -16,17 +16,15 @@ Requirements
 
 This package has the following hard run time dependencies:
 
-* `Python <http://www.python.org/>`__ 2.7 or 3.5 or later
+* `Python <http://www.python.org/>`__ 3.5 or later
 
 * `Numpy <http://www.numpy.org/>`__ 1.10 or later
 
-* `Astropy <http://www.astropy.org/>`__ 2.0 or later
+* `Astropy <http://www.astropy.org/>`__ 3.2 or later
 
 * `Scipy <http://www.scipy.org/>`__ 0.9 or later
 
 * `astropy-healpix <https://astropy-healpix.readthedocs.io>`_ 0.2 or later for HEALPIX image reprojection
-
-* `six <http://pypi.python.org/pypi/six/>`__
 
 and the following optional dependencies:
 

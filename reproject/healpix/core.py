@@ -1,7 +1,3 @@
-from __future__ import print_function, division
-
-import six
-
 import numpy as np
 
 from astropy.coordinates import SkyCoord
@@ -65,7 +61,7 @@ def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
     world_in_unitsph = world_in.represent_as('unitspherical')
     lon_in, lat_in = world_in_unitsph.lon, world_in_unitsph.lat
 
-    if isinstance(order, six.string_types):
+    if isinstance(order, str):
         order = ORDER[order]
 
     nside = npix_to_nside(len(healpix_data))
@@ -141,7 +137,7 @@ def image_to_healpix(data, wcs_in, coord_system_out,
 
     # Interpolate
 
-    if isinstance(order, six.string_types):
+    if isinstance(order, str):
         order = ORDER[order]
 
     healpix_data = map_coordinates(data, [xinds, yinds],
