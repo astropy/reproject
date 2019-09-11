@@ -509,4 +509,4 @@ def test_identity_with_offset():
 
     expected = np.pad(array_in, 1, 'constant', constant_values=np.nan)
 
-    assert_allclose(expected, array_out)
+    assert_allclose(expected, array_out, atol=1e-10)
