@@ -7,8 +7,8 @@ env:
         - ASTROPY_VERSION=stable
         - SETUP_CMD='test'
         - CONDA_CHANNELS='astropy'
-        - CONDA_DEPENDENCIES='Cython scipy matplotlib shapely>=1.6 astropy-healpix pyvo'
-        - PIP_DEPENDENCIES='pytest-arraydiff sunpy'
+        - CONDA_DEPENDENCIES='Cython scipy matplotlib shapely>=1.6 astropy-healpix'
+        - PIP_DEPENDENCIES='pytest-arraydiff sunpy pyvo'
         - SETUP_XVFB=True
 
 matrix:
