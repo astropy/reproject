@@ -2,12 +2,12 @@
 
 import numpy as np
 from astropy import units as u
-from astropy.coordinates import SkyCoord
+from astropy.coordinates import SkyCoord, frame_transform_graph
 from astropy.wcs.utils import (pixel_to_skycoord, skycoord_to_pixel,
                                proj_plane_pixel_scales, wcs_to_celestial_frame)
 
 from astropy.wcs.utils import celestial_frame_to_wcs
-from .utils import parse_input_data
+from ..utils import parse_input_data
 
 __all__ = ['find_optimal_celestial_wcs']
 
@@ -16,16 +16,17 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
                                projection='TAN', resolution=None,
                                reference=None):
     """
-    Given one or more images, return an optimal WCS projection object and shape.
+    Given one or more images, return an optimal WCS projection object and
+    shape.
 
     This currently only works with 2-d images with celestial WCS.
 
     Parameters
     ----------
     input_data : iterable
-        One or more input datasets to include in the calculation of the final WCS.
-        This should be an iterable containing one entry for each dataset, where
-        a single dataset is one of:
+        One or more input datasets to include in the calculation of the final
+        WCS. This should be an iterable containing one entry for each dataset,
+        where a single dataset is one of:
 
             * The name of a FITS file
             * An `~astropy.io.fits.HDUList` object
@@ -36,7 +37,7 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
               second element is either a `~astropy.wcs.WCS` or a
               `~astropy.io.fits.Header` object
 
-    frame : `~astropy.coordinates.BaseCoordinateFrame`
+    frame : str or `~astropy.coordinates.BaseCoordinateFrame`
         The coordinate system for the final image (defaults to the frame of
         the first image specified)
     auto_rotate : bool
@@ -50,10 +51,21 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
     reference : `~astropy.coordinates.SkyCoord`
         The reference coordinate for the final header. If not specified, this
         is determined automatically from the input images.
+
+    Returns
+    -------
+    wcs : :class:`~astropy.wcs.WCS`
+        The optimal WCS determined from the input images.
+    shape : tuple
+        The optimal shape required to cover all the output.
     """
 
     # TODO: support higher-dimensional datasets in future
-    # TODO: take into account NaN values when determining the extent of the final WCS
+    # TODO: take into account NaN values when determining the extent of the
+    #       final WCS
+
+    if isinstance(frame, str):
+        frame = frame_transform_graph.lookup_name(frame)()
 
     input_data = [parse_input_data(data) for data in input_data]
 
@@ -117,8 +129,8 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
     if reference is None:
         reference = SkyCoord(references.data.mean(), frame=references.frame)
 
-    # In any case, we need to convert the reference coordinate (either specified
-    # or automatically determined) to the requested final frame.
+    # In any case, we need to convert the reference coordinate (either
+    # specified or automatically determined) to the requested final frame.
     reference = reference.transform_to(frame)
 
     # Determine resolution if not specified
@@ -135,23 +147,24 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
     wcs_final.wcs.crval = rep.lon.degree, rep.lat.degree
     wcs_final.wcs.cdelt = -cdelt, cdelt
 
-    # For now, set crpix to (1, 1) and we'll then figure out where all the images
-    # fall in this projection, then we'll adjust crpix.
+    # For now, set crpix to (1, 1) and we'll then figure out where all the
+    # images fall in this projection, then we'll adjust crpix.
     wcs_final.wcs.crpix = (1, 1)
 
-    # Find pixel coordinates of all corners in the final WCS projection. We use origin=1
-    # since we are trying to determine crpix values.
+    # Find pixel coordinates of all corners in the final WCS projection. We use
+    # origin=1 since we are trying to determine crpix values.
     xp, yp = skycoord_to_pixel(corners, wcs_final, origin=1)
 
     if auto_rotate:
 
-        # Use shapely to represent the points and find the minimum rotated rectangle
+        # Use shapely to represent the points and find the minimum rotated
+        # rectangle
         from shapely.geometry import MultiPoint
         mp = MultiPoint(list(zip(xp, yp)))
 
-        # The following returns a list of rectangle vertices - in fact there are
-        # 5 coordinates because shapely represents it as a closed polygon with
-        # the same first/last vertex.
+        # The following returns a list of rectangle vertices - in fact there
+        # are 5 coordinates because shapely represents it as a closed polygon
+        # with the same first/last vertex.
         xr, yr = mp.minimum_rotated_rectangle.exterior.coords.xy
         xr, yr = xr[:4], yr[:4]
 

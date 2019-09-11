@@ -8,7 +8,7 @@ env:
         - SETUP_CMD='test'
         - CONDA_CHANNELS='astropy'
         - CONDA_DEPENDENCIES='Cython scipy matplotlib shapely>=1.6 astropy-healpix'
-        - PIP_DEPENDENCIES='pytest-arraydiff sunpy'
+        - PIP_DEPENDENCIES='pytest-arraydiff sunpy pyvo'
         - SETUP_XVFB=True
 
 matrix:
@@ -26,14 +26,14 @@ matrix:
 
         # Check for sphinx doc build warnings - we do this first because it
         # may run for a long time
-        - env: SETUP_CMD='build_sphinx -w' PIP_DEPENDENCIES='sphinx-astropy'
+        - env: SETUP_CMD='build_sphinx -w' PIP_DEPENDENCIES='sphinx-astropy pyvo'
 
         # Try Astropy development version
         - env: ASTROPY_VERSION=development
 
         # Try older Python/Numpy version
-        - env: PYTHON_VERSION=3.6 NUMPY_VERSION=1.14 
-        - env: PYTHON_VERSION=3.5 NUMPY_VERSION=1.13 PIP_DEPENDENCIES='pytest-arraydiff'
+        - env: PYTHON_VERSION=3.6 NUMPY_VERSION=1.14
+        - env: PYTHON_VERSION=3.5 NUMPY_VERSION=1.13 PIP_DEPENDENCIES='pytest-arraydiff pyvo'
 
 before_install:
     # Make sure matplotlib uses PyQT not PySide

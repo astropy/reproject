@@ -19,7 +19,7 @@ except ImportError:
 else:
     SHAPELY_INSTALLED = True
 
-from ..mosaicking import find_optimal_celestial_wcs
+from ..wcs_helpers import find_optimal_celestial_wcs
 
 
 class TestOptimalWCS():
@@ -63,6 +63,10 @@ class TestOptimalWCS():
         # The following values are empirical and just to make sure there are no regressions
         assert_allclose(wcs.wcs.crpix, (16.21218937, 28.86119519))
         assert shape == (47, 50)
+
+    def test_frame_str(self):
+        wcs, shape = find_optimal_celestial_wcs([(self.array, self.wcs)], frame='galactic')
+        assert tuple(wcs.wcs.ctype) == ('GLON-TAN', 'GLAT-TAN')
 
     def test_resolution(self):
         wcs, shape = find_optimal_celestial_wcs([(self.array, self.wcs)], resolution=3 * u.arcmin)

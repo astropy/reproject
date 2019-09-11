@@ -162,3 +162,15 @@ if eval(setup_cfg.get('edit_on_github')):
     edit_on_github_doc_root = "docs"
 
 nitpicky = True
+
+
+plot_rcparams = {}
+plot_rcparams['figure.figsize'] = (6, 6)
+plot_rcparams['savefig.facecolor'] = 'none'
+plot_rcparams['savefig.bbox'] = 'tight'
+plot_rcparams['axes.labelsize'] = 'large'
+plot_rcparams['figure.subplot.hspace'] = 0.5
+
+plot_apply_rcparams = True
+plot_html_show_source_link = False
+plot_formats = ['png', 'svg', 'pdf']

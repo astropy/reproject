@@ -158,6 +158,7 @@ that you want to reproject.
    :maxdepth: 2
 
    celestial
+   mosaicking
    healpix
    noncelestial
    footprints
@@ -166,4 +167,7 @@ Reference/API
 =============
 
 .. automodapi:: reproject
+   :no-inheritance-diagram:
+
+.. automodapi:: reproject.mosaicking
    :no-inheritance-diagram:

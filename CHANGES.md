@@ -4,6 +4,10 @@
 - Added support for using any WCS that conforms to the WCS API described
   in the Astropy Proposal for Enhancements 14 (APE 14). [#166]
 
+- Added a new ``reproject_and_coadd`` function for doing mosaicking of
+  individual images, and added section in documentation about mosaicking.
+  [#186]
+
 0.5.2 (unreleased)
 ------------------
 
