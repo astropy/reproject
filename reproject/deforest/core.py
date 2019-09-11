@@ -64,6 +64,6 @@ def _reproject_deforest_2d(array, wcs_in, wcs_out, shape_out):
     array_out = np.zeros(shape_out)
 
     transformer = CoordinateTransformer(wcs_in, wcs_out)
-    map_coordinates(array_in, array_out, transformer)
+    map_coordinates(array_in, array_out, transformer, out_of_range_nan=True)
 
     return array_out, (~np.isnan(array_out)).astype(float)
