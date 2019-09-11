@@ -25,10 +25,3 @@ def get_extensions():
         extra_compile_args=['-O2'])
 
     return [extension]
-
-
-def get_package_data():
-
-    header_files = ['overlapArea.h', 'reproject_slice_c.h', 'mNaN.h']
-
-    return {'reproject.spherical_intersect': header_files}

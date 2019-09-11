@@ -1,14 +1,12 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
-from __future__ import absolute_import, division, print_function
-
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.wcs.utils import (pixel_to_skycoord, skycoord_to_pixel,
                                proj_plane_pixel_scales, wcs_to_celestial_frame)
 
-from .compat import celestial_frame_to_wcs
+from astropy.wcs.utils import celestial_frame_to_wcs
 from .utils import parse_input_data
 
 __all__ = ['find_optimal_celestial_wcs']
