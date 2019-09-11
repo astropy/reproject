@@ -3,12 +3,12 @@
 import itertools
 
 import numpy as np
-from astropy.io import fits
-from astropy.wcs import WCS
-from astropy.utils.data import get_pkg_data_filename
 import pytest
+from astropy.io import fits
+from astropy.utils.data import get_pkg_data_filename
+from astropy.wcs import WCS
 
-from .. import reproject_interp, reproject_exact
+from .. import reproject_exact, reproject_interp
 
 # TODO: add reference comparisons
 

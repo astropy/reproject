@@ -1,12 +1,10 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
-from __future__ import absolute_import, division, print_function
-
 import numpy as np
 
 from ..utils import parse_input_data, parse_output_projection
-from .subset_array import ReprojectedArraySubset
 from .background import determine_offset_matrix, solve_corrections_sgd
+from .subset_array import ReprojectedArraySubset
 
 __all__ = ['reproject_and_coadd']
 

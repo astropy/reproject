@@ -1,10 +1,9 @@
 import numpy as np
-
 import pytest
-from astropy.coordinates import FK5, Galactic, ICRS
+from astropy.coordinates import FK5, ICRS, Galactic
 from astropy.io import fits
-from astropy.wcs import WCS
 from astropy.utils.data import get_pkg_data_filename
+from astropy.wcs import WCS
 
 from ..utils import parse_input_data, parse_output_projection
 

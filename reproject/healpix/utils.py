@@ -1,8 +1,7 @@
 import numpy as np
-
+from astropy.coordinates import ICRS, BaseCoordinateFrame, Galactic, frame_transform_graph
 from astropy.io import fits
-from astropy.io.fits import TableHDU, BinTableHDU
-from astropy.coordinates import BaseCoordinateFrame, frame_transform_graph, Galactic, ICRS
+from astropy.io.fits import BinTableHDU, TableHDU
 
 FRAMES = {
     'g': Galactic(),

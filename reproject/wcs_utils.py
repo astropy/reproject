@@ -5,10 +5,9 @@ WCS-related utilities
 """
 
 import numpy as np
-from numpy.lib.stride_tricks import as_strided
-
 from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
+from numpy.lib.stride_tricks import as_strided
 
 __all__ = ['efficient_pixel_to_pixel', 'has_celestial']
 

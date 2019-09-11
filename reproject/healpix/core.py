@@ -1,7 +1,6 @@
 import numpy as np
-
 from astropy.coordinates import SkyCoord
-from astropy_healpix import npix_to_nside, HEALPix
+from astropy_healpix import HEALPix, npix_to_nside
 
 __all__ = ['healpix_to_image', 'image_to_healpix']
 

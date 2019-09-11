@@ -1,6 +1,8 @@
-import pytest
 from itertools import product
+
 import numpy as np
+import pytest
+
 from ..overlap import compute_overlap
 
 

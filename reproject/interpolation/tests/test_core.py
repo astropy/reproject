@@ -4,15 +4,13 @@ import os
 import itertools
 
 import numpy as np
-from numpy.testing import assert_allclose
-
-from astropy.io import fits
-from astropy.wcs import WCS
-from astropy import units as u
-from astropy.wcs.wcsapi import HighLevelWCSWrapper, SlicedLowLevelWCS
-from astropy.utils.data import get_pkg_data_filename
-
 import pytest
+from astropy import units as u
+from astropy.io import fits
+from astropy.utils.data import get_pkg_data_filename
+from astropy.wcs import WCS
+from astropy.wcs.wcsapi import HighLevelWCSWrapper, SlicedLowLevelWCS
+from numpy.testing import assert_allclose
 
 from ..high_level import reproject_interp
 

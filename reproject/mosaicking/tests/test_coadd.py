@@ -1,20 +1,14 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
-from __future__ import absolute_import, division, print_function
-
 import random
 
-import pytest
-
 import numpy as np
+import pytest
+from astropy.wcs import WCS
 from numpy.testing import assert_allclose, assert_equal
 
-from astropy.wcs import WCS
-
-from ... import reproject_interp, reproject_exact
-
+from ... import reproject_exact, reproject_interp
 from ..coadd import reproject_and_coadd
-
 
 ATOL = 1.e-9
 
