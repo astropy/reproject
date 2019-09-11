@@ -17,11 +17,28 @@ class CoordinateTransformer(object):
         self.wcs_in = wcs_in
         self.wcs_out = wcs_out
 
-    def __call__(self, input_pixel):
-        xp_in, yp_in = input_pixel[:, :, 0], input_pixel[:, :, 1]
-        xp_out, yp_out = efficient_pixel_to_pixel(self.wcs_out, self.wcs_in, xp_in, yp_in)
-        output_pixel = np.array([xp_out, yp_out]).transpose().swapaxes(0, 1)
-        return output_pixel
+    def __call__(self, pixel_out):
+
+        pixel_out = pixel_out[:, :, 0], pixel_out[:, :, 1]
+
+        pixel_in = efficient_pixel_to_pixel(self.wcs_out, self.wcs_in, *pixel_out)
+
+        # TODO: avoid duplication with round-tripping in reproject.interpolation
+
+        # Now convert back to check that coordinates round-trip, if not then set to NaN
+        pixel_out_check = efficient_pixel_to_pixel(self.wcs_in, self.wcs_out, *pixel_in)
+        reset = np.zeros(pixel_out_check[0].shape, dtype=bool)
+        for ipix in range(len(pixel_out_check)):
+            print(pixel_out_check[ipix].shape, pixel_out[ipix].shape)
+            reset |= (np.abs(pixel_out_check[ipix] - pixel_out[ipix]) > 1)
+        if np.any(reset):
+            for ipix in range(len(pixel_out_check)):
+                pixel_in[ipix] = pixel_in[ipix].copy()
+                pixel_in[ipix][reset] = np.nan
+
+        pixel_in = np.array(pixel_in).transpose().swapaxes(0, 1)
+
+        return pixel_in
 
 
 def _reproject_deforest_2d(array, wcs_in, wcs_out, shape_out):
