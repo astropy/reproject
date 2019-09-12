@@ -29,7 +29,6 @@ class CoordinateTransformer(object):
         pixel_out_check = efficient_pixel_to_pixel(self.wcs_in, self.wcs_out, *pixel_in)
         reset = np.zeros(pixel_out_check[0].shape, dtype=bool)
         for ipix in range(len(pixel_out_check)):
-            print(pixel_out_check[ipix].shape, pixel_out[ipix].shape)
             reset |= (np.abs(pixel_out_check[ipix] - pixel_out[ipix]) > 1)
         if np.any(reset):
             for ipix in range(len(pixel_out_check)):
