@@ -5,9 +5,13 @@ from .core import _reproject_deforest_2d
 
 __all__ = ['reproject_deforest']
 
+ORDER = {}
+ORDER['nearest-neighbor'] = 0
+ORDER['bilinear'] = 1
+
 
 def reproject_deforest(input_data, output_projection, shape_out=None, hdu_in=0,
-                       output_array=None, return_footprint=True):
+                       order='bilinear', output_array=None, return_footprint=True):
     """
     Reproject celestial slices from an 2d array from one WCS to another using
     the DeForest (2003) algorithm.
@@ -35,6 +39,15 @@ def reproject_deforest(input_data, output_projection, shape_out=None, hdu_in=0,
     hdu_in : int or str, optional
         If ``input_data`` is a FITS file or an `~astropy.io.fits.HDUList`
         instance, specifies the HDU to use.
+    order : int or str, optional
+        The order of the interpolation. This can be any of the
+        following strings:
+
+            * 'nearest-neighbor'
+            * 'bilinear'
+
+        or an integer. A value of ``0`` indicates nearest neighbor
+        interpolation.
     output_array : None or `~numpy.ndarray`
         An array in which to store the reprojected data.  This can be any numpy
         array including a memory map, which may be helpful when dealing with
@@ -58,4 +71,7 @@ def reproject_deforest(input_data, output_projection, shape_out=None, hdu_in=0,
     wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out,
                                                  output_array=output_array)
 
-    return _reproject_deforest_2d(array_in, wcs_in, wcs_out, shape_out)
+    if isinstance(order, str):
+        order = ORDER[order]
+
+    return _reproject_deforest_2d(array_in, wcs_in, wcs_out, shape_out, order=order)

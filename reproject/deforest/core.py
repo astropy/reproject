@@ -41,7 +41,7 @@ class CoordinateTransformer(object):
         return pixel_in
 
 
-def _reproject_deforest_2d(array, wcs_in, wcs_out, shape_out):
+def _reproject_deforest_2d(array, wcs_in, wcs_out, shape_out, order=1):
     """
     Reproject celestial slices from an n-d array from one WCS to another
     using the DeForest (2003) algorithm, and assuming all other dimensions
@@ -81,6 +81,7 @@ def _reproject_deforest_2d(array, wcs_in, wcs_out, shape_out):
     array_out = np.zeros(shape_out)
 
     transformer = CoordinateTransformer(wcs_in, wcs_out)
-    map_coordinates(array_in, array_out, transformer, out_of_range_nan=True)
+    map_coordinates(array_in, array_out, transformer, out_of_range_nan=True,
+                    order=order)
 
     return array_out, (~np.isnan(array_out)).astype(float)
