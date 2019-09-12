@@ -98,10 +98,21 @@ def reproject_and_coadd(input_data, output_projection, shape_out=None,
         xc_out, yc_out = wcs_out.world_to_pixel(wcs_in.pixel_to_world(xc, yc))
 
         # Determine the cutout parameters
-        imin = max(0, int(np.floor(xc_out.min() + 0.5)))
-        imax = min(shape_out[1], int(np.ceil(xc_out.max() + 0.5)))
-        jmin = max(0, int(np.floor(yc_out.min() + 0.5)))
-        jmax = min(shape_out[0], int(np.ceil(yc_out.max() + 0.5)))
+
+        # In some cases, images might not have valid coordinates in the corners,
+        # such as all-sky images or full solar disk views. In this case we skip
+        # this step and just use the full output WCS for reprojection.
+
+        if np.any(np.isnan(xc_out)) or np.any(np.isnan(yc_out)):
+            imin = 0
+            imax = shape_out[1]
+            jmin = 0
+            jmax = shape_out[0]
+        else:
+            imin = max(0, int(np.floor(xc_out.min() + 0.5)))
+            imax = min(shape_out[1], int(np.ceil(xc_out.max() + 0.5)))
+            jmin = max(0, int(np.floor(yc_out.min() + 0.5)))
+            jmax = min(shape_out[0], int(np.ceil(yc_out.max() + 0.5)))
 
         if imax < imin or jmax < jmin:
             continue
