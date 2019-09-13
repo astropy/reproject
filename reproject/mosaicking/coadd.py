@@ -11,8 +11,8 @@ __all__ = ['reproject_and_coadd']
 
 def reproject_and_coadd(input_data, output_projection, shape_out=None,
                         input_weights=None, hdu_in=None, reproject_function=None,
-                        combine_function='mean', match_background=False,
-                        **kwargs):
+                        hdu_weights=None, combine_function='mean', match_background=False,
+                        background_reference=None, **kwargs):
     """
     Given a set of input images, reproject and co-add these to a single
     final image.
@@ -62,6 +62,10 @@ def reproject_and_coadd(input_data, output_projection, shape_out=None,
         image.
     match_background : bool
         Whether to match the backgrounds of the images.
+    background_reference : `None` or `int`
+        If `None`, the background matching will make it so that the average of
+        the corrections for all images is zero. If an integer, this specifies
+        the index of the image to use as a reference.
     kwargs
         Keyword arguments to be passed to the reprojection function.
     """
@@ -170,6 +174,10 @@ def reproject_and_coadd(input_data, output_projection, shape_out=None,
         if weights_in is not None:
             weights[reset] = 0.
             footprint *= weights
+            # If there were NaN values in the original footprint, we should
+            # treat them as zeros. We do this here in-place since we know that
+            # footprint is an array we've created that we can modify in-place.
+            np.nan_to_num(footprint, copy=False)
 
         array = ReprojectedArraySubset(array, footprint,
                                        imin, imax, jmin, jmax)
@@ -183,6 +191,8 @@ def reproject_and_coadd(input_data, output_projection, shape_out=None,
     if match_background:
         offset_matrix = determine_offset_matrix(arrays)
         corrections = solve_corrections_sgd(offset_matrix)
+        if background_reference:
+            corrections -= corrections[background_reference]
         for array, correction in zip(arrays, corrections):
             array.array -= correction
 
