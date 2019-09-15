@@ -43,7 +43,7 @@ def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
         # the CTYPEs match.
         if wcs_in.wcs.spec >= 0 and wcs_out.wcs.spec >= 0:
             if wcs_in.wcs.ctype[wcs_in.wcs.spec] != wcs_out.wcs.ctype[wcs_out.wcs.spec]:
-                raise ValueError("The input ({0}) and output ({1}) spectral "
+                raise ValueError("The input ({}) and output ({}) spectral "
                                  "coordinate types are not equivalent."
                                  .format(wcs_in.wcs.ctype[wcs_in.wcs.spec],
                                          wcs_out.wcs.ctype[wcs_out.wcs.spec]))
@@ -72,7 +72,7 @@ def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
     if array_out is not None:
         if array_out.shape != tuple(shape_out):
             raise ValueError("Array sizes don't match.  Output array shape "
-                             "should be {0}".format(str(tuple(shape_out))))
+                             "should be {}".format(str(tuple(shape_out))))
         elif array_out.dtype != array.dtype:
             raise ValueError("An output array of a different type than the "
                              "input array was specified, which will create an "

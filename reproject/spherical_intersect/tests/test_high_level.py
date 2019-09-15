@@ -10,7 +10,7 @@ from numpy.testing import assert_allclose
 from ..high_level import reproject_exact
 
 
-class TestReprojectExact(object):
+class TestReprojectExact:
 
     def setup_class(self):
 

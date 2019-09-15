@@ -11,7 +11,7 @@ from ..wcs_utils import efficient_pixel_to_pixel, has_celestial
 __all__ = ['_reproject_deforest_2d']
 
 
-class CoordinateTransformer(object):
+class CoordinateTransformer:
 
     def __init__(self, wcs_in, wcs_out):
         self.wcs_in = wcs_in

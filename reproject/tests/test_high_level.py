@@ -27,7 +27,7 @@ for endian in ('<', '>'):
             ALL_DTYPES.append(np.dtype(endian + kind + size))
 
 
-class TestReproject(object):
+class TestReproject:
 
     def setup_method(self, method):
 
