@@ -105,6 +105,8 @@ def reproject_and_coadd(input_data, output_projection, shape_out=None,
             weights_in = None
         else:
             weights_in = parse_input_weights(input_weights[idata], hdu_weights=hdu_weights)
+            if np.any(np.isnan(weights_in)):
+                weights_in = np.nan_to_num(weights_in)
 
         # Since we might be reprojecting small images into a large mosaic we
         # want to make sure that for each image we reproject to an array with
@@ -174,10 +176,6 @@ def reproject_and_coadd(input_data, output_projection, shape_out=None,
         if weights_in is not None:
             weights[reset] = 0.
             footprint *= weights
-            # If there were NaN values in the original footprint, we should
-            # treat them as zeros. We do this here in-place since we know that
-            # footprint is an array we've created that we can modify in-place.
-            np.nan_to_num(footprint, copy=False)
 
         array = ReprojectedArraySubset(array, footprint,
                                        imin, imax, jmin, jmax)
