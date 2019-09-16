@@ -39,6 +39,7 @@ cdef double nan = np.nan
 cdef extern from "math.h":
     int isnan(double x) nogil
 
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.nonecheck(False)
@@ -65,6 +66,7 @@ cdef void svd2x2_decompose(double[:,:] M, double[:,:] U, double[:] s, double[:,:
     V[1,0] = -sin(theta)
     V[1,1] = cos(theta)
 
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.nonecheck(False)
@@ -75,12 +77,14 @@ cdef void mul2x2(double[:,:] A, double[:,:] B, double[:,:] C) nogil:
     C[1,0] = A[1,0] * B[0,0] + A[1,1] * B[1,0]
     C[1,1] = A[1,0] * B[0,1] + A[1,1] * B[1,1]
 
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
 cdef double det2x2(double[:,:] M) nogil:
     return M[0,0]*M[1,1] - M[0,1]*M[1,0]
+
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -98,6 +102,7 @@ cdef void svd2x2_compose(double[:,:] U, double[:] s, double[:,:] V, double[:,:] 
     M[1,0] = tmp10 * V[0,0] + tmp11 * V[0,1]
     M[1,1] = tmp10 * V[1,0] + tmp11 * V[1,1]
 
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.nonecheck(False)
@@ -105,12 +110,14 @@ cdef void svd2x2_compose(double[:,:] U, double[:] s, double[:,:] V, double[:,:] 
 cdef double hanning_filter(double x, double y) nogil:
     return (cos(min(fabs(x), 1) * pi)+1.0) * (cos(min(fabs(y), 1) * pi)+1.0) / 2.0
 
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
 cdef double gaussian_filter(double x, double y) nogil:
     return exp(-(x*x+y*y) * 1.386294)
+
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -135,6 +142,7 @@ cdef double clip(double x, double vmin, double vmax, int cyclic, int out_of_rang
             return vmax
     else:
         return x
+
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -164,6 +172,7 @@ cdef double bilinear_interpolation(double[:,:] source, double x, double y, int x
              + fQ22 * (x - xmin) * (y - ymin))
             * ((xmax - xmin) * (ymax - ymin)))
 
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.nonecheck(False)
@@ -175,27 +184,6 @@ cdef double nearest_neighbour_interpolation(double[:,:] source, double x, double
         return nan
     return source[<int>y, <int>x]
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.nonecheck(False)
-@cython.cdivision(True)
-def map_coordinates_direct(double[:,:] source, double[:,:] target, Ci, int x_cyclic=False, int y_cyclic=False, int out_of_range_nan=False):
-    cdef np.ndarray[np.float64_t, ndim=3] pixel_target = np.zeros((target.shape[0], target.shape[1], 2))
-    cdef int yi, xi
-    for yi in range(target.shape[0]):
-        for xi in range(target.shape[1]):
-            pixel_target[yi,xi,0] = xi
-            pixel_target[yi,xi,1] = yi
-
-    cdef np.ndarray[np.float64_t, ndim=3] pixel_source = Ci(pixel_target)
-
-    with nogil:
-        for yi in range(pixel_target.shape[0]):
-            for xi in range(pixel_target.shape[1]):
-                if isnan(pixel_source[yi,xi,0]) or isnan(pixel_source[yi,xi,1]):
-                    target[yi,xi] = nan
-                    continue
-                target[yi,xi] = nearest_neighbour_interpolation(source, pixel_source[yi,xi,0], pixel_source[yi,xi,1], x_cyclic, y_cyclic, out_of_range_nan)
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
