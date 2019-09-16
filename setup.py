@@ -2,6 +2,7 @@
 
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
+import os
 import builtins
 
 # Ensure that astropy-helpers is available
@@ -10,6 +11,7 @@ import ah_bootstrap  # noqa
 from setuptools import setup
 from setuptools.config import read_configuration
 
+from astropy_helpers.distutils_helpers import is_distutils_display_option
 from astropy_helpers.setup_helpers import register_commands, get_package_info
 from astropy_helpers.version_helpers import generate_version_py
 
@@ -29,5 +31,16 @@ version = generate_version_py()
 # See the docstring for setup_helpers.update_package_files for more
 # details.
 package_info = get_package_info()
+
+if is_distutils_display_option():
+    # Avoid installing setup_requires dependencies if the user just
+    # queries for information
+    setup_requires = []
+else:
+    setup_requires = read_configuration('setup.cfg')['options']['setup_requires']
+    # Make sure we have the packages needed for building astropy, but do not
+    # require them when installing from an sdist as the c files are included.
+    if not os.path.exists(os.path.join(os.path.dirname(__file__), 'PKG-INFO')):
+        setup_requires.extend(['cython>=0.29.13', 'jinja2>=2.7'])
 
 setup(version=version, cmdclass=cmdclass, **package_info)
