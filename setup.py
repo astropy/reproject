@@ -43,4 +43,4 @@ else:
     if not os.path.exists(os.path.join(os.path.dirname(__file__), 'PKG-INFO')):
         setup_requires.extend(['cython>=0.29.13', 'jinja2>=2.7'])
 
-setup(version=version, cmdclass=cmdclass, **package_info)
+setup(version=version, cmdclass=cmdclass, setup_requires=setup_requires, **package_info)
