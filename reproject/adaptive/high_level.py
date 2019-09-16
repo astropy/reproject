@@ -14,7 +14,7 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
                        order='bilinear', output_array=None, return_footprint=True):
     """
     Reproject celestial slices from an 2d array from one WCS to another using
-    the DeForest (2003) algorithm.
+    the DeForest (2003) adaptive resampling algorithm.
 
     Parameters
     ----------
