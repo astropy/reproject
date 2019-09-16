@@ -149,7 +149,7 @@ def reproject_and_coadd(input_data, output_projection, shape_out=None,
         wcs_out_indiv.wcs.crpix[1] -= jmin
         shape_out_indiv = (jmax - jmin, imax - imin)
 
-        # TODO: optimize handling of weights my making reprojection functions
+        # TODO: optimize handling of weights by making reprojection functions
         # able to handle weights, and make the footprint become the combined
         # footprint + weight map
 
