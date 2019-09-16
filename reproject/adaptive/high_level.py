@@ -11,7 +11,7 @@ ORDER['bilinear'] = 1
 
 
 def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
-                       order='bilinear', output_array=None, return_footprint=True):
+                       order='bilinear', return_footprint=True):
     """
     Reproject celestial slices from an 2d array from one WCS to another using
     the DeForest (2003) adaptive resampling algorithm.
@@ -48,12 +48,8 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
 
         or an integer. A value of ``0`` indicates nearest neighbor
         interpolation.
-    output_array : None or `~numpy.ndarray`
-        An array in which to store the reprojected data.  This can be any numpy
-        array including a memory map, which may be helpful when dealing with
-        extremely large files.
     return_footprint : bool
-        Return the footprint in addition to the output array?
+        Whether to return the footprint in addition to the output array.
 
     Returns
     -------
@@ -68,10 +64,10 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
     # TODO: add support for output_array and return_footprint
 
     array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
-    wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out,
-                                                 output_array=output_array)
+    wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
 
     if isinstance(order, str):
         order = ORDER[order]
 
-    return _reproject_adaptive_2d(array_in, wcs_in, wcs_out, shape_out, order=order)
+    return _reproject_adaptive_2d(array_in, wcs_in, wcs_out, shape_out,
+                                  order=order, return_footprint=return_footprint)

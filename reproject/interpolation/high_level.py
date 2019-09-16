@@ -57,7 +57,7 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
         array including a memory map, which may be helpful when dealing with
         extremely large files.
     return_footprint : bool
-        Return the footprint in addition to the output array?
+        Whether to return the footprint in addition to the output array.
 
     Returns
     -------

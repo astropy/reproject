@@ -142,8 +142,8 @@ cdef double clip(double x, double vmin, double vmax, int cyclic, int out_of_rang
 @cython.cdivision(True)
 cdef double bilinear_interpolation(double[:,:] source, double x, double y, int x_cyclic, int y_cyclic, int out_of_range_nan) nogil:
 
-    x = clip(x, 0, source.shape[1]-1, x_cyclic, out_of_range_nan)
-    y = clip(y, 0, source.shape[0]-1, y_cyclic, out_of_range_nan)
+    x = clip(x, -0.5, source.shape[1] - 0.5, x_cyclic, out_of_range_nan)
+    y = clip(y, -0.5, source.shape[0] - 0.5, y_cyclic, out_of_range_nan)
 
     if isnan(x) or isnan(y):
         return nan
@@ -153,10 +153,10 @@ cdef double bilinear_interpolation(double[:,:] source, double x, double y, int x
     cdef int xmax = xmin + 1
     cdef int ymax = ymin + 1
 
-    cdef double fQ11 = source[ymin, xmin]
-    cdef double fQ21 = source[ymin, xmax]
-    cdef double fQ12 = source[ymax, xmin]
-    cdef double fQ22 = source[ymax, xmax]
+    cdef double fQ11 = source[max(0, ymin), max(0, xmin)]
+    cdef double fQ21 = source[max(0, ymin), min(source.shape[1] - 1, xmax)]
+    cdef double fQ12 = source[min(source.shape[0] - 1, ymax), max(0, xmin)]
+    cdef double fQ22 = source[min(source.shape[0] - 1, ymax), min(source.shape[1] - 1, xmax)]
 
     return ((fQ11 * (xmax - x) * (ymax - y)
              + fQ21 * (x - xmin) * (ymax - y)
@@ -242,6 +242,7 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
     cdef double[:] current_offset = np.zeros((2,))
     cdef double weight_sum = 0.0
     cdef double weight
+    cdef double interpolated
     with nogil:
         for yi in range(pixel_target.shape[0]):
             for xi in range(pixel_target.shape[1]):
@@ -282,11 +283,15 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
                         transformed[0] = J[0,0] * current_offset[0] + J[0,1] * current_offset[1]
                         transformed[1] = J[1,0] * current_offset[0] + J[1,1] * current_offset[1]
                         weight = hanning_filter(transformed[0], transformed[1])
-                        weight_sum += weight
+                        if weight == 0:
+                            continue
                         if order == 0:
-                            target[yi,xi] += weight * nearest_neighbour_interpolation(source, current_pixel_source[0], current_pixel_source[1], x_cyclic, y_cyclic, out_of_range_nan)
+                            interpolated = nearest_neighbour_interpolation(source, current_pixel_source[0], current_pixel_source[1], x_cyclic, y_cyclic, out_of_range_nan)
                         else:
-                            target[yi,xi] += weight * bilinear_interpolation(source, current_pixel_source[0], current_pixel_source[1], x_cyclic, y_cyclic, out_of_range_nan)
+                            interpolated = bilinear_interpolation(source, current_pixel_source[0], current_pixel_source[1], x_cyclic, y_cyclic, out_of_range_nan)
+                        if not isnan(interpolated):
+                            target[yi,xi] += weight * interpolated
+                            weight_sum += weight
                 target[yi,xi] /= weight_sum
                 if conserve_flux:
                     target[yi,xi] *= fabs(det2x2(Ji))
