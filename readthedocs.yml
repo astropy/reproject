@@ -1,8 +1,15 @@
-conda:
-  file: .rtd-environment.yml
+version: 2
+
+build:
+  image: latest
 
 python:
-  setup_py_install: true
+  version: 3.7
+  install:
+    - method: pip
+      path: .
+      extra_requirements:
+        - docs
 
-formats:
-  - none
+# Don't build any extra formats
+formats: []
