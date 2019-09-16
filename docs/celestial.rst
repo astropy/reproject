@@ -219,15 +219,15 @@ to use an artificial data example to better illustrate the differences:
 
     plt.subplot(1, 3, 1)
     plt.imshow(input_array, origin='lower', vmin=0, vmax=1, interpolation='hanning')
-    plt.tick_params(labelleft=False, labelbottom=False)
+    plt.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
     plt.title('Input array')
     plt.subplot(1, 3, 2)
     plt.imshow(result_interp, origin='lower', vmin=0, vmax=1)
-    plt.tick_params(labelleft=False, labelbottom=False)
+    plt.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
     plt.title('reproject_interp')
     plt.subplot(1, 3, 3)
     plt.imshow(result_deforest, origin='lower', vmin=0, vmax=0.5)
-    plt.tick_params(labelleft=False, labelbottom=False)
+    plt.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
     plt.title('reproject_adaptive')
 
 In the case of interpolation, the output accuracy is poor because for each output
