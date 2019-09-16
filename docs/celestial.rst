@@ -172,7 +172,7 @@ setting the ``order=`` argument to either an integer or a string giving the
 order of the interpolation. Supported strings include:
 
 * ``'nearest-neighbor'``: zeroth order interpolation
-* ``'bilinear'``: fisst order interpolation
+* ``'bilinear'``: first order interpolation
 
 Broadly speaking, the algorithm works by approximating the
 footprint of each output pixel by an elliptical shape in the input image
