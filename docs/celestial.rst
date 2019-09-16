@@ -22,16 +22,25 @@ reproject such data:
   rectangles in world coordinates. This is slower but more accurate than
   interpolation for small fields of view.
 
+* **Adaptive resampling**, where care is taken to deal with differing
+  resolutions more accurately than in simple interpolation, as described
+  in `DeForest (2003) <https://doi.org/10.1023/B:SOLA.0000021743.24248.b0>`_.
+  This is more accurate than interpolation, especially when the input and
+  output resolutions differ, or when there are strong distortions, for example
+  for large areas of the sky or when reprojecting images that include the
+  solar limb.
+
 * Computing the **exact overlap** of pixels on the sky by treating them as
   **four-sided spherical polygons** on the sky and computing spherical polygon
   intersection. This is essentially an exact form of drizzling, and should be
-  appropriate for any field of view. However, this comes at a significant
+  appropriate for any field of view. It is only suitable for data
+  being reprojected between However, this comes at a significant
   performance cost. This is the algorithm used by the `Montage
   <http://montage.ipac.caltech.edu/index.html>`_ package, and we have
   implemented it here using the same core algorithm.
 
-Currently, this package implements interpolation and spherical polygon
-intersection.
+Currently, this package implements interpolation, adaptive resampling, and
+spherical polygon intersection.
 
 .. note:: The reprojection/resampling is always done assuming that the image is in
           **surface brightness units**. For example, if you have an image
@@ -166,6 +175,72 @@ Drizzling
 =========
 
 Support for the drizzle algorithm will be implemented in future versions.
+
+Adaptive resampling
+===================
+
+The :func:`~reproject.reproject_deforest` function can be used to carry
+out reprojection using the  `DeForest (2003) <https://doi.org/10.1023/B:SOLA.0000021743.24248.b0>`_
+algorithm. The two first arguments, the input data and the output projection, should be
+specified as for the :func:`~reproject.reproject_interp` function
+described in `Interpolation`_.
+
+Broadly speaking, the algorithm works by approximating the
+footprint of each output pixel by an elliptical shape in the input image
+which is stretched and rotated by the transformation, then finding the
+weighted average of samples inside that ellipse, where the weight is 1
+at the center of the ellipse, and 0 at the side, and the shape of the
+weight function is given by an analytical distribution (currently we use
+a Hann function).
+
+To illustrate the benefits of this method, we consider a simple case
+where the reprojection includes a large change in resoluton. We choose
+to use an artificial data example to better illustrate the differences:
+
+.. plot::
+   :include-source:
+
+    import numpy as np
+    from astropy.wcs import WCS
+    import matplotlib.pyplot as plt
+    from reproject import reproject_interp, reproject_deforest
+
+    # Set up initial array with pattern
+    input_array = np.zeros((256, 256))
+    input_array[::20, :] = 1
+    input_array[:, ::20] = 1
+    input_array[10::20, 10::20] = 1
+
+    # Define a simple input WCS
+    input_wcs = WCS(naxis=2)
+    input_wcs.wcs.crpix = 128.5, 128.5
+    input_wcs.wcs.cdelt = -0.01, 0.01
+
+    # Define a lower resolution output WCS with rotation
+    output_wcs = WCS(naxis=2)
+    output_wcs.wcs.crpix = 30.5, 30.5
+    output_wcs.wcs.cdelt = -0.0427, 0.0427
+    output_wcs.wcs.pc = [[0.8, 0.2], [-0.2, 0.8]]
+
+    # Reproject using interpolation and adaptive resampling
+    result_interp, _ = reproject_interp((input_array, input_wcs),
+                                        output_wcs, shape_out=(60, 60))
+    result_deforest, _ = reproject_deforest((input_array, input_wcs),
+                                            output_wcs, shape_out=(60, 60))
+
+    plt.subplot(1, 3, 1)
+    plt.imshow(input_array, origin='lower', vmin=0, vmax=1, interpolation='hanning')
+    plt.tick_params(labelleft=False, labelbottom=False)
+    plt.title('Input array')
+    plt.subplot(1, 3, 2)
+    plt.imshow(result_interp, origin='lower', vmin=0, vmax=1)
+    plt.tick_params(labelleft=False, labelbottom=False)
+    plt.title('reproject_interp')
+    plt.subplot(1, 3, 3)
+    plt.imshow(result_deforest, origin='lower', vmin=0, vmax=0.5)
+    plt.tick_params(labelleft=False, labelbottom=False)
+    plt.title('reproject_deforest')
+
 
 Spherical Polygon Intersection
 ==============================
