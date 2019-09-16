@@ -8,6 +8,9 @@
   individual images, and added section in documentation about mosaicking.
   [#186]
 
+- Added a new reproject.adaptive sub-package that implements the DeForest
+  (2003) algorithm for reprojection. [#52]
+
 0.5.2 (unreleased)
 ------------------
 
