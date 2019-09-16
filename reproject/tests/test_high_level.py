@@ -164,6 +164,9 @@ def test_identity_projection(projection_type):
     data_in = np.random.rand(header_in['NAXIS2'], header_in['NAXIS1'])
     if projection_type == 'flux-conserving':
         data_out, footprint = reproject_exact((data_in, header_in), header_in)
+    elif projection_type.startswith('adaptive'):
+        data_out, footprint = reproject_adaptive((data_in, header_in), header_in,
+                                                  order=projection_type.split('-', 1)[1])
     else:
         data_out, footprint = reproject_interp((data_in, header_in), header_in,
                                                order=projection_type)
