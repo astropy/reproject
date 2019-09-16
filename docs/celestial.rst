@@ -179,7 +179,7 @@ Support for the drizzle algorithm will be implemented in future versions.
 Adaptive resampling
 ===================
 
-The :func:`~reproject.reproject_deforest` function can be used to carry
+The :func:`~reproject.reproject_adaptive` function can be used to carry
 out reprojection using the  `DeForest (2003) <https://doi.org/10.1023/B:SOLA.0000021743.24248.b0>`_
 algorithm. The two first arguments, the input data and the output projection, should be
 specified as for the :func:`~reproject.reproject_interp` function
@@ -203,7 +203,7 @@ to use an artificial data example to better illustrate the differences:
     import numpy as np
     from astropy.wcs import WCS
     import matplotlib.pyplot as plt
-    from reproject import reproject_interp, reproject_deforest
+    from reproject import reproject_interp, reproject_adaptive
 
     # Set up initial array with pattern
     input_array = np.zeros((256, 256))
@@ -225,7 +225,7 @@ to use an artificial data example to better illustrate the differences:
     # Reproject using interpolation and adaptive resampling
     result_interp, _ = reproject_interp((input_array, input_wcs),
                                         output_wcs, shape_out=(60, 60))
-    result_deforest, _ = reproject_deforest((input_array, input_wcs),
+    result_deforest, _ = reproject_adaptive((input_array, input_wcs),
                                             output_wcs, shape_out=(60, 60))
 
     plt.subplot(1, 3, 1)
@@ -239,7 +239,7 @@ to use an artificial data example to better illustrate the differences:
     plt.subplot(1, 3, 3)
     plt.imshow(result_deforest, origin='lower', vmin=0, vmax=0.5)
     plt.tick_params(labelleft=False, labelbottom=False)
-    plt.title('reproject_deforest')
+    plt.title('reproject_adaptive')
 
 
 Spherical Polygon Intersection

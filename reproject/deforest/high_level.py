@@ -1,16 +1,16 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
 from ..utils import parse_input_data, parse_output_projection
-from .core import _reproject_deforest_2d
+from .core import _reproject_adaptive_2d
 
-__all__ = ['reproject_deforest']
+__all__ = ['reproject_adaptive']
 
 ORDER = {}
 ORDER['nearest-neighbor'] = 0
 ORDER['bilinear'] = 1
 
 
-def reproject_deforest(input_data, output_projection, shape_out=None, hdu_in=0,
+def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
                        order='bilinear', output_array=None, return_footprint=True):
     """
     Reproject celestial slices from an 2d array from one WCS to another using
@@ -74,4 +74,4 @@ def reproject_deforest(input_data, output_projection, shape_out=None, hdu_in=0,
     if isinstance(order, str):
         order = ORDER[order]
 
-    return _reproject_deforest_2d(array_in, wcs_in, wcs_out, shape_out, order=order)
+    return _reproject_adaptive_2d(array_in, wcs_in, wcs_out, shape_out, order=order)

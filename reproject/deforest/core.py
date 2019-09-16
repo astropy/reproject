@@ -8,7 +8,7 @@ from .deforest import map_coordinates
 from ..wcs_utils import efficient_pixel_to_pixel, has_celestial
 
 
-__all__ = ['_reproject_deforest_2d']
+__all__ = ['_reproject_adaptive_2d']
 
 
 class CoordinateTransformer:
@@ -40,7 +40,7 @@ class CoordinateTransformer:
         return pixel_in
 
 
-def _reproject_deforest_2d(array, wcs_in, wcs_out, shape_out, order=1):
+def _reproject_adaptive_2d(array, wcs_in, wcs_out, shape_out, order=1):
     """
     Reproject celestial slices from an n-d array from one WCS to another
     using the DeForest (2003) algorithm, and assuming all other dimensions
