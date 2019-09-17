@@ -128,8 +128,6 @@ def test_surface_brightness(projection_type, dtype):
         data_out, footprint = reproject_interp((data_in, header_in), header_out,
                                                order=projection_type)
 
-    fits.writeto('result.fits', data_out, overwrite=True)
-
     assert data_out.shape == (20, 20)
 
     # Here we check that the values are still 1 despite the change in

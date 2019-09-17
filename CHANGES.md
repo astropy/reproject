@@ -9,7 +9,7 @@
   [#186]
 
 - Added a new reproject.adaptive sub-package that implements the DeForest
-  (2003) algorithm for reprojection. [#52]
+  (2004) algorithm for reprojection. [#52]
 
 0.5.2 (unreleased)
 ------------------

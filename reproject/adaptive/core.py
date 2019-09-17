@@ -28,7 +28,7 @@ def _reproject_adaptive_2d(array, wcs_in, wcs_out, shape_out, order=1,
                            return_footprint=True):
     """
     Reproject celestial slices from an n-d array from one WCS to another
-    using the DeForest (2003) algorithm, and assuming all other dimensions
+    using the DeForest (2004) algorithm, and assuming all other dimensions
     are independent.
 
     Parameters
