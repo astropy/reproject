@@ -13,6 +13,7 @@ from astropy.wcs.wcsapi import HighLevelWCSWrapper, SlicedLowLevelWCS
 from numpy.testing import assert_allclose
 
 from ..high_level import reproject_interp
+from ...tests.helpers import array_footprint_to_hdulist
 
 # TODO: add reference comparisons
 
@@ -21,13 +22,6 @@ DATA = os.path.join(os.path.dirname(__file__), '..', '..', 'tests', 'data')
 
 def as_high_level_wcs(wcs):
     return HighLevelWCSWrapper(SlicedLowLevelWCS(wcs, Ellipsis))
-
-
-def array_footprint_to_hdulist(array, footprint, header):
-    hdulist = fits.HDUList()
-    hdulist.append(fits.PrimaryHDU(array, header))
-    hdulist.append(fits.ImageHDU(footprint, header, name='footprint'))
-    return hdulist
 
 
 @pytest.mark.array_compare(single_reference=True)

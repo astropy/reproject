@@ -24,7 +24,7 @@ reproject such data:
 
 * **Adaptive resampling**, where care is taken to deal with differing
   resolutions more accurately than in simple interpolation, as described
-  in `DeForest (2003) <https://doi.org/10.1023/B:SOLA.0000021743.24248.b0>`_.
+  in `DeForest (2004) <https://doi.org/10.1023/B:SOLA.0000021743.24248.b0>`_.
   This is more accurate than interpolation, especially when the input and
   output resolutions differ, or when there are strong distortions, for example
   for large areas of the sky or when reprojecting images that include the
@@ -161,7 +161,7 @@ Adaptive resampling
 ===================
 
 The :func:`~reproject.reproject_adaptive` function can be used to carry out
-reprojection using the  `DeForest (2003)
+reprojection using the  `DeForest (2004)
 <https://doi.org/10.1023/B:SOLA.0000021743.24248.b0>`_ algorithm::
 
     >>> from reproject import reproject_adaptive
