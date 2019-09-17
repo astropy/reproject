@@ -26,7 +26,7 @@ class ReprojectedArraySubset:
         self.jmax = jmax
 
     def __repr__(self):
-        return ('<ReprojectedArraySubset at [{0}:{1},{2}:{3}]>'
+        return ('<ReprojectedArraySubset at [{}:{},{}:{}]>'
                 .format(self.jmin, self.jmax, self.imin, self.imax))
 
     @property

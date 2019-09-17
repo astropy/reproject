@@ -1,16 +1,23 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
+import os
 import random
 
 import numpy as np
 import pytest
 from astropy.wcs import WCS
+from astropy.io.fits import Header
+
 from numpy.testing import assert_allclose, assert_equal
 
-from ... import reproject_exact, reproject_interp
+from ... import reproject_exact, reproject_interp, reproject_adaptive
 from ..coadd import reproject_and_coadd
+from ...tests.helpers import array_footprint_to_hdulist
 
 ATOL = 1.e-9
+
+DATA = os.path.join(os.path.dirname(__file__), '..', '..', 'tests', 'data')
+
 
 @pytest.fixture(params=[reproject_interp, reproject_exact],
                 ids=["interp", "exact"])
@@ -164,3 +171,80 @@ class TestReprojectAndCoAdd():
 
         assert_allclose(array - np.mean(array),
                         self.array - np.mean(self.array), atol=ATOL)
+
+    def test_coadd_with_weights(self, reproject_function):
+
+        # Make sure that things work properly when specifying weights
+
+        array1 = self.array + 1
+        array2 = self.array - 1
+
+        weight1 = np.cumsum(np.ones_like(self.array), axis=1) - 1
+        weight2 = weight1[:, ::-1]
+
+        input_data = [(array1, self.wcs), (array2, self.wcs)]
+        input_weights = [weight1, weight2]
+
+        array, footprint = reproject_and_coadd(input_data, self.wcs,
+                                               shape_out=self.array.shape,
+                                               combine_function='mean',
+                                               input_weights=input_weights,
+                                               reproject_function=reproject_function,
+                                               match_background=False)
+
+        expected = self.array + (2 * (weight1 / weight1.max()) - 1)
+
+        assert_allclose(array, expected, atol=ATOL)
+
+
+HEADER_SOLAR_OUT = """
+WCSAXES =                    2
+CRPIX1  =                 90.5
+CRPIX2  =                 45.5
+CDELT1  =                    2
+CDELT2  =                    2
+CUNIT1  = 'deg'
+CUNIT2  = 'deg'
+CTYPE1  = 'HGLN-CAR'
+CTYPE2  = 'HGLT-CAR'
+CRVAL1  =                  0.0
+CRVAL2  =                  0.0
+LONPOLE =                  0.0
+LATPOLE =                 90.0
+DATE-OBS= '2011-02-15T00:14:03.654'
+MJD-OBS =      55607.009764514
+MJD-OBS =      55607.009764514
+"""
+
+@pytest.mark.array_compare()
+def test_coadd_solar_map():
+
+    # This is a test that exercises a lot of different parts of the mosaicking
+    # code. The idea is to take three solar images from different viewpoints
+    # and combine them into a single one. This uses weight maps that are not
+    # uniform and also include NaN values.
+
+    pytest.importorskip('sunpy', minversion='1.0.4')
+    from sunpy.map import Map, all_coordinates_from_map
+
+    # Load in three images from different viewpoints around the Sun
+    filenames = ['secchi_l0_a.fits', 'aia_171_level1.fits', 'secchi_l0_b.fits']
+    maps = [Map(os.path.join(DATA, f)) for f in filenames]
+
+    # Produce weight maps that are centered on the solar disk and go to zero at the edges
+    coordinates = tuple(map(all_coordinates_from_map, maps))
+    input_weights = [coord.transform_to("heliocentric").z.value for coord in coordinates]
+    input_weights = [(w / np.nanmax(w)) ** 4 for w in input_weights]
+
+    shape_out = [90, 180]
+    wcs_out = WCS(Header.fromstring(HEADER_SOLAR_OUT, sep='\n'))
+    scales = [1/6, 1, 1/6]
+
+    input_data = tuple((a.data * scale, a.wcs) for (a, scale) in zip(maps, scales))
+
+    array, footprint = reproject_and_coadd(input_data, wcs_out, shape_out,
+                                           input_weights=input_weights,
+                                           reproject_function=reproject_interp,
+                                           match_background=True)
+
+    return array_footprint_to_hdulist(array, footprint, wcs_out.to_header())

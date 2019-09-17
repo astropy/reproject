@@ -13,8 +13,7 @@ ORDER['bicubic'] = 3
 
 
 def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
-                     order='bilinear', independent_celestial_slices=False,
-                     output_array=None, return_footprint=True):
+                     order='bilinear', output_array=None, return_footprint=True):
     """
     Reproject data to a new projection using interpolation (this is typically
     the fastest way to reproject an image).
@@ -53,26 +52,12 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
 
         or an integer. A value of ``0`` indicates nearest neighbor
         interpolation.
-    independent_celestial_slices : bool, optional
-        This can be set to ``True`` for n-dimensional input in the following case
-        (all conditions have to be fulfilled):
-
-            * The number of pixels in each non-celestial dimension is the same
-              between the input and target header.
-            * The WCS coordinates along the non-celestial dimensions are the
-              same between the input and target WCS.
-            * The celestial WCS component is independent from other WCS
-              coordinates.
-
-        In this special case, we can make things a little faster by
-        reprojecting each celestial slice independently using the same
-        transformation.
     output_array : None or `~numpy.ndarray`
         An array in which to store the reprojected data.  This can be any numpy
         array including a memory map, which may be helpful when dealing with
         extremely large files.
     return_footprint : bool
-        Return the footprint in addition to the output array?
+        Whether to return the footprint in addition to the output array.
 
     Returns
     -------

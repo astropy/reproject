@@ -22,16 +22,28 @@ reproject such data:
   rectangles in world coordinates. This is slower but more accurate than
   interpolation for small fields of view.
 
+* **Adaptive resampling**, where care is taken to deal with differing
+  resolutions more accurately than in simple interpolation, as described
+  in `DeForest (2004) <https://doi.org/10.1023/B:SOLA.0000021743.24248.b0>`_.
+  This is more accurate than interpolation, especially when the input and
+  output resolutions differ, or when there are strong distortions, for example
+  for large areas of the sky or when reprojecting images that include the
+  solar limb.
+
 * Computing the **exact overlap** of pixels on the sky by treating them as
   **four-sided spherical polygons** on the sky and computing spherical polygon
   intersection. This is essentially an exact form of drizzling, and should be
-  appropriate for any field of view. However, this comes at a significant
-  performance cost. This is the algorithm used by the `Montage
+  appropriate for any field of view. However, this comes at
+  a significant performance cost. This is the algorithm used by the `Montage
   <http://montage.ipac.caltech.edu/index.html>`_ package, and we have
-  implemented it here using the same core algorithm.
+  implemented it here using the same core algorithm. Note that this is only
+  suitable for data being reprojected between spherical celestial coordinates on
+  the sky that share the same origin (that is, it cannot be used to reproject
+  from coordinates on the sky to coordinates on the surface of a spherical
+  body).
 
-Currently, this package implements interpolation and spherical polygon
-intersection.
+Currently, this package implements interpolation, adaptive resampling, and
+spherical polygon intersection.
 
 .. note:: The reprojection/resampling is always done assuming that the image is in
           **surface brightness units**. For example, if you have an image
@@ -45,18 +57,28 @@ intersection.
           described below. In future, we will provide a convenience function
           to return the area of all the pixels to make it easier.
 
-.. _interpolation:
+.. _common:
 
-Interpolation
-=============
+Common options
+==============
 
-Reprojection using interpolation can be done using the high-level
-:func:`~reproject.reproject_interp` function::
+All of the reprojection algorithms implemented in *reproject* are available
+as functions named as ``reproject_<algorithm>``, e.g.
+:func:`~reproject.reproject_interp`, :func:`~reproject.reproject_adaptive`,
+and :func:`~reproject.reproject_exact`. These can be imported from the top-level
+of the package, e.g.::
 
     >>> from reproject import reproject_interp
+    >>> from reproject import reproject_adaptive
+    >>> from reproject import reproject_exact
 
-This function takes two main arguments. The first argument is the image to
-reproject, together with WCS information about the image. This can be either:
+All functions share a common set of arguments, as well as including
+algorithm-dependent arguments. In this section, we take a look at the common
+arguments.
+
+The reprojection functions take two main arguments. The first argument is the
+image to reproject, together with WCS information about the image. This can be
+either:
 
 * The name of a FITS file
 * An :class:`~astropy.io.fits.HDUList` object
@@ -68,16 +90,15 @@ reproject, together with WCS information about the image. This can be either:
   :class:`~astropy.io.fits.Header` object
 
 In the case of a FITS file or an :class:`~astropy.io.fits.HDUList` object, if
-there is more than one Header-Data Unit (HDU), the ``hdu_in`` argument is
-also required and should be set to the ID or the name of the HDU to use.
+there is more than one Header-Data Unit (HDU), the ``hdu_in`` keyword argument
+is also required and should be set to the ID or the name of the HDU to use.
 
-The second argument is the WCS information for the output image, which should
-be specified either as a :class:`~astropy.wcs.WCS` or a
+The second argument is the WCS information for the output image, which should be
+specified either as a :class:`~astropy.wcs.WCS` or a
 :class:`~astropy.io.fits.Header` instance. If this is specified as a
-:class:`~astropy.wcs.WCS` instance, the ``shape_out`` argument to
-:func:`~reproject.reproject_interp` should also be specified, and be
-given the shape of the output image using the Numpy ``(ny, nx)`` convention
-(this is because :class:`~astropy.wcs.WCS`, unlike
+:class:`~astropy.wcs.WCS` instance, the ``shape_out`` keyword argument should
+also be specified, and be given the shape of the output image using the Numpy
+``(ny, nx)`` convention (this is because :class:`~astropy.wcs.WCS`, unlike
 :class:`~astropy.io.fits.Header`, does not contain information about image
 size).
 
@@ -99,39 +120,146 @@ We can create a new header using a Gnomonic projection::
     >>> new_header['CTYPE2'] = 'GLAT-TAN'   # doctest: +REMOTE_DATA
 
 And finally we can call the :func:`~reproject.reproject_interp` function to reproject
-the image::
+the image using interpolation::
 
     >>> from reproject import reproject_interp
     >>> new_image, footprint = reproject_interp(hdu, new_header)   # doctest: +REMOTE_DATA
 
-The :func:`~reproject.reproject_interp` function returns two arrays -
-the first is the reprojected input image, and the second is a 'footprint'
-array which shows the fraction of overlap of the input image on the output
-image grid. This footprint is 0 for output pixels that fall outside the input
-image, 1 for output pixels that fall inside the input image. For more
-information about footprint arrays, see the :doc:`footprints` section.
+The reprojection functions return two arrays - the first is the reprojected
+input image, and the second is a 'footprint' array which shows the fraction of
+overlap of the input image on the output image grid. This footprint is 0 for
+output pixels that fall outside the input image, 1 for output pixels that fall
+inside the input image. For more information about footprint arrays, see the
+:doc:`footprints` section. To return only the main array and not the footprint,
+you can set ``return_footprint=False``.
 
 We can then easily write out the reprojected image to a new FITS file::
 
     >>> fits.writeto('reprojected_image.fits', new_image, new_header)   # doctest: +REMOTE_DATA
 
-The order of the interpolation can be controlled by setting the ``order=``
-argument to either an integer or a string giving the order of the
-interpolation. Supported strings include:
+.. _interpolation:
+
+Interpolation
+=============
+
+The :func:`~reproject.reproject_interp` function can be used to carry out
+reprojection implemented using simple interpolation::
+
+    >>> from reproject import reproject_interp
+
+In addition to the arguments described in :ref:`common`, the order of the
+interpolation can be controlled by setting the ``order=`` argument to either an
+integer or a string giving the order of the interpolation. Supported strings
+include:
 
 * ``'nearest-neighbor'``: zeroth order interpolation
 * ``'bilinear'``: fisst order interpolation
 * ``'biquadratic'``: second order interpolation
 * ``'bicubic'``: third order interpolation
 
-Very Large Cubes
-----------------
-If you have a very large cube to reproject, i.e., any normal IFU or radio spectral cube with many
-individual spectral channels - you may not be able to hold two copies of the
-cube in memory.  In this case, you can specify an output memory mapped array to
-store the data.
+Adaptive resampling
+===================
 
-You can use the following approach for large data, but only with the interpolation reprojection methods.
+The :func:`~reproject.reproject_adaptive` function can be used to carry out
+reprojection using the  `DeForest (2004)
+<https://doi.org/10.1023/B:SOLA.0000021743.24248.b0>`_ algorithm::
+
+    >>> from reproject import reproject_adaptive
+
+In addition to the arguments described in :ref:`common`, the order of the
+interpolation to use when sampling values in the input map can be controlled by
+setting the ``order=`` argument to either an integer or a string giving the
+order of the interpolation. Supported strings include:
+
+* ``'nearest-neighbor'``: zeroth order interpolation
+* ``'bilinear'``: first order interpolation
+
+Broadly speaking, the algorithm works by approximating the
+footprint of each output pixel by an elliptical shape in the input image
+which is stretched and rotated by the transformation, then finding the
+weighted average of samples inside that ellipse, where the weight is 1
+at the center of the ellipse, and 0 at the side, and the shape of the
+weight function is given by an analytical distribution (currently we use
+a Hann function).
+
+To illustrate the benefits of this method, we consider a simple case
+where the reprojection includes a large change in resoluton. We choose
+to use an artificial data example to better illustrate the differences:
+
+.. plot::
+   :include-source:
+
+    import numpy as np
+    from astropy.wcs import WCS
+    import matplotlib.pyplot as plt
+    from reproject import reproject_interp, reproject_adaptive
+
+    # Set up initial array with pattern
+    input_array = np.zeros((256, 256))
+    input_array[::20, :] = 1
+    input_array[:, ::20] = 1
+    input_array[10::20, 10::20] = 1
+
+    # Define a simple input WCS
+    input_wcs = WCS(naxis=2)
+    input_wcs.wcs.crpix = 128.5, 128.5
+    input_wcs.wcs.cdelt = -0.01, 0.01
+
+    # Define a lower resolution output WCS with rotation
+    output_wcs = WCS(naxis=2)
+    output_wcs.wcs.crpix = 30.5, 30.5
+    output_wcs.wcs.cdelt = -0.0427, 0.0427
+    output_wcs.wcs.pc = [[0.8, 0.2], [-0.2, 0.8]]
+
+    # Reproject using interpolation and adaptive resampling
+    result_interp, _ = reproject_interp((input_array, input_wcs),
+                                        output_wcs, shape_out=(60, 60))
+    result_deforest, _ = reproject_adaptive((input_array, input_wcs),
+                                            output_wcs, shape_out=(60, 60))
+
+    plt.subplot(1, 3, 1)
+    plt.imshow(input_array, origin='lower', vmin=0, vmax=1, interpolation='hanning')
+    plt.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+    plt.title('Input array')
+    plt.subplot(1, 3, 2)
+    plt.imshow(result_interp, origin='lower', vmin=0, vmax=1)
+    plt.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+    plt.title('reproject_interp')
+    plt.subplot(1, 3, 3)
+    plt.imshow(result_deforest, origin='lower', vmin=0, vmax=0.5)
+    plt.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+    plt.title('reproject_adaptive')
+
+In the case of interpolation, the output accuracy is poor because for each output
+pixel we interpolate a single position in the input array, which means that either
+that position falls inside a region where the flux is zero or one, and this is
+very sensitive to aliasing effects. For the adaptive resampling, each output pixel
+is formed from the weighted average of several pixels in the input, and all input
+pixels should contribute to the output, with no gaps.
+
+Spherical Polygon Intersection
+==============================
+
+The :func:`~reproject.reproject_exact` function can be used to carry out 'exact'
+reprojection using the spherical polygon intersection of input and output pixels::
+
+    >>> from reproject import reproject_exact
+
+In addition to the arguments described in :ref:`common`, an optional
+``parallel=`` option can be used to control whether to parallelize the
+reprojection, and if so how many cores to use (see
+:func:`~reproject.reproject_exact` for more details). For this algorithm, the
+footprint array returned gives the exact fractional overlap of new pixels with
+the original image (see :doc:`footprints` for more details).
+
+Very large datasets
+===================
+
+If you have a very large dataset to reproject, i.e., any normal IFU or radio
+spectral cube with many individual spectral channels - you may not be able to
+hold two copies of the dataset in memory.  In this case, you can specify an
+output memory mapped array to store the data. For now this only works with the
+interpolation reprojection methods.
 
 .. doctest-skip::
 
@@ -161,25 +289,3 @@ Or if you're dealing with FITS files, you can skip the numpy memmap step and use
     ...                                   return_footprint=False,
     ...                                   independent_celestial_slices=True)
     >>> outhdu.flush()
-
-Drizzling
-=========
-
-Support for the drizzle algorithm will be implemented in future versions.
-
-Spherical Polygon Intersection
-==============================
-
-Exact reprojection using the spherical polygon intersection can be done using
-the high-level :func:`~reproject.reproject_exact` function::
-
-    >>> from reproject import reproject_exact
-
-The two first arguments, the input data and the output projection, should be
-specified as for the :func:`~reproject.reproject_interp` function
-described in `Interpolation`_. In addition, an optional ``parallel=`` option
-can be used to control whether to parallelize the reprojection, and if so how
-many cores to use (see :func:`~reproject.reproject_exact` for more
-details). For this algorithm, the footprint array returned gives the exact
-fractional overlap of new pixels with the original image (see
-:doc:`footprints` for more details).

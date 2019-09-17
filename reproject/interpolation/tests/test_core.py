@@ -13,6 +13,7 @@ from astropy.wcs.wcsapi import HighLevelWCSWrapper, SlicedLowLevelWCS
 from numpy.testing import assert_allclose
 
 from ..high_level import reproject_interp
+from ...tests.helpers import array_footprint_to_hdulist
 
 # TODO: add reference comparisons
 
@@ -21,13 +22,6 @@ DATA = os.path.join(os.path.dirname(__file__), '..', '..', 'tests', 'data')
 
 def as_high_level_wcs(wcs):
     return HighLevelWCSWrapper(SlicedLowLevelWCS(wcs, Ellipsis))
-
-
-def array_footprint_to_hdulist(array, footprint, header):
-    hdulist = fits.HDUList()
-    hdulist.append(fits.PrimaryHDU(array, header))
-    hdulist.append(fits.ImageHDU(footprint, header, name='footprint'))
-    return hdulist
 
 
 @pytest.mark.array_compare(single_reference=True)
@@ -452,7 +446,7 @@ def test_reproject_roundtrip(file_format):
     # pixels based on round-tripping works correctly. Using asdf is not just
     # about testing a different format but making sure that GWCS works.
 
-    pytest.importorskip('sunpy')
+    pytest.importorskip('sunpy', minversion='1.0.4')
     from sunpy.map import Map
     from sunpy.coordinates.ephemeris import get_body_heliographic_stonyhurst
 

@@ -211,3 +211,20 @@ def has_celestial(wcs):
             if issubclass(world_axis_class[0], SkyCoord):
                 return True
         return False
+
+
+def efficient_pixel_to_pixel_with_roundtrip(wcs1, wcs2, *inputs):
+
+    outputs = efficient_pixel_to_pixel(wcs1, wcs2, *inputs)
+
+    # Now convert back to check that coordinates round-trip, if not then set to NaN
+    inputs_check = efficient_pixel_to_pixel(wcs2, wcs1, *outputs)
+    reset = np.zeros(inputs_check[0].shape, dtype=bool)
+    for ipix in range(len(inputs_check)):
+        reset |= (np.abs(inputs_check[ipix] - inputs[ipix]) > 1)
+    if np.any(reset):
+        for ipix in range(len(inputs_check)):
+            outputs[ipix] = outputs[ipix].copy()
+            outputs[ipix][reset] = np.nan
+
+    return outputs

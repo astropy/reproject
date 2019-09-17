@@ -20,7 +20,8 @@ def _reproject_slice(args):
     return _reproject_slice_cython(*args)
 
 
-def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _legacy=False):
+def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True,
+                         _legacy=False, return_footprint=True):
 
     # Check the parallel flag.
     if type(parallel) != bool and type(parallel) != int:
@@ -182,4 +183,7 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, _lega
         with np.errstate(invalid='ignore'):
             array_new /= weights
 
-        return array_new, weights
+        if return_footprint:
+            return array_new, weights
+        else:
+            return array_new

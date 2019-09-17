@@ -4,7 +4,7 @@ import numpy as np
 from astropy.wcs import WCS
 
 from ..array_utils import map_coordinates
-from ..wcs_utils import efficient_pixel_to_pixel, has_celestial
+from ..wcs_utils import efficient_pixel_to_pixel_with_roundtrip, has_celestial
 
 
 def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
@@ -43,7 +43,7 @@ def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
         # the CTYPEs match.
         if wcs_in.wcs.spec >= 0 and wcs_out.wcs.spec >= 0:
             if wcs_in.wcs.ctype[wcs_in.wcs.spec] != wcs_out.wcs.ctype[wcs_out.wcs.spec]:
-                raise ValueError("The input ({0}) and output ({1}) spectral "
+                raise ValueError("The input ({}) and output ({}) spectral "
                                  "coordinate types are not equivalent."
                                  .format(wcs_in.wcs.ctype[wcs_in.wcs.spec],
                                          wcs_out.wcs.ctype[wcs_out.wcs.spec]))
@@ -55,24 +55,13 @@ def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
     pixel_out = np.meshgrid(*[np.arange(size, dtype=float) for size in shape_out],
                             indexing='ij', sparse=False, copy=False)
     pixel_out = [p.ravel() for p in pixel_out]
-    pixel_in = efficient_pixel_to_pixel(wcs_out, wcs_in, *pixel_out[::-1])[::-1]
-
-    # Now convert back to check that coordinates round-trip, if not then set to NaN
-    pixel_out_check = efficient_pixel_to_pixel(wcs_in, wcs_out, *pixel_in[::-1])[::-1]
-    reset = np.zeros(pixel_out_check[0].shape, dtype=bool)
-    for ipix in range(len(pixel_out_check)):
-        reset |= (np.abs(pixel_out_check[ipix] - pixel_out[ipix]) > 1)
-    if np.any(reset):
-        for ipix in range(len(pixel_out_check)):
-            pixel_in[ipix] = pixel_in[ipix].copy()
-            pixel_in[ipix][reset] = np.nan
-
+    pixel_in = efficient_pixel_to_pixel_with_roundtrip(wcs_out, wcs_in, *pixel_out[::-1])[::-1]
     pixel_in = np.array(pixel_in)
 
     if array_out is not None:
         if array_out.shape != tuple(shape_out):
             raise ValueError("Array sizes don't match.  Output array shape "
-                             "should be {0}".format(str(tuple(shape_out))))
+                             "should be {}".format(str(tuple(shape_out))))
         elif array_out.dtype != array.dtype:
             raise ValueError("An output array of a different type than the "
                              "input array was specified, which will create an "
