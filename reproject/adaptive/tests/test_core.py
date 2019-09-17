@@ -95,7 +95,7 @@ def test_reproject_adaptive_roundtrip(file_format):
     # pixels based on round-tripping works correctly. Using asdf is not just
     # about testing a different format but making sure that GWCS works.
 
-    pytest.importorskip('sunpy')
+    pytest.importorskip('sunpy', minversion='1.0.4')
     from sunpy.map import Map
     from sunpy.coordinates.ephemeris import get_body_heliographic_stonyhurst
 

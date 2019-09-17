@@ -224,7 +224,7 @@ def test_coadd_solar_map():
     # and combine them into a single one. This uses weight maps that are not
     # uniform and also include NaN values.
 
-    pytest.importorskip('sunpy')
+    pytest.importorskip('sunpy', minversion='1.0.4')
     from sunpy.map import Map, all_coordinates_from_map
 
     # Load in three images from different viewpoints around the Sun
