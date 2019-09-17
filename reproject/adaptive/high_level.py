@@ -61,7 +61,7 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
         indicate valid values.
     """
 
-    # TODO: add support for output_array and return_footprint
+    # TODO: add support for output_array
 
     array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
     wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
