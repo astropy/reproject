@@ -194,7 +194,7 @@ class TestReprojectAndCoAdd():
 
         expected = self.array + (2 * (weight1 / weight1.max()) - 1)
 
-        assert_allclose(array, expected)
+        assert_allclose(array, expected, atol=ATOL)
 
 
 HEADER_SOLAR_OUT = """
