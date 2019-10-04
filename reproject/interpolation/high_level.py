@@ -1,5 +1,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
+from astropy.utils import deprecated_renamed_argument
+
 from ..utils import parse_input_data, parse_output_projection
 from .core import _reproject_full
 
@@ -12,6 +14,7 @@ ORDER['biquadratic'] = 2
 ORDER['bicubic'] = 3
 
 
+@deprecated_renamed_argument('independent_celestial_slices', None, since='0.6')
 def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
                      order='bilinear', output_array=None, return_footprint=True):
     """
