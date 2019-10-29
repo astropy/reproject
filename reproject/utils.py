@@ -1,4 +1,6 @@
 import numpy as np
+
+import astropy.nddata
 from astropy.io import fits
 from astropy.io.fits import CompImageHDU, HDUList, Header, ImageHDU, PrimaryHDU
 from astropy.wcs import WCS
@@ -28,6 +30,8 @@ def parse_input_data(input_data, hdu_in=None):
             return input_data[0], WCS(input_data[1])
         else:
             return input_data
+    elif isinstance(input_data, astropy.nddata.NDDataBase):
+        return input_data.data, input_data.wcs
     else:
         raise TypeError("input_data should either be an HDU object or a tuple of (array, WCS) or (array, Header)")
 
