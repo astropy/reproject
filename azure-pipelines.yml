@@ -6,9 +6,9 @@ resources:
   repositories:
   - repository: OpenAstronomy
     type: github
-    endpoint: astrofrog
-    name: astrofrog/azure-pipelines-templates
-    ref: 32bit
+    endpoint: astropy
+    name: OpenAstronomy/azure-pipelines-templates
+    ref: master
 
 jobs:
 
