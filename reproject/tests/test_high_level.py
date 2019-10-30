@@ -59,7 +59,8 @@ class TestReproject:
 
         with pytest.raises(ValueError) as exc:
             reproject_function(self.hdu_in, self.header_out)
-        assert exc.value.args[0] == "Need to specify shape since output header does not contain complete shape information"
+        assert exc.value.args[0] == ("Need to specify shape since output header "
+                                     "does not contain complete shape information")
 
         reproject_interp(self.hdu_in, self.header_out_size)
 
@@ -70,7 +71,8 @@ class TestReproject:
 
         with pytest.raises(ValueError) as exc:
             reproject_function((self.array_in, self.wcs_in), self.header_out)
-        assert exc.value.args[0] == "Need to specify shape since output header does not contain complete shape information"
+        assert exc.value.args[0] == ("Need to specify shape since output header "
+                                     "does not contain complete shape information")
 
         reproject_function((self.array_in, self.wcs_in), self.header_out_size)
 
@@ -81,7 +83,8 @@ class TestReproject:
         reproject_function((self.array_in, self.header_in), self.header_out_size)
 
     def test_return_footprint(self, reproject_function):
-        array = reproject_function(self.hdu_in, self.wcs_out, shape_out=self.shape_out, return_footprint=False)
+        array = reproject_function(self.hdu_in, self.wcs_out,
+                                   shape_out=self.shape_out, return_footprint=False)
         assert isinstance(array, np.ndarray)
 
 
@@ -123,7 +126,7 @@ def test_surface_brightness(projection_type, dtype):
         data_out, footprint = reproject_exact((data_in, header_in), header_out)
     elif projection_type.startswith('adaptive'):
         data_out, footprint = reproject_adaptive((data_in, header_in), header_out,
-                                                  order=projection_type.split('-', 1)[1])
+                                                 order=projection_type.split('-', 1)[1])
     else:
         data_out, footprint = reproject_interp((data_in, header_in), header_out,
                                                order=projection_type)
@@ -164,7 +167,7 @@ def test_identity_projection(projection_type):
         data_out, footprint = reproject_exact((data_in, header_in), header_in)
     elif projection_type.startswith('adaptive'):
         data_out, footprint = reproject_adaptive((data_in, header_in), header_in,
-                                                  order=projection_type.split('-', 1)[1])
+                                                 order=projection_type.split('-', 1)[1])
     else:
         data_out, footprint = reproject_interp((data_in, header_in), header_in,
                                                order=projection_type)

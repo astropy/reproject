@@ -14,8 +14,10 @@ class TestReprojectExact:
 
     def setup_class(self):
 
-        self.header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/gc_ga.hdr'))
-        self.header_out = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/gc_eq.hdr'))
+        header_gal = get_pkg_data_filename('../../tests/data/gc_ga.hdr')
+        header_equ = get_pkg_data_filename('../../tests/data/gc_eq.hdr')
+        self.header_in = fits.Header.fromtextfile(header_gal)
+        self.header_out = fits.Header.fromtextfile(header_equ)
 
         self.header_out['NAXIS'] = 2
         self.header_out['NAXIS1'] = 600

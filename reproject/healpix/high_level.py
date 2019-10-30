@@ -14,7 +14,7 @@ def reproject_from_healpix(input_data, output_projection, shape_out=None,
 
     Parameters
     ----------
-    input_data : str or `~astropy.io.fits.TableHDU` or `~astropy.io.fits.BinTableHDU` or tuple
+    input_data
         The input data to reproject. This can be:
 
             * The name of a HEALPIX FITS file
@@ -81,7 +81,7 @@ def reproject_to_healpix(input_data, coord_system_out, hdu_in=0,
 
     Parameters
     ----------
-    input_data : str or `~astropy.io.fits.HDUList` or `~astropy.io.fits.PrimaryHDU` or `~astropy.io.fits.ImageHDU` or tuple
+    input_data
         The input data to reproject. This can be:
 
             * The name of a FITS file
@@ -131,4 +131,5 @@ def reproject_to_healpix(input_data, coord_system_out, hdu_in=0,
         return image_to_healpix(array_in, wcs_in, coord_system_out,
                                 nside=nside, order=order, nested=nested)
     else:
-        raise NotImplementedError("Only data with a 2-d celestial WCS can be reprojected to a HEALPIX projection")
+        raise NotImplementedError("Only data with a 2-d celestial WCS can be "
+                                  "reprojected to a HEALPIX projection")

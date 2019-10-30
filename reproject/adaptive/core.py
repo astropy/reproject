@@ -5,7 +5,7 @@ from __future__ import (absolute_import, division, print_function,
 import numpy as np
 
 from .deforest import map_coordinates
-from ..wcs_utils import efficient_pixel_to_pixel_with_roundtrip, has_celestial
+from ..wcs_utils import efficient_pixel_to_pixel_with_roundtrip
 
 
 __all__ = ['_reproject_adaptive_2d']

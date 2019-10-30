@@ -8,9 +8,9 @@ import pytest
 from astropy.wcs import WCS
 from astropy.io.fits import Header
 
-from numpy.testing import assert_allclose, assert_equal
+from numpy.testing import assert_allclose
 
-from ... import reproject_exact, reproject_interp, reproject_adaptive
+from ... import reproject_exact, reproject_interp
 from ..coadd import reproject_and_coadd
 from ...tests.helpers import array_footprint_to_hdulist
 
@@ -215,6 +215,7 @@ DATE-OBS= '2011-02-15T00:14:03.654'
 MJD-OBS =      55607.009764514
 MJD-OBS =      55607.009764514
 """
+
 
 @pytest.mark.array_compare()
 def test_coadd_solar_map():
