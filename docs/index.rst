@@ -1,3 +1,5 @@
+.. _reprojection:
+
 *******************************
 Image reprojection (resampling)
 *******************************

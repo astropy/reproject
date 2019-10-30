@@ -29,6 +29,8 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
             * A tuple where the first element is a `~numpy.ndarray` and the
               second element is either a `~astropy.wcs.WCS` or a
               `~astropy.io.fits.Header` object
+            * A `astropy.nddata.NDData` object from which the ``.data`` and
+              ``.wcs`` attributes will be used as the input data.
 
     output_projection : `~astropy.wcs.WCS` or `~astropy.io.fits.Header`
         The output projection, which can be either a `~astropy.wcs.WCS`

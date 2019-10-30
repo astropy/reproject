@@ -4,6 +4,7 @@ from astropy.coordinates import FK5, ICRS, Galactic
 from astropy.io import fits
 from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
+from astropy.nddata import NDData
 
 from ..utils import parse_input_data, parse_output_projection
 
@@ -39,6 +40,11 @@ def test_parse_input_data(tmpdir):
     wcs = WCS(hdu.header)
     array, coordinate_system = parse_input_data((data, wcs))
     np.testing.assert_allclose(array, data)
+
+    ndd = NDData(data, wcs=wcs)
+    array, coordinate_system = parse_input_data((data, wcs))
+    np.testing.assert_allclose(array, data)
+    assert coordinate_system is wcs
 
     # Invalid
     with pytest.raises(TypeError) as exc:
