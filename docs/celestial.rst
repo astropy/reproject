@@ -34,8 +34,8 @@ reproject such data:
   **four-sided spherical polygons** on the sky and computing spherical polygon
   intersection. This is essentially an exact form of drizzling, and should be
   appropriate for any field of view. However, this comes at
-  a significant performance cost. This is the algorithm used by the `Montage
-  <http://montage.ipac.caltech.edu/index.html>`_ package, and we have
+  a significant performance cost. This is the `algorithm used by the Montage
+  package <http://montage.ipac.caltech.edu/docs/algorithms.html>`_, and we have
   implemented it here using the same core algorithm. Note that this is only
   suitable for data being reprojected between spherical celestial coordinates on
   the sky that share the same origin (that is, it cannot be used to reproject
