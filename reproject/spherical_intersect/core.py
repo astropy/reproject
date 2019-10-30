@@ -1,11 +1,11 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
 import signal
+import warnings
 
 import numpy as np
 from astropy import units as u
-
-from ._overlap import _compute_overlap
+from astropy.wcs.utils import proj_plane_pixel_area
 
 
 def _init_worker():
@@ -21,7 +21,7 @@ def _reproject_slice(args):
 
 
 def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True,
-                         _legacy=False, return_footprint=True):
+                         return_footprint=True):
 
     # Check the parallel flag.
     if type(parallel) != bool and type(parallel) != int:
@@ -36,6 +36,16 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True,
         # parallel is a boolean flag. nproc = None here means automatically selected
         # number of processes.
         nproc = None if parallel else 1
+
+    # There are currently precision issues below certain resolutions, so we
+    # emit a warning if this is the case. For more details, see:
+    # https://github.com/astropy/reproject/issues/199
+    area_threshold = (0.05 / 3600) ** 2
+    if (proj_plane_pixel_area(wcs_in) < area_threshold
+            or proj_plane_pixel_area(wcs_out) < area_threshold):
+        warnings.warn("The reproject_exact function currently has precision "
+                      "issues with images that have resolutions below ~0.05 "
+                      "arcsec, so the results may not be accurate.", UserWarning)
 
     # Convert input array to float values. If this comes from a FITS, it might have
     # float32 as value type and that can break things in Cython
@@ -87,64 +97,9 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True,
     world_out_unitsph = world_out.represent_as('unitspherical')
     xw_out, yw_out = world_out_unitsph.lon.to_value(u.deg), world_out_unitsph.lat.to_value(u.deg)
 
-    if _legacy:
-        # Create output image
-
-        array_new = np.zeros(shape_out)
-        weights = np.zeros(shape_out)
-
-        for i in range(nx_in):
-            for j in range(ny_in):
-
-                # For every input pixel we find the position in the output image in
-                # pixel coordinates, then use the full range of overlapping output
-                # pixels with the exact overlap function.
-
-                xmin = int(min(xp_inout[j, i], xp_inout[j, i + 1],
-                               xp_inout[j + 1, i + 1], xp_inout[j + 1, i]) + 0.5)
-                xmax = int(max(xp_inout[j, i], xp_inout[j, i + 1],
-                               xp_inout[j + 1, i + 1], xp_inout[j + 1, i]) + 0.5)
-                ymin = int(min(yp_inout[j, i], yp_inout[j, i + 1],
-                               yp_inout[j + 1, i + 1], yp_inout[j + 1, i]) + 0.5)
-                ymax = int(max(yp_inout[j, i], yp_inout[j, i + 1],
-                               yp_inout[j + 1, i + 1], yp_inout[j + 1, i]) + 0.5)
-
-                ilon = [[xw_in[j, i], xw_in[j, i + 1], xw_in[j + 1, i + 1], xw_in[j + 1, i]][::-1]]
-                ilat = [[yw_in[j, i], yw_in[j, i + 1], yw_in[j + 1, i + 1], yw_in[j + 1, i]][::-1]]
-                ilon = np.radians(np.array(ilon))
-                ilat = np.radians(np.array(ilat))
-
-                xmin = max(0, xmin)
-                xmax = min(nx_out - 1, xmax)
-                ymin = max(0, ymin)
-                ymax = min(ny_out - 1, ymax)
-
-                for ii in range(xmin, xmax + 1):
-                    for jj in range(ymin, ymax + 1):
-
-                        olon = [[xw_out[jj, ii], xw_out[jj, ii + 1],
-                                 xw_out[jj + 1, ii + 1], xw_out[jj + 1, ii]][::-1]]
-                        olat = [[yw_out[jj, ii], yw_out[jj, ii + 1],
-                                 yw_out[jj + 1, ii + 1], yw_out[jj + 1, ii]][::-1]]
-                        olon = np.radians(np.array(olon))
-                        olat = np.radians(np.array(olat))
-
-                        # Figure out the fraction of the input pixel that makes it
-                        # to the output pixel at this position.
-
-                        overlap, _ = _compute_overlap(ilon, ilat, olon, olat)
-                        original, _ = _compute_overlap(olon, olat, olon, olat)
-                        array_new[jj, ii] += array[j, i] * overlap / original
-                        weights[jj, ii] += overlap / original
-
-        array_new /= weights
-
-        return array_new, weights
-
-    # Put together the parameters common both to the serial and parallel
-    # implementations. The aca function is needed to enforce that the array
-    # will be contiguous when passed to the low-level raw C function, otherwise
-    # Cython might complain.
+    # Put together the parameters common both to the serial and parallel implementations. The aca
+    # function is needed to enforce that the array will be contiguous when passed to the low-level
+    # raw C function, otherwise Cython might complain.
 
     aca = np.ascontiguousarray
     common_func_par = [0, ny_in, nx_out, ny_out, aca(xp_inout), aca(yp_inout),
