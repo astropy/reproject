@@ -252,6 +252,10 @@ reprojection, and if so how many cores to use (see
 footprint array returned gives the exact fractional overlap of new pixels with
 the original image (see :doc:`footprints` for more details).
 
+.. warning:: The :func:`~reproject.reproject_exact` is currently known to
+             have precision issues for images with resolutions <0.05". For
+             now it is therefore best to avoid using it with such images.
+
 Very large datasets
 ===================
 
