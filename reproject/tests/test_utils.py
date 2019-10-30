@@ -42,7 +42,7 @@ def test_parse_input_data(tmpdir):
     np.testing.assert_allclose(array, data)
 
     ndd = NDData(data, wcs=wcs)
-    array, coordinate_system = parse_input_data((data, wcs))
+    array, coordinate_system = parse_input_data(ndd)
     np.testing.assert_allclose(array, data)
     assert coordinate_system is wcs
 
