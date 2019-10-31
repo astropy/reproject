@@ -3,9 +3,12 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
 import os
+import sys
 import builtins
 
-from setuptools import setup
+# Append current working directory for pip 19
+sys.path.append(os.path.abspath("."))
+import ah_bootstrap  # noqa
 
 from setuptools import setup
 from setuptools.config import read_configuration
