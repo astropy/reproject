@@ -18,7 +18,7 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
 
     Parameters
     ----------
-    input_data : str or `~astropy.io.fits.HDUList` or `~astropy.io.fits.PrimaryHDU` or `~astropy.io.fits.ImageHDU` or tuple
+    input_data
         The input data to reproject. This can be:
 
             * The name of a FITS file

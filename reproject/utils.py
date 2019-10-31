@@ -19,7 +19,8 @@ def parse_input_data(input_data, hdu_in=None):
     elif isinstance(input_data, HDUList):
         if hdu_in is None:
             if len(input_data) > 1:
-                raise ValueError("More than one HDU is present, please specify HDU to use with ``hdu_in=`` option")
+                raise ValueError("More than one HDU is present, please specify "
+                                 "HDU to use with ``hdu_in=`` option")
             else:
                 hdu_in = 0
         return parse_input_data(input_data[hdu_in])
@@ -33,7 +34,8 @@ def parse_input_data(input_data, hdu_in=None):
     elif isinstance(input_data, astropy.nddata.NDDataBase):
         return input_data.data, input_data.wcs
     else:
-        raise TypeError("input_data should either be an HDU object or a tuple of (array, WCS) or (array, Header)")
+        raise TypeError("input_data should either be an HDU object or a tuple "
+                        "of (array, WCS) or (array, Header)")
 
 
 def parse_input_weights(input_weights, hdu_weights=None):
@@ -46,7 +48,8 @@ def parse_input_weights(input_weights, hdu_weights=None):
     elif isinstance(input_weights, HDUList):
         if hdu_weights is None:
             if len(input_weights) > 1:
-                raise ValueError("More than one HDU is present, please specify HDU to use with ``hdu_weights=`` option")
+                raise ValueError("More than one HDU is present, please specify "
+                                 "HDU to use with ``hdu_weights=`` option")
             else:
                 hdu_weights = 0
         return parse_input_data(input_weights[hdu_weights])
@@ -70,14 +73,17 @@ def parse_output_projection(output_projection, shape_out=None, output_array=None
     if isinstance(output_projection, Header):
         wcs_out = WCS(output_projection)
         try:
-            shape_out = [output_projection['NAXIS{}'.format(i + 1)] for i in range(output_projection['NAXIS'])][::-1]
+            shape_out = [output_projection['NAXIS{}'.format(i + 1)]
+                         for i in range(output_projection['NAXIS'])][::-1]
         except KeyError:
             if shape_out is None:
-                raise ValueError("Need to specify shape since output header does not contain complete shape information")
+                raise ValueError("Need to specify shape since output header "
+                                 "does not contain complete shape information")
     elif isinstance(output_projection, BaseHighLevelWCS):
         wcs_out = output_projection
         if shape_out is None:
-            raise ValueError("Need to specify shape when specifying output_projection as WCS object")
+            raise ValueError("Need to specify shape_out when specifying "
+                             "output_projection as WCS object")
     elif isinstance(output_projection, str):
         hdu_list = fits.open(output_projection)
         shape_out = hdu_list[0].data.shape
@@ -85,8 +91,10 @@ def parse_output_projection(output_projection, shape_out=None, output_array=None
         wcs_out = WCS(header)
         hdu_list.close()
     else:
-        raise TypeError('output_projection should either be a Header, a WCS object, or a filename')
+        raise TypeError('output_projection should either be a Header, a WCS '
+                        'object, or a filename')
 
     if len(shape_out) == 0:
-        raise ValueError("The shape of the output image should not be an empty tuple")
+        raise ValueError("The shape of the output image should not be an "
+                         "empty tuple")
     return wcs_out, shape_out

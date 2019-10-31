@@ -22,6 +22,7 @@ def test_reproject_celestial_slices_2d():
 
     _reproject_celestial(array_in, wcs_in, wcs_out, (200, 200))
 
+
 DATA = np.array([[1, 2], [3, 4]], dtype=np.int64)
 
 INPUT_HDR = """
@@ -111,7 +112,8 @@ def test_reproject_flipping():
     wcs_in_flipped = WCS(fits.Header.fromstring(INPUT_HDR, sep='\n'))
     wcs_in_flipped.wcs.cdelt[0] = -wcs_in_flipped.wcs.cdelt[0]
     wcs_in_flipped.wcs.crpix[0] = 3 - wcs_in_flipped.wcs.crpix[0]
-    array2, footprint2 = _reproject_celestial(DATA[:, ::-1], wcs_in_flipped, wcs_out, (4, 4), parallel=False)
+    array2, footprint2 = _reproject_celestial(DATA[:, ::-1], wcs_in_flipped,
+                                              wcs_out, (4, 4), parallel=False)
 
     # Repeat with an output that is flipped horizontally with the equivalent WCS
     wcs_out_flipped = WCS(fits.Header.fromstring(OUTPUT_HDR, sep='\n'))

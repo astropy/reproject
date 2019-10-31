@@ -20,7 +20,6 @@ else:
     SHAPELY_INSTALLED = True
 
 
-
 class TestOptimalWCS():
 
     def setup_method(self, method):

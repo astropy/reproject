@@ -2,11 +2,12 @@ include README.rst
 include CHANGES.md
 include LICENSE.md
 
-include ez_setup.py
-include ah_bootstrap.py
+include setup.py
 include setup.cfg
 
-recursive-include *.pyx *.c *.pxd
+include pyproject.toml
+
+recursive-include reproject *.pyx *.c *.pxd
 recursive-include docs *
 recursive-include licenses *
 recursive-include cextern *
@@ -25,6 +26,8 @@ include astropy_helpers/README.rst
 include astropy_helpers/CHANGES.rst
 include astropy_helpers/LICENSE.rst
 recursive-include astropy_helpers/licenses *
+
+include ah_bootstrap.py
 
 include astropy_helpers/ez_setup.py
 include astropy_helpers/ah_bootstrap.py

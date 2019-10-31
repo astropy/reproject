@@ -16,8 +16,10 @@ def test_full_overlap():
 
 def test_partial_overlap():
     EPS = np.radians(1e-2)
-    ilon, ilat = np.array([[0, EPS, EPS, 0]]), np.array([[0, 0, EPS, EPS]])
-    olon, olat = np.array([[0.5 * EPS, 1.5 * EPS, 1.5 * EPS, 0.5 * EPS]]), np.array([[0, 0, EPS, EPS]])
+    ilon = np.array([[0, EPS, EPS, 0]])
+    ilat = np.array([[0, 0, EPS, EPS]])
+    olon = np.array([[0.5 * EPS, 1.5 * EPS, 1.5 * EPS, 0.5 * EPS]])
+    olat = np.array([[0, 0, EPS, EPS]])
 
     overlap, area_ratio = compute_overlap(ilon, ilat, olon, olat)
     np.testing.assert_allclose(overlap, 0.5 * EPS ** 2, rtol=1e-6)
@@ -32,8 +34,10 @@ def test_overlap_direction(clockwise1, clockwise2):
     # both of the polygons were clockwise
 
     EPS = np.radians(1e-2)
-    ilon, ilat = np.array([[0, EPS, EPS, 0]]), np.array([[0, 0, EPS, EPS]])
-    olon, olat = np.array([[0.5 * EPS, 1.5 * EPS, 1.5 * EPS, 0.5 * EPS]]), np.array([[0, 0, EPS, EPS]])
+    ilon = np.array([[0, EPS, EPS, 0]])
+    ilat = np.array([[0, 0, EPS, EPS]])
+    olon = np.array([[0.5 * EPS, 1.5 * EPS, 1.5 * EPS, 0.5 * EPS]])
+    olat = np.array([[0, 0, EPS, EPS]])
 
     if clockwise1:
         ilon, ilat = ilon[:, ::-1], ilat[:, ::-1]

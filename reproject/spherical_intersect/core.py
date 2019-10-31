@@ -100,10 +100,14 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True,
                 # pixel coordinates, then use the full range of overlapping output
                 # pixels with the exact overlap function.
 
-                xmin = int(min(xp_inout[j, i], xp_inout[j, i + 1], xp_inout[j + 1, i + 1], xp_inout[j + 1, i]) + 0.5)
-                xmax = int(max(xp_inout[j, i], xp_inout[j, i + 1], xp_inout[j + 1, i + 1], xp_inout[j + 1, i]) + 0.5)
-                ymin = int(min(yp_inout[j, i], yp_inout[j, i + 1], yp_inout[j + 1, i + 1], yp_inout[j + 1, i]) + 0.5)
-                ymax = int(max(yp_inout[j, i], yp_inout[j, i + 1], yp_inout[j + 1, i + 1], yp_inout[j + 1, i]) + 0.5)
+                xmin = int(min(xp_inout[j, i], xp_inout[j, i + 1],
+                               xp_inout[j + 1, i + 1], xp_inout[j + 1, i]) + 0.5)
+                xmax = int(max(xp_inout[j, i], xp_inout[j, i + 1],
+                               xp_inout[j + 1, i + 1], xp_inout[j + 1, i]) + 0.5)
+                ymin = int(min(yp_inout[j, i], yp_inout[j, i + 1],
+                               yp_inout[j + 1, i + 1], yp_inout[j + 1, i]) + 0.5)
+                ymax = int(max(yp_inout[j, i], yp_inout[j, i + 1],
+                               yp_inout[j + 1, i + 1], yp_inout[j + 1, i]) + 0.5)
 
                 ilon = [[xw_in[j, i], xw_in[j, i + 1], xw_in[j + 1, i + 1], xw_in[j + 1, i]][::-1]]
                 ilat = [[yw_in[j, i], yw_in[j, i + 1], yw_in[j + 1, i + 1], yw_in[j + 1, i]][::-1]]
@@ -118,8 +122,10 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True,
                 for ii in range(xmin, xmax + 1):
                     for jj in range(ymin, ymax + 1):
 
-                        olon = [[xw_out[jj, ii], xw_out[jj, ii + 1], xw_out[jj + 1, ii + 1], xw_out[jj + 1, ii]][::-1]]
-                        olat = [[yw_out[jj, ii], yw_out[jj, ii + 1], yw_out[jj + 1, ii + 1], yw_out[jj + 1, ii]][::-1]]
+                        olon = [[xw_out[jj, ii], xw_out[jj, ii + 1],
+                                 xw_out[jj + 1, ii + 1], xw_out[jj + 1, ii]][::-1]]
+                        olat = [[yw_out[jj, ii], yw_out[jj, ii + 1],
+                                 yw_out[jj + 1, ii + 1], yw_out[jj + 1, ii]][::-1]]
                         olon = np.radians(np.array(olon))
                         olat = np.radians(np.array(olat))
 
@@ -135,9 +141,10 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True,
 
         return array_new, weights
 
-    # Put together the parameters common both to the serial and parallel implementations. The aca
-    # function is needed to enforce that the array will be contiguous when passed to the low-level
-    # raw C function, otherwise Cython might complain.
+    # Put together the parameters common both to the serial and parallel
+    # implementations. The aca function is needed to enforce that the array
+    # will be contiguous when passed to the low-level raw C function, otherwise
+    # Cython might complain.
 
     aca = np.ascontiguousarray
     common_func_par = [0, ny_in, nx_out, ny_out, aca(xp_inout), aca(yp_inout),

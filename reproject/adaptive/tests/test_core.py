@@ -1,13 +1,10 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
 import os
-import itertools
 
 import numpy as np
 import pytest
 from astropy import units as u
-from astropy.io import fits
-from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
 from astropy.wcs.wcsapi import HighLevelWCSWrapper, SlicedLowLevelWCS
 from numpy.testing import assert_allclose
@@ -49,13 +46,12 @@ def test_reproject_adaptive_2d(wcsapi):
         wcs_out = as_high_level_wcs(wcs_out)
 
     array_out, footprint_out = reproject_adaptive((data_in, wcs_in),
-                                                wcs_out, shape_out=(60, 60))
+                                                  wcs_out, shape_out=(60, 60))
 
     # Check that surface brightness is conserved in the unrotated case
     assert_allclose(np.nansum(data_in), np.nansum(array_out) * (256 / 60) ** 2, rtol=0.1)
 
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
-
 
 
 @pytest.mark.array_compare(single_reference=True)
@@ -81,7 +77,7 @@ def test_reproject_adaptive_2d_rotated():
     header_out = wcs_out.to_header()
 
     array_out, footprint_out = reproject_adaptive((data_in, wcs_in),
-                                                wcs_out, shape_out=(60, 60))
+                                                  wcs_out, shape_out=(60, 60))
 
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 

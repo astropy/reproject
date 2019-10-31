@@ -249,7 +249,8 @@ def test_spectral_mismatch_3d():
 
     with pytest.raises(ValueError) as exc:
         array_out, footprint_out = reproject_interp((data, wcs1), wcs2, shape_out=(1, 2, 3))
-    assert exc.value.args[0] == "The input (VOPT) and output (FREQ) spectral coordinate types are not equivalent."
+    assert exc.value.args[0] == ("The input (VOPT) and output (FREQ) spectral "
+                                 "coordinate types are not equivalent.")
 
     header_out['CTYPE3'] = 'BANANAS'
     wcs2 = WCS(header_out)
@@ -306,7 +307,8 @@ def test_slice_reprojection():
     # inp_cube_interp = (inp_cube[:-1]+inp_cube[1:])/2.
     # which is confirmed by
     # map_coordinates(inp_cube.astype('float'), new_coords, order=1, cval=np.nan, mode='constant')
-    # np.testing.assert_allclose(inp_cube_interp, map_coordinates(inp_cube.astype('float'), new_coords, order=1, cval=np.nan, mode='constant'))
+    # np.testing.assert_allclose(inp_cube_interp, map_coordinates(inp_cube.astype('float'),
+    # new_coords, order=1, cval=np.nan, mode='constant'))
 
     assert out_cube.shape == (2, 4, 5)
     assert out_cube_valid.sum() == 40.
@@ -350,7 +352,8 @@ def test_inequal_wcs_dims():
     wcs_out = WCS(header_out)
 
     with pytest.raises(ValueError) as ex:
-        out_cube, out_cube_valid = reproject_interp((inp_cube, header_in), wcs_out, shape_out=(2, 4, 5))
+        out_cube, out_cube_valid = reproject_interp((inp_cube, header_in),
+                                                    wcs_out, shape_out=(2, 4, 5))
     assert str(ex.value) == "Output WCS has a spectral component but input WCS does not"
 
 
@@ -365,11 +368,11 @@ def test_different_wcs_types():
     header_in['CTYPE3'] = 'VELO'
     header_in['CUNIT3'] = 'm/s'
 
-    wcs_in = WCS(header_in)
     wcs_out = WCS(header_out)
 
     with pytest.raises(ValueError) as ex:
-        out_cube, out_cube_valid = reproject_interp((inp_cube, header_in), wcs_out, shape_out=(2, 4, 5))
+        out_cube, out_cube_valid = reproject_interp((inp_cube, header_in),
+                                                    wcs_out, shape_out=(2, 4, 5))
     assert str(ex.value) == ("The input (VELO) and output (VRAD) spectral "
                              "coordinate types are not equivalent.")
 

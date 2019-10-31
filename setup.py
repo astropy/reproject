@@ -3,9 +3,11 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
 import os
+import sys
 import builtins
 
-# Ensure that astropy-helpers is available
+# Append current working directory for pip 19
+sys.path.append(os.path.abspath("."))
 import ah_bootstrap  # noqa
 
 from setuptools import setup

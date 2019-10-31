@@ -78,5 +78,6 @@ def test_reproject_file():
 def test_reproject_invalid_order():
     reference_header = get_reference_header(oversample=2, nside=8)
     with pytest.raises(ValueError) as exc:
-        reproject_from_healpix(os.path.join(DATA, 'bayestar.fits.gz'), reference_header, order='bicubic')
+        reproject_from_healpix(os.path.join(DATA, 'bayestar.fits.gz'),
+                               reference_header, order='bicubic')
     assert exc.value.args[0] == "Only nearest-neighbor and bilinear interpolation are supported"
