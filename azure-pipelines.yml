@@ -41,7 +41,8 @@ jobs:
   parameters:
     test_command: pytest -p no:warnings --pyargs reproject
     test_extras: test
-    # pypi_connection_name: pypi_test
+    ${{ if startsWith(variables['Build.SourceBranch'], 'refs/tags/v') }}:
+      pypi_connection_name : 'pypi_endpoint'
     targets:
     - sdist
     - wheels_linux
