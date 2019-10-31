@@ -20,6 +20,8 @@ jobs:
     libraries:
       yum:
         - geos-devel
+        - freetype-devel
+        - libpng-devel
 
     envs:
 
