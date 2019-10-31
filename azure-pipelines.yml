@@ -17,6 +17,12 @@ jobs:
 
     coverage: codecov
 
+    libraries:
+      yum:
+        - geos-devel
+        - freetype-devel
+        - libpng-devel
+
     envs:
 
     - linux: pep8

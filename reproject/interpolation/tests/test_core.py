@@ -460,6 +460,8 @@ def test_reproject_roundtrip(file_format):
         date = map_aia.date
         target_wcs = wcs.deepcopy()
     elif file_format == 'asdf':
+        pytest.importorskip('astropy', minversion='4.0')
+        pytest.importorskip('gwcs', minversion='0.12')
         asdf = pytest.importorskip('asdf')
         aia = asdf.open(os.path.join(DATA, 'aia_171_level1.asdf'))
         data = aia['data'][...]
