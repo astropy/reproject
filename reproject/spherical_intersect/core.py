@@ -4,6 +4,7 @@ import signal
 import warnings
 
 import numpy as np
+from astropy.wcs import WCS
 from astropy import units as u
 from astropy.wcs.utils import proj_plane_pixel_area
 
@@ -41,8 +42,8 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True,
     # emit a warning if this is the case. For more details, see:
     # https://github.com/astropy/reproject/issues/199
     area_threshold = (0.05 / 3600) ** 2
-    if (proj_plane_pixel_area(wcs_in) < area_threshold
-            or proj_plane_pixel_area(wcs_out) < area_threshold):
+    if ((isinstance(wcs_in, WCS) and proj_plane_pixel_area(wcs_in) < area_threshold)
+            or (isinstance(wcs_out, WCS) and proj_plane_pixel_area(wcs_out) < area_threshold)):
         warnings.warn("The reproject_exact function currently has precision "
                       "issues with images that have resolutions below ~0.05 "
                       "arcsec, so the results may not be accurate.", UserWarning)
