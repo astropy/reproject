@@ -19,7 +19,7 @@ jobs:
 
     libraries:
       yum:
-        - libgeos-dev
+        - geos-devel
 
     envs:
 
