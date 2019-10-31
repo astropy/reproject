@@ -1,5 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
+import warnings
 import numpy as np
 import pytest
 from astropy.io import fits
@@ -61,3 +62,32 @@ def test_identity():
                                            shape_out=array_in.shape)
 
     assert_allclose(array_out, array_in, atol=1e-10)
+
+
+def test_reproject_precision_warning():
+
+    for res in [0.1 / 3600, 0.01 / 3600]:
+
+        wcs1 = WCS()
+        wcs1.wcs.ctype = 'RA---TAN', 'DEC--TAN'
+        wcs1.wcs.crval = 13, 80
+        wcs1.wcs.crpix = 10., 10.
+        wcs1.wcs.cdelt = res, res
+
+        wcs2 = WCS()
+        wcs2.wcs.ctype = 'RA---TAN', 'DEC--TAN'
+        wcs2.wcs.crval = 13, 80
+        wcs2.wcs.crpix = 3, 3
+        wcs2.wcs.cdelt = 3 * res, 3 * res
+
+        array = np.zeros((19, 19))
+        array[9, 9] = 1
+
+        if res < 0.05 / 3600:
+            with pytest.warns(UserWarning, match='The reproject_exact function '
+                                                 'currently has precision'):
+                reproject_exact((array, wcs1), wcs2, shape_out=(5, 5))
+        else:
+            with warnings.catch_warnings(record=True) as w:
+                reproject_exact((array, wcs1), wcs2, shape_out=(5, 5))
+            assert len(w) == 0

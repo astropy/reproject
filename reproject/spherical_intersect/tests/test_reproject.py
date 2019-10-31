@@ -71,15 +71,12 @@ def test_reproject_celestial_consistency():
     wcs_in = WCS(fits.Header.fromstring(INPUT_HDR, sep='\n'))
     wcs_out = WCS(fits.Header.fromstring(OUTPUT_HDR, sep='\n'))
 
-    array1, footprint1 = _reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), _legacy=True)
-    array2, footprint2 = _reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), parallel=False)
-    array3, footprint3 = _reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), parallel=True)
+    array1, footprint1 = _reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), parallel=False)
+    array2, footprint2 = _reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), parallel=True)
 
     np.testing.assert_allclose(array1, array2, rtol=1.e-5)
-    np.testing.assert_allclose(array1, array3, rtol=1.e-5)
 
     np.testing.assert_allclose(footprint1, footprint2, rtol=3.e-5)
-    np.testing.assert_allclose(footprint1, footprint3, rtol=3.e-5)
 
 
 @pytest.mark.parametrize('wcsapi', (False, True))

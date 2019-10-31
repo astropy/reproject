@@ -34,8 +34,8 @@ reproject such data:
   **four-sided spherical polygons** on the sky and computing spherical polygon
   intersection. This is essentially an exact form of drizzling, and should be
   appropriate for any field of view. However, this comes at
-  a significant performance cost. This is the algorithm used by the `Montage
-  <http://montage.ipac.caltech.edu/index.html>`_ package, and we have
+  a significant performance cost. This is the `algorithm used by the Montage
+  package <http://montage.ipac.caltech.edu/docs/algorithms.html>`_, and we have
   implemented it here using the same core algorithm. Note that this is only
   suitable for data being reprojected between spherical celestial coordinates on
   the sky that share the same origin (that is, it cannot be used to reproject
@@ -251,6 +251,10 @@ reprojection, and if so how many cores to use (see
 :func:`~reproject.reproject_exact` for more details). For this algorithm, the
 footprint array returned gives the exact fractional overlap of new pixels with
 the original image (see :doc:`footprints` for more details).
+
+.. warning:: The :func:`~reproject.reproject_exact` is currently known to
+             have precision issues for images with resolutions <0.05". For
+             now it is therefore best to avoid using it with such images.
 
 Very large datasets
 ===================
