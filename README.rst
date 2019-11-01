@@ -26,7 +26,7 @@ https://reproject.readthedocs.io
    :target: https://dev.azure.com/astropy-project/reproject/_build/latest?definitionId=3&branchName=master
 .. |Build status| image:: https://ci.appveyor.com/api/projects/status/0ifg4xonlyrc6eu4/branch/master?svg=true
    :target: https://ci.appveyor.com/project/Astropy/reproject/branch/master
-.. |Coverage Status| image:: https://coveralls.io/repos/astrofrog/reproject/badge.svg?branch=master
-   :target: https://coveralls.io/r/astrofrog/reproject?branch=master
+.. |Coverage Status| image:: https://codecov.io/gh/astropy/reproject/branch/master/graph/badge.svg
+   :target: https://codecov.io/gh/astropy/reproject
 .. |Powered by Astropy Badge| image:: http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat
 
