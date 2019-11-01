@@ -141,12 +141,7 @@ def reproject_and_coadd(input_data, output_projection, shape_out=None,
         if imax < imin or jmax < jmin:
             continue
 
-        # FIXME: for now, assume we are dealing with FITS-WCS, but once the
-        # APE14 changes are merged in for reproject we can change to using a
-        # sliced WCS
-        wcs_out_indiv = wcs_out.deepcopy()
-        wcs_out_indiv.wcs.crpix[0] -= imin
-        wcs_out_indiv.wcs.crpix[1] -= jmin
+        wcs_out_indiv = wcs_out[jmin:jmax, imin:imax]
         shape_out_indiv = (jmax - jmin, imax - imin)
 
         # TODO: optimize handling of weights by making reprojection functions
