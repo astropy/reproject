@@ -10,6 +10,14 @@ resources:
     name: OpenAstronomy/azure-pipelines-templates
     ref: master
 
+trigger:
+  branches:
+    include:
+    - '*'
+  tags:
+    include:
+    - 'v*'
+
 jobs:
 
 - template: run-tox-env.yml@OpenAstronomy
@@ -27,8 +35,8 @@ jobs:
 
     - linux: pep8
 
-    - macosx: py36-test
-    - macosx: py37-test
+    - macos: py36-test
+    - macos: py37-test
 
     - linux: py36-test
     - linux: py37-test
@@ -39,9 +47,9 @@ jobs:
     - windows: py36-test
     - windows: py37-test
 
-    - macosx: py36-docs
+    - macos: py36-docs
     - linux: py37-docs
-    - macosx: py37-docs
+    - macos: py37-docs
 
 - template: publish.yml@OpenAstronomy
   parameters:
@@ -52,5 +60,5 @@ jobs:
     targets:
     - sdist
     - wheels_linux
-    - wheels_macosx
+    - wheels_macos
     - wheels_windows

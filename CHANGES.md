@@ -1,8 +1,14 @@
-0.6 (unreleased)
+0.6 (2019-11-01)
 ----------------
 
 - Added support for using any WCS that conforms to the WCS API described
-  in the Astropy Proposal for Enhancements 14 (APE 14). [#166]
+  in the Astropy Proposal for Enhancements 14 (APE 14). The
+  ``independent_celestial_slices=`` argument to ``reproject_interp`` has
+  been deprecated since it is no longer needed, as transformations are
+  automatically done in the most efficient way possible. [#166]
+
+- Include a warning for high resolution images with ``reproject_exact``,
+  since if the pixels are <0.05", precision issues can occur. [#200]
 
 - Added a new ``reproject_and_coadd`` function for doing mosaicking of
   individual images, and added section in documentation about mosaicking.
@@ -10,9 +16,6 @@
 
 - Added a new reproject.adaptive sub-package that implements the DeForest
   (2004) algorithm for reprojection. [#52]
-
-0.5.2 (unreleased)
-------------------
 
 - Fixed a bug that caused 'exact' reprojection results to have numerical
   issues when doing identity transformations. [#190]
