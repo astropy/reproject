@@ -1,4 +1,4 @@
-|Build Status| |Build status| |Coverage Status| |asv| |Powered by Astropy Badge|
+|Build Status| |Coverage Status| |Powered by Astropy Badge|
 
 About
 =====
@@ -22,13 +22,11 @@ https://reproject.readthedocs.io
 .. figure:: https://github.com/astrofrog/reproject/raw/master/docs/images/index-4.png
    :alt: screenshot
 
-.. |Build Status| image:: https://travis-ci.org/astrofrog/reproject.svg?branch=master
-   :target: https://travis-ci.org/astrofrog/reproject
+.. |Build Status| image:: https://dev.azure.com/astropy-project/reproject/_apis/build/status/astropy.reproject?branchName=master
+   :target: https://dev.azure.com/astropy-project/reproject/_build/latest?definitionId=3&branchName=master
 .. |Build status| image:: https://ci.appveyor.com/api/projects/status/0ifg4xonlyrc6eu4/branch/master?svg=true
    :target: https://ci.appveyor.com/project/Astropy/reproject/branch/master
 .. |Coverage Status| image:: https://coveralls.io/repos/astrofrog/reproject/badge.svg?branch=master
    :target: https://coveralls.io/r/astrofrog/reproject?branch=master
-.. |asv| image:: http://img.shields.io/badge/benchmarked%20by-asv-green.svg?style=flat
-   :target: http://astrofrog.github.io/reproject-benchmarks/
 .. |Powered by Astropy Badge| image:: http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat
 
