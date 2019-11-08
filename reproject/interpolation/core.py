@@ -7,30 +7,11 @@ from ..array_utils import map_coordinates
 from ..wcs_utils import efficient_pixel_to_pixel_with_roundtrip, has_celestial
 
 
-def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
-                    return_footprint=True):
-    """
-    Reproject n-dimensional data to a new projection using interpolation.
-
-    The input and output WCS and shape have to satisfy a number of conditions:
-
-    - The number of dimensions in each WCS should match
-    - The output shape should match the dimensionality of the WCS
-    - The input and output WCS should have matching physical types, although
-      the order can be different as long as the physical types are unique.
-    """
-
-    # Make sure image is floating point
-    array = np.asarray(array, dtype=float)
-
-    # Check dimensionality of WCS and shape_out
+def _validate_wcs(wcs_in, wcs_out, shape_out):
     if wcs_in.low_level_wcs.pixel_n_dim != wcs_out.low_level_wcs.pixel_n_dim:
         raise ValueError("Number of dimensions between input and output WCS should match")
     elif len(shape_out) != wcs_out.low_level_wcs.pixel_n_dim:
         raise ValueError("Length of shape_out should match number of dimensions in wcs_out")
-
-    # shape_out must be exact a tuple type
-    shape_out = tuple(shape_out)
 
     if has_celestial(wcs_in) and not has_celestial(wcs_out):
         raise ValueError("Input WCS has celestial components but output WCS does not")
@@ -51,6 +32,26 @@ def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
             raise ValueError("Input WCS has a spectral component but output WCS does not")
         elif wcs_out.wcs.spec >= 0:
             raise ValueError("Output WCS has a spectral component but input WCS does not")
+
+
+def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
+                    return_footprint=True):
+    """
+    Reproject n-dimensional data to a new projection using interpolation.
+
+    The input and output WCS and shape have to satisfy a number of conditions:
+
+    - The number of dimensions in each WCS should match
+    - The output shape should match the dimensionality of the WCS
+    - The input and output WCS should have matching physical types, although
+      the order can be different as long as the physical types are unique.
+    """
+    _validate_wcs(wcs_in, wcs_out, shape_out)
+
+    # Make sure image is floating point
+    array = np.asarray(array, dtype=float)
+    # shape_out must be exact a tuple type
+    shape_out = tuple(shape_out)
 
     pixel_out = np.meshgrid(*[np.arange(size, dtype=float) for size in shape_out],
                             indexing='ij', sparse=False, copy=False)
