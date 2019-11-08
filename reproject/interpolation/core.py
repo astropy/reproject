@@ -34,6 +34,20 @@ def _validate_wcs(wcs_in, wcs_out, shape_out):
             raise ValueError("Output WCS has a spectral component but input WCS does not")
 
 
+def _validate_array_out(array_out, array, shape_out):
+    if array_out is None:
+        return
+
+    if array_out.shape != tuple(shape_out):
+        raise ValueError("Array sizes don't match.  Output array shape "
+                         "should be {}".format(str(tuple(shape_out))))
+    elif array_out.dtype != array.dtype:
+        raise ValueError("An output array of a different type than the "
+                         "input array was specified, which will create an "
+                         "undesired duplicate copy of the input array "
+                         "in memory.")
+
+
 def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
                     return_footprint=True):
     """
@@ -53,6 +67,8 @@ def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
     # shape_out must be exact a tuple type
     shape_out = tuple(shape_out)
 
+    _validate_array_out(array_out, array, shape_out)
+
     pixel_out = np.meshgrid(*[np.arange(size, dtype=float) for size in shape_out],
                             indexing='ij', sparse=False, copy=False)
     pixel_out = [p.ravel() for p in pixel_out]
@@ -60,16 +76,7 @@ def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
     pixel_in = np.array(pixel_in)
 
     if array_out is not None:
-        if array_out.shape != tuple(shape_out):
-            raise ValueError("Array sizes don't match.  Output array shape "
-                             "should be {}".format(str(tuple(shape_out))))
-        elif array_out.dtype != array.dtype:
-            raise ValueError("An output array of a different type than the "
-                             "input array was specified, which will create an "
-                             "undesired duplicate copy of the input array "
-                             "in memory.")
-        else:
-            array_out.shape = (array_out.size,)
+        array_out.shape = (array_out.size,)
     else:
         array_out = np.empty(shape_out).ravel()
 
