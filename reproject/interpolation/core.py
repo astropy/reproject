@@ -9,29 +9,36 @@ from ..wcs_utils import efficient_pixel_to_pixel_with_roundtrip, has_celestial
 
 def _validate_wcs(wcs_in, wcs_out, shape_out):
     if wcs_in.low_level_wcs.pixel_n_dim != wcs_out.low_level_wcs.pixel_n_dim:
-        raise ValueError("Number of dimensions between input and output WCS should match")
+        raise ValueError(
+            "Number of dimensions between input and output WCS should match")
     elif len(shape_out) != wcs_out.low_level_wcs.pixel_n_dim:
-        raise ValueError("Length of shape_out should match number of dimensions in wcs_out")
+        raise ValueError(
+            "Length of shape_out should match number of dimensions in wcs_out")
 
     if has_celestial(wcs_in) and not has_celestial(wcs_out):
-        raise ValueError("Input WCS has celestial components but output WCS does not")
+        raise ValueError(
+            "Input WCS has celestial components but output WCS does not")
     elif has_celestial(wcs_out) and not has_celestial(wcs_in):
-        raise ValueError("Output WCS has celestial components but input WCS does not")
+        raise ValueError(
+            "Output WCS has celestial components but input WCS does not")
 
     if isinstance(wcs_in, WCS) and isinstance(wcs_out, WCS):
 
         # Check whether a spectral component is present, and if so, check that
         # the CTYPEs match.
         if wcs_in.wcs.spec >= 0 and wcs_out.wcs.spec >= 0:
-            if wcs_in.wcs.ctype[wcs_in.wcs.spec] != wcs_out.wcs.ctype[wcs_out.wcs.spec]:
+            if (wcs_in.wcs.ctype[wcs_in.wcs.spec] !=
+                    wcs_out.wcs.ctype[wcs_out.wcs.spec]):
                 raise ValueError("The input ({}) and output ({}) spectral "
                                  "coordinate types are not equivalent."
                                  .format(wcs_in.wcs.ctype[wcs_in.wcs.spec],
                                          wcs_out.wcs.ctype[wcs_out.wcs.spec]))
         elif wcs_in.wcs.spec >= 0:
-            raise ValueError("Input WCS has a spectral component but output WCS does not")
+            raise ValueError(
+                "Input WCS has a spectral component but output WCS does not")
         elif wcs_out.wcs.spec >= 0:
-            raise ValueError("Output WCS has a spectral component but input WCS does not")
+            raise ValueError(
+                "Output WCS has a spectral component but input WCS does not")
 
 
 def _validate_array_out(array_out, array, shape_out):
