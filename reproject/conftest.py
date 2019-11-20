@@ -6,6 +6,8 @@ from astropy.tests.plugins.display import PYTEST_HEADER_MODULES, TESTED_VERSIONS
 
 from .version import astropy_helpers_version, version  # noqa
 
+os.environ['MPLBACKEND'] = 'Agg'
+
 # from astropy.tests.helper import enable_deprecations_as_exceptions
 # enable_deprecations_as_exceptions()
 
