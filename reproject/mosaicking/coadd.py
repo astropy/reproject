@@ -117,8 +117,8 @@ def reproject_and_coadd(input_data, output_projection, shape_out=None,
         # distortions of the edges in the reprojection process we could simply
         # add arbitrary numbers of midpoints to this list.
         ny, nx = array_in.shape
-        xc = np.array([-0.5, nx - 0.5, nx - 0.5, -0.5])
-        yc = np.array([-0.5, -0.5, ny - 0.5, ny - 0.5])
+        xc = np.array([0, nx + 1, nx + 1, 0])
+        yc = np.array([0, 0, ny + 1, ny + 1])
         xc_out, yc_out = wcs_out.world_to_pixel(wcs_in.pixel_to_world(xc, yc))
 
         # Determine the cutout parameters
