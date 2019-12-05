@@ -1,3 +1,9 @@
+0.7 (unreleased)
+----------------
+
+- Made C extension in overlapArea.c thread-safe by removing global
+  variables.
+
 0.6 (2019-11-01)
 ----------------
 

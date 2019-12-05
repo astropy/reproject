@@ -53,27 +53,21 @@ int Cross(Vec *a, Vec *b, Vec *c);
 double Dot(Vec *a, Vec *b);
 double Normalize(Vec *a);
 void Reverse(Vec *a);
-void SaveVertex(Vec *a);
-void SaveSharedSeg(Vec *p, Vec *q);
-void PrintPolygon();
+void SaveVertex(Vec *a, Vec *P, Vec *Q, Vec *V, int *nv);
+void SaveSharedSeg(Vec *p, Vec *q, Vec *P, Vec *Q, Vec *V, int *nv);
 
-void ComputeIntersection(Vec *P, Vec *Q);
+void ComputeIntersection(Vec *P, Vec *Q, Vec *V, int *nv);
 void EnsureCounterClockWise(Vec *V);
 
 int UpdateInteriorFlag(Vec *p, int interiorFlag, int pEndpointFromQdir,
-                       int qEndpointFromPdir);
+                       int qEndpointFromPdir, Vec *P, Vec *Q, Vec *V, int *nv);
 
-int Advance(int i, int *i_advances, int n, int inside, Vec *v);
+int Advance(int i, int *i_advances, int n, int inside, Vec *v, Vec *P, Vec *Q, Vec *V, int *nv);
 
-double Girard();
-void RemoveDups();
+double Girard(int nv, Vec *V);
+void RemoveDups(int *nv, Vec *V);
 
 int printDir(char *point, char *vector, int dir);
-
-// Global variables
-// The two pixel polygons on the sky P and Q and the polygon of intersection V
-Vec P[8], Q[8], V[16];
-int nv;
 
 /*
  * Sets up the polygons, runs the overlap computation, and returns the area of overlap.
@@ -82,6 +76,8 @@ double computeOverlap(double *ilon, double *ilat, double *olon, double *olat,
                       int energyMode, double refArea, double *areaRatio) {
   int i;
   double thisPixelArea;
+  Vec P[8], Q[8], V[16];
+  int nv;
 
   *areaRatio = 1.;
 
@@ -89,9 +85,9 @@ double computeOverlap(double *ilon, double *ilat, double *olon, double *olat,
     nv = 0;
 
     for (i = 0; i < 4; ++i)
-      SaveVertex(&P[i]);
+      SaveVertex(&P[i], P, Q, V, &nv);
 
-    thisPixelArea = Girard();
+    thisPixelArea = Girard(nv, V);
 
     *areaRatio = thisPixelArea / refArea;
   }
@@ -126,9 +122,9 @@ double computeOverlap(double *ilon, double *ilat, double *olon, double *olat,
   EnsureCounterClockWise(P);
   EnsureCounterClockWise(Q);
 
-  ComputeIntersection(P, Q);
+  ComputeIntersection(P, Q, V, &nv);
 
-  return (Girard());
+  return (Girard(nv, V));
 }
 
 void EnsureCounterClockWise(Vec *V) {
@@ -171,7 +167,7 @@ void EnsureCounterClockWise(Vec *V) {
  * Find the polygon defining the area of overlap
  * between the two input polygons P and Q.
  */
-void ComputeIntersection(Vec *P, Vec *Q) {
+void ComputeIntersection(Vec *P, Vec *Q, Vec *V, int *nv) {
   Vec Pdir, Qdir;              // "Current" directed edges on P and Q
   Vec other;                   // Temporary "edge-like" variable
   int ip, iq;                  // Indices of ends of Pdir, Qdir
@@ -225,7 +221,7 @@ void ComputeIntersection(Vec *P, Vec *Q) {
     }
 
     for (iq = 0; iq < NQ; ++iq)
-      SaveVertex(&Q[iq]);
+      SaveVertex(&Q[iq], P, Q, V, nv);
 
     return;
   }
@@ -262,9 +258,9 @@ void ComputeIntersection(Vec *P, Vec *Q) {
       fflush(stdout);
     }
 
-    nv = 0;
+    *nv = 0;
     for (ip = 0; ip < NP; ++ip)
-      SaveVertex(&P[ip]);
+      SaveVertex(&P[ip], P, Q, V, nv);
 
     return;
   }
@@ -354,7 +350,7 @@ void ComputeIntersection(Vec *P, Vec *Q) {
       }
 
       interiorFlag = UpdateInteriorFlag(&firstIntersection, interiorFlag,
-                                        pEndpointFromQdir, qEndpointFromPdir);
+                                        pEndpointFromQdir, qEndpointFromPdir, P, Q, V, nv);
 
       if (DEBUG >= 4) {
         if (interiorFlag == UNKNOWN)
@@ -383,9 +379,9 @@ void ComputeIntersection(Vec *P, Vec *Q) {
         fflush(stdout);
       }
 
-      SaveSharedSeg(&firstIntersection, &secondIntersection);
+      SaveSharedSeg(&firstIntersection, &secondIntersection, P, Q, V, nv);
 
-      RemoveDups();
+      RemoveDups(nv, V);
       return;
     }
 
@@ -398,7 +394,7 @@ void ComputeIntersection(Vec *P, Vec *Q) {
         fflush(stdout);
       }
 
-      RemoveDups();
+      RemoveDups(nv, V);
       return;
     }
 
@@ -414,9 +410,9 @@ void ComputeIntersection(Vec *P, Vec *Q) {
       // Advance but do not output point.
 
       if (interiorFlag == P_IN_Q)
-        iq = Advance(iq, &q_advances, NQ, interiorFlag == Q_IN_P, &Q[iq]);
+        iq = Advance(iq, &q_advances, NQ, interiorFlag == Q_IN_P, &Q[iq], P, Q, V, nv);
       else
-        ip = Advance(ip, &p_advances, NP, interiorFlag == P_IN_Q, &P[ip]);
+        ip = Advance(ip, &p_advances, NP, interiorFlag == P_IN_Q, &P[ip], P, Q, V, nv);
     }
 
     // Generic cases.
@@ -430,7 +426,7 @@ void ComputeIntersection(Vec *P, Vec *Q) {
           fflush(stdout);
         }
 
-        ip = Advance(ip, &p_advances, NP, interiorFlag == P_IN_Q, &P[ip]);
+        ip = Advance(ip, &p_advances, NP, interiorFlag == P_IN_Q, &P[ip], P, Q, V, nv);
       } else {
         if (DEBUG >= 4) {
           printf("   ADVANCE: Generic: PToQDir is COUNTERCLOCKWISE ");
@@ -438,7 +434,7 @@ void ComputeIntersection(Vec *P, Vec *Q) {
           fflush(stdout);
         }
 
-        iq = Advance(iq, &q_advances, NQ, interiorFlag == Q_IN_P, &Q[iq]);
+        iq = Advance(iq, &q_advances, NQ, interiorFlag == Q_IN_P, &Q[iq], P, Q, V, nv);
       }
     }
 
@@ -450,7 +446,7 @@ void ComputeIntersection(Vec *P, Vec *Q) {
           fflush(stdout);
         }
 
-        iq = Advance(iq, &q_advances, NQ, interiorFlag == Q_IN_P, &Q[iq]);
+        iq = Advance(iq, &q_advances, NQ, interiorFlag == Q_IN_P, &Q[iq], P, Q, V, nv);
       } else {
         if (DEBUG >= 4) {
           printf("   ADVANCE: Generic: PToQDir is CLOCKWISE, ");
@@ -458,7 +454,7 @@ void ComputeIntersection(Vec *P, Vec *Q) {
           fflush(stdout);
         }
 
-        ip = Advance(ip, &p_advances, NP, interiorFlag == P_IN_Q, &P[ip]);
+        ip = Advance(ip, &p_advances, NP, interiorFlag == P_IN_Q, &P[ip], P, Q, V, nv);
       }
     }
 
@@ -487,7 +483,7 @@ void ComputeIntersection(Vec *P, Vec *Q) {
     }
   }
 
-  RemoveDups();
+  RemoveDups(nv, V);
   return;
 }
 
@@ -495,7 +491,7 @@ void ComputeIntersection(Vec *P, Vec *Q) {
  * Print out the second point of intersection and toggle in/out flag.
  */
 int UpdateInteriorFlag(Vec *p, int interiorFlag, int pEndpointFromQdir,
-                       int qEndpointFromPdir) {
+                       int qEndpointFromPdir, Vec *P, Vec *Q, Vec *V, int *nv) {
   double lon, lat;
 
   if (DEBUG >= 4) {
@@ -508,7 +504,7 @@ int UpdateInteriorFlag(Vec *p, int interiorFlag, int pEndpointFromQdir,
     fflush(stdout);
   }
 
-  SaveVertex(p);
+  SaveVertex(p, P, Q, V, nv);
 
   // Update interiorFlag.
 
@@ -526,7 +522,7 @@ int UpdateInteriorFlag(Vec *p, int interiorFlag, int pEndpointFromQdir,
 /*
  * Save the endpoints of a shared segment.
  */
-void SaveSharedSeg(Vec *p, Vec *q) {
+void SaveSharedSeg(Vec *p, Vec *q, Vec *P, Vec *Q, Vec *V, int *nv) {
   if (DEBUG >= 4) {
     printf("\n   SaveSharedSeg():  from "
            "[%13.6e,%13.6e,%13.6e]\n",
@@ -539,14 +535,15 @@ void SaveSharedSeg(Vec *p, Vec *q) {
     fflush(stdout);
   }
 
-  SaveVertex(p);
-  SaveVertex(q);
+  SaveVertex(p, P, Q, V, nv);
+  SaveVertex(q, P, Q, V, nv);
+
 }
 
 /*
  * Advances and prints out an inside vertex if appropriate.
  */
-int Advance(int ip, int *p_advances, int n, int inside, Vec *v) {
+int Advance(int ip, int *p_advances, int n, int inside, Vec *v, Vec *P, Vec *Q, Vec *V, int *nv) {
   double lon, lat;
 
   lon = atan2(v->y, v->x) / DEG_TO_RADIANS;
@@ -561,7 +558,7 @@ int Advance(int ip, int *p_advances, int n, int inside, Vec *v) {
       fflush(stdout);
     }
 
-    SaveVertex(v);
+    SaveVertex(v, P, Q, V, nv);
   }
 
   (*p_advances)++;
@@ -572,7 +569,7 @@ int Advance(int ip, int *p_advances, int n, int inside, Vec *v) {
 /*
  * Save the intersection polygon vertices
  */
-void SaveVertex(Vec *v) {
+void SaveVertex(Vec *a, Vec *P, Vec *Q, Vec *V, int *nv) {
   int i, i_begin;
   Vec Dir;
 
@@ -588,7 +585,7 @@ void SaveVertex(Vec *v) {
     Cross(&P[i_begin], &P[i], &Dir);
     Normalize(&Dir);
 
-    if (Dot(&Dir, v) < -1000. * TOLERANCE) {
+    if (Dot(&Dir, a) < -1000. * TOLERANCE) {
       if (DEBUG >= 4) {
         printf("rejected (not in P)\n");
         fflush(stdout);
@@ -604,7 +601,7 @@ void SaveVertex(Vec *v) {
     Cross(&Q[i_begin], &Q[i], &Dir);
     Normalize(&Dir);
 
-    if (Dot(&Dir, v) < -1000. * TOLERANCE) {
+    if (Dot(&Dir, a) < -1000. * TOLERANCE) {
       if (DEBUG >= 4) {
         printf("rejected (not in Q)\n");
         fflush(stdout);
@@ -614,52 +611,17 @@ void SaveVertex(Vec *v) {
     }
   }
 
-  if (nv < 15) {
-    V[nv].x = v->x;
-    V[nv].y = v->y;
-    V[nv].z = v->z;
-
-    ++nv;
+  if (*nv < 15) {
+    V[*nv].x = a->x;
+    V[*nv].y = a->y;
+    V[*nv].z = a->z;
+    *nv += 1;
   }
 
   if (DEBUG >= 4) {
-    printf("accepted (%d)\n", nv);
+    printf("accepted (%d)\n", *nv);
     fflush(stdout);
   }
-}
-
-/*
- * Print out the final intersection polygon.
- */
-void PrintPolygon() {
-  int i;
-  double lon, lat;
-
-  for (i = 0; i < nv; ++i) {
-    lon = atan2(V[i].y, V[i].x) / DEG_TO_RADIANS;
-    lat = asin(V[i].z) / DEG_TO_RADIANS;
-
-    printf("[%13.6e,%13.6e,%13.6e] -> (%10.6f,%10.6f)\n", V[i].x, V[i].y,
-           V[i].z, lon, lat);
-  }
-}
-
-/*
- * Reads in the coordinates of the vertices of
- * the polygons from stdin.
- */
-int ReadData(double *ilon, double *ilat, double *olon, double *olat) {
-  int n;
-
-  n = 0;
-  while ((n < 4) && (scanf("%lf %lf", &ilon[n], &ilat[n]) != EOF))
-    ++n;
-
-  n = 0;
-  while ((n < 4) && (scanf("%lf %lf", &olon[n], &olat[n]) != EOF))
-    ++n;
-
-  return (0);
 }
 
 /*
@@ -884,7 +846,7 @@ void Reverse(Vec *v) {
 /*
  * Use Girard's theorem to compute the area of a sky polygon.
  */
-double Girard() {
+double Girard(int nv, Vec *V) {
   int i, j, ibad;
 
   double area;
@@ -994,7 +956,7 @@ double Girard() {
         V[j].z = V[j + 1].z;
       }
 
-      return (Girard());
+      return (Girard(nv, V));
     }
 
     sumang += ang[i];
@@ -1019,7 +981,7 @@ double Girard() {
  * subsequent dot- and cross-product calculations
  * of Girard's theorem.
  */
-void RemoveDups() {
+void RemoveDups(int *nv, Vec *V) {
   int i, nvnew;
   Vec Vnew[16];
   Vec tmp;
@@ -1031,7 +993,7 @@ void RemoveDups() {
     printf("RemoveDups() TOLERANCE = %13.6e [%13.6e arcsec]\n\n", TOLERANCE,
            TOLERANCE / DEG_TO_RADIANS * 3600.);
 
-    for (i = 0; i < nv; ++i) {
+    for (i = 0; i < *nv; ++i) {
       lon = atan2(V[i].y, V[i].x) / DEG_TO_RADIANS;
       lat = asin(V[i].z) / DEG_TO_RADIANS;
 
@@ -1051,21 +1013,21 @@ void RemoveDups() {
 
   nvnew = 0;
 
-  for (i = 0; i < nv; ++i) {
+  for (i = 0; i < *nv; ++i) {
     ++nvnew;
 
-    Vnew[nvnew].x = V[(i + 1) % nv].x;
-    Vnew[nvnew].y = V[(i + 1) % nv].y;
-    Vnew[nvnew].z = V[(i + 1) % nv].z;
+    Vnew[nvnew].x = V[(i + 1) % *nv].x;
+    Vnew[nvnew].y = V[(i + 1) % *nv].y;
+    Vnew[nvnew].z = V[(i + 1) % *nv].z;
 
-    Cross(&V[i], &V[(i + 1) % nv], &tmp);
+    Cross(&V[i], &V[(i + 1) % *nv], &tmp);
 
     separation = Normalize(&tmp);
 
     if (DEBUG >= 4) {
       printf("RemoveDups(): %3d x %3d: distance = %13.6e "
              "[%13.6e arcsec] (would become %d)\n",
-             (i + 1) % nv, i, separation, separation / DEG_TO_RADIANS * 3600.,
+             (i + 1) % *nv, i, separation, separation / DEG_TO_RADIANS * 3600.,
              nvnew);
 
       fflush(stdout);
@@ -1087,13 +1049,13 @@ void RemoveDups() {
     fflush(stdout);
   }
 
-  if (nvnew < nv) {
+  if (nvnew < *nv) {
     for (i = 0; i < nvnew; ++i) {
       V[i].x = Vnew[i].x;
       V[i].y = Vnew[i].y;
       V[i].z = Vnew[i].z;
     }
 
-    nv = nvnew;
+    *nv = nvnew;
   }
 }
