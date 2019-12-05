@@ -4,6 +4,9 @@
 - Made C extension in overlapArea.c thread-safe by removing global
   variables.
 
+- Made it possible to control whether to output debugging information
+  from overlapArea.c by setting DEBUG_OVERLAP_AREA=1 at build-time.
+
 0.6 (2019-11-01)
 ----------------
 

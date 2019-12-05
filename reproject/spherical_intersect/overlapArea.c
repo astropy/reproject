@@ -30,7 +30,12 @@
 #define P_IN_Q            1
 #define Q_IN_P            2
 
-const int DEBUG = 0;
+#if defined(DEBUG_OVERLAP_AREA)
+    const int DEBUG = 10;
+#else
+    const int DEBUG = 0;
+#endif
+
 const double DEG_TO_RADIANS = M_PI / 180.;
 // sin(x) where x = 5e-4 arcsec or cos(x) when x is within 1e-5 arcsec of 90 degrees
 const double TOLERANCE = 4.424e-9;
