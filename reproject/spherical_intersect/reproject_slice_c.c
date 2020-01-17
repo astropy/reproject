@@ -53,10 +53,11 @@ static INLINE void _compute_overlap(double *overlap,
 void _reproject_slice_c(int startx, int endx, int starty, int endy, int nx_out, int ny_out,
     double *xp_inout, double *yp_inout, double *xw_in, double *yw_in, double *xw_out, double *yw_out,
     double *array, double *array_new, double *weights,
-    double *overlap, double *area_ratio, double *original, int col_in, int col_out, int col_array, int col_new)
+    int col_in, int col_out, int col_array, int col_new)
 {
     int i, j, ii, jj, xmin, xmax, ymin, ymax;
     double ilon[4], ilat[4], olon[4], olat[4], minmax_x[4], minmax_y[4];
+    double overlap, area_ratio, original;
 
     // Main loop.
     for (i = startx; i < endx; ++i) {
@@ -110,14 +111,14 @@ void _reproject_slice_c(int startx, int endx, int starty, int endy, int nx_out, 
                     olat[3] = to_rad(*GETPTR2(yw_out,col_out,jj,ii));
 
                     // Compute the overlap.
-                    _compute_overlap(overlap,area_ratio,ilon,ilat,olon,olat);
-                    _compute_overlap(original,area_ratio,olon,olat,olon,olat);
+                    _compute_overlap(&overlap,&area_ratio,ilon,ilat,olon,olat);
+                    _compute_overlap(&original,&area_ratio,olon,olat,olon,olat);
 
                     // Write into array_new and weights.
                     *GETPTR2(array_new,col_new,jj,ii) += *GETPTR2(array,col_array,j,i) *
-                                                                     (overlap[0] / original[0]);
+                                                                     (overlap / original);
 
-                    *GETPTR2(weights,col_new,jj,ii) += (overlap[0] / original[0]);
+                    *GETPTR2(weights,col_new,jj,ii) += (overlap / original);
                 }
             }
         }

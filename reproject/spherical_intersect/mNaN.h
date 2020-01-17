@@ -7,5 +7,5 @@
 #if defined(_MSC_VER)
   #define mNaN(x) _isnan(x) || !_finite(x)
 #else
-  #define mNaN(x) isnan(x) || !finite(x)
+  #define mNaN(x) isnan(x) || !isfinite(x)
 #endif
