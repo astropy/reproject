@@ -14,10 +14,6 @@ cdef extern from "reproject_slice_c.h":
         double *array, double *array_new, double *weights,
         int col_in, int col_out, int col_array, int col_new)
 
-# TODO: move definition of array_new and weights up to main calling function,
-# then release the gil in cython function below. In principle could even bypass
-# Cython and write C extension directly.
-
 # @cython.wraparound(False)
 # @cython.boundscheck(False)
 def _reproject_slice_cython(int startx, int endx, int starty, int endy, int nx_out, int ny_out,
@@ -33,10 +29,6 @@ def _reproject_slice_cython(int startx, int endx, int starty, int endy, int nx_o
     # Create the array_new and weights objects, plus the objects needed in the loop.
     cdef np.ndarray[double, ndim = 2, mode = "c"] array_new = np.zeros(shape_out, dtype = np.double)
     cdef np.ndarray[double, ndim = 2, mode = "c"] weights = np.zeros(shape_out, dtype = np.double)
-    # Arrays used in loop iterations.
-    cdef np.ndarray[double, ndim = 1, mode = "c"] overlap = np.zeros((1), dtype = np.double)
-    cdef np.ndarray[double, ndim = 1, mode = "c"] area_ratio = np.zeros((1), dtype = np.double)
-    cdef np.ndarray[double, ndim = 1, mode = "c"] original = np.zeros((1), dtype = np.double)
 
     # We need the y size of these 2-dimensional arrays in order to access the elements correctly
     # from raw C.
