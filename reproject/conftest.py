@@ -10,13 +10,14 @@ os.environ['MPLBACKEND'] = 'Agg'
 
 # from astropy.tests.helper import enable_deprecations_as_exceptions
 # enable_deprecations_as_exceptions()
-
-PYTEST_HEADER_MODULES['Astropy'] = 'astropy'
-PYTEST_HEADER_MODULES['astropy-healpix'] = 'astropy_healpix'
-PYTEST_HEADER_MODULES['Cython'] = 'cython'
-del PYTEST_HEADER_MODULES['h5py']
-del PYTEST_HEADER_MODULES['Matplotlib']
-
+try:
+    PYTEST_HEADER_MODULES['Astropy'] = 'astropy'  # noqa
+    PYTEST_HEADER_MODULES['astropy-healpix'] = 'astropy_healpix'
+    PYTEST_HEADER_MODULES['Cython'] = 'cython'
+    del PYTEST_HEADER_MODULES['h5py']
+    del PYTEST_HEADER_MODULES['Matplotlib']
+except KeyError:
+    pass
 
 packagename = os.path.basename(os.path.dirname(__file__))
 TESTED_VERSIONS[packagename] = version
