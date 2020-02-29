@@ -22,9 +22,9 @@ def reproject_and_coadd(input_data, output_projection, shape_out=None,
     Parameters
     ----------
     input_data : iterable
-        One or more input datasets to include in the calculation of the final
-        WCS. This should be an iterable containing one entry for each dataset,
-        where a single dataset is one of:
+        One or more input datasets to reproject and co-add. This should be an
+        iterable containing one entry for each dataset, where a single dataset
+        is one of:
 
             * The name of a FITS file
             * An `~astropy.io.fits.HDUList` object
@@ -34,6 +34,8 @@ def reproject_and_coadd(input_data, output_projection, shape_out=None,
             * A tuple where the first element is an `~numpy.ndarray` and the
               second element is either a `~astropy.wcs.WCS` or a
               `~astropy.io.fits.Header` object
+            * An `~astropy.nddata.NDData` object from which the ``.data`` and
+              ``.wcs`` attributes will be used as the input data.
 
     output_projection : `~astropy.wcs.WCS` or `~astropy.io.fits.Header`
         The output projection, which can be either a `~astropy.wcs.WCS`
