@@ -188,10 +188,10 @@ def efficient_pixel_to_pixel(wcs1, wcs2, *inputs):
 
         pixel_inputs = np.broadcast_arrays(*pixel_inputs)
 
-        world_outputs = wcs1.pixel_to_world(*pixel_inputs)
-        if not isinstance(world_outputs, (tuple, list)):
-            world_outputs = (world_outputs,)
-        pixel_outputs = wcs2.world_to_pixel(*world_outputs)
+        pixel_outputs = wcs1.pixel_to_world(*pixel_inputs)
+        if not isinstance(pixel_outputs, (tuple, list)):
+            pixel_outputs = (pixel_outputs,)
+        pixel_outputs = wcs2.world_to_pixel(*pixel_outputs)
 
         for ipix in range(wcs2.pixel_n_dim):
             if ipix in pixel_out_indices:
