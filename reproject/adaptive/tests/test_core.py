@@ -51,6 +51,12 @@ def test_reproject_adaptive_2d(wcsapi):
     # Check that surface brightness is conserved in the unrotated case
     assert_allclose(np.nansum(data_in), np.nansum(array_out) * (256 / 60) ** 2, rtol=0.1)
 
+    # ASTROPY_LT_40: astropy v4.0 introduced new default header keywords,
+    # once we support only astropy 4.0 and later we can update the reference
+    # data files and remove this section.
+    for key in ('DATEREF', 'MJDREFF', 'MJDREFI'):
+        header_out.pop(key, None)
+
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 
 
@@ -78,6 +84,12 @@ def test_reproject_adaptive_2d_rotated():
 
     array_out, footprint_out = reproject_adaptive((data_in, wcs_in),
                                                   wcs_out, shape_out=(60, 60))
+
+    # ASTROPY_LT_40: astropy v4.0 introduced new default header keywords,
+    # once we support only astropy 4.0 and later we can update the reference
+    # data files and remove this section.
+    for key in ('DATEREF', 'MJDREFF', 'MJDREFI'):
+        header_out.pop(key, None)
 
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 
@@ -121,4 +133,14 @@ def test_reproject_adaptive_roundtrip(file_format):
 
     output, footprint = reproject_adaptive((data, wcs), target_wcs, (128, 128))
 
-    return array_footprint_to_hdulist(output, footprint, target_wcs.to_header())
+    header_out = target_wcs.to_header()
+
+    # ASTROPY_LT_40: astropy v4.0 introduced new default header keywords,
+    # once we support only astropy 4.0 and later we can update the reference
+    # data files and remove this section.
+    for key in ('CRLN_OBS', 'CRLT_OBS', 'DSUN_OBS', 'HGLN_OBS', 'HGLT_OBS',
+                'MJDREFF', 'MJDREFI', 'RSUN_REF'):
+        header_out.pop(key, None)
+    header_out['DATE-OBS'] = header_out['DATE-OBS'].replace('T', ' ')
+
+    return array_footprint_to_hdulist(output, footprint, header_out)
