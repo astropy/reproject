@@ -7,6 +7,11 @@
 - Made it possible to control whether to output debugging information
   from overlapArea.c by setting DEBUG_OVERLAP_AREA=1 at build-time.
 
+0.6.1 (unreleased)
+------------------
+
+- Fix compatibility with astropy v4.0.1. [#227]
+
 0.6 (2019-11-01)
 ----------------
 
