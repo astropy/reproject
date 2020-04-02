@@ -16,8 +16,8 @@ ORDER['bicubic'] = 3
 
 @deprecated_renamed_argument('independent_celestial_slices', None, since='0.6')
 def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
-                     order='bilinear', output_array=None, return_footprint=True,
-                     independent_celestial_slices=None):
+                     order='bilinear', independent_celestial_slices=False,
+                     output_array=None, return_footprint=True):
     """
     Reproject data to a new projection using interpolation (this is typically
     the fastest way to reproject an image).
