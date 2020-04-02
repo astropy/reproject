@@ -114,7 +114,10 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True,
         with np.errstate(invalid='ignore'):
             array_new /= weights
 
-        return array_new, weights
+        if return_footprint:
+            return array_new, weights
+        else:
+            return array_new
 
     elif (nproc is None or nproc > 1):
 
