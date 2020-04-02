@@ -35,21 +35,21 @@ jobs:
 
     - linux: pep8
 
-    - macos: py36-test
-    - macos: py37-test
+    - macos: py36-test-cov
+    - macos: py37-test-cov
 
-    - linux: py36-test
-    - linux: py37-test
+    - linux: py36-test-cov
+    - linux: py37-test-cov
 
-    - linux32: py36-test
-    - linux32: py37-test
+    - linux32: py36-test-cov
+    - linux32: py37-test-cov
 
-    - windows: py36-test
-    - windows: py37-test
+    - windows: py36-test-cov
+    - windows: py37-test-cov
 
-    - macos: py36-docs
-    - linux: py37-docs
-    - macos: py37-docs
+    - macos: build_docs
+    - linux: build_docs
+    - macos: build_docs
 
 - template: publish.yml@OpenAstronomy
   parameters:
