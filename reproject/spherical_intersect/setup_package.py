@@ -10,7 +10,7 @@ def get_extensions():
     libraries = []
 
     sources = []
-    sources.append(os.path.join(REPROJECT_ROOT, "_overlap.c"))
+    sources.append(os.path.join(REPROJECT_ROOT, "_overlap.pyx"))
     sources.append(os.path.join(REPROJECT_ROOT, "overlapArea.c"))
     sources.append(os.path.join(REPROJECT_ROOT, "reproject_slice_c.c"))
 
