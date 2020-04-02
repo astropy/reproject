@@ -2,15 +2,15 @@
 ----------------
 
 - Made C extension in overlapArea.c thread-safe by removing global
-  variables.
+  variables. [#211]
 
 - Made it possible to control whether to output debugging information
-  from overlapArea.c by setting DEBUG_OVERLAP_AREA=1 at build-time.
-
-0.6.1 (unreleased)
-------------------
+  from overlapArea.c by setting DEBUG_OVERLAP_AREA=1 at build-time. [#211]
 
 - Fix compatibility with astropy v4.0.1. [#227]
+
+- Disable parallelization by default in ``reproject_exact`` - this can be
+  enabled with ``parallel=True``. [#227]
 
 0.6 (2019-11-01)
 ----------------
