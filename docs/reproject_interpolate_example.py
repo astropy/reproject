@@ -19,7 +19,7 @@ wcs_out.wcs.crval = [266.44707, -28.937888]
 array_out = reproject_celestial_slices(hdu.data, wcs_in, wcs_out, hdu.data.shape)
 
 fits.writeto('test_2d.fits', array_out,
-              header=wcs_out.to_header(), clobber=True)
+             header=wcs_out.to_header(), overwrite=True)
 
 # Test 3d slice-by-slice interpolation, different frame, different projection
 
@@ -34,4 +34,4 @@ wcs_out.wcs.crpix = [50., 50., wcs_in.wcs.crpix[2]]
 array_out = reproject_celestial_slices(hdu.data, wcs_in, wcs_out, hdu.data.shape)
 
 fits.writeto('test_3d.fits', array_out,
-            header=wcs_out.to_header(), clobber=True)
+             header=wcs_out.to_header(), overwrite=True)
