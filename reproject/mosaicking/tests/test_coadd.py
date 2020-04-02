@@ -248,4 +248,12 @@ def test_coadd_solar_map():
                                            reproject_function=reproject_interp,
                                            match_background=True)
 
-    return array_footprint_to_hdulist(array, footprint, wcs_out.to_header())
+    header_out = wcs_out.to_header()
+
+    # ASTROPY_LT_40: astropy v4.0 introduced new default header keywords,
+    # once we support only astropy 4.0 and later we can update the reference
+    # data files and remove this section.
+    for key in ('MJDREFF', 'MJDREFI'):
+        header_out.pop(key, None)
+
+    return array_footprint_to_hdulist(array, footprint, header_out)

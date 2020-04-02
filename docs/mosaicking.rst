@@ -60,7 +60,7 @@ WCS and shape::
 
     >>> wcs_out.to_header()  # doctest: +FLOAT_CMP
     WCSAXES =                    2 / Number of coordinate axes
-    CRPIX1  =      900.07981909507 / Pixel coordinate of reference point
+    CRPIX1  =      900.07981909504 / Pixel coordinate of reference point
     CRPIX2  =      1099.9484609446 / Pixel coordinate of reference point
     CDELT1  =     -0.0002777777845 / [deg] Coordinate increment at reference point
     CDELT2  =      0.0002777777845 / [deg] Coordinate increment at reference point
@@ -72,6 +72,9 @@ WCS and shape::
     CRVAL2  =     -16.141349044263 / [deg] Coordinate value at reference point
     LONPOLE =                180.0 / [deg] Native longitude of celestial pole
     LATPOLE =     -16.141349044263 / [deg] Native latitude of celestial pole
+    DATEREF = '1858-11-17'         / ISO-8601 fiducial time
+    MJDREFI =                  0.0 / [d] MJD of fiducial time, integer part
+    MJDREFF =                  0.0 / [d] MJD of fiducial time, fractional part
     RADESYS = 'FK5'                / Equatorial coordinate system
     EQUINOX =               2000.0 / [yr] Equinox of equatorial coordinates
     >>> shape_out
@@ -107,6 +110,9 @@ the resulting WCS is then in Galactic coordinates::
     CRVAL2  =    -0.72166403860488 / [deg] Coordinate value at reference point
     LONPOLE =                180.0 / [deg] Native longitude of celestial pole
     LATPOLE =    -0.72166403860488 / [deg] Native latitude of celestial pole
+    DATEREF = '1858-11-17'         / ISO-8601 fiducial time
+    MJDREFI =                  0.0 / [d] MJD of fiducial time, integer part
+    MJDREFF =                  0.0 / [d] MJD of fiducial time, fractional part
     >>> shape_out
     (2623, 2424)
 
@@ -148,6 +154,9 @@ Note that this requires `Shapely <https://shapely.readthedocs.io/en/stable/manua
     CRVAL2  =    -0.72166403860488 / [deg] Coordinate value at reference point
     LONPOLE =                180.0 / [deg] Native longitude of celestial pole
     LATPOLE =    -0.72166403860488 / [deg] Native latitude of celestial pole
+    DATEREF = '1858-11-17'         / ISO-8601 fiducial time
+    MJDREFI =                  0.0 / [d] MJD of fiducial time, integer part
+    MJDREFF =                  0.0 / [d] MJD of fiducial time, fractional part
     >>> shape_out
     (1800, 2201)
 

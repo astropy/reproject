@@ -480,7 +480,17 @@ def test_reproject_roundtrip(file_format):
 
     output, footprint = reproject_interp((data, wcs), target_wcs, (128, 128))
 
-    return array_footprint_to_hdulist(output, footprint, target_wcs.to_header())
+    header_out = target_wcs.to_header()
+
+    # ASTROPY_LT_40: astropy v4.0 introduced new default header keywords,
+    # once we support only astropy 4.0 and later we can update the reference
+    # data files and remove this section.
+    for key in ('CRLN_OBS', 'CRLT_OBS', 'DSUN_OBS', 'HGLN_OBS', 'HGLT_OBS',
+                'MJDREFF', 'MJDREFI', 'RSUN_REF'):
+        header_out.pop(key, None)
+    header_out['DATE-OBS'] = header_out['DATE-OBS'].replace('T', ' ')
+
+    return array_footprint_to_hdulist(output, footprint, header_out)
 
 
 def test_identity_with_offset():
