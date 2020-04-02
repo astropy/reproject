@@ -1,5 +1,6 @@
 import os
 from distutils.core import Extension
+import numpy as np
 
 REPROJECT_ROOT = os.path.relpath(os.path.dirname(__file__))
 
@@ -9,11 +10,11 @@ def get_extensions():
     libraries = []
 
     sources = []
-    sources.append(os.path.join(REPROJECT_ROOT, "_overlap.c"))
+    sources.append(os.path.join(REPROJECT_ROOT, "_overlap.pyx"))
     sources.append(os.path.join(REPROJECT_ROOT, "overlapArea.c"))
     sources.append(os.path.join(REPROJECT_ROOT, "reproject_slice_c.c"))
 
-    include_dirs = ['numpy']
+    include_dirs = [np.get_include()]
     include_dirs.append(REPROJECT_ROOT)
 
     # Note that to set the DEBUG variable in the overlapArea.c code, which

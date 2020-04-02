@@ -12,6 +12,19 @@
 - Disable parallelization by default in ``reproject_exact`` - this can be
   enabled with ``parallel=True``. [#227]
 
+- Fixed a bug with ``reproject_exact`` with ``parallel=False`` and
+  ``return_footprint=False``, which caused the footprint to be returned
+  anyway. [#227]
+
+- The infrastructure of the package has been updated in line with the
+  APE 17 roadmap (https://github.com/astropy/astropy-APEs/blob/master/APE17.rst).
+  The main changes are that the ``python setup.py test`` and
+  ``python setup.py build_docs`` commands will no longer work. The
+  easiest way to replicate these commands is to install the tox
+  (https://tox.readthedocs.io) package and run ``tox -e test`` and
+  ``tox -e build_docs``. It is also possible to run pytest and sphinx
+  directly. [#228]
+
 0.6 (2019-11-01)
 ----------------
 

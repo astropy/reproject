@@ -114,7 +114,7 @@ now in the same projection:
    :nofigs:
    :context:
 
-   fits.writeto('msx_on_2mass_header.fits', array, hdu1.header, clobber=True)
+   fits.writeto('msx_on_2mass_header.fits', array, hdu1.header, overwrite=True)
 
 The *reproject* package supports a number of different algorithms for
 reprojection (interpolation, flux-conserving reprojection, etc.) and
