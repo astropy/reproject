@@ -25,8 +25,11 @@ around the M17 region::
     >>> pos = SkyCoord.from_name('M17')
     >>> table = imagesearch('https://irsa.ipac.caltech.edu/cgi-bin/2MASS/IM/nph-im_sia?type=at&ds=asky&',
     ...                    pos, size=0.25).to_table()
-    >>> table = table[(table['band'] == b'K') & (table['format'] == b'image/fits')]
-    >>> m17_hdus = [fits.open(row['download'].decode('ascii'))[0] for row in table]
+    >>> table = table[(table['band'].astype('S') == 'K') & (table['format'].astype('S') == 'image/fits')]
+    >>> m17_hdus =  [fits.open(url)[0] for url in table['download'].astype('S')]
+
+.. NOTE: Once we support only Astropy 4.1 and above, we can get rid of the 'astype()'
+..       calls above (prior to this, the string columns were object columns).
 
 .. _optimal-wcs:
 
