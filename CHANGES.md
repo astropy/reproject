@@ -1,3 +1,10 @@
+0.7.1 (2020-05-29)
+------------------
+
+- Fixed compatibility with Astropy 4.1. [#234]
+
+- Updated minimum requirement for SciPy. [#236]
+
 0.7 (2020-04-02)
 ----------------
 
