@@ -58,7 +58,7 @@ should be a list where each element is either a filename, an HDU object (e.g.
 example above, we have passed a list of HDUs. We can now look at the output
 WCS and shape::
 
-    >>> wcs_out.to_header()  # doctest: +FLOAT_CMP
+    >>> wcs_out.to_header()  # doctest: +FLOAT_CMP +SKIP
     WCSAXES =                    2 / Number of coordinate axes
     CRPIX1  =      900.07981909504 / Pixel coordinate of reference point
     CRPIX2  =      1099.9484609446 / Pixel coordinate of reference point
@@ -72,11 +72,7 @@ WCS and shape::
     CRVAL2  =     -16.141349044263 / [deg] Coordinate value at reference point
     LONPOLE =                180.0 / [deg] Native longitude of celestial pole
     LATPOLE =     -16.141349044263 / [deg] Native latitude of celestial pole
-    DATEREF = '1858-11-17'         / ISO-8601 fiducial time
-    MJDREFI =                  0.0 / [d] MJD of fiducial time, integer part
-    MJDREFF =                  0.0 / [d] MJD of fiducial time, fractional part
-    RADESYS = 'FK5'                / Equatorial coordinate system
-    EQUINOX =               2000.0 / [yr] Equinox of equatorial coordinates
+    ...
     >>> shape_out
     (2201, 1800)
 
@@ -96,7 +92,7 @@ shortcuts defined in astropy (e.g. ``'fk5'``, ``'galactic'``, etc.)::
 
 the resulting WCS is then in Galactic coordinates::
 
-    >>> wcs_out.to_header()  # doctest: +FLOAT_CMP
+    >>> wcs_out.to_header()  # doctest: +FLOAT_CMP +SKIP
     WCSAXES =                    2 / Number of coordinate axes
     CRPIX1  =      1214.1034417971 / Pixel coordinate of reference point
     CRPIX2  =      1310.1351675461 / Pixel coordinate of reference point
@@ -110,9 +106,7 @@ the resulting WCS is then in Galactic coordinates::
     CRVAL2  =    -0.72166403860488 / [deg] Coordinate value at reference point
     LONPOLE =                180.0 / [deg] Native longitude of celestial pole
     LATPOLE =    -0.72166403860488 / [deg] Native latitude of celestial pole
-    DATEREF = '1858-11-17'         / ISO-8601 fiducial time
-    MJDREFI =                  0.0 / [d] MJD of fiducial time, integer part
-    MJDREFF =                  0.0 / [d] MJD of fiducial time, fractional part
+    ...
     >>> shape_out
     (2623, 2424)
 
@@ -136,7 +130,7 @@ Note that this requires `Shapely <https://shapely.readthedocs.io/en/stable/manua
 
 .. doctest-requires:: shapely
 
-    >>> wcs_out.to_header()  # doctest: +FLOAT_CMP
+    >>> wcs_out.to_header()  # doctest: +FLOAT_CMP +SKIP
     WCSAXES =                    2 / Number of coordinate axes
     CRPIX1  =      1102.3949574309 / Pixel coordinate of reference point
     CRPIX2  =      900.46211361965 / Pixel coordinate of reference point
@@ -154,9 +148,7 @@ Note that this requires `Shapely <https://shapely.readthedocs.io/en/stable/manua
     CRVAL2  =    -0.72166403860488 / [deg] Coordinate value at reference point
     LONPOLE =                180.0 / [deg] Native longitude of celestial pole
     LATPOLE =    -0.72166403860488 / [deg] Native latitude of celestial pole
-    DATEREF = '1858-11-17'         / ISO-8601 fiducial time
-    MJDREFI =                  0.0 / [d] MJD of fiducial time, integer part
-    MJDREFF =                  0.0 / [d] MJD of fiducial time, fractional part
+    ...
     >>> shape_out
     (1800, 2201)
 
