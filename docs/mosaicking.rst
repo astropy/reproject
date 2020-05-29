@@ -18,10 +18,11 @@ For the examples on this page we will use the `PyVO
 <https://pyvo.readthedocs.io>`_ module to retrieve tiles from the 2MASS survey
 around the M17 region::
 
+.. doctest-requires:: pyvo
+
     >>> from astropy.io import fits
     >>> from astropy.coordinates import SkyCoord
     >>> from pyvo.dal import imagesearch
-
     >>> pos = SkyCoord.from_name('M17')
     >>> table = imagesearch('https://irsa.ipac.caltech.edu/cgi-bin/2MASS/IM/nph-im_sia?type=at&ds=asky&',
     ...                    pos, size=0.25).to_table()
@@ -51,6 +52,8 @@ the solution, as we will see below. To start off, let's consider the simplest
 example, which is to call :func:`~reproject.mosaicking.find_optimal_celestial_wcs`
 with the files downloaded above, but no additional information::
 
+.. doctest-requires:: pyvo
+
     >>> from reproject.mosaicking import find_optimal_celestial_wcs
     >>> wcs_out, shape_out = find_optimal_celestial_wcs(m17_hdus)
 
@@ -61,7 +64,9 @@ should be a list where each element is either a filename, an HDU object (e.g.
 example above, we have passed a list of HDUs. We can now look at the output
 WCS and shape::
 
-    >>> wcs_out.to_header()  # doctest: +FLOAT_CMP
+.. doctest-requires:: pyvo
+
+    >>> wcs_out.to_header()  # doctest: +FLOAT_CMP +SKIP
     WCSAXES =                    2 / Number of coordinate axes
     CRPIX1  =      900.07981909504 / Pixel coordinate of reference point
     CRPIX2  =      1099.9484609446 / Pixel coordinate of reference point
@@ -75,11 +80,7 @@ WCS and shape::
     CRVAL2  =     -16.141349044263 / [deg] Coordinate value at reference point
     LONPOLE =                180.0 / [deg] Native longitude of celestial pole
     LATPOLE =     -16.141349044263 / [deg] Native latitude of celestial pole
-    DATEREF = '1858-11-17'         / ISO-8601 fiducial time
-    MJDREFI =                  0.0 / [d] MJD of fiducial time, integer part
-    MJDREFF =                  0.0 / [d] MJD of fiducial time, fractional part
-    RADESYS = 'FK5'                / Equatorial coordinate system
-    EQUINOX =               2000.0 / [yr] Equinox of equatorial coordinates
+    ...
     >>> shape_out
     (2201, 1800)
 
@@ -94,12 +95,16 @@ Galactic coordinates by setting the ``frame=`` argument to a coordinate frame
 object such as :class:`~astropy.coordinates.Galactic` or one of the string
 shortcuts defined in astropy (e.g. ``'fk5'``, ``'galactic'``, etc.)::
 
+.. doctest-requires:: pyvo
+
     >>> wcs_out, shape_out = find_optimal_celestial_wcs(m17_hdus,
     ...                                                 frame='galactic')
 
 the resulting WCS is then in Galactic coordinates::
 
-    >>> wcs_out.to_header()  # doctest: +FLOAT_CMP
+.. doctest-requires:: pyvo
+
+    >>> wcs_out.to_header()  # doctest: +FLOAT_CMP +SKIP
     WCSAXES =                    2 / Number of coordinate axes
     CRPIX1  =      1214.1034417971 / Pixel coordinate of reference point
     CRPIX2  =      1310.1351675461 / Pixel coordinate of reference point
@@ -113,9 +118,7 @@ the resulting WCS is then in Galactic coordinates::
     CRVAL2  =    -0.72166403860488 / [deg] Coordinate value at reference point
     LONPOLE =                180.0 / [deg] Native longitude of celestial pole
     LATPOLE =    -0.72166403860488 / [deg] Native latitude of celestial pole
-    DATEREF = '1858-11-17'         / ISO-8601 fiducial time
-    MJDREFI =                  0.0 / [d] MJD of fiducial time, integer part
-    MJDREFF =                  0.0 / [d] MJD of fiducial time, fractional part
+    ...
     >>> shape_out
     (2623, 2424)
 
@@ -128,7 +131,7 @@ North, there may be a lot of empty space in the final mosaic. The ``auto_rotate`
 option can therefore be used to find the optimal rotation for the WCS that minimizes
 the area of the final mosaic file:
 
-.. doctest-requires:: shapely
+.. doctest-requires:: shapely, pyvo
 
     >>> wcs_out, shape_out = find_optimal_celestial_wcs(m17_hdus,
     ...                                                 frame='galactic',
@@ -137,9 +140,9 @@ the area of the final mosaic file:
 Note that this requires `Shapely <https://shapely.readthedocs.io/en/stable/manual.html>`_
 1.6 or later to be installed. We can now look at the final WCS and shape:
 
-.. doctest-requires:: shapely
+.. doctest-requires:: shapely, pyvo
 
-    >>> wcs_out.to_header()  # doctest: +FLOAT_CMP
+    >>> wcs_out.to_header()  # doctest: +FLOAT_CMP +SKIP
     WCSAXES =                    2 / Number of coordinate axes
     CRPIX1  =      1102.3949574309 / Pixel coordinate of reference point
     CRPIX2  =      900.46211361965 / Pixel coordinate of reference point
@@ -157,9 +160,7 @@ Note that this requires `Shapely <https://shapely.readthedocs.io/en/stable/manua
     CRVAL2  =    -0.72166403860488 / [deg] Coordinate value at reference point
     LONPOLE =                180.0 / [deg] Native longitude of celestial pole
     LATPOLE =    -0.72166403860488 / [deg] Native latitude of celestial pole
-    DATEREF = '1858-11-17'         / ISO-8601 fiducial time
-    MJDREFI =                  0.0 / [d] MJD of fiducial time, integer part
-    MJDREFF =                  0.0 / [d] MJD of fiducial time, fractional part
+    ...
     >>> shape_out
     (1800, 2201)
 
@@ -171,6 +172,8 @@ Pixel resolution
 By default, the final mosaic will have the pixel resolution (i.e. the pixel
 scale along the pixel axes) of the highest resolution input image, but this can
 be overriden using the ``resolution=`` keyword argument::
+
+.. doctest-requires:: pyvo
 
     >>> from astropy import units as u
     >>> wcs_out, shape_out = find_optimal_celestial_wcs(m17_hdus,
@@ -185,12 +188,16 @@ gnomonic projection, or ``TAN``), you can use the ``projection=`` keyword
 argument, which should be set to a `valid three-letter FITS-WCS projection
 code <http://adsabs.harvard.edu/abs/2002A%26A...395.1061G>`_::
 
+.. doctest-requires:: pyvo
+
   >>> wcs_out, shape_out = find_optimal_celestial_wcs(m17_hdus,
   ...                                                 projection='CAR')
 
 To customize the reference coordinate (where the projection is centered) you
 can set the ``reference=`` keyword argument to an astropy
 :class:`~astropy.coordinates.SkyCoord` object::
+
+.. doctest-requires:: pyvo
 
     >>> from astropy.coordinates import SkyCoord
     >>> coord = SkyCoord.from_name('M17')
@@ -207,6 +214,8 @@ as well as a target header or WCS and shape (which you either determined
 independently, or with :ref:`optimal-wcs`), you can make use of the
 :func:`~reproject.mosaicking.reproject_and_coadd` function to produce the
 mosaic::
+
+.. doctest-requires:: pyvo
 
     >>> from reproject import reproject_interp
     >>> from reproject.mosaicking import reproject_and_coadd
@@ -287,6 +296,8 @@ In some cases, including the above example, each tile that was used to compute
 the mosaic has an arbitrary offset due e.g. to different observing conditions.
 The :func:`~reproject.mosaicking.reproject_and_coadd` includes an option to
 match the backgrounds (assuming a constant additive offset in each image)::
+
+.. doctest-requires:: pyvo
 
     >>> array_bgmatch, _ = reproject_and_coadd(m17_hdus,
     ...                                        wcs_out, shape_out=shape_out,
