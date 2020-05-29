@@ -18,10 +18,11 @@ For the examples on this page we will use the `PyVO
 <https://pyvo.readthedocs.io>`_ module to retrieve tiles from the 2MASS survey
 around the M17 region::
 
+.. doctest-requires:: pyvo
+
     >>> from astropy.io import fits
     >>> from astropy.coordinates import SkyCoord
     >>> from pyvo.dal import imagesearch
-
     >>> pos = SkyCoord.from_name('M17')
     >>> table = imagesearch('https://irsa.ipac.caltech.edu/cgi-bin/2MASS/IM/nph-im_sia?type=at&ds=asky&',
     ...                    pos, size=0.25).to_table()
@@ -48,6 +49,8 @@ the solution, as we will see below. To start off, let's consider the simplest
 example, which is to call :func:`~reproject.mosaicking.find_optimal_celestial_wcs`
 with the files downloaded above, but no additional information::
 
+.. doctest-requires:: pyvo
+
     >>> from reproject.mosaicking import find_optimal_celestial_wcs
     >>> wcs_out, shape_out = find_optimal_celestial_wcs(m17_hdus)
 
@@ -57,6 +60,8 @@ should be a list where each element is either a filename, an HDU object (e.g.
 `~astropy.io.fits.HDUList` object, or a tuple of ``(array, wcs)``. In the
 example above, we have passed a list of HDUs. We can now look at the output
 WCS and shape::
+
+.. doctest-requires:: pyvo
 
     >>> wcs_out.to_header()  # doctest: +FLOAT_CMP +SKIP
     WCSAXES =                    2 / Number of coordinate axes
@@ -87,10 +92,14 @@ Galactic coordinates by setting the ``frame=`` argument to a coordinate frame
 object such as :class:`~astropy.coordinates.Galactic` or one of the string
 shortcuts defined in astropy (e.g. ``'fk5'``, ``'galactic'``, etc.)::
 
+.. doctest-requires:: pyvo
+
     >>> wcs_out, shape_out = find_optimal_celestial_wcs(m17_hdus,
     ...                                                 frame='galactic')
 
 the resulting WCS is then in Galactic coordinates::
+
+.. doctest-requires:: pyvo
 
     >>> wcs_out.to_header()  # doctest: +FLOAT_CMP +SKIP
     WCSAXES =                    2 / Number of coordinate axes
@@ -119,7 +128,7 @@ North, there may be a lot of empty space in the final mosaic. The ``auto_rotate`
 option can therefore be used to find the optimal rotation for the WCS that minimizes
 the area of the final mosaic file:
 
-.. doctest-requires:: shapely
+.. doctest-requires:: shapely, pyvo
 
     >>> wcs_out, shape_out = find_optimal_celestial_wcs(m17_hdus,
     ...                                                 frame='galactic',
@@ -128,7 +137,7 @@ the area of the final mosaic file:
 Note that this requires `Shapely <https://shapely.readthedocs.io/en/stable/manual.html>`_
 1.6 or later to be installed. We can now look at the final WCS and shape:
 
-.. doctest-requires:: shapely
+.. doctest-requires:: shapely, pyvo
 
     >>> wcs_out.to_header()  # doctest: +FLOAT_CMP +SKIP
     WCSAXES =                    2 / Number of coordinate axes
@@ -161,6 +170,8 @@ By default, the final mosaic will have the pixel resolution (i.e. the pixel
 scale along the pixel axes) of the highest resolution input image, but this can
 be overriden using the ``resolution=`` keyword argument::
 
+.. doctest-requires:: pyvo
+
     >>> from astropy import units as u
     >>> wcs_out, shape_out = find_optimal_celestial_wcs(m17_hdus,
     ...                                                 resolution=1.5 * u.arcsec)
@@ -174,12 +185,16 @@ gnomonic projection, or ``TAN``), you can use the ``projection=`` keyword
 argument, which should be set to a `valid three-letter FITS-WCS projection
 code <http://adsabs.harvard.edu/abs/2002A%26A...395.1061G>`_::
 
+.. doctest-requires:: pyvo
+
   >>> wcs_out, shape_out = find_optimal_celestial_wcs(m17_hdus,
   ...                                                 projection='CAR')
 
 To customize the reference coordinate (where the projection is centered) you
 can set the ``reference=`` keyword argument to an astropy
 :class:`~astropy.coordinates.SkyCoord` object::
+
+.. doctest-requires:: pyvo
 
     >>> from astropy.coordinates import SkyCoord
     >>> coord = SkyCoord.from_name('M17')
@@ -196,6 +211,8 @@ as well as a target header or WCS and shape (which you either determined
 independently, or with :ref:`optimal-wcs`), you can make use of the
 :func:`~reproject.mosaicking.reproject_and_coadd` function to produce the
 mosaic::
+
+.. doctest-requires:: pyvo
 
     >>> from reproject import reproject_interp
     >>> from reproject.mosaicking import reproject_and_coadd
@@ -276,6 +293,8 @@ In some cases, including the above example, each tile that was used to compute
 the mosaic has an arbitrary offset due e.g. to different observing conditions.
 The :func:`~reproject.mosaicking.reproject_and_coadd` includes an option to
 match the backgrounds (assuming a constant additive offset in each image)::
+
+.. doctest-requires:: pyvo
 
     >>> array_bgmatch, _ = reproject_and_coadd(m17_hdus,
     ...                                        wcs_out, shape_out=shape_out,
