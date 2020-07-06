@@ -60,6 +60,13 @@ def _reproject_adaptive_2d(array, wcs_in, wcs_out, shape_out, order=1,
     .. [1] C. E. DeForest, "On Re-sampling of Solar Images"
        Solar Physics volume 219, pages 3–23 (2004),
        https://doi.org/10.1023/B:SOLA.0000021743.24248.b0
+
+    Warnings
+    --------
+    Coordinates that lie exactly on the edge of an all-sky map may be subject
+    to numerical issues, causing a band of NaN values around the edge of the
+    final image (when reprojecting from helioprojective to heliographic).
+    See https://github.com/astropy/reproject/issues/195 for more information.
     """
 
     # Make sure image is floating point
