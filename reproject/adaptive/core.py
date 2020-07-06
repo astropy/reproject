@@ -28,7 +28,7 @@ def _reproject_adaptive_2d(array, wcs_in, wcs_out, shape_out, order=1,
                            return_footprint=True):
     """
     Reproject celestial slices from an n-d array from one WCS to another
-    using the DeForest (2004) algorithm, and assuming all other dimensions
+    using the DeForest (2004) algorithm [1]_, and assuming all other dimensions
     are independent.
 
     Parameters
@@ -54,6 +54,12 @@ def _reproject_adaptive_2d(array, wcs_in, wcs_out, shape_out, order=1,
         Footprint of the input array in the output array. Values of 0 indicate
         no coverage or valid values in the input image, while values of 1
         indicate valid values.
+
+    References
+    ----------
+    .. [1] C. E. DeForest, "On Re-sampling of Solar Images"
+       Solar Physics volume 219, pages 3–23 (2004),
+       https://doi.org/10.1023/B:SOLA.0000021743.24248.b0
     """
 
     # Make sure image is floating point
