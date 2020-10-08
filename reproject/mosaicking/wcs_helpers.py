@@ -6,12 +6,12 @@ from astropy.coordinates import SkyCoord, frame_transform_graph
 from astropy.wcs.utils import (celestial_frame_to_wcs, pixel_to_skycoord, proj_plane_pixel_scales,
                                skycoord_to_pixel, wcs_to_celestial_frame)
 
-from ..utils import parse_input_data
+from ..utils import parse_input_shape
 
 __all__ = ['find_optimal_celestial_wcs']
 
 
-def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
+def find_optimal_celestial_wcs(input_shapes, frame=None, auto_rotate=False,
                                projection='TAN', resolution=None,
                                reference=None):
     """
@@ -22,16 +22,19 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
 
     Parameters
     ----------
-    input_data : iterable
-        One or more input datasets to include in the calculation of the final
-        WCS. This should be an iterable containing one entry for each dataset,
-        where a single dataset is one of:
+    input_shapes : iterable
+        One or more input data specifications to include in the calculation of
+        the final WCS. This should be an iterable containing one entry for each
+        specification, where a single data specification is one of:
 
             * The name of a FITS file
             * An `~astropy.io.fits.HDUList` object
             * An image HDU object such as a `~astropy.io.fits.PrimaryHDU`,
               `~astropy.io.fits.ImageHDU`, or `~astropy.io.fits.CompImageHDU`
               instance
+            * A tuple where the first element is an Numpy array shape tuple
+              the second element is either a `~astropy.wcs.WCS` or a
+              `~astropy.io.fits.Header` object
             * A tuple where the first element is a `~numpy.ndarray` and the
               second element is either a `~astropy.wcs.WCS` or a
               `~astropy.io.fits.Header` object
@@ -66,7 +69,7 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
     if isinstance(frame, str):
         frame = frame_transform_graph.lookup_name(frame)()
 
-    input_data = [parse_input_data(data) for data in input_data]
+    input_shapes = [parse_input_shape(shape) for shape in input_shapes]
 
     # We start off by looping over images, checking that they are indeed
     # celestial images, and building up a list of all corners and all reference
@@ -76,10 +79,10 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
     references = []
     resolutions = []
 
-    for array, wcs in input_data:
+    for shape, wcs in input_shapes:
 
-        if array.ndim != 2:
-            raise ValueError("Input data is not 2-dimensional")
+        if len(shape) != 2:
+            raise ValueError("Input data is not 2-dimensional (got shape {!r})".format(shape))
 
         if wcs.naxis != 2:
             raise ValueError("Input WCS is not 2-dimensional")
@@ -94,7 +97,7 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
         # Find pixel coordinates of corners. In future if we are worried about
         # significant distortions of the edges in the reprojection process we
         # could simply add arbitrary numbers of midpoints to this list.
-        ny, nx = array.shape
+        ny, nx = shape
         xc = np.array([-0.5, nx - 0.5, nx - 0.5, -0.5])
         yc = np.array([-0.5, -0.5, ny - 0.5, ny - 0.5])
 
