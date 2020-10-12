@@ -6,7 +6,8 @@ from astropy.io.fits import CompImageHDU, HDUList, Header, ImageHDU, PrimaryHDU
 from astropy.wcs import WCS
 from astropy.wcs.wcsapi import BaseHighLevelWCS
 
-__all__ = ['parse_input_data', 'parse_input_shape', 'parse_input_weights', 'parse_output_projection']
+__all__ = ['parse_input_data', 'parse_input_shape', 'parse_input_weights',
+           'parse_output_projection']
 
 
 def parse_input_data(input_data, hdu_in=None):
