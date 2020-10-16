@@ -54,7 +54,7 @@ def test_reproject_adaptive_2d(wcsapi):
     # ASTROPY_LT_40: astropy v4.0 introduced new default header keywords,
     # once we support only astropy 4.0 and later we can update the reference
     # data files and remove this section.
-    for key in ('DATEREF', 'MJDREFF', 'MJDREFI'):
+    for key in ('DATEREF', 'MJDREFF', 'MJDREFI', 'MJDREF', 'MJD-OBS'):
         header_out.pop(key, None)
 
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
@@ -88,7 +88,7 @@ def test_reproject_adaptive_2d_rotated():
     # ASTROPY_LT_40: astropy v4.0 introduced new default header keywords,
     # once we support only astropy 4.0 and later we can update the reference
     # data files and remove this section.
-    for key in ('DATEREF', 'MJDREFF', 'MJDREFI'):
+    for key in ('DATEREF', 'MJDREFF', 'MJDREFI', 'MJDREF', 'MJD-OBS'):
         header_out.pop(key, None)
 
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
@@ -139,7 +139,7 @@ def test_reproject_adaptive_roundtrip(file_format):
     # once we support only astropy 4.0 and later we can update the reference
     # data files and remove this section.
     for key in ('CRLN_OBS', 'CRLT_OBS', 'DSUN_OBS', 'HGLN_OBS', 'HGLT_OBS',
-                'MJDREFF', 'MJDREFI', 'RSUN_REF'):
+                'MJDREFF', 'MJDREFI', 'MJDREF', 'MJD-OBS', 'RSUN_REF'):
         header_out.pop(key, None)
     header_out['DATE-OBS'] = header_out['DATE-OBS'].replace('T', ' ')
 
