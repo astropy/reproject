@@ -486,7 +486,7 @@ def test_reproject_roundtrip(file_format):
     # once we support only astropy 4.0 and later we can update the reference
     # data files and remove this section.
     for key in ('CRLN_OBS', 'CRLT_OBS', 'DSUN_OBS', 'HGLN_OBS', 'HGLT_OBS',
-                'MJDREFF', 'MJDREFI', 'RSUN_REF'):
+                'MJDREFF', 'MJDREFI', 'MJDREF', 'MJD-OBS', 'RSUN_REF'):
         header_out.pop(key, None)
     header_out['DATE-OBS'] = header_out['DATE-OBS'].replace('T', ' ')
 

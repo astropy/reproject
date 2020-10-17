@@ -253,7 +253,7 @@ def test_coadd_solar_map():
     # ASTROPY_LT_40: astropy v4.0 introduced new default header keywords,
     # once we support only astropy 4.0 and later we can update the reference
     # data files and remove this section.
-    for key in ('MJDREFF', 'MJDREFI'):
+    for key in ('MJDREFF', 'MJDREFI', 'MJDREF', 'MJD-OBS'):
         header_out.pop(key, None)
 
     return array_footprint_to_hdulist(array, footprint, header_out)
