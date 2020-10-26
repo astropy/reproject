@@ -46,6 +46,13 @@ class TestOptimalWCS():
         assert_allclose(wcs.wcs.crpix, (10, 15))
         assert shape == (30, 40)
 
+    def test_args_tuple_wcs(self):
+        wcs, shape = find_optimal_celestial_wcs([(self.array.shape, self.wcs)], frame=FK5())
+
+    def test_args_tuple_header(self):
+        wcs, shape = find_optimal_celestial_wcs([(self.array.shape, self.wcs.to_header())],
+                                                frame=FK5())
+
     def test_frame_projection(self):
 
         wcs, shape = find_optimal_celestial_wcs([(self.array, self.wcs)], frame=Galactic(),

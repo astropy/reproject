@@ -5,7 +5,7 @@ from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
 from astropy.nddata import NDData
 
-from ..utils import parse_input_data, parse_output_projection
+from ..utils import parse_input_data, parse_input_shape, parse_output_projection
 
 
 def test_parse_input_data(tmpdir):
@@ -51,6 +51,61 @@ def test_parse_input_data(tmpdir):
         parse_input_data(data)
     assert exc.value.args[0] == ("input_data should either be an HDU object or "
                                  "a tuple of (array, WCS) or (array, Header)")
+
+
+def test_parse_input_shape(tmpdir):
+    """
+    This should support everything that parse_input_data does, *plus* an
+    "array-like" argument that is just a shape rather than a populated array.
+    """
+    header = fits.Header.fromtextfile(get_pkg_data_filename('data/gc_ga.hdr'))
+    in_shape = (10, 20)
+    data = np.arange(200).reshape(in_shape)
+    hdu = fits.ImageHDU(data)
+
+    # As HDU
+    shape, coordinate_system = parse_input_shape(hdu)
+    assert shape == in_shape
+
+    # As filename
+    filename = tmpdir.join('test.fits').strpath
+    hdu.writeto(filename)
+
+    with pytest.raises(ValueError) as exc:
+        shape, coordinate_system = parse_input_shape(filename)
+    assert exc.value.args[0] == ("More than one HDU is present, please specify "
+                                 "HDU to use with ``hdu_in=`` option")
+
+    shape, coordinate_system = parse_input_shape(filename, hdu_in=1)
+    assert shape == in_shape
+
+    # As array, header
+    shape, coordinate_system = parse_input_shape((data, header))
+    assert shape == in_shape
+
+    # As array, WCS
+    wcs = WCS(hdu.header)
+    shape, coordinate_system = parse_input_shape((data, wcs))
+    assert shape == in_shape
+
+    ndd = NDData(data, wcs=wcs)
+    shape, coordinate_system = parse_input_shape(ndd)
+    assert shape == in_shape
+    assert coordinate_system is wcs
+
+    # As shape, header
+    shape, coordinate_system = parse_input_shape((data.shape, header))
+    assert shape == in_shape
+
+    # As shape, WCS
+    shape, coordinate_system = parse_input_shape((data.shape, wcs))
+    assert shape == in_shape
+
+    # Invalid
+    with pytest.raises(TypeError) as exc:
+        parse_input_shape(data)
+    assert exc.value.args[0] == ("input_shape should either be an HDU object or a tuple "
+                                 "of (array-or-shape, WCS) or (array-or-shape, Header)")
 
 
 def test_parse_output_projection(tmpdir):

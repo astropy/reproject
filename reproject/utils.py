@@ -67,7 +67,7 @@ def parse_input_shape(input_shape, hdu_in=None):
         else:
             return input_shape
     elif isinstance(input_shape, astropy.nddata.NDDataBase):
-        return input_shape.shape, input_shape.wcs
+        return input_shape.data.shape, input_shape.wcs
     else:
         raise TypeError("input_shape should either be an HDU object or a tuple "
                         "of (array-or-shape, WCS) or (array-or-shape, Header)")
