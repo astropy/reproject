@@ -6,7 +6,8 @@ from astropy.io.fits import CompImageHDU, HDUList, Header, ImageHDU, PrimaryHDU
 from astropy.wcs import WCS
 from astropy.wcs.wcsapi import BaseHighLevelWCS
 
-__all__ = ['parse_input_data', 'parse_input_weights', 'parse_output_projection']
+__all__ = ['parse_input_data', 'parse_input_shape', 'parse_input_weights',
+           'parse_output_projection']
 
 
 def parse_input_data(input_data, hdu_in=None):
@@ -36,6 +37,40 @@ def parse_input_data(input_data, hdu_in=None):
     else:
         raise TypeError("input_data should either be an HDU object or a tuple "
                         "of (array, WCS) or (array, Header)")
+
+
+def parse_input_shape(input_shape, hdu_in=None):
+    """
+    Parse input shape information to return an array shape tuple and WCS object.
+    """
+
+    if isinstance(input_shape, str):
+        return parse_input_shape(fits.open(input_shape), hdu_in=hdu_in)
+    elif isinstance(input_shape, HDUList):
+        if hdu_in is None:
+            if len(input_shape) > 1:
+                raise ValueError("More than one HDU is present, please specify "
+                                 "HDU to use with ``hdu_in=`` option")
+            else:
+                hdu_in = 0
+        return parse_input_shape(input_shape[hdu_in])
+    elif isinstance(input_shape, (PrimaryHDU, ImageHDU, CompImageHDU)):
+        return input_shape.shape, WCS(input_shape.header)
+    elif isinstance(input_shape, tuple) and isinstance(input_shape[0], np.ndarray):
+        if isinstance(input_shape[1], Header):
+            return input_shape[0].shape, WCS(input_shape[1])
+        else:
+            return input_shape[0].shape, input_shape[1]
+    elif isinstance(input_shape, tuple) and isinstance(input_shape[0], tuple):
+        if isinstance(input_shape[1], Header):
+            return input_shape[0], WCS(input_shape[1])
+        else:
+            return input_shape
+    elif isinstance(input_shape, astropy.nddata.NDDataBase):
+        return input_shape.data.shape, input_shape.wcs
+    else:
+        raise TypeError("input_shape should either be an HDU object or a tuple "
+                        "of (array-or-shape, WCS) or (array-or-shape, Header)")
 
 
 def parse_input_weights(input_weights, hdu_weights=None):

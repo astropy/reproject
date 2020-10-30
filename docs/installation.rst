@@ -34,6 +34,10 @@ and to run the tests, you will also need:
 
 * `pytest-arraydiff <https://github.com/astrofrog/pytest-fits>`__
 
+* `pytest-astropy <https://github.com/astropy/pytest-astropy>`__
+
+* `pytest-doctestplus <https://github.com/astropy/pytest-doctestplus>`__
+
 
 Installation
 ============

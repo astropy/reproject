@@ -1,3 +1,12 @@
+0.8 (unreleased)
+----------------
+
+- Improve ``find_optimal_celestial_wcs`` to accept input data descriptions as
+  just array shapes, not necessarily fully populated arrays. This makes it
+  possible to solve for the optimal WCS for a set of images that couldn't fit
+  into memory all at once, since the actual data aren't needed for optimal WCS
+  determination. [#242]
+
 0.7.1 (2020-05-29)
 ------------------
 

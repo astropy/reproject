@@ -46,6 +46,13 @@ class TestOptimalWCS():
         assert_allclose(wcs.wcs.crpix, (10, 15))
         assert shape == (30, 40)
 
+    def test_args_tuple_wcs(self):
+        wcs, shape = find_optimal_celestial_wcs([(self.array.shape, self.wcs)], frame=FK5())
+
+    def test_args_tuple_header(self):
+        wcs, shape = find_optimal_celestial_wcs([(self.array.shape, self.wcs.to_header())],
+                                                frame=FK5())
+
     def test_frame_projection(self):
 
         wcs, shape = find_optimal_celestial_wcs([(self.array, self.wcs)], frame=Galactic(),
@@ -165,7 +172,7 @@ class TestOptimalWCS():
 
         with pytest.raises(ValueError) as exc:
             wcs, shape = find_optimal_celestial_wcs([(array, self.wcs)])
-        assert exc.value.args[0] == 'Input data is not 2-dimensional'
+        assert exc.value.args[0] == 'Input data is not 2-dimensional (got shape (30, 20, 10))'
 
     def test_invalid_wcs_shape(self):
 

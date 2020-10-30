@@ -261,8 +261,8 @@ We can take a look at the output:
     pos = SkyCoord.from_name('M17')
     table = imagesearch('https://irsa.ipac.caltech.edu/cgi-bin/2MASS/IM/nph-im_sia?type=at&ds=asky&',
                        pos, size=0.25).to_table()
-    table = table[(table['band'] == b'K') & (table['format'] == b'image/fits')]
-    m17_hdus = [fits.open(row['download'].decode('ascii'))[0] for row in table]
+    table = table[(table['band'] == 'K') & (table['format'] == 'image/fits')]
+    m17_hdus = [fits.open(row['download'])[0] for row in table]
 
     from astropy.coordinates import SkyCoord
     from reproject.mosaicking import find_optimal_celestial_wcs
