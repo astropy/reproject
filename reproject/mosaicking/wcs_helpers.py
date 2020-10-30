@@ -11,7 +11,7 @@ from ..utils import parse_input_shape
 __all__ = ['find_optimal_celestial_wcs']
 
 
-def find_optimal_celestial_wcs(input_shapes, frame=None, auto_rotate=False,
+def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
                                projection='TAN', resolution=None,
                                reference=None):
     """
@@ -22,7 +22,7 @@ def find_optimal_celestial_wcs(input_shapes, frame=None, auto_rotate=False,
 
     Parameters
     ----------
-    input_shapes : iterable
+    input_data : iterable
         One or more input data specifications to include in the calculation of
         the final WCS. This should be an iterable containing one entry for each
         specification, where a single data specification is one of:
@@ -69,7 +69,7 @@ def find_optimal_celestial_wcs(input_shapes, frame=None, auto_rotate=False,
     if isinstance(frame, str):
         frame = frame_transform_graph.lookup_name(frame)()
 
-    input_shapes = [parse_input_shape(shape) for shape in input_shapes]
+    input_shapes = [parse_input_shape(shape) for shape in input_data]
 
     # We start off by looping over images, checking that they are indeed
     # celestial images, and building up a list of all corners and all reference
