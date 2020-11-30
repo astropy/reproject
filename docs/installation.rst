@@ -55,4 +55,4 @@ Using conda
 
 To install *reproject* with `anaconda <https://continuum.io/>`_, simply run::
 
-    conda install -c astropy reproject
+    conda install -c conda-forge reproject
