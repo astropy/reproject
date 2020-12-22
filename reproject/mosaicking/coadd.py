@@ -85,7 +85,7 @@ def reproject_and_coadd(input_data, output_projection, shape_out=None,
 
     if reproject_function is None:
         raise ValueError("reprojection function should be specified with "
-                         "the reprojection_function argument")
+                         "the reproject_function argument")
 
     # Parse the output projection to avoid having to do it for each
 
