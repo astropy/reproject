@@ -165,7 +165,7 @@ meta:
   keywddoc: http://www.lmsal.com/sdodocs/aiafitskeywords.pdf
   lvl_num: 1.0
   missvals: 0
-  mpo_rec: sdo.main_pointing[:#377]
+  mpo_rec: sdo.master_pointing[:#377]
   naxis: 2
   naxis1: 128
   naxis2: 128

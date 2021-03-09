@@ -19,7 +19,7 @@ package.
 For more information, including on how to install the package, see
 https://reproject.readthedocs.io
 
-.. figure:: https://github.com/astrofrog/reproject/raw/main/docs/images/index-4.png
+.. figure:: https://github.com/astrofrog/reproject/raw/master/docs/images/index-4.png
    :alt: screenshot
 
 .. |Build Status| image:: https://dev.azure.com/astropy-project/reproject/_apis/build/status/astropy.reproject?branchName=main
@@ -29,4 +29,3 @@ https://reproject.readthedocs.io
 .. |Coverage Status| image:: https://codecov.io/gh/astropy/reproject/branch/main/graph/badge.svg
    :target: https://codecov.io/gh/astropy/reproject
 .. |Powered by Astropy Badge| image:: http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat
-
