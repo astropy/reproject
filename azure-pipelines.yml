@@ -8,7 +8,7 @@ resources:
     type: github
     endpoint: astropy
     name: OpenAstronomy/azure-pipelines-templates
-    ref: master
+    ref: main
 
 trigger:
   branches:
