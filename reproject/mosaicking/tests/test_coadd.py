@@ -6,6 +6,7 @@ import random
 import numpy as np
 import pytest
 from astropy.wcs import WCS
+from astropy.io import fits
 from astropy.io.fits import Header
 
 from numpy.testing import assert_allclose
@@ -172,7 +173,8 @@ class TestReprojectAndCoAdd():
         assert_allclose(array - np.mean(array),
                         self.array - np.mean(self.array), atol=ATOL)
 
-    def test_coadd_with_weights(self, reproject_function):
+    @pytest.mark.parametrize('mode', ['arrays', 'filenames', 'hdus'])
+    def test_coadd_with_weights(self, tmpdir, reproject_function, mode):
 
         # Make sure that things work properly when specifying weights
 
@@ -183,12 +185,25 @@ class TestReprojectAndCoAdd():
         weight2 = weight1[:, ::-1]
 
         input_data = [(array1, self.wcs), (array2, self.wcs)]
-        input_weights = [weight1, weight2]
+
+        if mode == 'arrays':
+            input_weights = [weight1, weight2]
+        elif mode == 'filenames':
+            filename1 = tmpdir.join('weight1.fits').strpath
+            filename2 = tmpdir.join('weight2.fits').strpath
+            fits.writeto(filename1, weight1)
+            fits.writeto(filename2, weight2)
+            input_weights = [filename1, filename2]
+        elif mode == 'hdus':
+            hdu1 = fits.ImageHDU(weight1)
+            hdu2 = fits.ImageHDU(weight2)
+            input_weights = [hdu1, hdu2]
 
         array, footprint = reproject_and_coadd(input_data, self.wcs,
                                                shape_out=self.array.shape,
                                                combine_function='mean',
                                                input_weights=input_weights,
+                                               hdu_weights=hdu_weights,
                                                reproject_function=reproject_function,
                                                match_background=False)
 

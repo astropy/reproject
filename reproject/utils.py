@@ -79,7 +79,7 @@ def parse_input_weights(input_weights, hdu_weights=None):
     """
 
     if isinstance(input_weights, str):
-        return parse_input_data(fits.open(input_weights), hdu_weights=hdu_weights)
+        return parse_input_data(fits.open(input_weights), hdu_in=hdu_weights)[0]
     elif isinstance(input_weights, HDUList):
         if hdu_weights is None:
             if len(input_weights) > 1:
@@ -87,7 +87,7 @@ def parse_input_weights(input_weights, hdu_weights=None):
                                  "HDU to use with ``hdu_weights=`` option")
             else:
                 hdu_weights = 0
-        return parse_input_data(input_weights[hdu_weights])
+        return parse_input_data(input_weights[hdu_weights])[0]
     elif isinstance(input_weights, (PrimaryHDU, ImageHDU, CompImageHDU)):
         return input_weights.data
     elif isinstance(input_weights, np.ndarray):
