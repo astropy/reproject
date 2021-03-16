@@ -203,7 +203,6 @@ class TestReprojectAndCoAdd():
                                                shape_out=self.array.shape,
                                                combine_function='mean',
                                                input_weights=input_weights,
-                                               hdu_weights=hdu_weights,
                                                reproject_function=reproject_function,
                                                match_background=False)
 
