@@ -102,7 +102,7 @@ def test_reproject_adaptive_roundtrip(file_format):
     # pixels based on round-tripping works correctly. Using asdf is not just
     # about testing a different format but making sure that GWCS works.
 
-    pytest.importorskip('sunpy', minversion='1.0.4')
+    pytest.importorskip('sunpy', minversion='2.1.0')
     from sunpy.map import Map
     from sunpy.coordinates.ephemeris import get_body_heliographic_stonyhurst
 
@@ -129,7 +129,9 @@ def test_reproject_adaptive_roundtrip(file_format):
     target_wcs.wcs.cdelt = ([24, 24]*u.arcsec).to(u.deg)
     target_wcs.wcs.crpix = [64, 64]
     venus = get_body_heliographic_stonyhurst('venus', date)
-    target_wcs.heliographic_observer = venus
+    target_wcs.wcs.aux.hgln_obs = venus.lon.to_value(u.deg)
+    target_wcs.wcs.aux.hglt_obs = venus.lat.to_value(u.deg)
+    target_wcs.wcs.aux.dsun_obs = venus.radius.to_value(u.m)
 
     output, footprint = reproject_adaptive((data, wcs), target_wcs, (128, 128))
 
