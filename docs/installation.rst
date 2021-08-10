@@ -17,7 +17,7 @@ This package has the following hard run time dependencies:
 
 * `Scipy <http://www.scipy.org/>`__ 1.1 or later
 
-* `astropy-healpix <https://astropy-healpix.readthedocs.io>`_ 0.2 or later for HEALPIX image reprojection
+* `astropy-healpix <https://astropy-healpix.readthedocs.io>`_ 0.6 or later for HEALPIX image reprojection
 
 and the following optional dependencies:
 
