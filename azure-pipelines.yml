@@ -1,5 +1,5 @@
 variables:
-  CIBW_BUILD: cp36-* cp37-* cp38-*
+  CIBW_BUILD: cp37-* cp38-* cp39-*
   CIBW_BEFORE_BUILD_LINUX: yum install -y geos-devel freetype-devel libpng-devel
 
 resources:
@@ -35,17 +35,20 @@ jobs:
 
     - linux: codestyle
 
-    - macos: py36-test-oldestdeps-cov
-    - macos: py37-test-cov
+    - macos: py37-test-oldestdeps-cov
+    - macos: py38-test-cov
+    - macos: py39-test-cov
 
-    - linux: py36-test-oldestdeps-cov
-    - linux: py37-test-cov
+    - linux: py37-test-oldestdeps-cov
+    - linux: py38-test-cov
+    - linux: py39-test-cov
 
-    - linux32: py36-test-oldestdeps-cov
-    - linux32: py37-test-cov
+    - linux32: py37-test-oldestdeps-cov
+    - linux32: py38-test-cov
 
-    - windows: py36-test-oldestdeps-cov
-    - windows: py37-test-cov
+    - windows: py37-test-oldestdeps-cov
+    - windows: py38-test-cov
+    - windows: py39-test-cov
 
     - macos: build_docs
     - linux: build_docs
