@@ -1,4 +1,4 @@
-0.8 (unreleased)
+0.8 (2021-08-11)
 ----------------
 
 - Improve ``find_optimal_celestial_wcs`` to accept input data descriptions as
@@ -6,9 +6,6 @@
   possible to solve for the optimal WCS for a set of images that couldn't fit
   into memory all at once, since the actual data aren't needed for optimal WCS
   determination. [#242]
-
-0.7.2 (unreleased)
-------------------
 
 - Fix implementation of ``hdu_weights`` in ``reproject_and_coadd``. [#249]
 
