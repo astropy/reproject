@@ -7,6 +7,11 @@
   into memory all at once, since the actual data aren't needed for optimal WCS
   determination. [#242]
 
+0.7.2 (unreleased)
+------------------
+
+- Fix implementation of ``hdu_weights`` in ``reproject_and_coadd``. [#249]
+
 0.7.1 (2020-05-29)
 ------------------
 
