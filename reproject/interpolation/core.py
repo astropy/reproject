@@ -79,6 +79,7 @@ def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
     pixel_out = np.meshgrid(*[np.arange(size, dtype=float) for size in shape_out],
                             indexing='ij', sparse=False, copy=False)
     pixel_out = [p.ravel() for p in pixel_out]
+    # For each pixel in the ouput array, get the pixel value in the input WCS
     pixel_in = efficient_pixel_to_pixel_with_roundtrip(wcs_out, wcs_in, *pixel_out[::-1])[::-1]
     pixel_in = np.array(pixel_in)
 
@@ -87,6 +88,7 @@ def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
     else:
         array_out = np.empty(shape_out).ravel()
 
+    # Interpolate array on to the pixels coordinates in pixel_in
     map_coordinates(array, pixel_in, order=order, cval=np.nan,
                     mode='constant', output=array_out,).reshape(shape_out)
 

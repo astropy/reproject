@@ -22,6 +22,10 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
     Reproject data to a new projection using interpolation (this is typically
     the fastest way to reproject an image).
 
+    The output pixel grid is transformed to the input pixel grid, and the
+    data values in ``input_data`` interpolated on to these coordinates to get
+    the reprojected data on the output grid.
+
     Parameters
     ----------
     input_data

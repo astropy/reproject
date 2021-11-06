@@ -158,8 +158,22 @@ def split_matrix(matrix):
 
 def efficient_pixel_to_pixel(wcs1, wcs2, *inputs):
     """
-    Wrapper that performs a pixel -> world -> pixel transformation with two
-    WCS instances, and un-broadcasting arrays whenever possible for efficiency.
+    Wrapper that performs a pixel -> world -> pixel transformation and
+    un-broadcasting arrays whenever possible for efficiency.
+
+    Parameters
+    ----------
+    wcs1 : `~astropy.wcs.WCS`
+        First WCS instance.
+    wcs2 : `~astropy.wcs.WCS`
+        Second WCS instance.
+    inputs : list[numpy.ndarray]
+        Pixels in the frame of ``wcs1``.
+
+    Returns
+    -------
+    outputs : list[numpy.ndarray]
+        Transformed pixels in the frame of ``wcs2``.
     """
 
     # Shortcut for scalars
