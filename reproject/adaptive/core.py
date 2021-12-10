@@ -25,7 +25,7 @@ class CoordinateTransformer:
 
 
 def _reproject_adaptive_2d(array, wcs_in, wcs_out, shape_out, order=1,
-                           return_footprint=True):
+                           return_footprint=True, center_jacobian=False):
     """
     Reproject celestial slices from an n-d array from one WCS to another
     using the DeForest (2004) algorithm [1]_, and assuming all other dimensions
@@ -45,6 +45,8 @@ def _reproject_adaptive_2d(array, wcs_in, wcs_out, shape_out, order=1,
         The order of the interpolation.
     return_footprint : bool
         Whether to return the footprint in addition to the output array.
+    center_jacobian : bool
+        Whether to compute centered Jacobians
 
     Returns
     -------
@@ -83,7 +85,7 @@ def _reproject_adaptive_2d(array, wcs_in, wcs_out, shape_out, order=1,
 
     transformer = CoordinateTransformer(wcs_in, wcs_out)
     map_coordinates(array_in, array_out, transformer, out_of_range_nan=True,
-                    order=order)
+                    order=order, center_jacobian=center_jacobian)
 
     if return_footprint:
         return array_out, (~np.isnan(array_out)).astype(float)

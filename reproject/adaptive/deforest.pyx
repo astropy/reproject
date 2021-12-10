@@ -196,30 +196,85 @@ cdef double nearest_neighbour_interpolation(double[:,:] source, double x, double
 def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_width=-1,
                     int conserve_flux=False, int progress=False, int singularities_nan=False,
                     int x_cyclic=False, int y_cyclic=False, int out_of_range_nan=False,
-                    int order=0):
-    cdef np.ndarray[np.float64_t, ndim=3] pixel_target = np.zeros((target.shape[0], target.shape[1], 2))
-    # Offset in x direction
-    cdef np.ndarray[np.float64_t, ndim=3] offset_target_x = np.zeros((target.shape[0], target.shape[1]+1, 2))
-    # Offset in y direction
-    cdef np.ndarray[np.float64_t, ndim=3] offset_target_y = np.zeros((target.shape[0]+1, target.shape[1], 2))
-    cdef int yi, xi, yoff, xoff
-    for yi in range(target.shape[0]):
-        for xi in range(target.shape[1]):
-            pixel_target[yi,xi,0] = xi
-            pixel_target[yi,xi,1] = yi
-            offset_target_x[yi,xi,0] = xi - 0.5
-            offset_target_x[yi,xi,1] = yi
-            offset_target_y[yi,xi,0] = xi
-            offset_target_y[yi,xi,1] = yi - 0.5
-        offset_target_x[yi,target.shape[1],0] = target.shape[1]-1 + 0.5
-        offset_target_x[yi,target.shape[1],1] = yi
-    for xi in range(target.shape[1]):
-        offset_target_y[target.shape[0],xi,0] = xi
-        offset_target_y[target.shape[0],xi,1] = target.shape[0]-1 + 0.5
+                    int order=0, bint center_jacobian=False):
+    cdef np.ndarray[np.float64_t, ndim=3] pixel_target
+    cdef int delta
+    if center_jacobian:
+        pixel_target = np.zeros((target.shape[0], target.shape[1], 2))
+        delta = 0
+    else:
+        # Pad by one on all four sides of the array, so we can interpolate
+        # Jacobian values from both directions at all points.
+        pixel_target = np.zeros((target.shape[0]+2, target.shape[1]+2, 2))
+        # With this delta set, the value of pixel_target at (0,0) will really
+        # be representing (-1,-1) in the output image.
+        delta = -1
 
-    cdef np.ndarray[np.float64_t, ndim=3] offset_source_x = Ci(offset_target_x)
-    cdef np.ndarray[np.float64_t, ndim=3] offset_source_y = Ci(offset_target_y)
+    cdef int yi, xi, yoff, xoff
+    for yi in range(pixel_target.shape[0]):
+        for xi in range(pixel_target.shape[1]):
+            pixel_target[yi,xi,0] = xi + delta
+            pixel_target[yi,xi,1] = yi + delta
+
+    cdef np.ndarray[np.float64_t, ndim=3] offset_target_x
+    cdef np.ndarray[np.float64_t, ndim=3] offset_target_y
+    if center_jacobian:
+        # Prepare arrays marking coordinates offset by a half pixel, to allow
+        # for calculating centered Jacobians for each output pixel by using the
+        # corresponding input coordinate at locations offset by +/- 0.5 pixels.
+        offset_target_x = np.zeros((target.shape[0], target.shape[1]+1, 2))
+        offset_target_y = np.zeros((target.shape[0]+1, target.shape[1], 2))
+        for yi in range(target.shape[0]):
+            for xi in range(target.shape[1]):
+                offset_target_x[yi,xi,0] = xi - 0.5
+                offset_target_x[yi,xi,1] = yi
+                offset_target_y[yi,xi,0] = xi
+                offset_target_y[yi,xi,1] = yi - 0.5
+            offset_target_x[yi,target.shape[1],0] = target.shape[1]-1 + 0.5
+            offset_target_x[yi,target.shape[1],1] = yi
+        for xi in range(target.shape[1]):
+            offset_target_y[target.shape[0],xi,0] = xi
+            offset_target_y[target.shape[0],xi,1] = target.shape[0]-1 + 0.5
+
+    # These source arrays store a corresponding input-image coordinate for each
+    # pixel in the output image.
     cdef np.ndarray[np.float64_t, ndim=3] pixel_source = Ci(pixel_target)
+    cdef np.ndarray[np.float64_t, ndim=3] offset_source_x = None
+    cdef np.ndarray[np.float64_t, ndim=3] offset_source_y = None
+    cdef np.ndarray[np.float64_t, ndim=3] Jx = None
+    cdef np.ndarray[np.float64_t, ndim=3] Jy = None
+
+    if center_jacobian:
+        offset_source_x = Ci(offset_target_x)
+        offset_source_y = Ci(offset_target_y)
+    else:
+        # Pre-calculate the Jacobian at each pixel location, with values
+        # representing the Jacobian halfway between two grid points, and thus
+        # the values of Jx at [0, 0, :] representing
+        # d(input coordinate)/d(output x) at (x=-.5, y=0) in the output image,
+        # and Jy at [0, 0, :] representing d(input coordinate)/d(output y) at
+        # (x=0,y=-.5).
+        Jx = np.empty((target.shape[0], target.shape[1] + 1, 2))
+        Jy = np.empty((target.shape[0] + 1, target.shape[1], 2))
+        for yi in range(target.shape[0]):
+            for xi in range(target.shape[1]):
+                Jx[yi, xi, 0] = pixel_source[yi+1, xi, 0] - pixel_source[yi+1, xi+1, 0]
+                Jx[yi, xi, 1] = pixel_source[yi+1, xi, 1] - pixel_source[yi+1, xi+1, 1]
+                Jy[yi, xi, 0] = pixel_source[yi, xi+1, 0] - pixel_source[yi+1, xi+1, 0]
+                Jy[yi, xi, 1] = pixel_source[yi, xi+1, 1] - pixel_source[yi+1, xi+1, 1]
+            xi = target.shape[1]
+            Jx[yi, xi, 0] = pixel_source[yi+1, xi, 0] - pixel_source[yi+1, xi+1, 0]
+            Jx[yi, xi, 1] = pixel_source[yi+1, xi, 1] - pixel_source[yi+1, xi+1, 1]
+        yi = target.shape[0]
+        for xi in range(target.shape[1]):
+            Jy[yi, xi, 0] = pixel_source[yi, xi+1, 0] - pixel_source[yi+1, xi+1, 0]
+            Jy[yi, xi, 1] = pixel_source[yi, xi+1, 1] - pixel_source[yi+1, xi+1, 1]
+
+        # Now trim the padding we added earlier. Since `delta` was used above,
+        # the value at (0,0) will now truly represent (0,0) and so on. After
+        # this point, pixel_source is the same for both the centered and
+        # uncentered Jacobian paths.
+        pixel_source = pixel_source[1:-1, 1:-1]
 
     cdef double[:,:] Ji = np.zeros((2, 2))
     cdef double[:,:] J = np.zeros((2, 2))
@@ -236,16 +291,29 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
     cdef double weight
     cdef double interpolated
     with nogil:
-        for yi in range(pixel_target.shape[0]):
-            for xi in range(pixel_target.shape[1]):
-                Ji[0,0] = offset_source_x[yi,xi,0] - offset_source_x[yi,xi+1,0]
-                Ji[1,0] = offset_source_x[yi,xi,1] - offset_source_x[yi,xi+1,1]
-                Ji[0,1] = offset_source_y[yi,xi,0] - offset_source_y[yi+1,xi,0]
-                Ji[1,1] = offset_source_y[yi,xi,1] - offset_source_y[yi+1,xi,1]
+        # Iterate through each pixel in the output image.
+        for yi in range(target.shape[0]):
+            for xi in range(target.shape[1]):
+                if center_jacobian:
+                    # Compute the Jacobian for the transformation applied to
+                    # this pixel, as finite differences.
+                    Ji[0,0] = offset_source_x[yi, xi, 0] - offset_source_x[yi, xi+1, 0]
+                    Ji[1,0] = offset_source_x[yi, xi, 1] - offset_source_x[yi, xi+1, 1]
+                    Ji[0,1] = offset_source_y[yi, xi, 0] - offset_source_y[yi+1, xi, 0]
+                    Ji[1,1] = offset_source_y[yi, xi, 1] - offset_source_y[yi+1, xi, 1]
+                else:
+                    # Compute the Jacobian for the transformation applied to
+                    # this pixel, as a mean of the Jacobian a half-pixel
+                    # forwards and backwards.
+                    Ji[0,0] = (Jx[yi, xi, 0] + Jx[yi, xi+1, 0]) / 2
+                    Ji[1,0] = (Jx[yi, xi, 1] + Jx[yi, xi+1, 1]) / 2
+                    Ji[0,1] = (Jy[yi, xi, 0] + Jy[yi+1, xi, 0]) / 2
+                    Ji[1,1] = (Jy[yi, xi, 1] + Jy[yi+1, xi, 1]) / 2
                 if isnan(Ji[0,0]) or isnan(Ji[0,1]) or isnan(Ji[1,0]) or isnan(Ji[1,1]) or isnan(pixel_source[yi,xi,0]) or isnan(pixel_source[yi,xi,1]):
                     target[yi,xi] = nan
                     continue
 
+                # Find and pad the singular values of the Jacobian.
                 svd2x2_decompose(Ji, U, s, V)
                 s_padded[0] = max(1.0, s[0])
                 s_padded[1] = max(1.0, s[1])
@@ -266,19 +334,31 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
                         else:
                             target[yi,xi] = bilinear_interpolation(source, pixel_source[yi,xi,0], pixel_source[yi,xi,1], x_cyclic, y_cyclic, out_of_range_nan)
                     continue
+
+                # Iterate through a region in the input image, centered around
+                # the input location that maps to our output pixel, and sized
+                # to include the entirety of the tranformed ellipse.
                 for yoff in range(-samples_width/2, samples_width/2 + 1):
                     current_offset[1] = yoff
                     current_pixel_source[1] = pixel_source[yi,xi,1] + yoff
                     for xoff in range(-samples_width/2, samples_width/2 + 1):
                         current_offset[0] = xoff
                         current_pixel_source[0] = pixel_source[yi,xi,0] + xoff
+                        # Find the fractional position of the input location
+                        # within the transformed ellipse.
                         transformed[0] = J[0,0] * current_offset[0] + J[0,1] * current_offset[1]
                         transformed[1] = J[1,0] * current_offset[0] + J[1,1] * current_offset[1]
 
+                        # Compute an averaging weight to be assigned to this
+                        # input location.
                         weight = hanning_filter(transformed[0], transformed[1])
                         if weight == 0:
                             continue
 
+                        # Produce an input-image value to sample. Our output
+                        # pixel doesn't necessarily map to an integer
+                        # coordinate in the input image, and so our input
+                        # samples must be interpolated.
                         if order == 0:
                             interpolated = nearest_neighbour_interpolation(source, current_pixel_source[0], current_pixel_source[1], x_cyclic, y_cyclic, out_of_range_nan)
                         else:
@@ -291,7 +371,7 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
                     target[yi,xi] *= fabs(det2x2(Ji))
             if progress:
                 with gil:
-                    sys.stdout.write("\r%d/%d done" % (yi+1, pixel_target.shape[0]))
+                    sys.stdout.write("\r%d/%d done" % (yi+1, target.shape[0]))
                     sys.stdout.flush()
     if progress:
         sys.stdout.write("\n")

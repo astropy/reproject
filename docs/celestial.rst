@@ -174,13 +174,31 @@ order of the interpolation. Supported strings include:
 * ``'nearest-neighbor'``: zeroth order interpolation
 * ``'bilinear'``: first order interpolation
 
+Additionally, one can control the calculation of the Jacobian used in this
+algorithm with the ``center_jacobian`` flag. The Jacobian matrix represents how
+the corresponding input-image coordinate varies as you move between output
+pixels (or d(input image coordinate) / d(output image coordinate)), and serves
+as a local linearization of the coordinate transformation. When this flag is
+``True``, the Jacobian is calculated at pixel grid points by calculating the
+transformation at locations offset by half a pixel, and then doing finite
+differences on the resulting input-image coordinates. This is more accurate but
+carries the cost of tripling the number of coordinate transformed done by this
+routine. This is recommended if your coordinate transform varies significantly
+and non-smoothly between output pixels. When ``False``, the Jacobian is
+calculated using the pixel-grid-point transforms that need to be computed
+anyway, which produces Jacobian values at locations between pixel grid points,
+and nearby Jacobian values are averaged to produce values at the pixel grid
+points. This is more efficient, and the loss of accuracy is extremely small for
+transformations that vary smoothly between pixels. The default (``False``) is
+to use the faster option.
+
 Broadly speaking, the algorithm works by approximating the
 footprint of each output pixel by an elliptical shape in the input image
-which is stretched and rotated by the transformation, then finding the
-weighted average of samples inside that ellipse, where the weight is 1
-at the center of the ellipse, and 0 at the side, and the shape of the
-weight function is given by an analytical distribution (currently we use
-a Hann function).
+which is stretched and rotated by the transformation (as described by the
+Jacobian mentioned above), then finding the weighted average of samples inside
+that ellipse, where the weight is 1 at the center of the ellipse, and 0 at the
+side, and the shape of the weight function is given by an analytical
+distribution (currently we use a Hann function).
 
 To illustrate the benefits of this method, we consider a simple case
 where the reprojection includes a large change in resoluton. We choose
