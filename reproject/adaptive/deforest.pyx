@@ -277,6 +277,7 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
         pixel_source = pixel_source[1:-1, 1:-1]
 
     cdef double[:,:] Ji = np.zeros((2, 2))
+    cdef double[:,:] Ji_padded = np.zeros((2, 2))
     cdef double[:,:] J = np.zeros((2, 2))
     cdef double[:,:] U = np.zeros((2, 2))
     cdef double[:] s = np.zeros((2,))
@@ -290,6 +291,12 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
     cdef double weight_sum = 0.0
     cdef double weight
     cdef double interpolated
+    cdef double[:] P1 = np.empty((2,))
+    cdef double[:] P2 = np.empty((2,))
+    cdef double[:] P3 = np.empty((2,))
+    cdef double[:] P4 = np.empty((2,))
+    cdef int top, bottom, left, right
+    cdef bint has_sampled_this_row
     with nogil:
         # Iterate through each pixel in the output image.
         for yi in range(target.shape[0]):
@@ -320,12 +327,52 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
                 si[0] = 1.0/s[0]
                 si[1] = 1.0/s[1]
                 svd2x2_compose(V, si, U, J)
+                svd2x2_compose(U, s_padded, V, Ji_padded)
 
-                target[yi,xi] = 0.0
-                weight_sum = 0.0
+                # We'll need to sample some number of input images to set this
+                # output pixel. Later on, we'll compute weights to assign to
+                # each input pixel with a Hanning window, and that window will
+                # assign weights of zero outside some range. Right now, we'll
+                # determine a search region within the input image---a bounding
+                # box around those pixels that will be assigned non-zero
+                # weights.
+                #
+                # We do that by identifying the locations in the input image of
+                # the corners of a square region centered around the output
+                # pixel (using the local linearization of the transformation).
+                # Those transformed coordinates will set our bounding box.
+                #
+                # The output-plane region we're transforming is twice the width
+                # of a pixel---it runs to the centers of the neighboring
+                # pixels, rather than the edges of those pixels. When we use
+                # the Hann window as our filter function, having that window
+                # stretch to the neighboring pixel centers ensures that, at
+                # every point, the sum of the overlapping Hann windows is 1,
+                # and therefore that every input-image pixel is fully
+                # distributed into some combination of output pixels (in the
+                # limit of a Jacobian that is constant across all output
+                # pixels).
 
-                samples_width = <int>(4*ceil(max(s_padded[0], s_padded[1])))
-                if max_samples_width > 0 and samples_width > max_samples_width:
+                # Transform the corners of the output-plane region to the input
+                # plane.
+                P1[0] = - 1 * Ji_padded[0, 0] + 1 * Ji_padded[0, 1]
+                P1[1] = - 1 * Ji_padded[1, 0] + 1 * Ji_padded[1, 1]
+                P2[0] = + 1 * Ji_padded[0, 0] + 1 * Ji_padded[0, 1]
+                P2[1] = + 1 * Ji_padded[1, 0] + 1 * Ji_padded[1, 1]
+                P3[0] = - 1 * Ji_padded[0, 0] - 1 * Ji_padded[0, 1]
+                P3[1] = - 1 * Ji_padded[1, 0] - 1 * Ji_padded[1, 1]
+                P4[0] = + 1 * Ji_padded[0, 0] - 1 * Ji_padded[0, 1]
+                P4[1] = + 1 * Ji_padded[1, 0] - 1 * Ji_padded[1, 1]
+
+                # Find a bounding box around the transformed coordinates.
+                # (Check all four points at each step, since sometimes negative
+                # Jacobian values will mirror the transformed pixel.)
+                top = <int>ceil(max(P1[1], P2[1], P3[1], P4[1]))
+                bottom = <int>floor(min(P1[1], P2[1], P3[1], P4[1]))
+                left = <int>floor(min(P1[0], P2[0], P3[0], P4[0]))
+                right = <int>ceil(max(P1[0], P2[0], P3[0], P4[0]))
+
+                if max_samples_width > 0 and max(right-left, top-bottom) > max_samples_width:
                     if singularities_nan:
                         target[yi,xi] = nan
                     else:
@@ -335,13 +382,15 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
                             target[yi,xi] = bilinear_interpolation(source, pixel_source[yi,xi,0], pixel_source[yi,xi,1], x_cyclic, y_cyclic, out_of_range_nan)
                     continue
 
-                # Iterate through a region in the input image, centered around
-                # the input location that maps to our output pixel, and sized
-                # to include the entirety of the tranformed ellipse.
-                for yoff in range(-samples_width/2, samples_width/2 + 1):
+                target[yi,xi] = 0.0
+                weight_sum = 0.0
+
+                # Iterate through that bounding box in the input image.
+                for yoff in range(bottom, top+1):
                     current_offset[1] = yoff
                     current_pixel_source[1] = pixel_source[yi,xi,1] + yoff
-                    for xoff in range(-samples_width/2, samples_width/2 + 1):
+                    has_sampled_this_row = False
+                    for xoff in range(left, right+1):
                         current_offset[0] = xoff
                         current_pixel_source[0] = pixel_source[yi,xi,0] + xoff
                         # Find the fractional position of the input location
@@ -353,6 +402,20 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
                         # input location.
                         weight = hanning_filter(transformed[0], transformed[1])
                         if weight == 0:
+                            # As we move along each row in the image, we'll
+                            # first be seeing input-plane pixels that don't map
+                            # back into the desired output region (i.e. they
+                            # fall outside the Hanning window), then we'll see
+                            # pixels that do get sampled for our output-plane
+                            # pixel, and then we'll see more that don't. Once
+                            # we're seeing that second group, we know we've
+                            # found everything of interest in the row and can
+                            # end this inner loop early. (One could be smart
+                            # about skipping that first group of unused pixels,
+                            # but doing so is less trivial, and skipping the
+                            # second group is already only a small gain.)
+                            if has_sampled_this_row:
+                                break
                             continue
 
                         # Produce an input-image value to sample. Our output
