@@ -295,7 +295,7 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
     cdef double[:] P2 = np.empty((2,))
     cdef double[:] P3 = np.empty((2,))
     cdef double[:] P4 = np.empty((2,))
-    cdef int top, bottom, left, right
+    cdef double top, bottom, left, right
     cdef bint has_sampled_this_row
     with nogil:
         # Iterate through each pixel in the output image.
@@ -367,10 +367,10 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
                 # Find a bounding box around the transformed coordinates.
                 # (Check all four points at each step, since sometimes negative
                 # Jacobian values will mirror the transformed pixel.)
-                top = <int>ceil(max(P1[1], P2[1], P3[1], P4[1]))
-                bottom = <int>floor(min(P1[1], P2[1], P3[1], P4[1]))
-                left = <int>floor(min(P1[0], P2[0], P3[0], P4[0]))
-                right = <int>ceil(max(P1[0], P2[0], P3[0], P4[0]))
+                top = max(P1[1], P2[1], P3[1], P4[1])
+                bottom = min(P1[1], P2[1], P3[1], P4[1])
+                right = max(P1[0], P2[0], P3[0], P4[0])
+                left = min(P1[0], P2[0], P3[0], P4[0])
 
                 if max_samples_width > 0 and max(right-left, top-bottom) > max_samples_width:
                     if singularities_nan:
@@ -382,15 +382,26 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
                             target[yi,xi] = bilinear_interpolation(source, pixel_source[yi,xi,0], pixel_source[yi,xi,1], x_cyclic, y_cyclic, out_of_range_nan)
                     continue
 
+                # Clamp to the largest offsets that remain within the source
+                # image. (Going out-of-bounds in the image plane would be
+                # handled correctly in the interpolation routines, but skipping
+                # those pixels altogether is faster.)
+                if not x_cyclic:
+                    right = min(source.shape[1] - 0.5 - pixel_source[yi,xi,0], right)
+                    left = max(-0.5 - pixel_source[yi,xi,0], left)
+                if not y_cyclic:
+                    top = min(source.shape[0] - 0.5 - pixel_source[yi,xi,1], top)
+                    bottom = max(-0.5 - pixel_source[yi,xi,1], bottom)
+
                 target[yi,xi] = 0.0
                 weight_sum = 0.0
 
                 # Iterate through that bounding box in the input image.
-                for yoff in range(bottom, top+1):
+                for yoff in range(<int>ceil(bottom), <int>floor(top)+1):
                     current_offset[1] = yoff
                     current_pixel_source[1] = pixel_source[yi,xi,1] + yoff
                     has_sampled_this_row = False
-                    for xoff in range(left, right+1):
+                    for xoff in range(<int>ceil(left), <int>floor(right)+1):
                         current_offset[0] = xoff
                         current_pixel_source[0] = pixel_source[yi,xi,0] + xoff
                         # Find the fractional position of the input location
