@@ -94,6 +94,76 @@ def test_reproject_adaptive_2d_rotated():
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 
 
+def test_reproject_adaptive_high_aliasing_potential():
+    # Generate sample data with vertical stripes alternating with every column
+    data_in = np.arange(40*40).reshape((40, 40))
+    data_in = (data_in) % 2
+
+    # Set up the input image coordinates, defining pixel coordinates as world
+    # coordinates (with an offset)
+    wcs_in = WCS(naxis=2)
+    wcs_in.wcs.crpix = 21, 21
+    wcs_in.wcs.crval = 0, 0
+    wcs_in.wcs.cdelt = 1, 1
+
+    # Set up the output image coordinates
+    wcs_out = WCS(naxis=2)
+    wcs_out.wcs.crpix = 3, 5
+    wcs_out.wcs.crval = 0, 0
+    wcs_out.wcs.cdelt = 2, 1
+
+    array_out = reproject_adaptive((data_in, wcs_in),
+                                   wcs_out, shape_out=(11, 6),
+                                   return_footprint=False)
+
+    # The CDELT1 value in wcs_out produces a down-sampling by a factor of two
+    # along the output x axis. With the input image containing vertical lines
+    # with values of zero or one, we should have uniform values of 0.5
+    # throughout our output array.
+    np.testing.assert_allclose(array_out, 0.5)
+
+    # Within the transforms, the order of operations is:
+    # input pixel coordinates -> input rotation -> input scaling
+    # -> world coords -> output scaling -> output rotation
+    # -> output pixel coordinates. So if we add a 90-degree rotation to the
+    # output image, we're declaring that image-x is world-y and vice-versa, but
+    # since we're rotating the already-downsampled image, no pixel values
+    # should change
+    angle = 90 * np.pi / 180
+    wcs_out.wcs.pc = [[np.cos(angle), -np.sin(angle)],
+                      [np.sin(angle), np.cos(angle)]]
+    array_out = reproject_adaptive((data_in, wcs_in),
+                                   wcs_out, shape_out=(11, 6),
+                                   return_footprint=False)
+    np.testing.assert_allclose(array_out, 0.5)
+
+    # But if we add a 90-degree rotation to the input coordinates, then when
+    # our stretched output pixels are projected onto the input data, they will
+    # be stretched along the stripes, rather than perpendicular to them, and so
+    # we'll still see the alternating stripes in our output data---whether or
+    # not wcs_out contains a rotation.
+    angle = 90 * np.pi / 180
+    wcs_in.wcs.pc = [[np.cos(angle), -np.sin(angle)],
+                     [np.sin(angle), np.cos(angle)]]
+    array_out = reproject_adaptive((data_in, wcs_in),
+                                   wcs_out, shape_out=(11, 6),
+                                   return_footprint=False)
+
+    # Generate the expected pattern of alternating stripes
+    data_ref = np.arange(array_out.shape[1]) % 2
+    data_ref = np.vstack([data_ref] * array_out.shape[0])
+    np.testing.assert_allclose(array_out, data_ref)
+
+    # Clear the rotation in the output coordinates
+    wcs_out.wcs.pc = [[1, 0], [0, 1]]
+    array_out = reproject_adaptive((data_in, wcs_in),
+                                   wcs_out, shape_out=(11, 6),
+                                   return_footprint=False)
+    data_ref = np.arange(array_out.shape[0]) % 2
+    data_ref = np.vstack([data_ref] * array_out.shape[1]).T
+    np.testing.assert_allclose(array_out, data_ref)
+
+
 @pytest.mark.filterwarnings('ignore:asdf.* failed to load')
 @pytest.mark.array_compare(single_reference=True)
 @pytest.mark.parametrize('file_format', ['fits', 'asdf'])

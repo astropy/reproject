@@ -235,8 +235,8 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
         for yi in range(pixel_target.shape[0]):
             for xi in range(pixel_target.shape[1]):
                 Ji[0,0] = offset_source_x[yi,xi,0] - offset_source_x[yi,xi+1,0]
-                Ji[0,1] = offset_source_x[yi,xi,1] - offset_source_x[yi,xi+1,1]
-                Ji[1,0] = offset_source_y[yi,xi,0] - offset_source_y[yi+1,xi,0]
+                Ji[1,0] = offset_source_x[yi,xi,1] - offset_source_x[yi,xi+1,1]
+                Ji[0,1] = offset_source_y[yi,xi,0] - offset_source_y[yi+1,xi,0]
                 Ji[1,1] = offset_source_y[yi,xi,1] - offset_source_y[yi+1,xi,1]
                 if isnan(Ji[0,0]) or isnan(Ji[0,1]) or isnan(Ji[1,0]) or isnan(Ji[1,1]) or isnan(pixel_source[yi,xi,0]) or isnan(pixel_source[yi,xi,1]):
                     target[yi,xi] = nan
