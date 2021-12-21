@@ -102,6 +102,19 @@ also be specified, and be given the shape of the output image using the Numpy
 :class:`~astropy.io.fits.Header`, does not contain information about image
 size).
 
+For the interpolation and adaptive algorithms, an optional third argument,
+``roundtrip_coords`` is accepted. By default, after coordinates are transformed
+from the output plane to the input plane, the input-plane coordinates are
+transformed back to the output plane to ensure that the transformation is
+defined in both directions. This doubles the amount of
+coordinate-transformation work to be done. In speed-critical situations, where
+it is known that the coordinate transformation is defined everywhere, this
+extra work can be disabled by setting ``roundtrip_coords=False``. (Note that
+this is not a question of whether each output pixel maps to an existing *pixel*
+in the input image and vice-versa, but whether it maps to a valid *coordinate*
+in the coordinate system of the input image---regardless of whether that
+coordinate falls within the bounds of the input image.)
+
 As an example, we start off by opening a FITS file using Astropy::
 
     >>> from astropy.io import fits

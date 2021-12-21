@@ -22,7 +22,8 @@ def as_high_level_wcs(wcs):
 @pytest.mark.array_compare(single_reference=True)
 @pytest.mark.parametrize('wcsapi', (False, True))
 @pytest.mark.parametrize('center_jacobian', (False, True))
-def test_reproject_adaptive_2d(wcsapi, center_jacobian):
+@pytest.mark.parametrize('roundtrip_coords', (False, True))
+def test_reproject_adaptive_2d(wcsapi, center_jacobian, roundtrip_coords):
 
     # Set up initial array with pattern
     data_in = np.zeros((256, 256))
@@ -48,7 +49,8 @@ def test_reproject_adaptive_2d(wcsapi, center_jacobian):
 
     array_out, footprint_out = reproject_adaptive(
             (data_in, wcs_in), wcs_out, shape_out=(60, 60),
-            center_jacobian=center_jacobian)
+            center_jacobian=center_jacobian,
+            roundtrip_coords=roundtrip_coords)
 
     # Check that surface brightness is conserved in the unrotated case
     assert_allclose(np.nansum(data_in), np.nansum(array_out) * (256 / 60) ** 2, rtol=0.1)
@@ -64,7 +66,8 @@ def test_reproject_adaptive_2d(wcsapi, center_jacobian):
 
 @pytest.mark.array_compare(single_reference=True)
 @pytest.mark.parametrize('center_jacobian', (False, True))
-def test_reproject_adaptive_2d_rotated(center_jacobian):
+@pytest.mark.parametrize('roundtrip_coords', (False, True))
+def test_reproject_adaptive_2d_rotated(center_jacobian, roundtrip_coords):
 
     # Set up initial array with pattern
     data_in = np.zeros((256, 256))
@@ -87,7 +90,8 @@ def test_reproject_adaptive_2d_rotated(center_jacobian):
 
     array_out, footprint_out = reproject_adaptive(
             (data_in, wcs_in), wcs_out, shape_out=(60, 60),
-            center_jacobian=center_jacobian)
+            center_jacobian=center_jacobian,
+            roundtrip_coords=roundtrip_coords)
 
     # ASTROPY_LT_40: astropy v4.0 introduced new default header keywords,
     # once we support only astropy 4.0 and later we can update the reference
@@ -98,7 +102,8 @@ def test_reproject_adaptive_2d_rotated(center_jacobian):
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 
 
-def test_reproject_adaptive_high_aliasing_potential():
+@pytest.mark.parametrize('roundtrip_coords', (False, True))
+def test_reproject_adaptive_high_aliasing_potential(roundtrip_coords):
     # Generate sample data with vertical stripes alternating with every column
     data_in = np.arange(40*40).reshape((40, 40))
     data_in = (data_in) % 2
@@ -118,7 +123,8 @@ def test_reproject_adaptive_high_aliasing_potential():
 
     array_out = reproject_adaptive((data_in, wcs_in),
                                    wcs_out, shape_out=(11, 6),
-                                   return_footprint=False)
+                                   return_footprint=False,
+                                   roundtrip_coords=roundtrip_coords)
 
     # The CDELT1 value in wcs_out produces a down-sampling by a factor of two
     # along the output x axis. With the input image containing vertical lines
@@ -138,7 +144,8 @@ def test_reproject_adaptive_high_aliasing_potential():
                       [np.sin(angle), np.cos(angle)]]
     array_out = reproject_adaptive((data_in, wcs_in),
                                    wcs_out, shape_out=(11, 6),
-                                   return_footprint=False)
+                                   return_footprint=False,
+                                   roundtrip_coords=roundtrip_coords)
     np.testing.assert_allclose(array_out, 0.5)
 
     # But if we add a 90-degree rotation to the input coordinates, then when
@@ -151,7 +158,8 @@ def test_reproject_adaptive_high_aliasing_potential():
                      [np.sin(angle), np.cos(angle)]]
     array_out = reproject_adaptive((data_in, wcs_in),
                                    wcs_out, shape_out=(11, 6),
-                                   return_footprint=False)
+                                   return_footprint=False,
+                                   roundtrip_coords=roundtrip_coords)
 
     # Generate the expected pattern of alternating stripes
     data_ref = np.arange(array_out.shape[1]) % 2
@@ -162,7 +170,8 @@ def test_reproject_adaptive_high_aliasing_potential():
     wcs_out.wcs.pc = [[1, 0], [0, 1]]
     array_out = reproject_adaptive((data_in, wcs_in),
                                    wcs_out, shape_out=(11, 6),
-                                   return_footprint=False)
+                                   return_footprint=False,
+                                   roundtrip_coords=roundtrip_coords)
     data_ref = np.arange(array_out.shape[0]) % 2
     data_ref = np.vstack([data_ref] * array_out.shape[1]).T
     np.testing.assert_allclose(array_out, data_ref)

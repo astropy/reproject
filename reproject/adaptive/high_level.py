@@ -12,7 +12,7 @@ ORDER['bilinear'] = 1
 
 def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
                        order='bilinear', return_footprint=True,
-                       center_jacobian=False):
+                       center_jacobian=False, roundtrip_coords=True):
     """
     Reproject celestial slices from an 2d array from one WCS to another using
     the DeForest (2004) adaptive resampling algorithm.
@@ -69,6 +69,9 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
         efficient, and the loss of accuracy is extremely small for
         transformations that vary smoothly between pixels. Defaults to
         ``False``.
+    roundtrip_coords : bool
+        Whether to verify that coordinate transformations are defined in both
+        directions.
 
     Returns
     -------
@@ -90,4 +93,5 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
 
     return _reproject_adaptive_2d(array_in, wcs_in, wcs_out, shape_out,
                                   order=order, return_footprint=return_footprint,
-                                  center_jacobian=center_jacobian)
+                                  center_jacobian=center_jacobian,
+                                  roundtrip_coords=roundtrip_coords)

@@ -17,7 +17,8 @@ ORDER['bicubic'] = 3
 @deprecated_renamed_argument('independent_celestial_slices', None, since='0.6')
 def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
                      order='bilinear', independent_celestial_slices=False,
-                     output_array=None, return_footprint=True):
+                     output_array=None, return_footprint=True,
+                     roundtrip_coords=True):
     """
     Reproject data to a new projection using interpolation (this is typically
     the fastest way to reproject an image).
@@ -68,6 +69,9 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
         extremely large files.
     return_footprint : bool
         Whether to return the footprint in addition to the output array.
+    roundtrip_coords : bool
+        Whether to verify that coordinate transformations are defined in both
+        directions.
 
     Returns
     -------
@@ -86,5 +90,6 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
     if isinstance(order, str):
         order = ORDER[order]
 
-    return _reproject_full(array_in, wcs_in, wcs_out, shape_out=shape_out, order=order,
-                           array_out=output_array, return_footprint=return_footprint)
+    return _reproject_full(array_in, wcs_in, wcs_out, shape_out=shape_out,
+            order=order, array_out=output_array,
+            return_footprint=return_footprint, roundtrip_coords=roundtrip_coords)
