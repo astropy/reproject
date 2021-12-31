@@ -1,5 +1,5 @@
 import os
-from distutils.core import Extension
+from setuptools import Extension
 import numpy as np
 
 REPROJECT_ROOT = os.path.relpath(os.path.dirname(__file__))
