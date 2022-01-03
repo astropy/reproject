@@ -112,7 +112,7 @@ cdef double hanning_filter(double x, double y) nogil:
     y = fabs(y)
     if x >= 1 or y >= 1:
         return 0
-    return (cos(x * pi)+1.0) * (cos(y * pi)+1.0) / 2.0
+    return (cos(x * pi)+1.0) * (cos(y * pi)+1.0)
 
 
 @cython.boundscheck(False)
