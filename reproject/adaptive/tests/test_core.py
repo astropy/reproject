@@ -103,7 +103,7 @@ def test_reproject_adaptive_2d_rotated(center_jacobian, roundtrip_coords):
 
 
 @pytest.mark.parametrize('roundtrip_coords', (False, True))
-def test_reproject_adaptive_high_aliasing_potential(roundtrip_coords):
+def test_reproject_adaptive_high_aliasing_potential_rotation(roundtrip_coords):
     # Generate sample data with vertical stripes alternating with every column
     data_in = np.arange(40*40).reshape((40, 40))
     data_in = (data_in) % 2
@@ -176,6 +176,36 @@ def test_reproject_adaptive_high_aliasing_potential(roundtrip_coords):
     data_ref = np.vstack([data_ref] * array_out.shape[1]).T
     np.testing.assert_allclose(array_out, data_ref)
 
+
+@pytest.mark.parametrize('roundtrip_coords', (False, True))
+def test_reproject_adaptive_high_aliasing_potential_shearing(roundtrip_coords):
+    # Generate sample data with vertical stripes alternating with every column
+    data_in = np.arange(40*40).reshape((40, 40))
+    data_in = (data_in) % 2
+
+    # Set up the input image coordinates, defining pixel coordinates as world
+    # coordinates (with an offset)
+    wcs_in = WCS(naxis=2)
+    wcs_in.wcs.crpix = 21, 21
+    wcs_in.wcs.crval = 0, 0
+    wcs_in.wcs.cdelt = 1, 1
+
+    # Set up the output image coordinates, with shearing in both x and y
+    wcs_out = WCS(naxis=2)
+    wcs_out.wcs.crpix = 3, 5
+    wcs_out.wcs.crval = 0, 0
+    wcs_out.wcs.cdelt = 1, 1
+    wcs_out.wcs.pc = np.array([[1, 1], [0, 1]]) @ np.array([[1, 0], [0.5, 1]])
+
+    array_out = reproject_adaptive((data_in, wcs_in),
+                                   wcs_out, shape_out=(11, 6),
+                                   return_footprint=False,
+                                   roundtrip_coords=False)
+
+    # We should get values close to 0.5 (and average of the 1s and 0s in the
+    # input image). This is as opposed to values near 0 or 1, which would
+    # indicate incorrect averaging of sampled points.
+    np.testing.assert_allclose(array_out, 0.5, atol=0.1, rtol=0)
 
 def prepare_test_data(file_format):
     pytest.importorskip('sunpy', minversion='2.1.0')

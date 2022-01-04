@@ -281,8 +281,6 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
     cdef double[:,:] J = np.zeros((2, 2))
     cdef double[:,:] U = np.zeros((2, 2))
     cdef double[:] s = np.zeros((2,))
-    cdef double[:] s_padded = np.zeros((2,))
-    cdef double[:] si = np.zeros((2,))
     cdef double[:,:] V = np.zeros((2, 2))
     cdef int samples_width
     cdef double[:] transformed = np.zeros((2,))
@@ -322,12 +320,14 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
 
                 # Find and pad the singular values of the Jacobian.
                 svd2x2_decompose(Ji, U, s, V)
-                s_padded[0] = max(1.0, s[0])
-                s_padded[1] = max(1.0, s[1])
-                si[0] = 1.0/s[0]
-                si[1] = 1.0/s[1]
-                svd2x2_compose(V, si, U, J)
-                svd2x2_compose(U, s_padded, V, Ji_padded)
+                s[0] = max(1.0, s[0])
+                s[1] = max(1.0, s[1])
+                svd2x2_compose(U, s, V, Ji_padded)
+                # Build J, the inverse of Ji, by using 1/s and swapping the
+                # order of U and V.
+                s[0] = 1.0/s[0]
+                s[1] = 1.0/s[1]
+                svd2x2_compose(V, s, U, J)
 
                 # We'll need to sample some number of input images to set this
                 # output pixel. Later on, we'll compute weights to assign to
