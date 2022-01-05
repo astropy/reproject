@@ -258,17 +258,17 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
         Jy = np.empty((target.shape[0] + 1, target.shape[1], 2))
         for yi in range(target.shape[0]):
             for xi in range(target.shape[1]):
-                Jx[yi, xi, 0] = pixel_source[yi+1, xi, 0] - pixel_source[yi+1, xi+1, 0]
-                Jx[yi, xi, 1] = pixel_source[yi+1, xi, 1] - pixel_source[yi+1, xi+1, 1]
-                Jy[yi, xi, 0] = pixel_source[yi, xi+1, 0] - pixel_source[yi+1, xi+1, 0]
-                Jy[yi, xi, 1] = pixel_source[yi, xi+1, 1] - pixel_source[yi+1, xi+1, 1]
+                Jx[yi, xi, 0] = -pixel_source[yi+1, xi, 0] + pixel_source[yi+1, xi+1, 0]
+                Jx[yi, xi, 1] = -pixel_source[yi+1, xi, 1] + pixel_source[yi+1, xi+1, 1]
+                Jy[yi, xi, 0] = -pixel_source[yi, xi+1, 0] + pixel_source[yi+1, xi+1, 0]
+                Jy[yi, xi, 1] = -pixel_source[yi, xi+1, 1] + pixel_source[yi+1, xi+1, 1]
             xi = target.shape[1]
-            Jx[yi, xi, 0] = pixel_source[yi+1, xi, 0] - pixel_source[yi+1, xi+1, 0]
-            Jx[yi, xi, 1] = pixel_source[yi+1, xi, 1] - pixel_source[yi+1, xi+1, 1]
+            Jx[yi, xi, 0] = -pixel_source[yi+1, xi, 0] + pixel_source[yi+1, xi+1, 0]
+            Jx[yi, xi, 1] = -pixel_source[yi+1, xi, 1] + pixel_source[yi+1, xi+1, 1]
         yi = target.shape[0]
         for xi in range(target.shape[1]):
-            Jy[yi, xi, 0] = pixel_source[yi, xi+1, 0] - pixel_source[yi+1, xi+1, 0]
-            Jy[yi, xi, 1] = pixel_source[yi, xi+1, 1] - pixel_source[yi+1, xi+1, 1]
+            Jy[yi, xi, 0] = -pixel_source[yi, xi+1, 0] + pixel_source[yi+1, xi+1, 0]
+            Jy[yi, xi, 1] = -pixel_source[yi, xi+1, 1] + pixel_source[yi+1, xi+1, 1]
 
         # Now trim the padding we added earlier. Since `delta` was used above,
         # the value at (0,0) will now truly represent (0,0) and so on. After
@@ -302,10 +302,10 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
                 if center_jacobian:
                     # Compute the Jacobian for the transformation applied to
                     # this pixel, as finite differences.
-                    Ji[0,0] = offset_source_x[yi, xi, 0] - offset_source_x[yi, xi+1, 0]
-                    Ji[1,0] = offset_source_x[yi, xi, 1] - offset_source_x[yi, xi+1, 1]
-                    Ji[0,1] = offset_source_y[yi, xi, 0] - offset_source_y[yi+1, xi, 0]
-                    Ji[1,1] = offset_source_y[yi, xi, 1] - offset_source_y[yi+1, xi, 1]
+                    Ji[0,0] = -offset_source_x[yi, xi, 0] + offset_source_x[yi, xi+1, 0]
+                    Ji[1,0] = -offset_source_x[yi, xi, 1] + offset_source_x[yi, xi+1, 1]
+                    Ji[0,1] = -offset_source_y[yi, xi, 0] + offset_source_y[yi+1, xi, 0]
+                    Ji[1,1] = -offset_source_y[yi, xi, 1] + offset_source_y[yi+1, xi, 1]
                 else:
                     # Compute the Jacobian for the transformation applied to
                     # this pixel, as a mean of the Jacobian a half-pixel
