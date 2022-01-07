@@ -57,6 +57,11 @@ spherical polygon intersection.
           described below. In future, we will provide a convenience function
           to return the area of all the pixels to make it easier.
 
+          However, the :ref:`adaptive resampling<adaptive>` algorithm provides
+          an option to conserve flux by appropriately rescaling each output
+          pixel. With this option, an image in flux units need not be coverted
+          to surface brightness.
+
 .. _common:
 
 Common options
@@ -170,6 +175,8 @@ include:
 * ``'biquadratic'``: second order interpolation
 * ``'bicubic'``: third order interpolation
 
+.. _adaptive:
+
 Adaptive resampling
 ===================
 
@@ -186,6 +193,9 @@ order of the interpolation. Supported strings include:
 
 * ``'nearest-neighbor'``: zeroth order interpolation
 * ``'bilinear'``: first order interpolation
+
+One can also enable a rescaling of output pixel values to conserve flux by
+using the ``conserve_flux`` flag.
 
 Additionally, one can control the calculation of the Jacobian used in this
 algorithm with the ``center_jacobian`` flag. The Jacobian matrix represents how
