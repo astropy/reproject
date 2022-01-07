@@ -31,7 +31,7 @@ class CoordinateTransformer:
         return pixel_in
 
 
-def _reproject_adaptive_2d(array, wcs_in, wcs_out, shape_out, order=1,
+def _reproject_adaptive_2d(array, wcs_in, wcs_out, shape_out,
                            return_footprint=True, center_jacobian=False,
                            roundtrip_coords=True, conserve_flux=False):
     """
@@ -49,8 +49,6 @@ def _reproject_adaptive_2d(array, wcs_in, wcs_out, shape_out, order=1,
         The output WCS
     shape_out : tuple
         The shape of the output array
-    order : int, optional
-        The order of the interpolation.
     return_footprint : bool
         Whether to return the footprint in addition to the output array.
     center_jacobian : bool
@@ -98,8 +96,7 @@ def _reproject_adaptive_2d(array, wcs_in, wcs_out, shape_out, order=1,
 
     transformer = CoordinateTransformer(wcs_in, wcs_out, roundtrip_coords)
     map_coordinates(array_in, array_out, transformer, out_of_range_nan=True,
-                    order=order, center_jacobian=center_jacobian,
-                    conserve_flux=conserve_flux)
+                    center_jacobian=center_jacobian, conserve_flux=conserve_flux)
 
     if return_footprint:
         return array_out, (~np.isnan(array_out)).astype(float)

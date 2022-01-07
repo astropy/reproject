@@ -186,16 +186,9 @@ reprojection using the  `DeForest (2004)
 
     >>> from reproject import reproject_adaptive
 
-In addition to the arguments described in :ref:`common`, the order of the
-interpolation to use when sampling values in the input map can be controlled by
-setting the ``order=`` argument to either an integer or a string giving the
-order of the interpolation. Supported strings include:
-
-* ``'nearest-neighbor'``: zeroth order interpolation
-* ``'bilinear'``: first order interpolation
-
-One can also enable a rescaling of output pixel values to conserve flux by
-using the ``conserve_flux`` flag.
+In addition to the arguments described in :ref:`common`, one can enable a
+rescaling of output pixel values to conserve flux by using the
+``conserve_flux`` flag.
 
 Additionally, one can control the calculation of the Jacobian used in this
 algorithm with the ``center_jacobian`` flag. The Jacobian matrix represents how

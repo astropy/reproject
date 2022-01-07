@@ -5,15 +5,10 @@ from .core import _reproject_adaptive_2d
 
 __all__ = ['reproject_adaptive']
 
-ORDER = {}
-ORDER['nearest-neighbor'] = 0
-ORDER['bilinear'] = 1
-
 
 def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
-                       order='bilinear', return_footprint=True,
-                       center_jacobian=False, roundtrip_coords=True,
-                       conserve_flux=False):
+                       return_footprint=True, center_jacobian=False,
+                       roundtrip_coords=True, conserve_flux=False):
     """
     Reproject celestial slices from an 2d array from one WCS to another using
     the DeForest (2004) adaptive resampling algorithm.
@@ -43,15 +38,6 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
     hdu_in : int or str, optional
         If ``input_data`` is a FITS file or an `~astropy.io.fits.HDUList`
         instance, specifies the HDU to use.
-    order : int or str, optional
-        The order of the interpolation. This can be any of the
-        following strings:
-
-            * 'nearest-neighbor'
-            * 'bilinear'
-
-        or an integer. A value of ``0`` indicates nearest neighbor
-        interpolation.
     return_footprint : bool
         Whether to return the footprint in addition to the output array.
     center_jacobian : bool
@@ -109,11 +95,8 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
     array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
     wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
 
-    if isinstance(order, str):
-        order = ORDER[order]
-
     return _reproject_adaptive_2d(array_in, wcs_in, wcs_out, shape_out,
-                                  order=order, return_footprint=return_footprint,
+                                  return_footprint=return_footprint,
                                   center_jacobian=center_jacobian,
                                   roundtrip_coords=roundtrip_coords,
                                   conserve_flux=conserve_flux)

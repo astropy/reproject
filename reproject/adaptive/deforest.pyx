@@ -152,41 +152,15 @@ cdef double clip(double x, double vmin, double vmax, int cyclic, int out_of_rang
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef double bilinear_interpolation(double[:,:] source, double x, double y, int x_cyclic, int y_cyclic, int out_of_range_nan) nogil:
-
-    x = clip(x, -0.5, source.shape[1] - 0.5, x_cyclic, out_of_range_nan)
-    y = clip(y, -0.5, source.shape[0] - 0.5, y_cyclic, out_of_range_nan)
+cdef double sample_array(double[:,:] source, double x, double y, int x_cyclic,
+        int y_cyclic, int out_of_range_nan) nogil:
+    x = clip(x, 0, source.shape[1] - 1, x_cyclic, out_of_range_nan)
+    y = clip(y, 0, source.shape[0] - 1, y_cyclic, out_of_range_nan)
 
     if isnan(x) or isnan(y):
         return nan
 
-    cdef int xmin = <int>floor(x)
-    cdef int ymin = <int>floor(y)
-    cdef int xmax = xmin + 1
-    cdef int ymax = ymin + 1
-
-    cdef double fQ11 = source[max(0, ymin), max(0, xmin)]
-    cdef double fQ21 = source[max(0, ymin), min(source.shape[1] - 1, xmax)]
-    cdef double fQ12 = source[min(source.shape[0] - 1, ymax), max(0, xmin)]
-    cdef double fQ22 = source[min(source.shape[0] - 1, ymax), min(source.shape[1] - 1, xmax)]
-
-    return ((fQ11 * (xmax - x) * (ymax - y)
-             + fQ21 * (x - xmin) * (ymax - y)
-             + fQ12 * (xmax - x) * (y - ymin)
-             + fQ22 * (x - xmin) * (y - ymin))
-            * ((xmax - xmin) * (ymax - ymin)))
-
-
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.nonecheck(False)
-@cython.cdivision(True)
-cdef double nearest_neighbour_interpolation(double[:,:] source, double x, double y, int x_cyclic, int y_cyclic, int out_of_range_nan) nogil:
-    y = clip(round(y), 0, source.shape[0]-1, y_cyclic, out_of_range_nan)
-    x = clip(round(x), 0, source.shape[1]-1, x_cyclic, out_of_range_nan)
-    if isnan(y) or isnan(x):
-        return nan
-    return source[<int>y, <int>x]
+    return source[<int> y, <int> x]
 
 
 @cython.boundscheck(False)
@@ -196,7 +170,7 @@ cdef double nearest_neighbour_interpolation(double[:,:] source, double x, double
 def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_width=-1,
                     int conserve_flux=False, int progress=False, int singularities_nan=False,
                     int x_cyclic=False, int y_cyclic=False, int out_of_range_nan=False,
-                    int order=0, bint center_jacobian=False):
+                    bint center_jacobian=False):
     cdef np.ndarray[np.float64_t, ndim=3] pixel_target
     cdef int delta
     if center_jacobian:
@@ -210,7 +184,7 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
         # be representing (-1,-1) in the output image.
         delta = -1
 
-    cdef int yi, xi, yoff, xoff
+    cdef int yi, xi, y, x
     for yi in range(pixel_target.shape[0]):
         for xi in range(pixel_target.shape[1]):
             pixel_target[yi,xi,0] = xi + delta
@@ -288,7 +262,7 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
     cdef double[:] current_offset = np.zeros((2,))
     cdef double weight_sum = 0.0
     cdef double weight
-    cdef double interpolated
+    cdef double value
     cdef double[:] P1 = np.empty((2,))
     cdef double[:] P2 = np.empty((2,))
     cdef double[:] P3 = np.empty((2,))
@@ -376,34 +350,37 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
                     if singularities_nan:
                         target[yi,xi] = nan
                     else:
-                        if order == 0:
-                            target[yi,xi] = nearest_neighbour_interpolation(source, pixel_source[yi,xi,0], pixel_source[yi,xi,1], x_cyclic, y_cyclic, out_of_range_nan)
-                        else:
-                            target[yi,xi] = bilinear_interpolation(source, pixel_source[yi,xi,0], pixel_source[yi,xi,1], x_cyclic, y_cyclic, out_of_range_nan)
+                        target[yi,xi] = sample_array(source,
+                                pixel_source[yi,xi,0], pixel_source[yi,xi,1],
+                                x_cyclic, y_cyclic, out_of_range_nan)
                     continue
 
-                # Clamp to the largest offsets that remain within the source
-                # image. (Going out-of-bounds in the image plane would be
-                # handled correctly in the interpolation routines, but skipping
-                # those pixels altogether is faster.)
+                top += pixel_source[yi,xi,1]
+                bottom += pixel_source[yi,xi,1]
+                right += pixel_source[yi,xi,0]
+                left += pixel_source[yi,xi,0]
+
+                # Clamp sampling region to stay within the source image. (Going
+                # outside the image plane is handled otherwise, but it's faster
+                # to just omit those points completely.)
                 if not x_cyclic:
-                    right = min(source.shape[1] - 0.5 - pixel_source[yi,xi,0], right)
-                    left = max(-0.5 - pixel_source[yi,xi,0], left)
+                    right = min(source.shape[1] - 1, right)
+                    left = max(0, left)
                 if not y_cyclic:
-                    top = min(source.shape[0] - 0.5 - pixel_source[yi,xi,1], top)
-                    bottom = max(-0.5 - pixel_source[yi,xi,1], bottom)
+                    top = min(source.shape[0] - 1, top)
+                    bottom = max(0, bottom)
 
                 target[yi,xi] = 0.0
                 weight_sum = 0.0
 
                 # Iterate through that bounding box in the input image.
-                for yoff in range(<int>ceil(bottom), <int>floor(top)+1):
-                    current_offset[1] = yoff
-                    current_pixel_source[1] = pixel_source[yi,xi,1] + yoff
+                for y in range(<int>ceil(bottom), <int>floor(top)+1):
+                    current_pixel_source[1] = y
+                    current_offset[1] = current_pixel_source[1] - pixel_source[yi,xi,1]
                     has_sampled_this_row = False
-                    for xoff in range(<int>ceil(left), <int>floor(right)+1):
-                        current_offset[0] = xoff
-                        current_pixel_source[0] = pixel_source[yi,xi,0] + xoff
+                    for x in range(<int>ceil(left), <int>floor(right)+1):
+                        current_pixel_source[0] = x
+                        current_offset[0] = current_pixel_source[0] - pixel_source[yi,xi,0]
                         # Find the fractional position of the input location
                         # within the transformed ellipse.
                         transformed[0] = J[0,0] * current_offset[0] + J[0,1] * current_offset[1]
@@ -428,17 +405,14 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
                             if has_sampled_this_row:
                                 break
                             continue
+                        has_sampled_this_row = True
 
-                        # Produce an input-image value to sample. Our output
-                        # pixel doesn't necessarily map to an integer
-                        # coordinate in the input image, and so our input
-                        # samples must be interpolated.
-                        if order == 0:
-                            interpolated = nearest_neighbour_interpolation(source, current_pixel_source[0], current_pixel_source[1], x_cyclic, y_cyclic, out_of_range_nan)
-                        else:
-                            interpolated = bilinear_interpolation(source, current_pixel_source[0], current_pixel_source[1], x_cyclic, y_cyclic, out_of_range_nan)
-                        if not isnan(interpolated):
-                            target[yi,xi] += weight * interpolated
+                        value = sample_array(source, current_pixel_source[0],
+                                current_pixel_source[1], x_cyclic, y_cyclic,
+                                out_of_range_nan)
+
+                        if not isnan(value):
+                            target[yi,xi] += weight * value
                             weight_sum += weight
                 target[yi,xi] /= weight_sum
                 if conserve_flux:

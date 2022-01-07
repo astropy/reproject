@@ -17,8 +17,7 @@ ALL_MODES = ('nearest-neighbor',
              'biquadratic',
              'bicubic',
              'flux-conserving',
-             'adaptive-nearest-neighbor',
-             'adaptive-bilinear')
+             'adaptive')
 
 ALL_DTYPES = []
 for endian in ('<', '>'):
@@ -125,8 +124,7 @@ def test_surface_brightness(projection_type, dtype):
     if projection_type == 'flux-conserving':
         data_out, footprint = reproject_exact((data_in, header_in), header_out)
     elif projection_type.startswith('adaptive'):
-        data_out, footprint = reproject_adaptive((data_in, header_in), header_out,
-                                                 order=projection_type.split('-', 1)[1])
+        data_out, footprint = reproject_adaptive((data_in, header_in), header_out)
     else:
         data_out, footprint = reproject_interp((data_in, header_in), header_out,
                                                order=projection_type)
@@ -166,8 +164,7 @@ def test_identity_projection(projection_type):
     if projection_type == 'flux-conserving':
         data_out, footprint = reproject_exact((data_in, header_in), header_in)
     elif projection_type.startswith('adaptive'):
-        data_out, footprint = reproject_adaptive((data_in, header_in), header_in,
-                                                 order=projection_type.split('-', 1)[1])
+        data_out, footprint = reproject_adaptive((data_in, header_in), header_in)
     else:
         data_out, footprint = reproject_interp((data_in, header_in), header_in,
                                                order=projection_type)
