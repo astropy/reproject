@@ -27,6 +27,5 @@ def pytest_configure(config):
         PYTEST_HEADER_MODULES['astropy-healpix'] = 'astropy_healpix'
         PYTEST_HEADER_MODULES['Cython'] = 'cython'
 
-        from . import __version__
-        packagename = os.path.basename(os.path.dirname(__file__))
-        TESTED_VERSIONS[packagename] = __version__
+        from reproject import __version__
+        TESTED_VERSIONS['reproject'] = __version__

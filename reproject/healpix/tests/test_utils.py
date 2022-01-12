@@ -3,7 +3,7 @@ import pytest
 from astropy.coordinates import FK5, Galactic
 from astropy.io import fits
 
-from ..utils import parse_coord_system, parse_input_healpix_data
+from reproject.healpix.utils import parse_coord_system, parse_input_healpix_data
 
 
 def test_parse_coord_system():
@@ -26,6 +26,7 @@ def test_parse_coord_system():
     assert exc.value.args[0] == "Could not determine frame for system=spam"
 
 
+@pytest.mark.filterwarnings('ignore:unclosed file:ResourceWarning')
 def test_parse_input_healpix_data(tmpdir):
 
     data = np.arange(3072)

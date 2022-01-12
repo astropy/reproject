@@ -1,6 +1,5 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
-import os
 import itertools
 
 import numpy as np
@@ -9,15 +8,14 @@ from astropy import units as u
 from astropy.io import fits
 from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
+from astropy.wcs.wcs import FITSFixedWarning
 from astropy.wcs.wcsapi import HighLevelWCSWrapper, SlicedLowLevelWCS
 from numpy.testing import assert_allclose
 
-from ..high_level import reproject_interp
-from ...tests.helpers import array_footprint_to_hdulist
+from reproject.interpolation.high_level import reproject_interp
+from reproject.tests.helpers import array_footprint_to_hdulist
 
 # TODO: add reference comparisons
-
-DATA = os.path.join(os.path.dirname(__file__), '..', '..', 'tests', 'data')
 
 
 def as_high_level_wcs(wcs):
@@ -31,21 +29,22 @@ def test_reproject_celestial_2d_gal2equ(wcsapi):
     Test reprojection of a 2D celestial image, which includes a coordinate
     system conversion.
     """
-    hdu_in = fits.open(os.path.join(DATA, 'galactic_2d.fits'))[0]
-    header_out = hdu_in.header.copy()
-    header_out['CTYPE1'] = 'RA---TAN'
-    header_out['CTYPE2'] = 'DEC--TAN'
-    header_out['CRVAL1'] = 266.39311
-    header_out['CRVAL2'] = -28.939779
+    with fits.open(get_pkg_data_filename('data/galactic_2d.fits', package='reproject.tests')) as pf:
+        hdu_in = pf[0]
+        header_out = hdu_in.header.copy()
+        header_out['CTYPE1'] = 'RA---TAN'
+        header_out['CTYPE2'] = 'DEC--TAN'
+        header_out['CRVAL1'] = 266.39311
+        header_out['CRVAL2'] = -28.939779
 
-    if wcsapi:  # Enforce a pure wcsapi API
-        wcs_in, data_in = as_high_level_wcs(WCS(hdu_in.header)), hdu_in.data
-        wcs_out = as_high_level_wcs(WCS(header_out))
-        shape_out = header_out['NAXIS2'], header_out['NAXIS1']
-        array_out, footprint_out = reproject_interp((data_in, wcs_in),
-                                                    wcs_out, shape_out=shape_out)
-    else:
-        array_out, footprint_out = reproject_interp(hdu_in, header_out)
+        if wcsapi:  # Enforce a pure wcsapi API
+            wcs_in, data_in = as_high_level_wcs(WCS(hdu_in.header)), hdu_in.data
+            wcs_out = as_high_level_wcs(WCS(header_out))
+            shape_out = header_out['NAXIS2'], header_out['NAXIS1']
+            array_out, footprint_out = reproject_interp((data_in, wcs_in),
+                                                        wcs_out, shape_out=shape_out)
+        else:
+            array_out, footprint_out = reproject_interp(hdu_in, header_out)
 
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 
@@ -72,35 +71,37 @@ def test_reproject_celestial_3d_equ2gal(wcsapi, axis_order):
     """
 
     # Read in the input cube
-    hdu_in = fits.open(os.path.join(DATA, 'equatorial_3d.fits'))[0]
+    with fits.open(
+            get_pkg_data_filename('data/equatorial_3d.fits', package='reproject.tests')) as pf:
+        hdu_in = pf[0]
 
-    # Define the output header - this should be the same for all versions of
-    # this test to make sure we can use a single reference file.
-    header_out = hdu_in.header.copy()
-    header_out['NAXIS1'] = 10
-    header_out['NAXIS2'] = 9
-    header_out['CTYPE1'] = 'GLON-SIN'
-    header_out['CTYPE2'] = 'GLAT-SIN'
-    header_out['CRVAL1'] = 163.16724
-    header_out['CRVAL2'] = -15.777405
-    header_out['CRPIX1'] = 6
-    header_out['CRPIX2'] = 5
+        # Define the output header - this should be the same for all versions of
+        # this test to make sure we can use a single reference file.
+        header_out = hdu_in.header.copy()
+        header_out['NAXIS1'] = 10
+        header_out['NAXIS2'] = 9
+        header_out['CTYPE1'] = 'GLON-SIN'
+        header_out['CTYPE2'] = 'GLAT-SIN'
+        header_out['CRVAL1'] = 163.16724
+        header_out['CRVAL2'] = -15.777405
+        header_out['CRPIX1'] = 6
+        header_out['CRPIX2'] = 5
 
-    # We now scramble the input axes
-    if axis_order != (0, 1, 2):
-        wcs_in = WCS(hdu_in.header)
-        wcs_in = wcs_in.sub((3 - np.array(axis_order)[::-1]).tolist())
-        hdu_in.header = wcs_in.to_header()
-        hdu_in.data = np.transpose(hdu_in.data, axis_order)
+        # We now scramble the input axes
+        if axis_order != (0, 1, 2):
+            wcs_in = WCS(hdu_in.header)
+            wcs_in = wcs_in.sub((3 - np.array(axis_order)[::-1]).tolist())
+            hdu_in.header = wcs_in.to_header()
+            hdu_in.data = np.transpose(hdu_in.data, axis_order)
 
-    if wcsapi:  # Enforce a pure wcsapi API
-        wcs_in, data_in = as_high_level_wcs(WCS(hdu_in.header)), hdu_in.data
-        wcs_out = as_high_level_wcs(WCS(header_out))
-        shape_out = header_out['NAXIS3'], header_out['NAXIS2'], header_out['NAXIS1']
-        array_out, footprint_out = reproject_interp((data_in, wcs_in),
-                                                    wcs_out, shape_out=shape_out)
-    else:
-        array_out, footprint_out = reproject_interp(hdu_in, header_out)
+        if wcsapi:  # Enforce a pure wcsapi API
+            wcs_in, data_in = as_high_level_wcs(WCS(hdu_in.header)), hdu_in.data
+            wcs_out = as_high_level_wcs(WCS(header_out))
+            shape_out = header_out['NAXIS3'], header_out['NAXIS2'], header_out['NAXIS1']
+            array_out, footprint_out = reproject_interp((data_in, wcs_in),
+                                                        wcs_out, shape_out=shape_out)
+        else:
+            array_out, footprint_out = reproject_interp(hdu_in, header_out)
 
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 
@@ -112,25 +113,26 @@ def test_small_cutout(wcsapi):
     Test reprojection of a cutout from a larger image (makes sure that the
     pre-reprojection cropping works)
     """
-    hdu_in = fits.open(os.path.join(DATA, 'galactic_2d.fits'))[0]
-    header_out = hdu_in.header.copy()
-    header_out['NAXIS1'] = 10
-    header_out['NAXIS2'] = 9
-    header_out['CTYPE1'] = 'RA---TAN'
-    header_out['CTYPE2'] = 'DEC--TAN'
-    header_out['CRVAL1'] = 266.39311
-    header_out['CRVAL2'] = -28.939779
-    header_out['CRPIX1'] = 5.1
-    header_out['CRPIX2'] = 4.7
+    with fits.open(get_pkg_data_filename('data/galactic_2d.fits', package='reproject.tests')) as pf:
+        hdu_in = pf[0]
+        header_out = hdu_in.header.copy()
+        header_out['NAXIS1'] = 10
+        header_out['NAXIS2'] = 9
+        header_out['CTYPE1'] = 'RA---TAN'
+        header_out['CTYPE2'] = 'DEC--TAN'
+        header_out['CRVAL1'] = 266.39311
+        header_out['CRVAL2'] = -28.939779
+        header_out['CRPIX1'] = 5.1
+        header_out['CRPIX2'] = 4.7
 
-    if wcsapi:  # Enforce a pure wcsapi API
-        wcs_in, data_in = as_high_level_wcs(WCS(hdu_in.header)), hdu_in.data
-        wcs_out = as_high_level_wcs(WCS(header_out))
-        shape_out = header_out['NAXIS2'], header_out['NAXIS1']
-        array_out, footprint_out = reproject_interp((data_in, wcs_in),
-                                                    wcs_out, shape_out=shape_out)
-    else:
-        array_out, footprint_out = reproject_interp(hdu_in, header_out)
+        if wcsapi:  # Enforce a pure wcsapi API
+            wcs_in, data_in = as_high_level_wcs(WCS(hdu_in.header)), hdu_in.data
+            wcs_out = as_high_level_wcs(WCS(header_out))
+            shape_out = header_out['NAXIS2'], header_out['NAXIS1']
+            array_out, footprint_out = reproject_interp((data_in, wcs_in),
+                                                        wcs_out, shape_out=shape_out)
+        else:
+            array_out, footprint_out = reproject_interp(hdu_in, header_out)
 
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 
@@ -141,9 +143,11 @@ def test_mwpan_car_to_mol():
     which was returning all NaNs due to a regression that was introduced in
     reproject 0.3 (https://github.com/astrofrog/reproject/pull/124).
     """
-    hdu_in = fits.Header.fromtextfile(os.path.join(DATA, 'mwpan2_RGB_3600.hdr'))
-    wcs_in = WCS(hdu_in, naxis=2)
-    data_in = np.ones((hdu_in['NAXIS2'], hdu_in['NAXIS1']), dtype=np.float)
+    hdu_in = fits.Header.fromtextfile(
+            get_pkg_data_filename('data/mwpan2_RGB_3600.hdr', package='reproject.tests'))
+    with pytest.warns(FITSFixedWarning):
+        wcs_in = WCS(hdu_in, naxis=2)
+    data_in = np.ones((hdu_in['NAXIS2'], hdu_in['NAXIS1']), dtype=float)
     header_out = fits.Header()
     header_out['NAXIS'] = 2
     header_out['NAXIS1'] = 360
@@ -167,17 +171,18 @@ def test_small_cutout_outside():
     cutout is completely outside the region of the input image so we should
     take a shortcut that returns arrays of NaNs.
     """
-    hdu_in = fits.open(os.path.join(DATA, 'galactic_2d.fits'))[0]
-    header_out = hdu_in.header.copy()
-    header_out['NAXIS1'] = 10
-    header_out['NAXIS2'] = 9
-    header_out['CTYPE1'] = 'RA---TAN'
-    header_out['CTYPE2'] = 'DEC--TAN'
-    header_out['CRVAL1'] = 216.39311
-    header_out['CRVAL2'] = -21.939779
-    header_out['CRPIX1'] = 5.1
-    header_out['CRPIX2'] = 4.7
-    array_out, footprint_out = reproject_interp(hdu_in, header_out)
+    with fits.open(get_pkg_data_filename('data/galactic_2d.fits', package='reproject.tests')) as pf:
+        hdu_in = pf[0]
+        header_out = hdu_in.header.copy()
+        header_out['NAXIS1'] = 10
+        header_out['NAXIS2'] = 9
+        header_out['CTYPE1'] = 'RA---TAN'
+        header_out['CTYPE2'] = 'DEC--TAN'
+        header_out['CRVAL1'] = 216.39311
+        header_out['CRVAL2'] = -21.939779
+        header_out['CRPIX1'] = 5.1
+        header_out['CRPIX2'] = 4.7
+        array_out, footprint_out = reproject_interp(hdu_in, header_out)
     assert np.all(np.isnan(array_out))
     assert np.all(footprint_out == 0)
 
@@ -188,20 +193,20 @@ def test_celestial_mismatch_2d():
     information and the output does not (and vice-versa). This example will
     use the _reproject_celestial route.
     """
+    with fits.open(get_pkg_data_filename('data/galactic_2d.fits', package='reproject.tests')) as pf:
+        hdu_in = pf[0]
 
-    hdu_in = fits.open(os.path.join(DATA, 'galactic_2d.fits'))[0]
+        header_out = hdu_in.header.copy()
+        header_out['CTYPE1'] = 'APPLES'
+        header_out['CTYPE2'] = 'ORANGES'
 
-    header_out = hdu_in.header.copy()
-    header_out['CTYPE1'] = 'APPLES'
-    header_out['CTYPE2'] = 'ORANGES'
+        data = hdu_in.data
+        wcs1 = WCS(hdu_in.header)
+        wcs2 = WCS(header_out)
 
-    data = hdu_in.data
-    wcs1 = WCS(hdu_in.header)
-    wcs2 = WCS(header_out)
-
-    with pytest.raises(ValueError) as exc:
-        array_out, footprint_out = reproject_interp((data, wcs1), wcs2, shape_out=(2, 2))
-    assert exc.value.args[0] == "Input WCS has celestial components but output WCS does not"
+        with pytest.raises(ValueError, match="Input WCS has celestial components but output WCS "
+                           "does not"):
+            array_out, footprint_out = reproject_interp((data, wcs1), wcs2, shape_out=(2, 2))
 
 
 def test_celestial_mismatch_3d():
@@ -210,25 +215,26 @@ def test_celestial_mismatch_3d():
     information and the output does not (and vice-versa). This example will
     use the _reproject_full route.
     """
+    with fits.open(
+            get_pkg_data_filename('data/equatorial_3d.fits', package='reproject.tests')) as pf:
+        hdu_in = pf[0]
 
-    hdu_in = fits.open(os.path.join(DATA, 'equatorial_3d.fits'))[0]
+        header_out = hdu_in.header.copy()
+        header_out['CTYPE1'] = 'APPLES'
+        header_out['CTYPE2'] = 'ORANGES'
+        header_out['CTYPE3'] = 'BANANAS'
 
-    header_out = hdu_in.header.copy()
-    header_out['CTYPE1'] = 'APPLES'
-    header_out['CTYPE2'] = 'ORANGES'
-    header_out['CTYPE3'] = 'BANANAS'
+        data = hdu_in.data
+        wcs1 = WCS(hdu_in.header)
+        wcs2 = WCS(header_out)
 
-    data = hdu_in.data
-    wcs1 = WCS(hdu_in.header)
-    wcs2 = WCS(header_out)
+        with pytest.raises(ValueError, match="Input WCS has celestial components but output WCS "
+                           "does not"):
+            array_out, footprint_out = reproject_interp((data, wcs1), wcs2, shape_out=(1, 2, 3))
 
-    with pytest.raises(ValueError) as exc:
-        array_out, footprint_out = reproject_interp((data, wcs1), wcs2, shape_out=(1, 2, 3))
-    assert exc.value.args[0] == "Input WCS has celestial components but output WCS does not"
-
-    with pytest.raises(ValueError) as exc:
-        array_out, footprint_out = reproject_interp((data, wcs2), wcs1, shape_out=(1, 2, 3))
-    assert exc.value.args[0] == "Output WCS has celestial components but input WCS does not"
+        with pytest.raises(ValueError, match="Output WCS has celestial components but input WCS "
+                           "does not"):
+            array_out, footprint_out = reproject_interp((data, wcs2), wcs1, shape_out=(1, 2, 3))
 
 
 def test_spectral_mismatch_3d():
@@ -236,32 +242,32 @@ def test_spectral_mismatch_3d():
     Make sure an error is raised if there are mismatches between the presence
     or type of spectral axis.
     """
+    with fits.open(
+            get_pkg_data_filename('data/equatorial_3d.fits', package='reproject.tests')) as pf:
+        hdu_in = pf[0]
 
-    hdu_in = fits.open(os.path.join(DATA, 'equatorial_3d.fits'))[0]
+        header_out = hdu_in.header.copy()
+        header_out['CTYPE3'] = 'FREQ'
+        header_out['CUNIT3'] = 'Hz'
 
-    header_out = hdu_in.header.copy()
-    header_out['CTYPE3'] = 'FREQ'
-    header_out['CUNIT3'] = 'Hz'
+        data = hdu_in.data
+        wcs1 = WCS(hdu_in.header)
+        wcs2 = WCS(header_out)
 
-    data = hdu_in.data
-    wcs1 = WCS(hdu_in.header)
-    wcs2 = WCS(header_out)
+        with pytest.raises(ValueError, match=r"The input \(VOPT\) and output \(FREQ\) spectral "
+                           r"coordinate types are not equivalent\."):
+            array_out, footprint_out = reproject_interp((data, wcs1), wcs2, shape_out=(1, 2, 3))
 
-    with pytest.raises(ValueError) as exc:
-        array_out, footprint_out = reproject_interp((data, wcs1), wcs2, shape_out=(1, 2, 3))
-    assert exc.value.args[0] == ("The input (VOPT) and output (FREQ) spectral "
-                                 "coordinate types are not equivalent.")
+        header_out['CTYPE3'] = 'BANANAS'
+        wcs2 = WCS(header_out)
 
-    header_out['CTYPE3'] = 'BANANAS'
-    wcs2 = WCS(header_out)
+        with pytest.raises(ValueError, match="Input WCS has a spectral component but output WCS "
+                           "does not"):
+            array_out, footprint_out = reproject_interp((data, wcs1), wcs2, shape_out=(1, 2, 3))
 
-    with pytest.raises(ValueError) as exc:
-        array_out, footprint_out = reproject_interp((data, wcs1), wcs2, shape_out=(1, 2, 3))
-    assert exc.value.args[0] == "Input WCS has a spectral component but output WCS does not"
-
-    with pytest.raises(ValueError) as exc:
-        array_out, footprint_out = reproject_interp((data, wcs2), wcs1, shape_out=(1, 2, 3))
-    assert exc.value.args[0] == "Output WCS has a spectral component but input WCS does not"
+        with pytest.raises(ValueError, match="Output WCS has a spectral component but input WCS "
+                           "does not"):
+            array_out, footprint_out = reproject_interp((data, wcs2), wcs1, shape_out=(1, 2, 3))
 
 
 def test_naxis_mismatch():
@@ -269,24 +275,23 @@ def test_naxis_mismatch():
     Make sure an error is raised if the input and output WCS have a different
     number of dimensions.
     """
-
     data = np.ones((3, 2, 2))
     wcs_in = WCS(naxis=3)
     wcs_out = WCS(naxis=2)
 
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(ValueError, match="Number of dimensions between input and output WCS "
+                       "should match"):
         array_out, footprint_out = reproject_interp((data, wcs_in), wcs_out, shape_out=(1, 2))
-    assert exc.value.args[0] == "Number of dimensions between input and output WCS should match"
 
 
 def test_slice_reprojection():
     """
     Test case where only the slices change and the celestial projection doesn't
     """
-
     inp_cube = np.arange(3, dtype='float').repeat(4 * 5).reshape(3, 4, 5)
 
-    header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
+    header_in = fits.Header.fromtextfile(
+        get_pkg_data_filename('data/cube.hdr', package='reproject.tests'))
 
     header_in['NAXIS1'] = 5
     header_in['NAXIS2'] = 4
@@ -324,7 +329,8 @@ def test_slice_reprojection():
 
 def test_4d_fails():
 
-    header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
+    header_in = fits.Header.fromtextfile(
+        get_pkg_data_filename('data/cube.hdr', package='reproject.tests'))
 
     header_in['NAXIS'] = 4
 
@@ -334,14 +340,15 @@ def test_4d_fails():
 
     array_in = np.zeros((2, 3, 4, 5))
 
-    with pytest.raises(ValueError) as ex:
+    with pytest.raises(ValueError, match="Length of shape_out should match number of dimensions "
+                       "in wcs_out"):
         x_out, y_out, z_out = reproject_interp((array_in, w_in), w_out, shape_out=[2, 4, 5, 6])
-    assert str(ex.value) == "Length of shape_out should match number of dimensions in wcs_out"
 
 
 def test_inequal_wcs_dims():
     inp_cube = np.arange(3, dtype='float').repeat(4 * 5).reshape(3, 4, 5)
-    header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
+    header_in = fits.Header.fromtextfile(
+        get_pkg_data_filename('data/cube.hdr', package='reproject.tests'))
 
     header_out = header_in.copy()
     header_out['CTYPE3'] = 'VRAD'
@@ -351,16 +358,17 @@ def test_inequal_wcs_dims():
 
     wcs_out = WCS(header_out)
 
-    with pytest.raises(ValueError) as ex:
+    with pytest.raises(ValueError, match="Output WCS has a spectral component but input WCS "
+                       "does not"):
         out_cube, out_cube_valid = reproject_interp((inp_cube, header_in),
                                                     wcs_out, shape_out=(2, 4, 5))
-    assert str(ex.value) == "Output WCS has a spectral component but input WCS does not"
 
 
 def test_different_wcs_types():
 
     inp_cube = np.arange(3, dtype='float').repeat(4 * 5).reshape(3, 4, 5)
-    header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
+    header_in = fits.Header.fromtextfile(
+        get_pkg_data_filename('data/cube.hdr', package='reproject.tests'))
 
     header_out = header_in.copy()
     header_out['CTYPE3'] = 'VRAD'
@@ -370,11 +378,10 @@ def test_different_wcs_types():
 
     wcs_out = WCS(header_out)
 
-    with pytest.raises(ValueError) as ex:
+    with pytest.raises(ValueError, match=r"The input \(VELO\) and output \(VRAD\) spectral "
+                                         r"coordinate types are not equivalent\."):
         out_cube, out_cube_valid = reproject_interp((inp_cube, header_in),
                                                     wcs_out, shape_out=(2, 4, 5))
-    assert str(ex.value) == ("The input (VELO) and output (VRAD) spectral "
-                             "coordinate types are not equivalent.")
 
 # TODO: add a test to check the units are the same.
 
@@ -383,7 +390,8 @@ def test_reproject_3d_celestial_correctness_ra2gal():
 
     inp_cube = np.arange(3, dtype='float').repeat(7 * 8).reshape(3, 7, 8)
 
-    header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
+    header_in = fits.Header.fromtextfile(
+        get_pkg_data_filename('data/cube.hdr', package='reproject.tests'))
 
     header_in['NAXIS1'] = 8
     header_in['NAXIS2'] = 7
@@ -421,8 +429,8 @@ def test_reproject_with_output_array():
     non-celestial slices are the same and therefore where both algorithms can
     work.
     """
-
-    header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/cube.hdr'))
+    header_in = fits.Header.fromtextfile(
+        get_pkg_data_filename('data/cube.hdr', package='reproject.tests'))
 
     array_in = np.ones((3, 200, 180))
     shape_out = (3, 160, 170)
@@ -455,7 +463,7 @@ def test_reproject_roundtrip(file_format):
     from sunpy.coordinates.ephemeris import get_body_heliographic_stonyhurst
 
     if file_format == 'fits':
-        map_aia = Map(os.path.join(DATA, 'aia_171_level1.fits'))
+        map_aia = Map(get_pkg_data_filename('data/aia_171_level1.fits', package='reproject.tests'))
         data = map_aia.data
         wcs = map_aia.wcs
         date = map_aia.date
@@ -464,11 +472,14 @@ def test_reproject_roundtrip(file_format):
         pytest.importorskip('astropy', minversion='4.0')
         pytest.importorskip('gwcs', minversion='0.12')
         asdf = pytest.importorskip('asdf')
-        aia = asdf.open(os.path.join(DATA, 'aia_171_level1.asdf'))
+        aia = asdf.open(
+            get_pkg_data_filename('data/aia_171_level1.asdf', package='reproject.tests'))
         data = aia['data'][...]
         wcs = aia['wcs']
         date = wcs.output_frame.reference_frame.obstime
-        target_wcs = Map(os.path.join(DATA, 'aia_171_level1.fits')).wcs.deepcopy()
+        target_wcs = Map(
+            get_pkg_data_filename('data/aia_171_level1.fits',
+                                  package='reproject.tests')).wcs.deepcopy()
     else:
         raise ValueError('file_format should be fits or asdf')
 

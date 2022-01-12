@@ -1,9 +1,9 @@
-|Build Status| |Coverage Status| |Powered by Astropy Badge|
+|Docs| |Build Status| |CI Status| |Coverage Status| |Powered by Astropy Badge|
 
 About
 =====
 
-The 'reproject' package is a Python package to reproject astronomical
+The `reproject` package is a Python package to reproject astronomical
 images using various techniques via a uniform interface. By
 *reprojection*, we mean the re-gridding of images from one world
 coordinate system to another (for example changing the pixel resolution,
@@ -22,10 +22,13 @@ https://reproject.readthedocs.io
 .. figure:: https://github.com/astrofrog/reproject/raw/master/docs/images/index-4.png
    :alt: screenshot
 
+.. |Docs| image:: https://readthedocs.org/projects/reproject/badge/?version=latest
+   :target: https://reproject.readthedocs.io/en/latest/?badge=latest
 .. |Build Status| image:: https://dev.azure.com/astropy-project/reproject/_apis/build/status/astropy.reproject?branchName=main
    :target: https://dev.azure.com/astropy-project/reproject/_build/latest?definitionId=3&branchName=main
-.. |Build status| image:: https://ci.appveyor.com/api/projects/status/0ifg4xonlyrc6eu4/branch/main?svg=true
-   :target: https://ci.appveyor.com/project/Astropy/reproject/branch/main
+.. |CI Status| image:: https://github.com/astropy/reproject/workflows/CI/badge.svg
+   :target: https://github.com/astropy/reproject/actions
 .. |Coverage Status| image:: https://codecov.io/gh/astropy/reproject/branch/main/graph/badge.svg
    :target: https://codecov.io/gh/astropy/reproject
 .. |Powered by Astropy Badge| image:: http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat
+   :target: https://astropy.org

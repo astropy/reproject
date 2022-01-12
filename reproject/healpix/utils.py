@@ -39,6 +39,7 @@ def parse_input_healpix_data(input_data, field=0, hdu_in=None, nested=None):
         if 'ORDERING' in header:
             nested = header['ORDERING'].lower() == 'nested'
     elif isinstance(input_data, str):
+        # NOTE: hdu is not closed here.
         hdu = fits.open(input_data)[hdu_in or 1]
         return parse_input_healpix_data(hdu, field=field)
     elif isinstance(input_data, tuple) and isinstance(input_data[0], np.ndarray):
