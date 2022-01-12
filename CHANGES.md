@@ -35,7 +35,7 @@
   anyway. [#227]
 
 - The infrastructure of the package has been updated in line with the
-  APE 17 roadmap (https://github.com/astropy/astropy-APEs/blob/master/APE17.rst).
+  APE 17 roadmap (https://github.com/astropy/astropy-APEs/blob/main/APE17.rst).
   The main changes are that the ``python setup.py test`` and
   ``python setup.py build_docs`` commands will no longer work. The
   easiest way to replicate these commands is to install the tox

@@ -22,11 +22,10 @@ https://reproject.readthedocs.io
 .. figure:: https://github.com/astrofrog/reproject/raw/master/docs/images/index-4.png
    :alt: screenshot
 
-.. |Build Status| image:: https://dev.azure.com/astropy-project/reproject/_apis/build/status/astropy.reproject?branchName=master
-   :target: https://dev.azure.com/astropy-project/reproject/_build/latest?definitionId=3&branchName=master
-.. |Build status| image:: https://ci.appveyor.com/api/projects/status/0ifg4xonlyrc6eu4/branch/master?svg=true
-   :target: https://ci.appveyor.com/project/Astropy/reproject/branch/master
-.. |Coverage Status| image:: https://codecov.io/gh/astropy/reproject/branch/master/graph/badge.svg
+.. |Build Status| image:: https://dev.azure.com/astropy-project/reproject/_apis/build/status/astropy.reproject?branchName=main
+   :target: https://dev.azure.com/astropy-project/reproject/_build/latest?definitionId=3&branchName=main
+.. |Build status| image:: https://ci.appveyor.com/api/projects/status/0ifg4xonlyrc6eu4/branch/main?svg=true
+   :target: https://ci.appveyor.com/project/Astropy/reproject/branch/main
+.. |Coverage Status| image:: https://codecov.io/gh/astropy/reproject/branch/main/graph/badge.svg
    :target: https://codecov.io/gh/astropy/reproject
 .. |Powered by Astropy Badge| image:: http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat
-
