@@ -119,8 +119,8 @@ cdef double hanning_filter(double x, double y) nogil:
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef double gaussian_filter(double x, double y) nogil:
-    return exp(-(x*x+y*y) * 1.386294)
+cdef double gaussian_filter(double x, double y, double width) nogil:
+    return exp(-(x*x+y*y) / (width*width) * 2)
 
 
 @cython.boundscheck(False)
@@ -163,6 +163,12 @@ cdef double sample_array(double[:,:] source, double x, double y, int x_cyclic,
     return source[<int> y, <int> x]
 
 
+KERNELS = {}
+KERNELS['hann'] = 0
+KERNELS['hanning'] = KERNELS['hann']
+KERNELS['gaussian'] = 1
+
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.nonecheck(False)
@@ -170,7 +176,14 @@ cdef double sample_array(double[:,:] source, double x, double y, int x_cyclic,
 def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_width=-1,
                     int conserve_flux=False, int progress=False, int singularities_nan=False,
                     int x_cyclic=False, int y_cyclic=False, int out_of_range_nan=False,
-                    bint center_jacobian=False):
+                    bint center_jacobian=False, str kernel='Hann', double kernel_width=1.3,
+                    double sample_region_width=4):
+    cdef int kernel_flag
+    try:
+        kernel_flag = KERNELS[kernel.lower()]
+    except KeyError:
+        raise ValueError("'kernel' must be 'Hann' or 'Gaussian'")
+
     cdef np.ndarray[np.float64_t, ndim=3] pixel_target
     cdef int delta
     if center_jacobian:
@@ -303,48 +316,60 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
                 s[1] = 1.0/s[1]
                 svd2x2_compose(V, s, U, J)
 
-                # We'll need to sample some number of input images to set this
-                # output pixel. Later on, we'll compute weights to assign to
-                # each input pixel with a Hanning window, and that window will
-                # assign weights of zero outside some range. Right now, we'll
-                # determine a search region within the input image---a bounding
-                # box around those pixels that will be assigned non-zero
-                # weights.
+                # We'll need to sample some number of input image pixels to set
+                # this output pixel. Later on, we'll compute weights to assign
+                # to each input pixel, and they will be at or near zero outside
+                # some range. Right now, we'll determine a search region within
+                # the input image---a bounding box around those pixels that
+                # will be assigned non-zero weights.
                 #
-                # We do that by identifying the locations in the input image of
-                # the corners of a square region centered around the output
-                # pixel (using the local linearization of the transformation).
-                # Those transformed coordinates will set our bounding box.
-                #
-                # The output-plane region we're transforming is twice the width
-                # of a pixel---it runs to the centers of the neighboring
-                # pixels, rather than the edges of those pixels. When we use
-                # the Hann window as our filter function, having that window
-                # stretch to the neighboring pixel centers ensures that, at
-                # every point, the sum of the overlapping Hann windows is 1,
-                # and therefore that every input-image pixel is fully
-                # distributed into some combination of output pixels (in the
-                # limit of a Jacobian that is constant across all output
-                # pixels).
+                # We do that by defining a square region in the output plane
+                # centered on the output pixel, and transforming its corners to
+                # the input plane (using the local linearization of the
+                # transformation). Those transformed coordinates will set our
+                # bounding box.
+                if kernel_flag == 0:
+                    # The Hann window is zero outside +/-1, so
+                    # that's how far we need to go.
+                    #
+                    # The Hann window width is twice the width of a pixel---it
+                    # runs to the centers of the neighboring pixels, rather
+                    # than the edges of those pixels. This ensures that, at
+                    # every point, the sum of the overlapping Hann windows is
+                    # 1, and therefore that every input-image pixel is fully
+                    # distributed into some combination of output pixels (in
+                    # the limit of a Jacobian that is constant across all
+                    # output pixels).
+                    P1[0] = - 1 * Ji_padded[0, 0] + 1 * Ji_padded[0, 1]
+                    P1[1] = - 1 * Ji_padded[1, 0] + 1 * Ji_padded[1, 1]
+                    P2[0] = + 1 * Ji_padded[0, 0] + 1 * Ji_padded[0, 1]
+                    P2[1] = + 1 * Ji_padded[1, 0] + 1 * Ji_padded[1, 1]
+                    P3[0] = - 1 * Ji_padded[0, 0] - 1 * Ji_padded[0, 1]
+                    P3[1] = - 1 * Ji_padded[1, 0] - 1 * Ji_padded[1, 1]
+                    P4[0] = + 1 * Ji_padded[0, 0] - 1 * Ji_padded[0, 1]
+                    P4[1] = + 1 * Ji_padded[1, 0] - 1 * Ji_padded[1, 1]
 
-                # Transform the corners of the output-plane region to the input
-                # plane.
-                P1[0] = - 1 * Ji_padded[0, 0] + 1 * Ji_padded[0, 1]
-                P1[1] = - 1 * Ji_padded[1, 0] + 1 * Ji_padded[1, 1]
-                P2[0] = + 1 * Ji_padded[0, 0] + 1 * Ji_padded[0, 1]
-                P2[1] = + 1 * Ji_padded[1, 0] + 1 * Ji_padded[1, 1]
-                P3[0] = - 1 * Ji_padded[0, 0] - 1 * Ji_padded[0, 1]
-                P3[1] = - 1 * Ji_padded[1, 0] - 1 * Ji_padded[1, 1]
-                P4[0] = + 1 * Ji_padded[0, 0] - 1 * Ji_padded[0, 1]
-                P4[1] = + 1 * Ji_padded[1, 0] - 1 * Ji_padded[1, 1]
-
-                # Find a bounding box around the transformed coordinates.
-                # (Check all four points at each step, since sometimes negative
-                # Jacobian values will mirror the transformed pixel.)
-                top = max(P1[1], P2[1], P3[1], P4[1])
-                bottom = min(P1[1], P2[1], P3[1], P4[1])
-                right = max(P1[0], P2[0], P3[0], P4[0])
-                left = min(P1[0], P2[0], P3[0], P4[0])
+                    # Find a bounding box around the transformed coordinates.
+                    # (Check all four points at each step, in case a negative
+                    # Jacobian value is mirroring the transformed pixel.)
+                    top = max(P1[1], P2[1], P3[1], P4[1])
+                    bottom = min(P1[1], P2[1], P3[1], P4[1])
+                    right = max(P1[0], P2[0], P3[0], P4[0])
+                    left = min(P1[0], P2[0], P3[0], P4[0])
+                elif kernel_flag == 1:
+                    # The Gaussian window is non-zero everywhere, but it's
+                    # close to zero almost everywhere. Sampling the whole input
+                    # image isn't tractable, so we truncate and sample only
+                    # within a certain region.
+                    # n.b. `s` currently contains the reciprocal of the
+                    # singular values
+                    top = sample_region_width / (2 * min(s[0], s[1]))
+                    bottom = -top
+                    right = top
+                    left = -right
+                else:
+                    with gil:
+                        raise ValueError("Invalid kernel type")
 
                 if max_samples_width > 0 and max(right-left, top-bottom) > max_samples_width:
                     if singularities_nan:
@@ -388,7 +413,17 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
 
                         # Compute an averaging weight to be assigned to this
                         # input location.
-                        weight = hanning_filter(transformed[0], transformed[1])
+                        if kernel_flag == 0:
+                            weight = hanning_filter(
+                                    transformed[0], transformed[1])
+                        elif kernel_flag == 1:
+                            weight = gaussian_filter(
+                                    transformed[0],
+                                    transformed[1],
+                                    kernel_width)
+                        else:
+                            with gil:
+                                raise ValueError("Invalid kernel type")
                         if weight == 0:
                             # As we move along each row in the image, we'll
                             # first be seeing input-plane pixels that don't map

@@ -8,7 +8,8 @@ __all__ = ['reproject_adaptive']
 
 def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
                        return_footprint=True, center_jacobian=False,
-                       roundtrip_coords=True, conserve_flux=False):
+                       roundtrip_coords=True, conserve_flux=False,
+                       kernel='Hann', kernel_width=1.3, sample_region_width=4):
     """
     Reproject celestial slices from an 2d array from one WCS to another using
     the DeForest (2004) adaptive resampling algorithm.
@@ -61,24 +62,28 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
         directions.
     conserve_flux : bool
         Whether to rescale output pixel values so flux is conserved.
-    kernel: str
+    kernel : str
         The averaging kernel to use. Allowed values are 'Hann' and 'Gaussian'.
         Case-insensitive. The Gaussian kernel produces better photometric
         accuracy at the cost of some blurring (on the scale of a few pixels).
-    kernel_width: double
-        The width of the kernel in pixels, measuring to the edge of the Hann
-        window or to +/- 1 sigma for the Gaussian window. If negative, a
-        default appropriate to the chosen kernel is used (2 for Hann, 1.5 for
-        Gaussian). Reducing this width may introduce photometric errors, while
-        increasing it will increase blurring of the output image.
-    sample_region_width: double
+    kernel_width : double
+        The width of the kernel in pixels, measuring to +/- 1 sigma for the
+        Gaussian window. Does not apply to the Hann window. Reducing this width
+        may introduce photometric errors or leave input pixels under-sampled,
+        while increasing it may improve the degree of anti-aliasing but will
+        increase blurring of the output image. If this width is changed from
+        the default, a proportional change should be made to the value of
+        sample_region_width to maintain an equivalent degree of photometric
+        accuracy.
+    sample_region_width : double
         The width in pixels of the output-image region which, when transformed
         to the input plane, defines the region to be sampled for each output
         pixel. Used only for the Gaussian kernel, which otherwise has infinite
         extent. This value sets a trade-off between accuracy and computation
-        time, with better accuracy at higher values. The default value of 4 may
-        yield errors of up to a few percent in some cases, while a value of 5
-        should ensure errors are much less than a percent.
+        time, with better accuracy at higher values. The default value of 4,
+        with the default kernel width, should limit the most extreme errors to
+        less than one percent. Higher values will offer even more photometric
+        accuracy.
 
     Returns
     -------
@@ -99,4 +104,6 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
                                   return_footprint=return_footprint,
                                   center_jacobian=center_jacobian,
                                   roundtrip_coords=roundtrip_coords,
-                                  conserve_flux=conserve_flux)
+                                  conserve_flux=conserve_flux,
+                                  kernel=kernel, kernel_width=kernel_width,
+                                  sample_region_width=sample_region_width)

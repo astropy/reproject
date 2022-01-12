@@ -181,18 +181,46 @@ Adaptive resampling
 ===================
 
 The :func:`~reproject.reproject_adaptive` function can be used to carry out
-reprojection using the  `DeForest (2004)
+anti-aliased reprojection using the  `DeForest (2004)
 <https://doi.org/10.1023/B:SOLA.0000021743.24248.b0>`_ algorithm::
 
     >>> from reproject import reproject_adaptive
 
-In addition to the arguments described in :ref:`common`, one can enable a
-rescaling of output pixel values to conserve flux by using the
-``conserve_flux`` flag.
+Options
+-------
 
-Additionally, one can control the calculation of the Jacobian used in this
-algorithm with the ``center_jacobian`` flag. The Jacobian matrix represents how
-the corresponding input-image coordinate varies as you move between output
+In addition to the arguments described in :ref:`common`, one can use the
+options described below.
+
+A rescaling of output pixel values to conserve flux can be enabled with the
+``conserve_flux`` flag. (Flux conservation is enhanced with a Gaussian
+kernel---see below.)
+
+The kernel used for interpolation and averaging can be controlled with a set of
+options. The ``kernel`` argument can be set to 'hann' or 'gaussian' to set the
+function being used. The Hann window is the default, and the Gaussian window
+improves anti-aliasing and photometric accuracy (or flux conservation, when the
+flux-conserving mode is enabled) at the cost of blurring the output image by a
+few pixels. The ``kernel_width`` argument sets the width of the Gaussian
+kernel, in pixels, and is ignored for the Hann window. This width is measured
+between the Gaussian's :math:`\pm 1 \sigma` points. The default value is 1.3
+for the Gaussian, chosen to minimize blurring without compromising accuracy.
+Lower values may introduce photometric errors or leave input pixels
+under-sampled, while larger values may improve anti-aliasing behavior but will
+increase blurring of the output image. Since the Gaussian function has infinite
+extent, it must be truncated. This is done by sampling within a region of
+finite size. The width in pixels of the sampling region is determined by the
+coordinate transform and scaled by the ``sample_region_width`` option, and this
+scaling represents a trade-off between accuracy and computation speed. The
+default value of 4 represents a reasonable choice, with errors in extreme cases
+typically limited to less than one percent, while a value of 5 typically reduces
+extreme errors to a fraction of a percent. (The ``sample_region_width`` option
+has no effect for the Hann window, as that window does not have infinite
+extent.)
+
+One can control the calculation of the Jacobian used in this
+algorithm with the ``center_jacobian`` flag. The Jacobian matrix represents
+how the corresponding input-image coordinate varies as you move between output
 pixels (or d(input image coordinate) / d(output image coordinate)), and serves
 as a local linearization of the coordinate transformation. When this flag is
 ``True``, the Jacobian is calculated at pixel grid points by calculating the
@@ -208,16 +236,18 @@ points. This is more efficient, and the loss of accuracy is extremely small for
 transformations that vary smoothly between pixels. The default (``False``) is
 to use the faster option.
 
+Algorithm Description
+---------------------
+
 Broadly speaking, the algorithm works by approximating the
 footprint of each output pixel by an elliptical shape in the input image
 which is stretched and rotated by the transformation (as described by the
 Jacobian mentioned above), then finding the weighted average of samples inside
-that ellipse, where the weight is 1 at the center of the ellipse, and 0 at the
-side, and the shape of the weight function is given by an analytical
-distribution (currently we use a Hann function).
+that ellipse, where the shape of the weighting function is given by an analytical
+distribution (Hann and Gaussian functions are supported in this implementation).
 
 To illustrate the benefits of this method, we consider a simple case
-where the reprojection includes a large change in resoluton. We choose
+where the reprojection includes a large change in resolution. We choose
 to use an artificial data example to better illustrate the differences:
 
 .. plot::
