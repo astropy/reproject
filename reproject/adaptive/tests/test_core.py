@@ -94,6 +94,7 @@ def test_reproject_adaptive_2d_rotated():
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 
 
+@pytest.mark.filterwarnings('ignore:asdf.* failed to load')
 @pytest.mark.array_compare(single_reference=True)
 @pytest.mark.parametrize('file_format', ['fits', 'asdf'])
 def test_reproject_adaptive_roundtrip(file_format):

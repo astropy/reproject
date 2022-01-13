@@ -449,6 +449,7 @@ def test_reproject_with_output_array():
     assert out_full is returned_array
 
 
+@pytest.mark.filterwarnings('ignore:asdf.* failed to load')
 @pytest.mark.array_compare(single_reference=True)
 @pytest.mark.parametrize('file_format', ['fits', 'asdf'])
 def test_reproject_roundtrip(file_format):
