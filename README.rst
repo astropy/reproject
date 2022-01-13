@@ -1,4 +1,4 @@
-|Docs| |PyPI| |Build Status| |CI Status| |Coverage Status| |Powered by Astropy Badge|
+|Docs| |PyPI| |CI Status| |Coverage Status| |Powered by Astropy Badge|
 
 About
 =====
@@ -26,8 +26,6 @@ https://reproject.readthedocs.io
    :target: https://reproject.readthedocs.io/en/latest/?badge=latest
 .. |PyPI| image:: https://img.shields.io/pypi/v/reproject.svg
    :target: https://pypi.python.org/pypi/reproject
-.. |Build Status| image:: https://dev.azure.com/astropy-project/reproject/_apis/build/status/astropy.reproject?branchName=main
-   :target: https://dev.azure.com/astropy-project/reproject/_build/latest?definitionId=3&branchName=main
 .. |CI Status| image:: https://github.com/astropy/reproject/workflows/CI/badge.svg
    :target: https://github.com/astropy/reproject/actions
 .. |Coverage Status| image:: https://codecov.io/gh/astropy/reproject/branch/main/graph/badge.svg
