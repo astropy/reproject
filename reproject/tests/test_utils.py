@@ -5,9 +5,10 @@ from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
 from astropy.nddata import NDData
 
-from ..utils import parse_input_data, parse_input_shape, parse_output_projection
+from reproject.utils import parse_input_data, parse_input_shape, parse_output_projection
 
 
+@pytest.mark.filterwarnings('ignore:unclosed file:ResourceWarning')
 def test_parse_input_data(tmpdir):
 
     header = fits.Header.fromtextfile(get_pkg_data_filename('data/gc_ga.hdr'))
@@ -53,6 +54,7 @@ def test_parse_input_data(tmpdir):
                                  "a tuple of (array, WCS) or (array, Header)")
 
 
+@pytest.mark.filterwarnings('ignore:unclosed file:ResourceWarning')
 def test_parse_input_shape(tmpdir):
     """
     This should support everything that parse_input_data does, *plus* an

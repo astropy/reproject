@@ -11,9 +11,9 @@ from astropy.io.fits import Header
 
 from numpy.testing import assert_allclose
 
-from ... import reproject_exact, reproject_interp
-from ..coadd import reproject_and_coadd
-from ...tests.helpers import array_footprint_to_hdulist
+from reproject import reproject_exact, reproject_interp
+from reproject.mosaicking.coadd import reproject_and_coadd
+from reproject.tests.helpers import array_footprint_to_hdulist
 
 ATOL = 1.e-9
 
@@ -173,6 +173,7 @@ class TestReprojectAndCoAdd():
         assert_allclose(array - np.mean(array),
                         self.array - np.mean(self.array), atol=ATOL)
 
+    @pytest.mark.filterwarnings('ignore:unclosed file:ResourceWarning')
     @pytest.mark.parametrize('mode', ['arrays', 'filenames', 'hdus'])
     def test_coadd_with_weights(self, tmpdir, reproject_function, mode):
 
