@@ -3,7 +3,8 @@
 # Cython implementation of the image resampling method described in "On
 # resampling of Solar Images", C.E. DeForest, Solar Physics 2004
 
-# Copyright (c) 2014, Ruben De Visscher All rights reserved.
+# Original version copyright (c) 2014, Ruben De Visscher. All rights reserved.
+# v2 updates copyright (c) 2022, Sam Van Kooten. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:

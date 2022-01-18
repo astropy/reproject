@@ -11,8 +11,11 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
                        roundtrip_coords=True, conserve_flux=False,
                        kernel='Hann', kernel_width=1.3, sample_region_width=4):
     """
-    Reproject celestial slices from an 2d array from one WCS to another using
-    the DeForest (2004) adaptive resampling algorithm.
+    Reproject a 2D array from one WCS to another using the DeForest (2004)
+    adaptive, anti-aliased resampling algorithm, with optional flux
+    conservation. This algorithm smoothly transitions between filtered
+    interpolation and spatial averaging, depending on the scaling applied by
+    the transformation at each output location.
 
     Parameters
     ----------
@@ -65,7 +68,8 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
     kernel : str
         The averaging kernel to use. Allowed values are 'Hann' and 'Gaussian'.
         Case-insensitive. The Gaussian kernel produces better photometric
-        accuracy at the cost of some blurring (on the scale of a few pixels).
+        accuracy and stronger anti-aliasing at the cost of some blurring (on
+        the scale of a few pixels).
     kernel_width : double
         The width of the kernel in pixels, measuring to +/- 1 sigma for the
         Gaussian window. Does not apply to the Hann window. Reducing this width

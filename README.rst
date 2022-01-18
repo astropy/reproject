@@ -9,12 +9,13 @@ images using various techniques via a uniform interface. By
 coordinate system to another (for example changing the pixel resolution,
 orientation, coordinate system). Currently, we have implemented
 reprojection of celestial images by interpolation (like
-`SWARP <http://www.astromatic.net/software/swarp>`__), as well as by
-finding the exact overlap between pixels on the celestial sphere (like
-`Montage <http://montage.ipac.caltech.edu/index.html>`__). It can also
-reproject to/from HEALPIX projections by relying on the
-`astropy-healpix <https://github.com/astropy/astropy-healpix>`__
-package.
+`SWARP <http://www.astromatic.net/software/swarp>`__), by the adaptive and
+anti-aliased algorithm of `DeForest (2004)
+<https://doi.org/10.1023/B:SOLA.0000021743.24248.b0>`_, and by finding the
+exact overlap between pixels on the celestial sphere (like `Montage
+<http://montage.ipac.caltech.edu/index.html>`__). It can also reproject to/from
+HEALPIX projections by relying on the `astropy-healpix
+<https://github.com/astropy/astropy-healpix>`__ package.
 
 For more information, including on how to install the package, see
 https://reproject.readthedocs.io
