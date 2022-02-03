@@ -189,7 +189,7 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
                     int conserve_flux=False, int progress=False, int singularities_nan=False,
                     int x_cyclic=False, int y_cyclic=False, int out_of_range_nan=False,
                     bint center_jacobian=False, str kernel='gaussian', double kernel_width=1.3,
-                    double sample_region_width=4, str boundary_mode="ignore",
+                    double sample_region_width=4, str boundary_mode="strict",
                     double boundary_fill_value=0, double boundary_ignore_threshold=0.5):
     cdef int kernel_flag
     try:

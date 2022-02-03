@@ -1,5 +1,4 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
-import warnings
 
 import astropy.utils
 
@@ -16,7 +15,7 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
                        roundtrip_coords=True, conserve_flux=False,
                        kernel='gaussian', kernel_width=1.3,
                        sample_region_width=4,
-                       boundary_mode=None, boundary_fill_value=0,
+                       boundary_mode='strict', boundary_fill_value=0,
                        boundary_ignore_threshold=0.5, x_cyclic=False,
                        y_cyclic=False):
     """
@@ -147,14 +146,6 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
         no coverage or valid values in the input image, while values of 1
         indicate valid values.
     """
-
-    if boundary_mode is None:
-        boundary_mode = 'ignore'
-        warnings.warn(
-                "The default boundary mode will change from 'ignore' to "
-                " 'strict' in a future release. To suppress this warning, "
-                "explicitly select a mode with the 'boundary_mode' argument.",
-                FutureWarning, stacklevel=3)
 
     # TODO: add support for output_array
 

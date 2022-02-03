@@ -53,7 +53,7 @@ def test_reproject_adaptive_2d(wcsapi, center_jacobian, roundtrip_coords):
             (data_in, wcs_in), wcs_out, shape_out=(60, 60),
             center_jacobian=center_jacobian,
             roundtrip_coords=roundtrip_coords,
-            kernel='hann')
+            kernel='hann', boundary_mode='ignore')
 
     # Check that surface brightness is conserved in the unrotated case
     assert_allclose(np.nansum(data_in), np.nansum(array_out) * (256 / 60) ** 2, rtol=0.1)
@@ -96,7 +96,7 @@ def test_reproject_adaptive_2d_rotated(center_jacobian, roundtrip_coords):
             (data_in, wcs_in), wcs_out, shape_out=(60, 60),
             center_jacobian=center_jacobian,
             roundtrip_coords=roundtrip_coords,
-            kernel='hann')
+            kernel='hann', boundary_mode='ignore')
 
     # ASTROPY_LT_40: astropy v4.0 introduced new default header keywords,
     # once we support only astropy 4.0 and later we can update the reference
@@ -294,7 +294,9 @@ def test_reproject_adaptive_flux_conservation():
         # The Gaussian kernel does a better job at flux conservation, so
         # choosing it here allows a tighter tolerance. Increasing the sample
         # region width also allows a tighter tolerance---less room for bugs to
-        # hide!
+        # hide! Setting the boundary mode to 'ignore' avoids excessive clipping
+        # of the edges of our small output image, letting us use a smaller
+        # image and do more tests in the same time.
         array_out = reproject_adaptive((data_in, wcs_in),
                                        wcs_out, shape_out=(30, 30),
                                        return_footprint=False,
@@ -302,7 +304,8 @@ def test_reproject_adaptive_flux_conservation():
                                        center_jacobian=False,
                                        kernel='gaussian',
                                        sample_region_width=5,
-                                       conserve_flux=True)
+                                       conserve_flux=True,
+                                       boundary_mode='ignore')
 
         # The degree of flux-conservation we end up seeing isn't necessarily
         # something that we can constrain a priori, so here we test for
