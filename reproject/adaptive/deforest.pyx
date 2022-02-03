@@ -128,46 +128,54 @@ cdef double gaussian_filter(double x, double y, double width) nogil:
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef double clip(double x, double vmin, double vmax, int cyclic, int out_of_range_nan) nogil:
+cdef double clip(double x, double vmin, double vmax, int cyclic,
+        int out_of_range_nearest) nogil:
     if x < vmin:
         if cyclic:
             while x < vmin:
                 x += (vmax-vmin)+1
-        elif out_of_range_nan:
-            return nan
-        else:
+        elif out_of_range_nearest:
             return vmin
+        else:
+            return nan
     elif x > vmax:
         if cyclic:
             while x > vmax:
                 x -= (vmax-vmin)+1
-        elif out_of_range_nan:
-            return nan
-        else:
+        elif out_of_range_nearest:
             return vmax
-    else:
-        return x
+        else:
+            return nan
+    return x
 
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef double sample_array(double[:,:] source, double x, double y, int x_cyclic,
-        int y_cyclic, int out_of_range_nan) nogil:
-    x = clip(x, 0, source.shape[1] - 1, x_cyclic, out_of_range_nan)
-    y = clip(y, 0, source.shape[0] - 1, y_cyclic, out_of_range_nan)
+cdef (double, bint) sample_array(double[:,:] source, double x, double y,
+        int x_cyclic, int y_cyclic, bint out_of_range_nearest) nogil:
+    x = clip(x, 0, source.shape[1] - 1, x_cyclic, out_of_range_nearest)
+    y = clip(y, 0, source.shape[0] - 1, y_cyclic, out_of_range_nearest)
 
     if isnan(x) or isnan(y):
-        return nan
+        return nan, False
 
-    return source[<int> y, <int> x]
+    return source[<int> y, <int> x], True
 
 
 KERNELS = {}
 KERNELS['hann'] = 0
 KERNELS['hanning'] = KERNELS['hann']
 KERNELS['gaussian'] = 1
+
+BOUNDARY_MODES = {}
+BOUNDARY_MODES['strict'] = 1
+BOUNDARY_MODES['constant'] = 2
+BOUNDARY_MODES['grid-constant'] = 3
+BOUNDARY_MODES['ignore'] = 4
+BOUNDARY_MODES['ignore_threshold'] = 5
+BOUNDARY_MODES['nearest'] = 6
 
 
 @cython.boundscheck(False)
@@ -178,12 +186,20 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
                     int conserve_flux=False, int progress=False, int singularities_nan=False,
                     int x_cyclic=False, int y_cyclic=False, int out_of_range_nan=False,
                     bint center_jacobian=False, str kernel='Hann', double kernel_width=1.3,
-                    double sample_region_width=4):
+                    double sample_region_width=4, str boundary_mode="ignore",
+                    double boundary_fill_value=0, double boundary_ignore_threshold=0.5):
     cdef int kernel_flag
     try:
         kernel_flag = KERNELS[kernel.lower()]
     except KeyError:
         raise ValueError("'kernel' must be 'Hann' or 'Gaussian'")
+
+    cdef int boundary_flag
+    try:
+        boundary_flag = BOUNDARY_MODES[boundary_mode.lower()]
+    except KeyError:
+        raise ValueError(
+                f"boundary_mode '{boundary_mode}' not recognized") from None
 
     cdef np.ndarray[np.float64_t, ndim=3] pixel_target
     cdef int delta
@@ -274,7 +290,8 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
     cdef double[:] transformed = np.zeros((2,))
     cdef double[:] current_pixel_source = np.zeros((2,))
     cdef double[:] current_offset = np.zeros((2,))
-    cdef double weight_sum = 0.0
+    cdef double weight_sum
+    cdef double ignored_weight_sum
     cdef double weight
     cdef double value
     cdef double[:] P1 = np.empty((2,))
@@ -283,6 +300,7 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
     cdef double[:] P4 = np.empty((2,))
     cdef double top, bottom, left, right
     cdef bint has_sampled_this_row
+    cdef bint is_good_sample
     with nogil:
         # Iterate through each pixel in the output image.
         for yi in range(target.shape[0]):
@@ -376,9 +394,16 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
                     if singularities_nan:
                         target[yi,xi] = nan
                     else:
-                        target[yi,xi] = sample_array(source,
-                                pixel_source[yi,xi,0], pixel_source[yi,xi,1],
-                                x_cyclic, y_cyclic, out_of_range_nan)
+                        value, is_good_sample = sample_array(
+                                source, current_pixel_source[0],
+                                current_pixel_source[1], x_cyclic, y_cyclic,
+                                out_of_range_nearest=boundary_flag == 6)
+                        if is_good_sample:
+                            target[yi,xi] = value
+                        elif boundary_flag == 2 or boundary_flag == 3:
+                            target[yi,xi] = boundary_fill_value
+                        else:
+                            target[yi,xi] = nan
                     continue
 
                 top += pixel_source[yi,xi,1]
@@ -386,25 +411,83 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
                 right += pixel_source[yi,xi,0]
                 left += pixel_source[yi,xi,0]
 
-                # Clamp sampling region to stay within the source image. (Going
-                # outside the image plane is handled otherwise, but it's faster
-                # to just omit those points completely.)
-                if not x_cyclic:
-                    right = min(source.shape[1] - 1, right)
-                    left = max(0, left)
-                if not y_cyclic:
-                    top = min(source.shape[0] - 1, top)
-                    bottom = max(0, bottom)
+                # Draw these points in to the nearest input pixel
+                bottom = ceil(bottom)
+                top = floor(top)
+                left = ceil(left)
+                right = floor(right)
 
-                target[yi,xi] = 0.0
-                weight_sum = 0.0
+                # Handle the case that the sampling region extends beyond the
+                # input image boundary. For 'strict' handling, we can set the
+                # output pixel to NaN right away. For 'ignore' handling, we can
+                # clamp the region to exclude the out-of-bounds samples. For
+                # all other boundary modes, we still need to calculate weights
+                # for each out-of-bounds sample, so we do nothing here.
+                if not x_cyclic:
+                    if right > source.shape[1] - 1:
+                        if boundary_flag == 1:
+                            target[yi,xi] = nan
+                            continue
+                        if boundary_flag == 4:
+                            right = source.shape[1] - 1
+                    if left < 0:
+                        if boundary_flag == 1:
+                            target[yi,xi] = nan
+                            continue
+                        if boundary_flag == 4:
+                            left = 0
+                if not y_cyclic:
+                    if top > source.shape[0] - 1:
+                        if boundary_flag == 1:
+                            target[yi,xi] = nan
+                            continue
+                        if boundary_flag == 4:
+                            top = source.shape[0] - 1
+                    if bottom < 0:
+                        if boundary_flag == 1:
+                            target[yi,xi] = nan
+                            continue
+                        if boundary_flag == 4:
+                            bottom = 0
+
+                # Check whether the sampling region falls entirely outside the
+                # input image. For strict boundary handling, this is already
+                # handled above by the partial case. Otherwise, we fill in an
+                # appropriate value and move along. For some projections, the
+                # sampling region can become very large when well outside the
+                # input image, and so this detection becomes an important
+                # optimization.
+                if (not x_cyclic and (right < 0 or left > source.shape[1] - 1)
+                        or not y_cyclic
+                            and (top < 0 or bottom > source.shape[0] - 1)):
+                    if boundary_flag == 3:
+                        target[yi,xi] = boundary_fill_value
+                        continue
+                    if (boundary_flag == 2
+                            or boundary_flag == 4
+                            or boundary_flag == 5):
+                        target[yi,xi] = nan
+                        continue
+                    if boundary_flag == 6:
+                        # Just sample one row or column so that we get all of
+                        # the nearest values. Both kernels vary independently
+                        # in x and y, so sampling the full region isn't needed
+                        # when the sampled values are constant in x or in y.
+                        if right < left:
+                            right = left
+                        if top < bottom:
+                            top = bottom
+
+                target[yi,xi] = 0
+                weight_sum = 0
+                ignored_weight_sum = 0
 
                 # Iterate through that bounding box in the input image.
-                for y in range(<int>ceil(bottom), <int>floor(top)+1):
+                for y in range(<int> bottom, <int> top+1):
                     current_pixel_source[1] = y
                     current_offset[1] = current_pixel_source[1] - pixel_source[yi,xi,1]
                     has_sampled_this_row = False
-                    for x in range(<int>ceil(left), <int>floor(right)+1):
+                    for x in range(<int> left, <int> right+1):
                         current_pixel_source[0] = x
                         current_offset[0] = current_pixel_source[0] - pixel_source[yi,xi,0]
                         # Find the fractional position of the input location
@@ -443,16 +526,31 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
                             continue
                         has_sampled_this_row = True
 
-                        value = sample_array(source, current_pixel_source[0],
+                        value, is_good_sample = sample_array(
+                                source, current_pixel_source[0],
                                 current_pixel_source[1], x_cyclic, y_cyclic,
-                                out_of_range_nan)
+                                out_of_range_nearest=(boundary_flag == 6))
 
-                        if not isnan(value):
+                        if ((boundary_flag == 2 or boundary_flag == 3)
+                                and not is_good_sample):
+                            value = boundary_fill_value
+                            is_good_sample = True
+
+                        if is_good_sample:
                             target[yi,xi] += weight * value
                             weight_sum += weight
-                target[yi,xi] /= weight_sum
-                if conserve_flux:
-                    target[yi,xi] *= fabs(det2x2(Ji))
+                        else:
+                            if boundary_flag == 5:
+                                ignored_weight_sum += weight
+
+                if (boundary_flag == 5 and
+                        ignored_weight_sum / (ignored_weight_sum + weight_sum)
+                            > boundary_ignore_threshold):
+                    target[yi,xi] = nan
+                else:
+                    target[yi,xi] /= weight_sum
+                    if conserve_flux:
+                        target[yi,xi] *= fabs(det2x2(Ji))
             if progress:
                 with gil:
                     sys.stdout.write("\r%d/%d done" % (yi+1, target.shape[0]))

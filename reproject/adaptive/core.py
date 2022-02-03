@@ -35,7 +35,10 @@ def _reproject_adaptive_2d(array, wcs_in, wcs_out, shape_out,
                            return_footprint=True, center_jacobian=False,
                            roundtrip_coords=True, conserve_flux=False,
                            kernel='Hann', kernel_width=1.3,
-                           sample_region_width=4):
+                           sample_region_width=4,
+                           boundary_mode='ignore', boundary_fill_value=0,
+                           boundary_ignore_threshold=0.5,
+                           x_cyclic=False, y_cyclic=False):
     """
     Reproject celestial slices from an n-d array from one WCS to another
     using the DeForest (2004) algorithm [1]_, and assuming all other dimensions
@@ -67,6 +70,14 @@ def _reproject_adaptive_2d(array, wcs_in, wcs_out, shape_out,
     sample_region_width : double
         The width in pixels of the sample region, used only for the Gaussian
         kernel which otherwise has infinite extent.
+    boundary_mode : str
+        Boundary handling mode
+    boundary_fill_value : double
+        Fill value for 'constant' boundary mode
+    boundary_ignore_threshold : double
+        Threshold for 'ignore_threshold' boundary mode, ranging from 0 to 1.
+    x_cyclic, y_cyclic : bool
+        Marks in input-image axis as cyclic.
 
     Returns
     -------
@@ -107,7 +118,11 @@ def _reproject_adaptive_2d(array, wcs_in, wcs_out, shape_out,
     map_coordinates(array_in, array_out, transformer, out_of_range_nan=True,
                     center_jacobian=center_jacobian, conserve_flux=conserve_flux,
                     kernel=kernel, kernel_width=kernel_width,
-                    sample_region_width=sample_region_width)
+                    sample_region_width=sample_region_width,
+                    boundary_mode=boundary_mode,
+                    boundary_fill_value=boundary_fill_value,
+                    boundary_ignore_threshold=boundary_ignore_threshold,
+                    x_cyclic=x_cyclic, y_cyclic=y_cyclic)
 
     if return_footprint:
         return array_out, (~np.isnan(array_out)).astype(float)

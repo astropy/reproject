@@ -243,6 +243,37 @@ points. This is more efficient, and the loss of accuracy is extremely small for
 transformations that vary smoothly between pixels. The default (``False``) is
 to use the faster option.
 
+When, for any one output pixel, the sampling region in the input image
+straddles the boundary of the input image or lies entirely outside the input
+image, a range of boundary modes can be applied, and this is set with the
+``boundary_mode`` option. Allowed values are:
+
+* ``strict`` --- Output pixels will be ``NaN`` if any of their input samples
+  fall outside the input image.
+* ``constant`` --- Samples outside the bounds of the input image are
+  replaced by a constant value, set with the ``boundary_fill_value`` argument.
+  Output values become ``NaN`` if there are no valid input samples.
+* ``grid-constant`` --- Samples outside the bounds of the input image are
+  replaced by a constant value, set with the ``boundary_fill_value`` argument.
+  Output values will be ``boundary_fill_value`` if there are no valid input
+  samples.
+* ``ignore`` --- Samples outside the input image are simply ignored,
+  contributing neither to the output value nor the sum-of-weights
+  normalization. If there are no valid input samples, the output value will be
+  ``NaN``.
+* ``ignore_threshold`` --- Acts as ``ignore``, unless the total weight that
+  would have been assigned to the ignored samples exceeds a set fraction of the
+  total weight across the entire sampling region, set by the
+  ``boundary_ignore_threshold`` argument. In that case, acts as ``strict``.
+* ``nearest`` --- Samples outside the input image are replaced by the nearst
+  in-bounds input pixel.
+
+The input image can also be marked as being cyclic or periodic in the x and/or
+y axes with the ``x_cyclic`` and ``y_cyclic`` flags. If these are set, samples
+will wrap around to the opposite side of the image, ignoring the
+``boundary_mode`` for that axis.
+
+
 Algorithm Description
 ---------------------
 
