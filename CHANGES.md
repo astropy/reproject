@@ -1,3 +1,9 @@
+0.10 (unreleased)
+-----------------
+
+- Changed default boundary mode from ``ignore`` to ``strict`` for
+  ``reproject_adaptive``.
+
 0.9 (unreleased)
 ----------------
 

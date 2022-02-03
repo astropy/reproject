@@ -15,7 +15,7 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
                        roundtrip_coords=True, conserve_flux=False,
                        kernel=None, kernel_width=1.3,
                        sample_region_width=4,
-                       boundary_mode=None, boundary_fill_value=0,
+                       boundary_mode='strict', boundary_fill_value=0,
                        boundary_ignore_threshold=0.5, x_cyclic=False,
                        y_cyclic=False):
     """

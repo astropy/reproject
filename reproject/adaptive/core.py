@@ -36,7 +36,7 @@ def _reproject_adaptive_2d(array, wcs_in, wcs_out, shape_out,
                            roundtrip_coords=True, conserve_flux=False,
                            kernel='Hann', kernel_width=1.3,
                            sample_region_width=4,
-                           boundary_mode='ignore', boundary_fill_value=0,
+                           boundary_mode='strict', boundary_fill_value=0,
                            boundary_ignore_threshold=0.5,
                            x_cyclic=False, y_cyclic=False):
     """
