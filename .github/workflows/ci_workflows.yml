@@ -1,14 +1,8 @@
 name: CI
 
 on:
-  pull_request:
   push:
-    branches:
-    tags:
-  workflow_dispatch:
-  schedule:
-    # Run every Monday at 05:53 UTC
-    - cron: 53 5 * * 1
+  pull_request:
 
 jobs:
 
@@ -65,3 +59,5 @@ jobs:
       test_command: pytest -p no:warnings --pyargs reproject
     secrets:
       pypi_token: ${{ secrets.pypi_token }}
+    env:
+      CIBW_BEFORE_BUILD_LINUX: yum install -y geos-devel freetype-devel libpng-devel
