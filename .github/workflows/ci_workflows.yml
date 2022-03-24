@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [ main ]
+    branches:
     tags:
   workflow_dispatch:
   schedule:
@@ -11,46 +11,26 @@ on:
     - cron: 53 5 * * 1
 
 jobs:
-  tests:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        testenv: [{python: 3.7, toxenv: py37-test-oldestdeps-cov}, {python: 3.8, toxenv: py38-test-cov}, {python: 3.9, toxenv: py39-test-cov}]
-        include:
-          - os: ubuntu-latest
-            testenv: {python: 3.9, toxenv: codestyle}
-          - os: ubuntu-latest
-            testenv: {python: 3.8, toxenv: build_docs}
-          - os: ubuntu-latest
-            testenv: {python: '3.10', toxenv: py310-test-devdeps-cov}
 
-    steps:
-    - uses: actions/checkout@v2
-      with:
-        fetch-depth: 0
-    - name: Set up Python ${{ matrix.testenv.python }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.testenv.python }}
-    - name: Install dependencies on Linux
-      if: startsWith(matrix.os, 'ubuntu')
-      run: |
-        sudo apt-get update
-        sudo apt-get -y install libgeos-dev libfreetype-dev libpng-dev
-    - name: Install tox
-      run: python -m pip install tox
-    - name: Install codecov
-      if: ${{ contains(matrix.testenv.toxenv,'-cov') }}
-      run: python -m pip install codecov
-    - name: Run tox
-      run: tox -v -e ${{ matrix.testenv.toxenv }}
-    - name: Upload coverage to codecov
-      if: ${{ contains(matrix.testenv.toxenv,'-cov') }}
-      uses: codecov/codecov-action@v2
-      with:
-        file: ./coverage.xml
+  tests:
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@v1
+    with:
+      envs:
+        - linux: codestyle
+        - macos: py37-test-oldestdeps-cov
+        - macos: py38-test-cov
+        - macos: py39-test-cov
+        - linux: py37-test-oldestdeps-cov
+        - linux: py38-test-cov
+        - linux: py39-test-cov
+        # - linux32: py37-test-oldestdeps-cov
+        # - linux32: py38-test-cov
+        - windows: py37-test-oldestdeps-cov
+        - windows: py38-test-cov
+        - windows: py39-test-cov
+      coverage: 'codecov'
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   linux32:
     runs-on: ubuntu-latest
