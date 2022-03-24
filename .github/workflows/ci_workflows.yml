@@ -56,3 +56,12 @@ jobs:
         /opt/python/cp38-cp38/bin/pip install tox
     - name: Run tests for Python 3.8
       run: /opt/python/cp38-cp38/bin/python -m tox -e py38-test-numpy121-cov
+
+  publish:
+    needs: [tests, linux32]
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish.yml@v1
+    with:
+      test_extras: test
+      test_command: pytest -p no:warnings --pyargs reproject
+    secrets:
+      pypi_token: ${{ secrets.pypi_token }}
