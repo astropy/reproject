@@ -9,7 +9,7 @@ jobs:
   tests:
     uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@v1
     with:
-      envs:
+      envs: |
         - linux: codestyle
         - macos: py37-test-oldestdeps-cov
         - macos: py38-test-cov
