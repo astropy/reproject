@@ -6,3 +6,9 @@ requires = ["setuptools",
             "oldest-supported-numpy",
             "cython==0.29.21"]
 build-backend = 'setuptools.build_meta'
+
+[tool.cibuildwheel]
+skip = "cp36-*"
+
+[tool.cibuildwheel.linux]
+before-build = "yum install -y geos-devel freetype-devel libpng-devel"

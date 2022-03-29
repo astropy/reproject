@@ -17,8 +17,6 @@ jobs:
         - linux: py37-test-oldestdeps-cov
         - linux: py38-test-cov
         - linux: py39-test-cov
-        # - linux32: py37-test-oldestdeps-cov
-        # - linux32: py38-test-cov
         - windows: py37-test-oldestdeps-cov
         - windows: py38-test-cov
         - windows: py39-test-cov
@@ -26,38 +24,11 @@ jobs:
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-  linux32:
-    runs-on: ubuntu-latest
-    container:
-      image: quay.io/pypa/manylinux_2_24_i686
-    steps:
-    # TODO: Use newer checkout actions when https://github.com/actions/checkout/issues/334 fixed
-    - name: Checkout code
-      uses: actions/checkout@v1
-      with:
-        fetch-depth: 0
-    - name: Install dependencies for Python 3.7
-      run: |
-        apt-get update
-        apt-get -y install libgeos-dev libfreetype6-dev libpng-dev
-        /opt/python/cp37-cp37m/bin/pip install tox
-    - name: Run tests for Python 3.7
-      run: /opt/python/cp37-cp37m/bin/python -m tox -e py37-test-oldestdeps-cov
-    - name: Install dependencies for Python 3.8
-      run: |
-        apt-get update
-        apt-get -y install libgeos-dev libfreetype6-dev libpng-dev
-        /opt/python/cp38-cp38/bin/pip install tox
-    - name: Run tests for Python 3.8
-      run: /opt/python/cp38-cp38/bin/python -m tox -e py38-test-numpy121-cov
-
   publish:
-    needs: [tests, linux32]
+    needs: tests
     uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish.yml@v1
     with:
       test_extras: test
       test_command: pytest -p no:warnings --pyargs reproject
     secrets:
       pypi_token: ${{ secrets.pypi_token }}
-    env:
-      CIBW_BEFORE_BUILD_LINUX: yum install -y geos-devel freetype-devel libpng-devel
