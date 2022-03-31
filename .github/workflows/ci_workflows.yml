@@ -21,8 +21,6 @@ jobs:
         - windows: py38-test-cov
         - windows: py39-test-cov
       coverage: 'codecov'
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   publish:
     needs: tests
