@@ -164,7 +164,7 @@ def test_reproject_adaptive_high_aliasing_potential():
     np.testing.assert_allclose(array_out, data_ref)
 
 
-@pytest.mark.filterwarnings('ignore:asdf.* failed to load')
+@pytest.mark.filterwarnings('ignore')
 @pytest.mark.array_compare(single_reference=True)
 @pytest.mark.parametrize('file_format', ['fits', 'asdf'])
 def test_reproject_adaptive_roundtrip(file_format):
