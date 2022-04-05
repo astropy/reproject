@@ -21,7 +21,9 @@ def as_high_level_wcs(wcs):
 
 @pytest.mark.array_compare(single_reference=True)
 @pytest.mark.parametrize('wcsapi', (False, True))
-def test_reproject_adaptive_2d(wcsapi):
+@pytest.mark.parametrize('center_jacobian', (False, True))
+@pytest.mark.parametrize('roundtrip_coords', (False, True))
+def test_reproject_adaptive_2d(wcsapi, center_jacobian, roundtrip_coords):
 
     # Set up initial array with pattern
     data_in = np.zeros((256, 256))
@@ -34,7 +36,7 @@ def test_reproject_adaptive_2d(wcsapi):
     wcs_in.wcs.crpix = 128.5, 128.5
     wcs_in.wcs.cdelt = -0.01, 0.01
 
-    # Define a lower resolution output WCS with rotation
+    # Define a lower resolution output WCS
     wcs_out = WCS(naxis=2)
     wcs_out.wcs.crpix = 30.5, 30.5
     wcs_out.wcs.cdelt = -0.0427, 0.0427
@@ -45,8 +47,10 @@ def test_reproject_adaptive_2d(wcsapi):
         wcs_in = as_high_level_wcs(wcs_in)
         wcs_out = as_high_level_wcs(wcs_out)
 
-    array_out, footprint_out = reproject_adaptive((data_in, wcs_in),
-                                                  wcs_out, shape_out=(60, 60))
+    array_out, footprint_out = reproject_adaptive(
+            (data_in, wcs_in), wcs_out, shape_out=(60, 60),
+            center_jacobian=center_jacobian,
+            roundtrip_coords=roundtrip_coords)
 
     # Check that surface brightness is conserved in the unrotated case
     assert_allclose(np.nansum(data_in), np.nansum(array_out) * (256 / 60) ** 2, rtol=0.1)
@@ -61,7 +65,9 @@ def test_reproject_adaptive_2d(wcsapi):
 
 
 @pytest.mark.array_compare(single_reference=True)
-def test_reproject_adaptive_2d_rotated():
+@pytest.mark.parametrize('center_jacobian', (False, True))
+@pytest.mark.parametrize('roundtrip_coords', (False, True))
+def test_reproject_adaptive_2d_rotated(center_jacobian, roundtrip_coords):
 
     # Set up initial array with pattern
     data_in = np.zeros((256, 256))
@@ -82,8 +88,10 @@ def test_reproject_adaptive_2d_rotated():
 
     header_out = wcs_out.to_header()
 
-    array_out, footprint_out = reproject_adaptive((data_in, wcs_in),
-                                                  wcs_out, shape_out=(60, 60))
+    array_out, footprint_out = reproject_adaptive(
+            (data_in, wcs_in), wcs_out, shape_out=(60, 60),
+            center_jacobian=center_jacobian,
+            roundtrip_coords=roundtrip_coords)
 
     # ASTROPY_LT_40: astropy v4.0 introduced new default header keywords,
     # once we support only astropy 4.0 and later we can update the reference
@@ -94,7 +102,8 @@ def test_reproject_adaptive_2d_rotated():
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 
 
-def test_reproject_adaptive_high_aliasing_potential():
+@pytest.mark.parametrize('roundtrip_coords', (False, True))
+def test_reproject_adaptive_high_aliasing_potential(roundtrip_coords):
     # Generate sample data with vertical stripes alternating with every column
     data_in = np.arange(40*40).reshape((40, 40))
     data_in = (data_in) % 2
@@ -114,7 +123,8 @@ def test_reproject_adaptive_high_aliasing_potential():
 
     array_out = reproject_adaptive((data_in, wcs_in),
                                    wcs_out, shape_out=(11, 6),
-                                   return_footprint=False)
+                                   return_footprint=False,
+                                   roundtrip_coords=roundtrip_coords)
 
     # The CDELT1 value in wcs_out produces a down-sampling by a factor of two
     # along the output x axis. With the input image containing vertical lines
@@ -134,7 +144,8 @@ def test_reproject_adaptive_high_aliasing_potential():
                       [np.sin(angle), np.cos(angle)]]
     array_out = reproject_adaptive((data_in, wcs_in),
                                    wcs_out, shape_out=(11, 6),
-                                   return_footprint=False)
+                                   return_footprint=False,
+                                   roundtrip_coords=roundtrip_coords)
     np.testing.assert_allclose(array_out, 0.5)
 
     # But if we add a 90-degree rotation to the input coordinates, then when
@@ -147,7 +158,8 @@ def test_reproject_adaptive_high_aliasing_potential():
                      [np.sin(angle), np.cos(angle)]]
     array_out = reproject_adaptive((data_in, wcs_in),
                                    wcs_out, shape_out=(11, 6),
-                                   return_footprint=False)
+                                   return_footprint=False,
+                                   roundtrip_coords=roundtrip_coords)
 
     # Generate the expected pattern of alternating stripes
     data_ref = np.arange(array_out.shape[1]) % 2
@@ -158,21 +170,14 @@ def test_reproject_adaptive_high_aliasing_potential():
     wcs_out.wcs.pc = [[1, 0], [0, 1]]
     array_out = reproject_adaptive((data_in, wcs_in),
                                    wcs_out, shape_out=(11, 6),
-                                   return_footprint=False)
+                                   return_footprint=False,
+                                   roundtrip_coords=roundtrip_coords)
     data_ref = np.arange(array_out.shape[0]) % 2
     data_ref = np.vstack([data_ref] * array_out.shape[1]).T
     np.testing.assert_allclose(array_out, data_ref)
 
 
-@pytest.mark.filterwarnings('ignore:asdf.* failed to load')
-@pytest.mark.array_compare(single_reference=True)
-@pytest.mark.parametrize('file_format', ['fits', 'asdf'])
-def test_reproject_adaptive_roundtrip(file_format):
-
-    # Test the reprojection with solar data, which ensures that the masking of
-    # pixels based on round-tripping works correctly. Using asdf is not just
-    # about testing a different format but making sure that GWCS works.
-
+def prepare_test_data(file_format):
     pytest.importorskip('sunpy', minversion='2.1.0')
     from sunpy.map import Map
     from sunpy.coordinates.ephemeris import get_body_heliographic_stonyhurst
@@ -204,7 +209,48 @@ def test_reproject_adaptive_roundtrip(file_format):
     target_wcs.wcs.aux.hglt_obs = venus.lat.to_value(u.deg)
     target_wcs.wcs.aux.dsun_obs = venus.radius.to_value(u.m)
 
-    output, footprint = reproject_adaptive((data, wcs), target_wcs, (128, 128))
+    return data, wcs, target_wcs
+
+
+@pytest.mark.filterwarnings('ignore:asdf.* failed to load')
+@pytest.mark.array_compare(single_reference=True)
+@pytest.mark.parametrize('file_format', ['fits', 'asdf'])
+def test_reproject_adaptive_roundtrip(file_format):
+
+    # Test the reprojection with solar data, which ensures that the masking of
+    # pixels based on round-tripping works correctly. Using asdf is not just
+    # about testing a different format but making sure that GWCS works.
+
+    data, wcs, target_wcs = prepare_test_data(file_format)
+
+    output, footprint = reproject_adaptive((data, wcs), target_wcs, (128, 128),
+            center_jacobian=True)
+
+    header_out = target_wcs.to_header()
+
+    # ASTROPY_LT_40: astropy v4.0 introduced new default header keywords,
+    # once we support only astropy 4.0 and later we can update the reference
+    # data files and remove this section.
+    for key in ('CRLN_OBS', 'CRLT_OBS', 'DSUN_OBS', 'HGLN_OBS', 'HGLT_OBS',
+                'MJDREFF', 'MJDREFI', 'MJDREF', 'MJD-OBS', 'RSUN_REF'):
+        header_out.pop(key, None)
+    header_out['DATE-OBS'] = header_out['DATE-OBS'].replace('T', ' ')
+
+    return array_footprint_to_hdulist(output, footprint, header_out)
+
+
+@pytest.mark.array_compare()
+def test_reproject_adaptive_uncentered_jacobian():
+
+    # Explicitly test the uncentered-Jacobian path for a non-affine transform.
+    # For this case, output pixels change by 6% at most, and usually much less.
+    # (Though more nan pixels are present, as the uncentered calculation draws
+    # in values from a bit further away.)
+
+    data, wcs, target_wcs = prepare_test_data('fits')
+
+    output, footprint = reproject_adaptive((data, wcs), target_wcs, (128, 128),
+            center_jacobian=False)
 
     header_out = target_wcs.to_header()
 

@@ -102,6 +102,19 @@ also be specified, and be given the shape of the output image using the Numpy
 :class:`~astropy.io.fits.Header`, does not contain information about image
 size).
 
+For the interpolation and adaptive algorithms, an optional third argument,
+``roundtrip_coords`` is accepted. By default, after coordinates are transformed
+from the output plane to the input plane, the input-plane coordinates are
+transformed back to the output plane to ensure that the transformation is
+defined in both directions. This doubles the amount of
+coordinate-transformation work to be done. In speed-critical situations, where
+it is known that the coordinate transformation is defined everywhere, this
+extra work can be disabled by setting ``roundtrip_coords=False``. (Note that
+this is not a question of whether each output pixel maps to an existing *pixel*
+in the input image and vice-versa, but whether it maps to a valid *coordinate*
+in the coordinate system of the input image---regardless of whether that
+coordinate falls within the bounds of the input image.)
+
 As an example, we start off by opening a FITS file using Astropy::
 
     >>> from astropy.io import fits
@@ -174,13 +187,31 @@ order of the interpolation. Supported strings include:
 * ``'nearest-neighbor'``: zeroth order interpolation
 * ``'bilinear'``: first order interpolation
 
+Additionally, one can control the calculation of the Jacobian used in this
+algorithm with the ``center_jacobian`` flag. The Jacobian matrix represents how
+the corresponding input-image coordinate varies as you move between output
+pixels (or d(input image coordinate) / d(output image coordinate)), and serves
+as a local linearization of the coordinate transformation. When this flag is
+``True``, the Jacobian is calculated at pixel grid points by calculating the
+transformation at locations offset by half a pixel, and then doing finite
+differences on the resulting input-image coordinates. This is more accurate but
+carries the cost of tripling the number of coordinate transformed done by this
+routine. This is recommended if your coordinate transform varies significantly
+and non-smoothly between output pixels. When ``False``, the Jacobian is
+calculated using the pixel-grid-point transforms that need to be computed
+anyway, which produces Jacobian values at locations between pixel grid points,
+and nearby Jacobian values are averaged to produce values at the pixel grid
+points. This is more efficient, and the loss of accuracy is extremely small for
+transformations that vary smoothly between pixels. The default (``False``) is
+to use the faster option.
+
 Broadly speaking, the algorithm works by approximating the
 footprint of each output pixel by an elliptical shape in the input image
-which is stretched and rotated by the transformation, then finding the
-weighted average of samples inside that ellipse, where the weight is 1
-at the center of the ellipse, and 0 at the side, and the shape of the
-weight function is given by an analytical distribution (currently we use
-a Hann function).
+which is stretched and rotated by the transformation (as described by the
+Jacobian mentioned above), then finding the weighted average of samples inside
+that ellipse, where the weight is 1 at the center of the ellipse, and 0 at the
+side, and the shape of the weight function is given by an analytical
+distribution (currently we use a Hann function).
 
 To illustrate the benefits of this method, we consider a simple case
 where the reprojection includes a large change in resoluton. We choose

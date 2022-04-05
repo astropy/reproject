@@ -4,7 +4,8 @@ import numpy as np
 from astropy.wcs import WCS
 
 from ..array_utils import map_coordinates
-from ..wcs_utils import efficient_pixel_to_pixel_with_roundtrip, has_celestial
+from ..wcs_utils import (efficient_pixel_to_pixel_with_roundtrip,
+        efficient_pixel_to_pixel, has_celestial)
 
 
 def _validate_wcs(wcs_in, wcs_out, shape_out):
@@ -56,7 +57,7 @@ def _validate_array_out(array_out, array, shape_out):
 
 
 def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
-                    return_footprint=True):
+                    return_footprint=True, roundtrip_coords=True):
     """
     Reproject n-dimensional data to a new projection using interpolation.
 
@@ -80,7 +81,12 @@ def _reproject_full(array, wcs_in, wcs_out, shape_out, order=1, array_out=None,
                             indexing='ij', sparse=False, copy=False)
     pixel_out = [p.ravel() for p in pixel_out]
     # For each pixel in the ouput array, get the pixel value in the input WCS
-    pixel_in = efficient_pixel_to_pixel_with_roundtrip(wcs_out, wcs_in, *pixel_out[::-1])[::-1]
+    if roundtrip_coords:
+        pixel_in = efficient_pixel_to_pixel_with_roundtrip(
+                wcs_out, wcs_in, *pixel_out[::-1])[::-1]
+    else:
+        pixel_in = efficient_pixel_to_pixel(
+                wcs_out, wcs_in, *pixel_out[::-1])[::-1]
     pixel_in = np.array(pixel_in)
 
     if array_out is not None:

@@ -24,7 +24,8 @@ def as_high_level_wcs(wcs):
 
 @pytest.mark.array_compare(single_reference=True)
 @pytest.mark.parametrize('wcsapi', (False, True))
-def test_reproject_celestial_2d_gal2equ(wcsapi):
+@pytest.mark.parametrize('roundtrip_coords', (False, True))
+def test_reproject_celestial_2d_gal2equ(wcsapi, roundtrip_coords):
     """
     Test reprojection of a 2D celestial image, which includes a coordinate
     system conversion.
@@ -41,10 +42,12 @@ def test_reproject_celestial_2d_gal2equ(wcsapi):
             wcs_in, data_in = as_high_level_wcs(WCS(hdu_in.header)), hdu_in.data
             wcs_out = as_high_level_wcs(WCS(header_out))
             shape_out = header_out['NAXIS2'], header_out['NAXIS1']
-            array_out, footprint_out = reproject_interp((data_in, wcs_in),
-                                                        wcs_out, shape_out=shape_out)
+            array_out, footprint_out = reproject_interp(
+                    (data_in, wcs_in), wcs_out, shape_out=shape_out,
+                    roundtrip_coords=roundtrip_coords)
         else:
-            array_out, footprint_out = reproject_interp(hdu_in, header_out)
+            array_out, footprint_out = reproject_interp(
+                    hdu_in, header_out, roundtrip_coords=roundtrip_coords)
 
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 
@@ -60,7 +63,8 @@ for wcsapi in (False, True):
 
 @pytest.mark.array_compare(single_reference=True)
 @pytest.mark.parametrize(('wcsapi', 'axis_order'), tuple(COMBINATIONS))
-def test_reproject_celestial_3d_equ2gal(wcsapi, axis_order):
+@pytest.mark.parametrize('roundtrip_coords', (False, True))
+def test_reproject_celestial_3d_equ2gal(wcsapi, axis_order, roundtrip_coords):
     """
     Test reprojection of a 3D cube with celestial components, which includes a
     coordinate system conversion (the original header is in equatorial
@@ -98,17 +102,20 @@ def test_reproject_celestial_3d_equ2gal(wcsapi, axis_order):
             wcs_in, data_in = as_high_level_wcs(WCS(hdu_in.header)), hdu_in.data
             wcs_out = as_high_level_wcs(WCS(header_out))
             shape_out = header_out['NAXIS3'], header_out['NAXIS2'], header_out['NAXIS1']
-            array_out, footprint_out = reproject_interp((data_in, wcs_in),
-                                                        wcs_out, shape_out=shape_out)
+            array_out, footprint_out = reproject_interp(
+                    (data_in, wcs_in), wcs_out, shape_out=shape_out,
+                    roundtrip_coords=roundtrip_coords)
         else:
-            array_out, footprint_out = reproject_interp(hdu_in, header_out)
+            array_out, footprint_out = reproject_interp(
+                    hdu_in, header_out, roundtrip_coords=roundtrip_coords)
 
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 
 
 @pytest.mark.array_compare(single_reference=True)
 @pytest.mark.parametrize('wcsapi', (False, True))
-def test_small_cutout(wcsapi):
+@pytest.mark.parametrize('roundtrip_coords', (False, True))
+def test_small_cutout(wcsapi, roundtrip_coords):
     """
     Test reprojection of a cutout from a larger image (makes sure that the
     pre-reprojection cropping works)
@@ -129,15 +136,18 @@ def test_small_cutout(wcsapi):
             wcs_in, data_in = as_high_level_wcs(WCS(hdu_in.header)), hdu_in.data
             wcs_out = as_high_level_wcs(WCS(header_out))
             shape_out = header_out['NAXIS2'], header_out['NAXIS1']
-            array_out, footprint_out = reproject_interp((data_in, wcs_in),
-                                                        wcs_out, shape_out=shape_out)
+            array_out, footprint_out = reproject_interp(
+                    (data_in, wcs_in), wcs_out, shape_out=shape_out,
+                    roundtrip_coords=roundtrip_coords)
         else:
-            array_out, footprint_out = reproject_interp(hdu_in, header_out)
+            array_out, footprint_out = reproject_interp(
+                    hdu_in, header_out, roundtrip_coords=roundtrip_coords)
 
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 
 
-def test_mwpan_car_to_mol():
+@pytest.mark.parametrize('roundtrip_coords', (False, True))
+def test_mwpan_car_to_mol(roundtrip_coords):
     """
     Test reprojection of the Mellinger Milky Way Panorama from CAR to MOL,
     which was returning all NaNs due to a regression that was introduced in
@@ -161,11 +171,13 @@ def test_mwpan_car_to_mol():
     header_out['CTYPE1'] = 'GLON-MOL'
     header_out['CTYPE2'] = 'GLAT-MOL'
     header_out['RADESYS'] = 'ICRS'
-    array_out, footprint_out = reproject_interp((data_in, wcs_in), header_out)
+    array_out, footprint_out = reproject_interp(
+            (data_in, wcs_in), header_out, roundtrip_coords=roundtrip_coords)
     assert np.isfinite(array_out).any()
 
 
-def test_small_cutout_outside():
+@pytest.mark.parametrize('roundtrip_coords', (False, True))
+def test_small_cutout_outside(roundtrip_coords):
     """
     Test reprojection of a cutout from a larger image - in this case the
     cutout is completely outside the region of the input image so we should
@@ -182,12 +194,14 @@ def test_small_cutout_outside():
         header_out['CRVAL2'] = -21.939779
         header_out['CRPIX1'] = 5.1
         header_out['CRPIX2'] = 4.7
-        array_out, footprint_out = reproject_interp(hdu_in, header_out)
+        array_out, footprint_out = reproject_interp(
+                hdu_in, header_out, roundtrip_coords=roundtrip_coords)
     assert np.all(np.isnan(array_out))
     assert np.all(footprint_out == 0)
 
 
-def test_celestial_mismatch_2d():
+@pytest.mark.parametrize('roundtrip_coords', (False, True))
+def test_celestial_mismatch_2d(roundtrip_coords):
     """
     Make sure an error is raised if the input image has celestial WCS
     information and the output does not (and vice-versa). This example will
@@ -206,10 +220,13 @@ def test_celestial_mismatch_2d():
 
         with pytest.raises(ValueError, match="Input WCS has celestial components but output WCS "
                            "does not"):
-            array_out, footprint_out = reproject_interp((data, wcs1), wcs2, shape_out=(2, 2))
+            array_out, footprint_out = reproject_interp(
+                    (data, wcs1), wcs2, shape_out=(2, 2),
+                    roundtrip_coords=roundtrip_coords)
 
 
-def test_celestial_mismatch_3d():
+@pytest.mark.parametrize('roundtrip_coords', (False, True))
+def test_celestial_mismatch_3d(roundtrip_coords):
     """
     Make sure an error is raised if the input image has celestial WCS
     information and the output does not (and vice-versa). This example will
@@ -230,14 +247,19 @@ def test_celestial_mismatch_3d():
 
         with pytest.raises(ValueError, match="Input WCS has celestial components but output WCS "
                            "does not"):
-            array_out, footprint_out = reproject_interp((data, wcs1), wcs2, shape_out=(1, 2, 3))
+            array_out, footprint_out = reproject_interp(
+                    (data, wcs1), wcs2, shape_out=(1, 2, 3),
+                    roundtrip_coords=roundtrip_coords)
 
         with pytest.raises(ValueError, match="Output WCS has celestial components but input WCS "
                            "does not"):
-            array_out, footprint_out = reproject_interp((data, wcs2), wcs1, shape_out=(1, 2, 3))
+            array_out, footprint_out = reproject_interp(
+                    (data, wcs2), wcs1, shape_out=(1, 2, 3),
+                    roundtrip_coords=roundtrip_coords)
 
 
-def test_spectral_mismatch_3d():
+@pytest.mark.parametrize('roundtrip_coords', (False, True))
+def test_spectral_mismatch_3d(roundtrip_coords):
     """
     Make sure an error is raised if there are mismatches between the presence
     or type of spectral axis.
@@ -256,21 +278,28 @@ def test_spectral_mismatch_3d():
 
         with pytest.raises(ValueError, match=r"The input \(VOPT\) and output \(FREQ\) spectral "
                            r"coordinate types are not equivalent\."):
-            array_out, footprint_out = reproject_interp((data, wcs1), wcs2, shape_out=(1, 2, 3))
+            array_out, footprint_out = reproject_interp(
+                    (data, wcs1), wcs2, shape_out=(1, 2, 3),
+                    roundtrip_coords=roundtrip_coords)
 
         header_out['CTYPE3'] = 'BANANAS'
         wcs2 = WCS(header_out)
 
         with pytest.raises(ValueError, match="Input WCS has a spectral component but output WCS "
                            "does not"):
-            array_out, footprint_out = reproject_interp((data, wcs1), wcs2, shape_out=(1, 2, 3))
+            array_out, footprint_out = reproject_interp(
+                    (data, wcs1), wcs2, shape_out=(1, 2, 3),
+                    roundtrip_coords=roundtrip_coords)
 
         with pytest.raises(ValueError, match="Output WCS has a spectral component but input WCS "
                            "does not"):
-            array_out, footprint_out = reproject_interp((data, wcs2), wcs1, shape_out=(1, 2, 3))
+            array_out, footprint_out = reproject_interp(
+                    (data, wcs2), wcs1, shape_out=(1, 2, 3),
+                    roundtrip_coords=roundtrip_coords)
 
 
-def test_naxis_mismatch():
+@pytest.mark.parametrize('roundtrip_coords', (False, True))
+def test_naxis_mismatch(roundtrip_coords):
     """
     Make sure an error is raised if the input and output WCS have a different
     number of dimensions.
@@ -281,10 +310,13 @@ def test_naxis_mismatch():
 
     with pytest.raises(ValueError, match="Number of dimensions between input and output WCS "
                        "should match"):
-        array_out, footprint_out = reproject_interp((data, wcs_in), wcs_out, shape_out=(1, 2))
+        array_out, footprint_out = reproject_interp(
+                (data, wcs_in), wcs_out, shape_out=(1, 2),
+                roundtrip_coords=roundtrip_coords)
 
 
-def test_slice_reprojection():
+@pytest.mark.parametrize('roundtrip_coords', (False, True))
+def test_slice_reprojection(roundtrip_coords):
     """
     Test case where only the slices change and the celestial projection doesn't
     """
@@ -304,7 +336,9 @@ def test_slice_reprojection():
     wcs_in = WCS(header_in)
     wcs_out = WCS(header_out)
 
-    out_cube, out_cube_valid = reproject_interp((inp_cube, wcs_in), wcs_out, shape_out=(2, 4, 5))
+    out_cube, out_cube_valid = reproject_interp(
+            (inp_cube, wcs_in), wcs_out, shape_out=(2, 4, 5),
+            roundtrip_coords=roundtrip_coords)
 
     # we expect to be projecting from
     # inp_cube = np.arange(3, dtype='float').repeat(4*5).reshape(3,4,5)
@@ -327,7 +361,8 @@ def test_slice_reprojection():
     np.testing.assert_allclose(out_cube, ((inp_cube[:-1] + inp_cube[1:]) / 2.))
 
 
-def test_4d_fails():
+@pytest.mark.parametrize('roundtrip_coords', (False, True))
+def test_4d_fails(roundtrip_coords):
 
     header_in = fits.Header.fromtextfile(
         get_pkg_data_filename('data/cube.hdr', package='reproject.tests'))
@@ -342,10 +377,13 @@ def test_4d_fails():
 
     with pytest.raises(ValueError, match="Length of shape_out should match number of dimensions "
                        "in wcs_out"):
-        x_out, y_out, z_out = reproject_interp((array_in, w_in), w_out, shape_out=[2, 4, 5, 6])
+        x_out, y_out, z_out = reproject_interp(
+                (array_in, w_in), w_out, shape_out=[2, 4, 5, 6],
+                roundtrip_coords=roundtrip_coords)
 
 
-def test_inequal_wcs_dims():
+@pytest.mark.parametrize('roundtrip_coords', (False, True))
+def test_inequal_wcs_dims(roundtrip_coords):
     inp_cube = np.arange(3, dtype='float').repeat(4 * 5).reshape(3, 4, 5)
     header_in = fits.Header.fromtextfile(
         get_pkg_data_filename('data/cube.hdr', package='reproject.tests'))
@@ -360,11 +398,13 @@ def test_inequal_wcs_dims():
 
     with pytest.raises(ValueError, match="Output WCS has a spectral component but input WCS "
                        "does not"):
-        out_cube, out_cube_valid = reproject_interp((inp_cube, header_in),
-                                                    wcs_out, shape_out=(2, 4, 5))
+        out_cube, out_cube_valid = reproject_interp(
+                (inp_cube, header_in), wcs_out, shape_out=(2, 4, 5),
+                roundtrip_coords=roundtrip_coords)
 
 
-def test_different_wcs_types():
+@pytest.mark.parametrize('roundtrip_coords', (False, True))
+def test_different_wcs_types(roundtrip_coords):
 
     inp_cube = np.arange(3, dtype='float').repeat(4 * 5).reshape(3, 4, 5)
     header_in = fits.Header.fromtextfile(
@@ -380,13 +420,15 @@ def test_different_wcs_types():
 
     with pytest.raises(ValueError, match=r"The input \(VELO\) and output \(VRAD\) spectral "
                                          r"coordinate types are not equivalent\."):
-        out_cube, out_cube_valid = reproject_interp((inp_cube, header_in),
-                                                    wcs_out, shape_out=(2, 4, 5))
+        out_cube, out_cube_valid = reproject_interp(
+                (inp_cube, header_in), wcs_out, shape_out=(2, 4, 5),
+                roundtrip_coords=roundtrip_coords)
 
 # TODO: add a test to check the units are the same.
 
 
-def test_reproject_3d_celestial_correctness_ra2gal():
+@pytest.mark.parametrize('roundtrip_coords', (False, True))
+def test_reproject_3d_celestial_correctness_ra2gal(roundtrip_coords):
 
     inp_cube = np.arange(3, dtype='float').repeat(7 * 8).reshape(3, 7, 8)
 
@@ -414,7 +456,9 @@ def test_reproject_3d_celestial_correctness_ra2gal():
     wcs_in = WCS(header_in)
     wcs_out = WCS(header_out)
 
-    out_cube, out_cube_valid = reproject_interp((inp_cube, wcs_in), wcs_out, shape_out=(2, 3, 4))
+    out_cube, out_cube_valid = reproject_interp(
+            (inp_cube, wcs_in), wcs_out, shape_out=(2, 3, 4),
+            roundtrip_coords=roundtrip_coords)
 
     assert out_cube.shape == (2, 3, 4)
     assert out_cube_valid.sum() == out_cube.size
@@ -423,7 +467,8 @@ def test_reproject_3d_celestial_correctness_ra2gal():
     np.testing.assert_allclose(out_cube[:, 0, 0], ((inp_cube[:-1] + inp_cube[1:]) / 2.)[:, 0, 0])
 
 
-def test_reproject_with_output_array():
+@pytest.mark.parametrize('roundtrip_coords', (False, True))
+def test_reproject_with_output_array(roundtrip_coords):
     """
     Test both full_reproject and slicewise reprojection. We use a case where the
     non-celestial slices are the same and therefore where both algorithms can
@@ -444,7 +489,9 @@ def test_reproject_with_output_array():
 
     # TODO when someone learns how to do it: make sure the memory isn't duplicated...
     returned_array = reproject_interp((array_in, wcs_in), wcs_out,
-                                      output_array=out_full, return_footprint=False)
+                                      output_array=out_full,
+                                      return_footprint=False,
+                                      roundtrip_coords=roundtrip_coords)
 
     assert out_full is returned_array
 
@@ -508,7 +555,8 @@ def test_reproject_roundtrip(file_format):
     return array_footprint_to_hdulist(output, footprint, header_out)
 
 
-def test_identity_with_offset():
+@pytest.mark.parametrize('roundtrip_coords', (False, True))
+def test_identity_with_offset(roundtrip_coords):
 
     # Reproject an array and WCS to itself but with a margin, which should
     # end up empty. This is a regression test for a bug that caused some
@@ -527,7 +575,9 @@ def test_identity_with_offset():
     wcs_out.wcs.crpix += 1
     shape_out = (array_in.shape[0] + 2, array_in.shape[1] + 2)
 
-    array_out, footprint = reproject_interp((array_in, wcs), wcs_out, shape_out=shape_out)
+    array_out, footprint = reproject_interp(
+            (array_in, wcs), wcs_out, shape_out=shape_out,
+            roundtrip_coords=roundtrip_coords)
 
     expected = np.pad(array_in, 1, 'constant', constant_values=np.nan)
 

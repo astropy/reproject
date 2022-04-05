@@ -11,7 +11,8 @@ ORDER['bilinear'] = 1
 
 
 def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
-                       order='bilinear', return_footprint=True):
+                       order='bilinear', return_footprint=True,
+                       center_jacobian=False, roundtrip_coords=True):
     """
     Reproject celestial slices from an 2d array from one WCS to another using
     the DeForest (2004) adaptive resampling algorithm.
@@ -52,6 +53,25 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
         interpolation.
     return_footprint : bool
         Whether to return the footprint in addition to the output array.
+    center_jacobian : bool
+        A Jacobian matrix is calculated, representing
+        d(input image coordinate) / d(output image coordinate),
+        a local linearization of the coordinate transformation. When this flag
+        is ``True``, the Jacobian is calculated at pixel grid points by
+        calculating the transformation at locations offset by half a pixel.
+        This is more accurate but carries the cost of tripling the number of
+        coordinate transforms done by this routine. This is recommended if your
+        coordinate transform varies significantly and non-smoothly between
+        output pixels. When ``False``, the Jacobian is calculated using
+        pixel-grid-point transforms, which produces Jacobian values at
+        locations between pixel grid points, and nearby Jacobian values are
+        averaged to produce values at the pixel grid points. This is more
+        efficient, and the loss of accuracy is extremely small for
+        transformations that vary smoothly between pixels. Defaults to
+        ``False``.
+    roundtrip_coords : bool
+        Whether to verify that coordinate transformations are defined in both
+        directions.
 
     Returns
     -------
@@ -72,4 +92,6 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
         order = ORDER[order]
 
     return _reproject_adaptive_2d(array_in, wcs_in, wcs_out, shape_out,
-                                  order=order, return_footprint=return_footprint)
+                                  order=order, return_footprint=return_footprint,
+                                  center_jacobian=center_jacobian,
+                                  roundtrip_coords=roundtrip_coords)
