@@ -212,7 +212,6 @@ def prepare_test_data(file_format):
     return data, wcs, target_wcs
 
 
-@pytest.mark.filterwarnings('ignore:asdf.* failed to load')
 @pytest.mark.array_compare(single_reference=True)
 @pytest.mark.parametrize('file_format', ['fits', 'asdf'])
 def test_reproject_adaptive_roundtrip(file_format):
