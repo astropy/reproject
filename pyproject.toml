@@ -8,4 +8,4 @@ requires = ["setuptools",
 build-backend = 'setuptools.build_meta'
 
 [tool.cibuildwheel]
-skip = "cp36-* pp* *-musllinux*"
+skip = "cp36-* pp* *-musllinux* cp310-win32"
