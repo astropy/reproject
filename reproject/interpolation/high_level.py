@@ -91,5 +91,5 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
         order = ORDER[order]
 
     return _reproject_full(array_in, wcs_in, wcs_out, shape_out=shape_out,
-            order=order, array_out=output_array,
-            return_footprint=return_footprint, roundtrip_coords=roundtrip_coords)
+                           order=order, array_out=output_array,
+                           return_footprint=return_footprint, roundtrip_coords=roundtrip_coords)

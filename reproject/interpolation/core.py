@@ -5,7 +5,7 @@ from astropy.wcs import WCS
 
 from ..array_utils import map_coordinates
 from ..wcs_utils import (efficient_pixel_to_pixel_with_roundtrip,
-        efficient_pixel_to_pixel, has_celestial)
+                         efficient_pixel_to_pixel, has_celestial)
 
 
 def _validate_wcs(wcs_in, wcs_out, shape_out):

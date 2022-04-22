@@ -224,7 +224,7 @@ def test_reproject_adaptive_roundtrip(file_format):
     data, wcs, target_wcs = prepare_test_data(file_format)
 
     output, footprint = reproject_adaptive((data, wcs), target_wcs, (128, 128),
-            center_jacobian=True)
+                                           center_jacobian=True)
 
     header_out = target_wcs.to_header()
 
@@ -250,7 +250,7 @@ def test_reproject_adaptive_uncentered_jacobian():
     data, wcs, target_wcs = prepare_test_data('fits')
 
     output, footprint = reproject_adaptive((data, wcs), target_wcs, (128, 128),
-            center_jacobian=False)
+                                           center_jacobian=False)
 
     header_out = target_wcs.to_header()
 

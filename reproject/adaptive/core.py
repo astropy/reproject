@@ -6,7 +6,7 @@ import numpy as np
 
 from .deforest import map_coordinates
 from ..wcs_utils import (efficient_pixel_to_pixel_with_roundtrip,
-        efficient_pixel_to_pixel)
+                         efficient_pixel_to_pixel)
 
 
 __all__ = ['_reproject_adaptive_2d']
