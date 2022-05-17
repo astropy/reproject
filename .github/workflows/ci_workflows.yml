@@ -23,6 +23,7 @@ jobs:
       coverage: 'codecov'
 
   publish:
+    if: github.event_name != 'pull_request'
     needs: tests
     uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish.yml@v1
     with:
