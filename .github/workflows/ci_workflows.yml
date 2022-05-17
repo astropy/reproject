@@ -18,16 +18,18 @@ jobs:
         - macos: py37-test-oldestdeps-cov
         - macos: py38-test-cov
         - macos: py39-test-cov
+        - macos: py310-test-cov
         - linux: py37-test-oldestdeps-cov
         - linux: py38-test-cov
         - linux: py39-test-cov
+        - linux: py310-test-cov
         - windows: py37-test-oldestdeps-cov
         - windows: py38-test-cov
         - windows: py39-test-cov
+        - windows: py310-test-cov
       coverage: 'codecov'
 
   publish:
-    if: github.event_name != 'pull_request'
     needs: tests
     uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish.yml@v1
     with:
