@@ -15,15 +15,16 @@ jobs:
     with:
       envs: |
         - linux: codestyle
-        - macos: py38-test-oldestdeps-cov
-        - macos: py39-test-cov
-        - macos: py310-test-cov
-        - linux: py38-test-oldestdeps-cov
-        - linux: py39-test-cov
-        - linux: py310-test-cov
-        - windows: py38-test-oldestdeps-cov
-        - windows: py39-test-cov
-        - windows: py310-test-cov
+        - macos: py38-test-oldestdeps
+        - macos: py39-test
+        - macos: py310-test
+        - linux: py38-test-oldestdeps
+        - linux: py38-test
+        - linux: py39-test
+        - linux: py310-test
+        - windows: py38-test-oldestdeps
+        - windows: py39-test
+        - windows: py310-test
       coverage: 'codecov'
 
   publish:
