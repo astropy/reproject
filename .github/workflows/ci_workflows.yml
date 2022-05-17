@@ -4,6 +4,10 @@ on:
   push:
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
 
   tests:
@@ -23,6 +27,7 @@ jobs:
       coverage: 'codecov'
 
   publish:
+    if: github.event_name != 'pull_request'
     needs: tests
     uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish.yml@v1
     with:
