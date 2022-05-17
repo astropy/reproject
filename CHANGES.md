@@ -1,9 +1,7 @@
 0.9 (unreleased)
 ----------------
 
-0.8.1 (unreleased)
-------------------
-
+- Drop support for Python 3.7.
 - Infrastructure and packaging updates.
 
 0.8 (2021-08-11)
