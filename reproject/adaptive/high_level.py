@@ -1,4 +1,5 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
+import astropy.utils
 
 from ..utils import parse_input_data, parse_output_projection
 from .core import _reproject_adaptive_2d
@@ -6,7 +7,9 @@ from .core import _reproject_adaptive_2d
 __all__ = ['reproject_adaptive']
 
 
+@astropy.utils.deprecated_renamed_argument('order', None, since=0.9)
 def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
+                       order=None,
                        return_footprint=True, center_jacobian=False,
                        roundtrip_coords=True, conserve_flux=False,
                        kernel='Hann', kernel_width=1.3, sample_region_width=4):
@@ -42,6 +45,9 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
     hdu_in : int or str, optional
         If ``input_data`` is a FITS file or an `~astropy.io.fits.HDUList`
         instance, specifies the HDU to use.
+    order : str
+        Deprecated, and no longer has any effect. Will be removed in a future
+        release.
     return_footprint : bool
         Whether to return the footprint in addition to the output array.
     center_jacobian : bool
