@@ -23,7 +23,10 @@ def get_extensions():
     if int(os.environ.get("DEBUG_OVERLAP_AREA", 0)):
         define_macros = [("DEBUG_OVERLAP_AREA", 1)]
     else:
-        define_macros = None
+        define_macros = []
+
+    define_macros.append(('CYTHON_LIMITED_API', '0x030800f0'))
+    define_macros.append(('Py_LIMITED_API', '0x030800f0'))
 
     extension = Extension(
         name="reproject.spherical_intersect._overlap",
@@ -33,6 +36,7 @@ def get_extensions():
         language="c",
         extra_compile_args=["-O2"],
         define_macros=define_macros,
+        py_limited_api=True,
     )
 
     return [extension]
