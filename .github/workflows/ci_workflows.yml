@@ -33,5 +33,12 @@ jobs:
     with:
       test_extras: test
       test_command: pytest -p no:warnings --pyargs reproject
+      targets: |
+        - cp*-manylinux_i686
+        - cp*-manylinux_x86_64
+        - cp*-manylinux_aarch64
+        - cp*-macosx_x86_64
+        - cp*-macosx_arm64
+        - cp*-win*
     secrets:
       pypi_token: ${{ secrets.pypi_token }}
