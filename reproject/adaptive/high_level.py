@@ -1,21 +1,24 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
+import astropy.utils
 
 from ..utils import parse_input_data, parse_output_projection
 from .core import _reproject_adaptive_2d
 
 __all__ = ['reproject_adaptive']
 
-ORDER = {}
-ORDER['nearest-neighbor'] = 0
-ORDER['bilinear'] = 1
 
-
+@astropy.utils.deprecated_renamed_argument('order', None, since=0.9)
 def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
-                       order='bilinear', return_footprint=True,
-                       center_jacobian=False, roundtrip_coords=True):
+                       order=None,
+                       return_footprint=True, center_jacobian=False,
+                       roundtrip_coords=True, conserve_flux=False,
+                       kernel='Hann', kernel_width=1.3, sample_region_width=4):
     """
-    Reproject celestial slices from an 2d array from one WCS to another using
-    the DeForest (2004) adaptive resampling algorithm.
+    Reproject a 2D array from one WCS to another using the DeForest (2004)
+    adaptive, anti-aliased resampling algorithm, with optional flux
+    conservation. This algorithm smoothly transitions between filtered
+    interpolation and spatial averaging, depending on the scaling applied by
+    the transformation at each output location.
 
     Parameters
     ----------
@@ -42,15 +45,9 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
     hdu_in : int or str, optional
         If ``input_data`` is a FITS file or an `~astropy.io.fits.HDUList`
         instance, specifies the HDU to use.
-    order : int or str, optional
-        The order of the interpolation. This can be any of the
-        following strings:
-
-            * 'nearest-neighbor'
-            * 'bilinear'
-
-        or an integer. A value of ``0`` indicates nearest neighbor
-        interpolation.
+    order : str
+        Deprecated, and no longer has any effect. Will be removed in a future
+        release.
     return_footprint : bool
         Whether to return the footprint in addition to the output array.
     center_jacobian : bool
@@ -72,6 +69,31 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
     roundtrip_coords : bool
         Whether to verify that coordinate transformations are defined in both
         directions.
+    conserve_flux : bool
+        Whether to rescale output pixel values so flux is conserved.
+    kernel : str
+        The averaging kernel to use. Allowed values are 'Hann' and 'Gaussian'.
+        Case-insensitive. The Gaussian kernel produces better photometric
+        accuracy and stronger anti-aliasing at the cost of some blurring (on
+        the scale of a few pixels).
+    kernel_width : double
+        The width of the kernel in pixels, measuring to +/- 1 sigma for the
+        Gaussian window. Does not apply to the Hann window. Reducing this width
+        may introduce photometric errors or leave input pixels under-sampled,
+        while increasing it may improve the degree of anti-aliasing but will
+        increase blurring of the output image. If this width is changed from
+        the default, a proportional change should be made to the value of
+        sample_region_width to maintain an equivalent degree of photometric
+        accuracy.
+    sample_region_width : double
+        The width in pixels of the output-image region which, when transformed
+        to the input plane, defines the region to be sampled for each output
+        pixel. Used only for the Gaussian kernel, which otherwise has infinite
+        extent. This value sets a trade-off between accuracy and computation
+        time, with better accuracy at higher values. The default value of 4,
+        with the default kernel width, should limit the most extreme errors to
+        less than one percent. Higher values will offer even more photometric
+        accuracy.
 
     Returns
     -------
@@ -88,10 +110,10 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
     array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
     wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
 
-    if isinstance(order, str):
-        order = ORDER[order]
-
     return _reproject_adaptive_2d(array_in, wcs_in, wcs_out, shape_out,
-                                  order=order, return_footprint=return_footprint,
+                                  return_footprint=return_footprint,
                                   center_jacobian=center_jacobian,
-                                  roundtrip_coords=roundtrip_coords)
+                                  roundtrip_coords=roundtrip_coords,
+                                  conserve_flux=conserve_flux,
+                                  kernel=kernel, kernel_width=kernel_width,
+                                  sample_region_width=sample_region_width)

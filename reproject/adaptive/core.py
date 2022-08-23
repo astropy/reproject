@@ -31,9 +31,11 @@ class CoordinateTransformer:
         return pixel_in
 
 
-def _reproject_adaptive_2d(array, wcs_in, wcs_out, shape_out, order=1,
+def _reproject_adaptive_2d(array, wcs_in, wcs_out, shape_out,
                            return_footprint=True, center_jacobian=False,
-                           roundtrip_coords=True):
+                           roundtrip_coords=True, conserve_flux=False,
+                           kernel='Hann', kernel_width=1.3,
+                           sample_region_width=4):
     """
     Reproject celestial slices from an n-d array from one WCS to another
     using the DeForest (2004) algorithm [1]_, and assuming all other dimensions
@@ -49,8 +51,6 @@ def _reproject_adaptive_2d(array, wcs_in, wcs_out, shape_out, order=1,
         The output WCS
     shape_out : tuple
         The shape of the output array
-    order : int, optional
-        The order of the interpolation.
     return_footprint : bool
         Whether to return the footprint in addition to the output array.
     center_jacobian : bool
@@ -58,6 +58,15 @@ def _reproject_adaptive_2d(array, wcs_in, wcs_out, shape_out, order=1,
     roundtrip_coords : bool
         Whether to veryfiy that coordinate transformations are defined in both
         directions.
+    conserve_flux : bool
+        Whether to rescale output pixel values so flux is conserved
+    kernel : str
+        The averaging kernel to use.
+    kernel_width : double
+        The width of the kernel in pixels. Applies only to the Gaussian kernel.
+    sample_region_width : double
+        The width in pixels of the sample region, used only for the Gaussian
+        kernel which otherwise has infinite extent.
 
     Returns
     -------
@@ -96,7 +105,9 @@ def _reproject_adaptive_2d(array, wcs_in, wcs_out, shape_out, order=1,
 
     transformer = CoordinateTransformer(wcs_in, wcs_out, roundtrip_coords)
     map_coordinates(array_in, array_out, transformer, out_of_range_nan=True,
-                    order=order, center_jacobian=center_jacobian)
+                    center_jacobian=center_jacobian, conserve_flux=conserve_flux,
+                    kernel=kernel, kernel_width=kernel_width,
+                    sample_region_width=sample_region_width)
 
     if return_footprint:
         return array_out, (~np.isnan(array_out)).astype(float)

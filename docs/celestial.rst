@@ -28,7 +28,8 @@ reproject such data:
   This is more accurate than interpolation, especially when the input and
   output resolutions differ, or when there are strong distortions, for example
   for large areas of the sky or when reprojecting images that include the
-  solar limb.
+  solar limb. This algorithm also applies anti-aliasing, and ultimately
+  produces much more accurate photometry than plain interpolation.
 
 * Computing the **exact overlap** of pixels on the sky by treating them as
   **four-sided spherical polygons** on the sky and computing spherical polygon
@@ -42,8 +43,9 @@ reproject such data:
   from coordinates on the sky to coordinates on the surface of a spherical
   body).
 
-Currently, this package implements interpolation, adaptive resampling, and
-spherical polygon intersection.
+Currently, this package implements :ref:`interpolation<interpolation>`,
+:ref:`adaptive resampling<adaptive>`, and
+:ref:`spherical polygon intersection<exact>`.
 
 .. note:: The reprojection/resampling is always done assuming that the image is in
           **surface brightness units**. For example, if you have an image
@@ -56,6 +58,11 @@ spherical polygon intersection.
           first convert it to surface brightness, then use the functions
           described below. In future, we will provide a convenience function
           to return the area of all the pixels to make it easier.
+
+          However, the :ref:`adaptive resampling<adaptive>` algorithm provides
+          an option to conserve flux by appropriately rescaling each output
+          pixel. With this option, an image in flux units need not be coverted
+          to surface brightness.
 
 .. _common:
 
@@ -170,26 +177,57 @@ include:
 * ``'biquadratic'``: second order interpolation
 * ``'bicubic'``: third order interpolation
 
+.. _adaptive:
+
 Adaptive resampling
 ===================
 
 The :func:`~reproject.reproject_adaptive` function can be used to carry out
-reprojection using the  `DeForest (2004)
+anti-aliased reprojection using the  `DeForest (2004)
 <https://doi.org/10.1023/B:SOLA.0000021743.24248.b0>`_ algorithm::
 
     >>> from reproject import reproject_adaptive
 
-In addition to the arguments described in :ref:`common`, the order of the
-interpolation to use when sampling values in the input map can be controlled by
-setting the ``order=`` argument to either an integer or a string giving the
-order of the interpolation. Supported strings include:
+This algorithm provides high-quality photometry through anti-aliased
+reprojection, which avoids the problems of plain interpolation when the input
+and output images have different resolutions, and it offers a flux-conserving
+mode.
 
-* ``'nearest-neighbor'``: zeroth order interpolation
-* ``'bilinear'``: first order interpolation
+Options
+-------
 
-Additionally, one can control the calculation of the Jacobian used in this
-algorithm with the ``center_jacobian`` flag. The Jacobian matrix represents how
-the corresponding input-image coordinate varies as you move between output
+In addition to the arguments described in :ref:`common`, one can use the
+options described below.
+
+A rescaling of output pixel values to conserve flux can be enabled with the
+``conserve_flux`` flag. (Flux conservation is stronger with a Gaussian
+kernel---see below.)
+
+The kernel used for interpolation and averaging can be controlled with a set of
+options. The ``kernel`` argument can be set to 'hann' or 'gaussian' to set the
+function being used. The Hann window is the default, and the Gaussian window
+improves anti-aliasing and photometric accuracy (or flux conservation, when the
+flux-conserving mode is enabled) at the cost of blurring the output image by a
+few pixels. The ``kernel_width`` argument sets the width of the Gaussian
+kernel, in pixels, and is ignored for the Hann window. This width is measured
+between the Gaussian's :math:`\pm 1 \sigma` points. The default value is 1.3
+for the Gaussian, chosen to minimize blurring without compromising accuracy.
+Lower values may introduce photometric errors or leave input pixels
+under-sampled, while larger values may improve anti-aliasing behavior but will
+increase blurring of the output image. Since the Gaussian function has infinite
+extent, it must be truncated. This is done by sampling within a region of
+finite size. The width in pixels of the sampling region is determined by the
+coordinate transform and scaled by the ``sample_region_width`` option, and this
+scaling represents a trade-off between accuracy and computation speed. The
+default value of 4 represents a reasonable choice, with errors in extreme cases
+typically limited to less than one percent, while a value of 5 typically reduces
+extreme errors to a fraction of a percent. (The ``sample_region_width`` option
+has no effect for the Hann window, as that window does not have infinite
+extent.)
+
+One can control the calculation of the Jacobian used in this
+algorithm with the ``center_jacobian`` flag. The Jacobian matrix represents
+how the corresponding input-image coordinate varies as you move between output
 pixels (or d(input image coordinate) / d(output image coordinate)), and serves
 as a local linearization of the coordinate transformation. When this flag is
 ``True``, the Jacobian is calculated at pixel grid points by calculating the
@@ -205,16 +243,27 @@ points. This is more efficient, and the loss of accuracy is extremely small for
 transformations that vary smoothly between pixels. The default (``False``) is
 to use the faster option.
 
-Broadly speaking, the algorithm works by approximating the
-footprint of each output pixel by an elliptical shape in the input image
-which is stretched and rotated by the transformation (as described by the
-Jacobian mentioned above), then finding the weighted average of samples inside
-that ellipse, where the weight is 1 at the center of the ellipse, and 0 at the
-side, and the shape of the weight function is given by an analytical
-distribution (currently we use a Hann function).
+Algorithm Description
+---------------------
+
+Broadly speaking, the algorithm works by approximating the footprint of each
+output pixel by an elliptical shape in the input image, which is then stretched
+and rotated by the transformation (as described by the Jacobian mentioned
+above), then finding the weighted average of samples inside that ellipse, where
+the shape of the weighting function is given by an analytical distribution.
+Hann and Gaussian functions are supported in this implementation, and this
+choice of functions produces an anti-aliased reprojection. In cases where an
+image is being reduced in resolution, a region of the input image is averaged
+to produce each output pixel, while in cases where an image is being magnified,
+the averaging becomes a non-linear interpolation between nearby input pixels.
+When a reprojection enlarges some regions in the input image and shrinks other
+regions, this algorithm smoothly transitions between interpolation and spatial
+averaging as appropriate for each individual output pixel (and likewise, the
+amount of spatial averaging is adjusted as the scaling factor varies). This
+produces high-quality resampling with excellent photometric accuracy.
 
 To illustrate the benefits of this method, we consider a simple case
-where the reprojection includes a large change in resoluton. We choose
+where the reprojection includes a large change in resolution. We choose
 to use an artificial data example to better illustrate the differences:
 
 .. plot::
@@ -245,28 +294,43 @@ to use an artificial data example to better illustrate the differences:
     # Reproject using interpolation and adaptive resampling
     result_interp, _ = reproject_interp((input_array, input_wcs),
                                         output_wcs, shape_out=(60, 60))
-    result_deforest, _ = reproject_adaptive((input_array, input_wcs),
-                                            output_wcs, shape_out=(60, 60))
+    result_hann, _ = reproject_adaptive((input_array, input_wcs),
+                                         output_wcs, shape_out=(60, 60),
+                                         kernel='hann')
+    result_gaussian, _ = reproject_adaptive((input_array, input_wcs),
+                                            output_wcs, shape_out=(60, 60),
+                                            kernel='gaussian')
 
-    plt.subplot(1, 3, 1)
+    plt.figure(figsize=(10, 5))
+    plt.subplot(1, 4, 1)
     plt.imshow(input_array, origin='lower', vmin=0, vmax=1, interpolation='hanning')
     plt.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
     plt.title('Input array')
-    plt.subplot(1, 3, 2)
+    plt.subplot(1, 4, 2)
     plt.imshow(result_interp, origin='lower', vmin=0, vmax=1)
     plt.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
     plt.title('reproject_interp')
-    plt.subplot(1, 3, 3)
-    plt.imshow(result_deforest, origin='lower', vmin=0, vmax=0.5)
+    plt.subplot(1, 4, 3)
+    plt.imshow(result_hann, origin='lower', vmin=0, vmax=0.5)
     plt.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
-    plt.title('reproject_adaptive')
+    plt.title('reproject_adaptive\nHann kernel')
+    plt.subplot(1, 4, 4)
+    plt.imshow(result_gaussian, origin='lower', vmin=0, vmax=0.5)
+    plt.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+    plt.title('reproject_adaptive\nGaussian kernel')
 
-In the case of interpolation, the output accuracy is poor because for each output
-pixel we interpolate a single position in the input array, which means that either
-that position falls inside a region where the flux is zero or one, and this is
-very sensitive to aliasing effects. For the adaptive resampling, each output pixel
-is formed from the weighted average of several pixels in the input, and all input
-pixels should contribute to the output, with no gaps.
+In the case of interpolation, the output accuracy is poor because, for each
+output pixel, we interpolate a single position in the input array which will
+fall inside a region where the flux is zero or one, and this is very sensitive
+to aliasing effects. For the adaptive resampling, each output pixel is formed
+from the weighted average of several pixels in the input, and all input pixels
+should contribute to the output, with no gaps. It can also be seen how the
+results differ between the Gaussian and Hann kernels. While the Gaussian kernel
+blurs the output image slightly, it provides much strong anti-aliasing (as the
+rotated grid lines appear much smoother and consistent in brightness from pixel
+to pixel).
+
+.. _exact:
 
 Spherical Polygon Intersection
 ==============================

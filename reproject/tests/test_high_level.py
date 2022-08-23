@@ -17,8 +17,8 @@ ALL_MODES = ('nearest-neighbor',
              'biquadratic',
              'bicubic',
              'flux-conserving',
-             'adaptive-nearest-neighbor',
-             'adaptive-bilinear')
+             'adaptive-hann',
+             'adaptive-gaussian')
 
 ALL_DTYPES = []
 for endian in ('<', '>'):
@@ -126,7 +126,7 @@ def test_surface_brightness(projection_type, dtype):
         data_out, footprint = reproject_exact((data_in, header_in), header_out)
     elif projection_type.startswith('adaptive'):
         data_out, footprint = reproject_adaptive((data_in, header_in), header_out,
-                                                 order=projection_type.split('-', 1)[1])
+                                                 kernel=projection_type.split('-', 1)[1])
     else:
         data_out, footprint = reproject_interp((data_in, header_in), header_out,
                                                order=projection_type)
@@ -167,7 +167,7 @@ def test_identity_projection(projection_type):
         data_out, footprint = reproject_exact((data_in, header_in), header_in)
     elif projection_type.startswith('adaptive'):
         data_out, footprint = reproject_adaptive((data_in, header_in), header_in,
-                                                 order=projection_type.split('-', 1)[1])
+                                                 kernel=projection_type.split('-', 1)[1])
     else:
         data_out, footprint = reproject_interp((data_in, header_in), header_in,
                                                order=projection_type)
@@ -176,4 +176,8 @@ def test_identity_projection(projection_type):
     # and the footprint values to be ~ones.
     expected_footprint = np.ones((header_in['NAXIS2'], header_in['NAXIS1']))
     np.testing.assert_allclose(footprint, expected_footprint)
-    np.testing.assert_allclose(data_in, data_out, rtol=1e-6)
+    if projection_type != 'adaptive-gaussian':
+        np.testing.assert_allclose(data_in, data_out, rtol=1e-6)
+    else:
+        # The Gaussian kernel in the adaptive algorithm blurs the image
+        assert np.all(data_in != data_out)

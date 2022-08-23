@@ -1,6 +1,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
 import os
+from itertools import product
 
 import numpy as np
 import pytest
@@ -103,7 +104,10 @@ def test_reproject_adaptive_2d_rotated(center_jacobian, roundtrip_coords):
 
 
 @pytest.mark.parametrize('roundtrip_coords', (False, True))
-def test_reproject_adaptive_high_aliasing_potential(roundtrip_coords):
+@pytest.mark.parametrize('center_jacobian', (False, True))
+@pytest.mark.parametrize('kernel', ('hann', 'gaussian'))
+def test_reproject_adaptive_high_aliasing_potential_rotation(
+        roundtrip_coords, center_jacobian, kernel):
     # Generate sample data with vertical stripes alternating with every column
     data_in = np.arange(40*40).reshape((40, 40))
     data_in = (data_in) % 2
@@ -124,13 +128,15 @@ def test_reproject_adaptive_high_aliasing_potential(roundtrip_coords):
     array_out = reproject_adaptive((data_in, wcs_in),
                                    wcs_out, shape_out=(11, 6),
                                    return_footprint=False,
-                                   roundtrip_coords=roundtrip_coords)
+                                   roundtrip_coords=roundtrip_coords,
+                                   center_jacobian=center_jacobian,
+                                   kernel=kernel)
 
     # The CDELT1 value in wcs_out produces a down-sampling by a factor of two
     # along the output x axis. With the input image containing vertical lines
     # with values of zero or one, we should have uniform values of 0.5
     # throughout our output array.
-    np.testing.assert_allclose(array_out, 0.5)
+    np.testing.assert_allclose(array_out, 0.5, rtol=0.001)
 
     # Within the transforms, the order of operations is:
     # input pixel coordinates -> input rotation -> input scaling
@@ -145,21 +151,27 @@ def test_reproject_adaptive_high_aliasing_potential(roundtrip_coords):
     array_out = reproject_adaptive((data_in, wcs_in),
                                    wcs_out, shape_out=(11, 6),
                                    return_footprint=False,
-                                   roundtrip_coords=roundtrip_coords)
-    np.testing.assert_allclose(array_out, 0.5)
+                                   roundtrip_coords=roundtrip_coords,
+                                   center_jacobian=center_jacobian,
+                                   kernel=kernel)
+    np.testing.assert_allclose(array_out, 0.5, rtol=0.001)
 
     # But if we add a 90-degree rotation to the input coordinates, then when
     # our stretched output pixels are projected onto the input data, they will
     # be stretched along the stripes, rather than perpendicular to them, and so
     # we'll still see the alternating stripes in our output data---whether or
     # not wcs_out contains a rotation.
+    # For these last two cases, we only use a Hann kernel, since the blurring
+    # inherent with the Gaussian kernel makes the comparison more difficult.
     angle = 90 * np.pi / 180
     wcs_in.wcs.pc = [[np.cos(angle), -np.sin(angle)],
                      [np.sin(angle), np.cos(angle)]]
     array_out = reproject_adaptive((data_in, wcs_in),
                                    wcs_out, shape_out=(11, 6),
                                    return_footprint=False,
-                                   roundtrip_coords=roundtrip_coords)
+                                   roundtrip_coords=roundtrip_coords,
+                                   center_jacobian=center_jacobian,
+                                   kernel='hann')
 
     # Generate the expected pattern of alternating stripes
     data_ref = np.arange(array_out.shape[1]) % 2
@@ -171,10 +183,127 @@ def test_reproject_adaptive_high_aliasing_potential(roundtrip_coords):
     array_out = reproject_adaptive((data_in, wcs_in),
                                    wcs_out, shape_out=(11, 6),
                                    return_footprint=False,
-                                   roundtrip_coords=roundtrip_coords)
+                                   roundtrip_coords=roundtrip_coords,
+                                   center_jacobian=center_jacobian,
+                                   kernel='hann')
     data_ref = np.arange(array_out.shape[0]) % 2
     data_ref = np.vstack([data_ref] * array_out.shape[1]).T
     np.testing.assert_allclose(array_out, data_ref)
+
+
+@pytest.mark.parametrize('roundtrip_coords', (False, True))
+@pytest.mark.parametrize('center_jacobian', (False, True))
+def test_reproject_adaptive_high_aliasing_potential_shearing(
+        roundtrip_coords, center_jacobian):
+    # Generate sample data with vertical stripes alternating with every column
+    data_in = np.arange(40*40).reshape((40, 40))
+    data_in = (data_in) % 2
+
+    # Set up the input image coordinates, defining pixel coordinates as world
+    # coordinates (with an offset)
+    wcs_in = WCS(naxis=2)
+    wcs_in.wcs.crpix = 21, 21
+    wcs_in.wcs.crval = 0, 0
+    wcs_in.wcs.cdelt = 1, 1
+
+    for shear_x in (-1, 0, 1):
+        for shear_y in (-1, 0, 1):
+            if shear_x == shear_y == 0:
+                continue
+
+            # Set up the output image coordinates, with shearing in both x
+            # and y
+            wcs_out = WCS(naxis=2)
+            wcs_out.wcs.crpix = 3, 5
+            wcs_out.wcs.crval = 0, 0
+            wcs_out.wcs.cdelt = 1, 1
+            wcs_out.wcs.pc = (
+                    np.array([[1, shear_x], [0, 1]])
+                    @ np.array([[1, 0], [shear_y, 1]]))
+
+            # n.b. The Gaussian kernel is much better-behaved in this
+            # particular scenario, so using it allows a much smaller tolerance
+            # in the comparison. Likewise, the kernel width is boosted to 1.5
+            # to achieve stronger anti-aliasing for this test.
+            array_out = reproject_adaptive((data_in, wcs_in),
+                                           wcs_out, shape_out=(11, 6),
+                                           return_footprint=False,
+                                           roundtrip_coords=False,
+                                           center_jacobian=center_jacobian,
+                                           kernel='gaussian',
+                                           kernel_width=1.5)
+
+            # We should get values close to 0.5 (an average of the 1s and 0s
+            # in the input image). This is as opposed to values near 0 or 1,
+            # which would indicate incorrect averaging of sampled points.
+            np.testing.assert_allclose(array_out, 0.5, atol=0.02, rtol=0)
+
+
+def test_reproject_adaptive_flux_conservation():
+    # This is more than just testing the `conserve_flux` flag---the expectation
+    # that flux should be conserved gives a very easy way to quantify how
+    # correct an image is. We use that to run through a grid of affine
+    # transformations, checking that the output is correct for each one.
+
+    # Generate input data of a single point---this is the most unforgiving
+    # setup, as there's no change for multiple pixels to average out if their
+    # reprojected flux goes slightly above or below being conserved.
+    data_in = np.zeros((20, 20))
+    data_in[12, 13] = 1
+
+    # Set up the input image coordinates, defining pixel coordinates as world
+    # coordinates (with an offset)
+    wcs_in = WCS(naxis=2)
+    wcs_in.wcs.crpix = 11, 11
+    wcs_in.wcs.crval = 0, 0
+    wcs_in.wcs.cdelt = 1, 1
+
+    wcs_out = WCS(naxis=2)
+    wcs_out.wcs.crpix = 16, 16
+    wcs_out.wcs.crval = 0, 0
+
+    # Define our grid of affine transformations. Even with only a few values
+    # for each parameter, this is by far the longest-running test in this file,
+    # so it's tough to justify a finer grid.
+    rotations = [0, 45, 80, 90]
+    scales_x = np.logspace(-.2, .2, 3)
+    scales_y = np.logspace(-.3, .3, 3)
+    translations_x = np.linspace(0, 8, 3)
+    translations_y = np.linspace(0, .42, 3)
+    shears_x = np.linspace(-.7, .7, 3)
+    shears_y = np.linspace(-.2, .2, 3)
+
+    for rot, scale_x, scale_y, trans_x, trans_y, shear_x, shear_y in product(
+            rotations, scales_x, scales_y, translations_x, translations_y,
+            shears_x, shears_y):
+        wcs_out.wcs.cdelt = scale_x, scale_y
+        angle = rot * np.pi/180
+        rot_matrix = np.array([[np.cos(angle), -np.sin(angle)],
+                               [np.sin(angle),  np.cos(angle)]])
+        shear_x_matrix = np.array([[1, shear_x], [0, 1]])
+        shear_y_matrix = np.array([[1, 0], [shear_y, 1]])
+        wcs_out.wcs.pc = rot_matrix @ shear_x_matrix @ shear_y_matrix
+
+        # The Gaussian kernel does a better job at flux conservation, so
+        # choosing it here allows a tighter tolerance. Increasing the sample
+        # region width also allows a tighter tolerance---less room for bugs to
+        # hide!
+        array_out = reproject_adaptive((data_in, wcs_in),
+                                       wcs_out, shape_out=(30, 30),
+                                       return_footprint=False,
+                                       roundtrip_coords=False,
+                                       center_jacobian=False,
+                                       kernel='gaussian',
+                                       sample_region_width=5,
+                                       conserve_flux=True)
+
+        # The degree of flux-conservation we end up seeing isn't necessarily
+        # something that we can constrain a priori, so here we test for
+        # conservation to within 0.4% because that's as good as it's getting
+        # right now. This test is more about ensuring future bugs don't
+        # accidentally worsen flux conservation than ensuring that some
+        # required threshold is met.
+        np.testing.assert_allclose(np.nansum(array_out), 1, rtol=0.004)
 
 
 def prepare_test_data(file_format):
