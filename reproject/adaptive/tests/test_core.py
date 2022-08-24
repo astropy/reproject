@@ -20,6 +20,7 @@ def as_high_level_wcs(wcs):
     return HighLevelWCSWrapper(SlicedLowLevelWCS(wcs, Ellipsis))
 
 
+@pytest.mark.filterwarnings('ignore::FutureWarning')
 @pytest.mark.array_compare(single_reference=True)
 @pytest.mark.parametrize('wcsapi', (False, True))
 @pytest.mark.parametrize('center_jacobian', (False, True))
@@ -65,6 +66,7 @@ def test_reproject_adaptive_2d(wcsapi, center_jacobian, roundtrip_coords):
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 
 
+@pytest.mark.filterwarnings('ignore::FutureWarning')
 @pytest.mark.array_compare(single_reference=True)
 @pytest.mark.parametrize('center_jacobian', (False, True))
 @pytest.mark.parametrize('roundtrip_coords', (False, True))
@@ -103,6 +105,7 @@ def test_reproject_adaptive_2d_rotated(center_jacobian, roundtrip_coords):
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 
 
+@pytest.mark.filterwarnings('ignore::FutureWarning')
 @pytest.mark.parametrize('roundtrip_coords', (False, True))
 @pytest.mark.parametrize('center_jacobian', (False, True))
 @pytest.mark.parametrize('kernel', ('hann', 'gaussian'))
@@ -191,6 +194,7 @@ def test_reproject_adaptive_high_aliasing_potential_rotation(
     np.testing.assert_allclose(array_out, data_ref)
 
 
+@pytest.mark.filterwarnings('ignore::FutureWarning')
 @pytest.mark.parametrize('roundtrip_coords', (False, True))
 @pytest.mark.parametrize('center_jacobian', (False, True))
 def test_reproject_adaptive_high_aliasing_potential_shearing(
@@ -239,6 +243,7 @@ def test_reproject_adaptive_high_aliasing_potential_shearing(
             np.testing.assert_allclose(array_out, 0.5, atol=0.02, rtol=0)
 
 
+@pytest.mark.filterwarnings('ignore::FutureWarning')
 def test_reproject_adaptive_flux_conservation():
     # This is more than just testing the `conserve_flux` flag---the expectation
     # that flux should be conserved gives a very easy way to quantify how
@@ -586,6 +591,7 @@ def prepare_test_data(file_format):
     return data, wcs, target_wcs
 
 
+@pytest.mark.filterwarnings('ignore::FutureWarning')
 @pytest.mark.array_compare(single_reference=True)
 @pytest.mark.parametrize('file_format', ['fits', 'asdf'])
 def test_reproject_adaptive_roundtrip(file_format):
@@ -612,6 +618,7 @@ def test_reproject_adaptive_roundtrip(file_format):
     return array_footprint_to_hdulist(output, footprint, header_out)
 
 
+@pytest.mark.filterwarnings('ignore::FutureWarning')
 @pytest.mark.array_compare()
 def test_reproject_adaptive_uncentered_jacobian():
 

@@ -55,6 +55,7 @@ class TestReproject:
         self.wcs_out = WCS(self.header_out)
         self.shape_out = (600, 550)
 
+    @pytest.mark.filterwarnings('ignore::FutureWarning')
     def test_hdu_header(self, reproject_function):
 
         with pytest.raises(ValueError) as exc:
@@ -64,9 +65,11 @@ class TestReproject:
 
         reproject_interp(self.hdu_in, self.header_out_size)
 
+    @pytest.mark.filterwarnings('ignore::FutureWarning')
     def test_hdu_wcs(self, reproject_function):
         reproject_function(self.hdu_in, self.wcs_out, shape_out=self.shape_out)
 
+    @pytest.mark.filterwarnings('ignore::FutureWarning')
     def test_array_wcs_header(self, reproject_function):
 
         with pytest.raises(ValueError) as exc:
@@ -76,12 +79,15 @@ class TestReproject:
 
         reproject_function((self.array_in, self.wcs_in), self.header_out_size)
 
+    @pytest.mark.filterwarnings('ignore::FutureWarning')
     def test_array_wcs_wcs(self, reproject_function):
         reproject_function((self.array_in, self.wcs_in), self.wcs_out, shape_out=self.shape_out)
 
+    @pytest.mark.filterwarnings('ignore::FutureWarning')
     def test_array_header_header(self, reproject_function):
         reproject_function((self.array_in, self.header_in), self.header_out_size)
 
+    @pytest.mark.filterwarnings('ignore::FutureWarning')
     def test_return_footprint(self, reproject_function):
         array = reproject_function(self.hdu_in, self.wcs_out,
                                    shape_out=self.shape_out, return_footprint=False)
@@ -105,6 +111,7 @@ LATPOLE =                 90.0 / [deg] Native latitude of celestial pole
 """
 
 
+@pytest.mark.filterwarnings('ignore::FutureWarning')
 @pytest.mark.parametrize('projection_type, dtype', itertools.product(ALL_MODES, ALL_DTYPES))
 def test_surface_brightness(projection_type, dtype):
 
@@ -158,6 +165,7 @@ CD2_2   = 5.92479929826863E-05 / WCS transform matrix element
 """
 
 
+@pytest.mark.filterwarnings('ignore::FutureWarning')
 @pytest.mark.parametrize('projection_type', ALL_MODES)
 def test_identity_projection(projection_type):
     """Sanity check: identical input & output headers should preserve image."""
