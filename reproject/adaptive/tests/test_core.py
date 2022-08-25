@@ -306,6 +306,251 @@ def test_reproject_adaptive_flux_conservation():
         np.testing.assert_allclose(np.nansum(array_out), 1, rtol=0.004)
 
 
+@pytest.mark.parametrize('x_cyclic', (False, True))
+@pytest.mark.parametrize('y_cyclic', (False, True))
+@pytest.mark.parametrize('rotated', (False, True))
+def test_boundary_modes(x_cyclic, y_cyclic, rotated):
+    # Vertical-stripe test data
+    data_in = np.arange(30) % 2
+    data_in = np.vstack([data_in] * 30)
+
+    wcs_in = WCS(naxis=2)
+    wcs_in.wcs.crpix = [15.5, 15.5]
+    wcs_in.wcs.crval = [0, 0]
+    wcs_in.wcs.cdelt = [1, 1]
+
+    # We'll center the input image in the larger output canvas, but otherwise
+    # we'll do nothing. Except in the rotated case, where we'll rotate the
+    # input array by transposing it and counter-rotate the output WCS, so that
+    # the output should be the same.
+    wcs_out = wcs_in.deepcopy()
+    wcs_out.wcs.crpix = [20.5, 20.5]
+
+    if rotated:
+        data_in = data_in.T
+        angle = 90 * np.pi / 180
+        wcs_out.wcs.pc = [
+                [np.cos(angle), -np.sin(angle)],
+                [np.sin(angle), np.cos(angle)]]
+        y_appears_cyclic = x_cyclic
+        x_appears_cyclic = y_cyclic
+    else:
+        x_appears_cyclic = x_cyclic
+        y_appears_cyclic = y_cyclic
+
+    # We'll step through each boundary mode and check its output.
+    # For all boundary modes, the outermost rows and columns should show the
+    # repeating, anti-aliased stripe pattern if the corresponding axis is
+    # cyclic. This is tested by comparing every other column to an expected
+    # value pulled from an appropriate pixel in the interior of the output
+    # image.
+    # The sample region width is set to 4.00001 so that the sample region
+    # boundary doesn't fall exactly on input pixel centers. Otherwise,
+    # floating-point error can cause pixel-to-pixel variation in whether an
+    # input sample is just-barely-included or just-barely-excluded, especially
+    # in the rotated case.
+
+    data_out = reproject_adaptive(
+            (data_in, wcs_in), wcs_out, shape_out=(40, 40),
+            return_footprint=False, kernel='gaussian',
+            sample_region_width=4.00001,
+            boundary_mode='strict', x_cyclic=x_cyclic, y_cyclic=y_cyclic)
+    # We've placed a 30x30 input image at the center of a 40x40 output image.
+    # With strict boundaries, we should get NaNs for the 5 rows and columns on
+    # each side of the output image, being outside the bounds of the input
+    # image. The NaNs should also span an additional two rows/columns due
+    # to the width of the Gaussian kernel.
+    if y_appears_cyclic:
+        np.testing.assert_allclose(data_out[:, 7:-7:2], data_out[15, 11])
+        np.testing.assert_allclose(data_out[:, 8:-7:2], data_out[15, 10])
+    else:
+        assert np.all(np.isnan(data_out[:7]))
+        assert np.all(np.isnan(data_out[-7:]))
+
+    if x_appears_cyclic:
+        np.testing.assert_allclose(data_out[7:-7, ::2], data_out[15, 10])
+        np.testing.assert_allclose(data_out[7:-7, 1::2], data_out[15, 11])
+    else:
+        assert np.all(np.isnan(data_out[:, :7]))
+        assert np.all(np.isnan(data_out[:, -7:]))
+
+    assert not np.any(np.isnan(data_out[7:-7, 7:-7]))
+
+    # The 'ignore_threshold' mode should match the 'strict' mode when the
+    # threshold is set to 0.
+    data_out_ignore_threshold = reproject_adaptive(
+            (data_in, wcs_in), wcs_out, shape_out=(40, 40),
+            return_footprint=False, kernel='gaussian',
+            sample_region_width=4.00001,
+            boundary_mode='ignore_threshold', boundary_ignore_threshold=0,
+            x_cyclic=x_cyclic, y_cyclic=y_cyclic)
+
+    np.testing.assert_array_equal(data_out, data_out_ignore_threshold)
+
+    data_out = reproject_adaptive(
+            (data_in, wcs_in), wcs_out, shape_out=(40, 40),
+            return_footprint=False, kernel='gaussian',
+            sample_region_width=4.00001,
+            boundary_mode='constant', boundary_fill_value=1000,
+            x_cyclic=x_cyclic, y_cyclic=y_cyclic)
+    # With constant filling, we should get NaNs for the
+    # outermost 3 rows/columns. The next four rows/columns should have very
+    # large values due to the kernel width and our fill value. The remaining
+    # values should be within the [0, 1] range of the input data.
+    if y_appears_cyclic:
+        np.testing.assert_allclose(data_out[:, 7:-7:2], data_out[15, 11])
+        np.testing.assert_allclose(data_out[:, 8:-7:2], data_out[15, 10])
+    else:
+        assert np.all(np.isnan(data_out[:3]))
+        np.testing.assert_array_less(1, data_out[3:7, 3:-3])
+        assert np.all(np.isnan(data_out[-3:]))
+        np.testing.assert_array_less(1, data_out[-7:-3, 3:-3])
+
+    if x_appears_cyclic:
+        np.testing.assert_allclose(data_out[7:-7, ::2], data_out[15, 10])
+        np.testing.assert_allclose(data_out[7:-7, 1::2], data_out[15, 11])
+    else:
+        assert np.all(np.isnan(data_out[:, :3]))
+        np.testing.assert_array_less(1, data_out[3:-3, 3:7])
+        assert np.all(np.isnan(data_out[:, -3:]))
+        np.testing.assert_array_less(1, data_out[3:-3, -7:-3])
+
+    assert np.all(data_out[7:-7, 7:-7] <= 1)
+
+    data_out = reproject_adaptive(
+            (data_in, wcs_in), wcs_out, shape_out=(40, 40),
+            return_footprint=False, kernel='gaussian',
+            sample_region_width=4.00001,
+            boundary_mode='grid-constant', boundary_fill_value=1000,
+            x_cyclic=x_cyclic, y_cyclic=y_cyclic)
+    # With grid-constant filling, we should get our fill value for the
+    # outermost 3 rows/columns. The next four rows/columns should have very
+    # large values due to the kernel width and our fill value. The remaining
+    # values should be within the [0, 1] range of the input data. There should
+    # be no NaNs.
+    if y_appears_cyclic:
+        np.testing.assert_allclose(data_out[:, 7:-7:2], data_out[15, 11])
+        np.testing.assert_allclose(data_out[:, 8:-7:2], data_out[15, 10])
+    else:
+        np.testing.assert_equal(data_out[:3], 1000)
+        np.testing.assert_array_less(1, data_out[3:7])
+        np.testing.assert_equal(data_out[-3:], 1000)
+        np.testing.assert_array_less(1, data_out[-7:-3])
+
+    if x_appears_cyclic:
+        np.testing.assert_allclose(data_out[7:-7, ::2], data_out[15, 10])
+        np.testing.assert_allclose(data_out[7:-7, 1::2], data_out[15, 11])
+    else:
+        np.testing.assert_equal(data_out[:, :3], 1000)
+        np.testing.assert_array_less(1, data_out[:, 3:7])
+        np.testing.assert_equal(data_out[:, -3:], 1000)
+        np.testing.assert_array_less(1, data_out[:, -7:-3])
+
+    assert np.all(data_out[7:-7, 7:-7] <= 1)
+    assert not np.any(np.isnan(data_out))
+
+    data_out = reproject_adaptive(
+            (data_in, wcs_in), wcs_out, shape_out=(40, 40),
+            return_footprint=False, kernel='gaussian',
+            sample_region_width=4.00001,
+            boundary_mode='ignore', x_cyclic=x_cyclic, y_cyclic=y_cyclic)
+    # With missing samples ignored, we should get NaNs for three pixels on all
+    # edges, and no NaNs elsewhere. The next four rows on top and bottom, where
+    # the sampling region spans the boundary, should match the interior of the
+    # image to within floating-point error, due to the vertical symmetry of the
+    # image. Along the sides, there should be three columns of near-zero on the
+    # left and near-one on the right, as those rows only or primarily sample
+    # the edge column.
+    if y_appears_cyclic:
+        np.testing.assert_allclose(data_out[:, 7:-7:2], data_out[15, 11])
+        np.testing.assert_allclose(data_out[:, 8:-7:2], data_out[15, 10])
+    else:
+        assert np.all(np.isnan(data_out[:3]))
+        assert np.all(np.isnan(data_out[-3:]))
+        np.testing.assert_allclose(data_out[3:7, 3:-3], data_out[7:11, 3:-3])
+        np.testing.assert_allclose(data_out[-7:-3, 3:-3], data_out[7:11, 3:-3])
+
+    if x_appears_cyclic:
+        np.testing.assert_allclose(data_out[7:-7, ::2], data_out[15, 10])
+        np.testing.assert_allclose(data_out[7:-7, 1::2], data_out[15, 11])
+    else:
+        assert np.all(np.isnan(data_out[:, :3]))
+        assert np.all(np.isnan(data_out[:, -3:]))
+        np.testing.assert_array_less(data_out[3:-3, 3:6], 0.5)
+        np.testing.assert_array_less(0.5, data_out[3:-3, -6:-3])
+
+    assert not np.any(np.isnan(data_out[3:-3, 3:-3]))
+
+    # The 'ignore_threshold' mode should match the 'ignore' mode when the
+    # threshold is set to 1.
+    data_out_ignore_threshold = reproject_adaptive(
+            (data_in, wcs_in), wcs_out, shape_out=(40, 40),
+            return_footprint=False, kernel='gaussian',
+            sample_region_width=4.00001,
+            boundary_mode='ignore_threshold', boundary_ignore_threshold=1,
+            x_cyclic=x_cyclic, y_cyclic=y_cyclic)
+
+    np.testing.assert_array_equal(data_out, data_out_ignore_threshold)
+
+    data_out = reproject_adaptive(
+            (data_in, wcs_in), wcs_out, shape_out=(40, 40),
+            return_footprint=False, kernel='gaussian',
+            sample_region_width=4.00001,
+            boundary_mode='ignore_threshold', boundary_ignore_threshold=0.5,
+            x_cyclic=x_cyclic, y_cyclic=y_cyclic)
+    # With the threshold set to 0.5, 'ignore_threshold' should look like the
+    # 'ignore' output, except that the band of NaNs along the outside is 5
+    # pixels thick instead of 3---an extra 2 rows and columns are set to NaN
+    # because those output pixels sample mostly non-existent input pixels.
+    if y_appears_cyclic:
+        np.testing.assert_allclose(data_out[:, 7:-7:2], data_out[15, 11])
+        np.testing.assert_allclose(data_out[:, 8:-7:2], data_out[15, 10])
+    else:
+        assert np.all(np.isnan(data_out[:5]))
+        assert np.all(np.isnan(data_out[-5:]))
+        np.testing.assert_allclose(data_out[5:7, 5:-5], data_out[7:9, 5:-5])
+        np.testing.assert_allclose(data_out[-7:-5, 5:-5], data_out[7:9, 5:-5])
+
+    if x_appears_cyclic:
+        np.testing.assert_allclose(data_out[7:-7, ::2], data_out[15, 10])
+        np.testing.assert_allclose(data_out[7:-7, 1::2], data_out[15, 11])
+    else:
+        assert np.all(np.isnan(data_out[:, :5]))
+        assert np.all(np.isnan(data_out[:, -5:]))
+        np.testing.assert_array_less(data_out[5:-5, 5:6], 0.5)
+        np.testing.assert_array_less(0.5, data_out[5:-5, -6:-5])
+
+    assert not np.any(np.isnan(data_out[5:-5, 5:-5]))
+
+    data_out = reproject_adaptive(
+            (data_in, wcs_in), wcs_out, shape_out=(40, 40),
+            return_footprint=False, kernel='gaussian',
+            sample_region_width=4.00001,
+            boundary_mode='nearest', x_cyclic=x_cyclic, y_cyclic=y_cyclic)
+    # With out-of-bounds samples replaced with the nearest valid sample, the
+    # top and bottom rows should be the same as the central rows. There should
+    # be three columns of 0 on the left and 1 on the right, and the next three
+    # columns should be small or large, respectively, since they're sampling
+    # lots of repeated 0s or 1s. There should be no NaNs.
+    if y_appears_cyclic:
+        np.testing.assert_allclose(data_out[:, 7:-7:2], data_out[15, 11])
+        np.testing.assert_allclose(data_out[:, 8:-7:2], data_out[15, 10])
+    else:
+        np.testing.assert_allclose(data_out[:7], data_out[7:14])
+        np.testing.assert_allclose(data_out[-7:], data_out[7:14])
+
+    if x_appears_cyclic:
+        np.testing.assert_allclose(data_out[7:-7, ::2], data_out[15, 10])
+        np.testing.assert_allclose(data_out[7:-7, 1::2], data_out[15, 11])
+    else:
+        np.testing.assert_allclose(data_out[:, :3], 0)
+        np.testing.assert_allclose(data_out[:, -3:], 1)
+        np.testing.assert_array_less(data_out[:, 3:6], 0.5)
+        np.testing.assert_array_less(0.5, data_out[:, -6:-3])
+
+    assert not np.any(np.isnan(data_out))
+
+
 def prepare_test_data(file_format):
     pytest.importorskip('sunpy', minversion='2.1.0')
     from sunpy.map import Map

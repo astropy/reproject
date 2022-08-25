@@ -3,6 +3,18 @@
 
 - Drop support for Python 3.7.
 - Infrastructure and packaging updates.
+- Made many improvements, bug fixes, and significant speed-ups for the adaptive
+  resampling algorithm, ``reproject_adaptive``. These bug fixes may cause
+  changes to the reprojected images, which are typically negligible.
+  Improvements include the addition of a flux-conserving mode, support for a
+  Gaussian filter kernel, a menu of boundary-handling modes, and a
+  ``center_jacobian`` flag to trade speed for accuracy with rapidly-varying
+  transformations.
+- Added a ``roundtrip_coords`` argument to ``reproject_adaptive`` and
+  ``reproject_interp``. By default, all coordinate transformations are run in
+  both directions to handle some situations where they are ambiguous. This can
+  be disabled by setting ``roundtrip_coords=False`` which may offer a
+  significant speed increase.
 
 0.8 (2021-08-11)
 ----------------

@@ -12,7 +12,10 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
                        order=None,
                        return_footprint=True, center_jacobian=False,
                        roundtrip_coords=True, conserve_flux=False,
-                       kernel='Hann', kernel_width=1.3, sample_region_width=4):
+                       kernel='Hann', kernel_width=1.3, sample_region_width=4,
+                       boundary_mode='ignore', boundary_fill_value=0,
+                       boundary_ignore_threshold=0.5, x_cyclic=False,
+                       y_cyclic=False):
     """
     Reproject a 2D array from one WCS to another using the DeForest (2004)
     adaptive, anti-aliased resampling algorithm, with optional flux
@@ -94,6 +97,40 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
         with the default kernel width, should limit the most extreme errors to
         less than one percent. Higher values will offer even more photometric
         accuracy.
+    boundary_mode : str
+        How to handle when the sampling region includes regions outside the
+        bounds of the input image. Allowed values are:
+
+            * ``strict`` --- Output pixels will be NaN if any input sample
+              falls outside the input image.
+            * ``constant`` --- Samples outside the input image are replaced by
+              a constant value, set with the ``boundary_fill_value`` argument.
+              Output values become NaN if there are no valid input samples.
+            * ``grid-constant`` --- Samples outside the input image are
+              replaced by a constant value, set with the
+              ``boundary_fill_value`` argument. Output values will be
+              ``boundary_fill_value`` if there are no valid input samples.
+            * ``ignore`` --- Samples outside the input image are simply
+              ignored, contributing neither to the output value nor the
+              sum-of-weights normalization.
+            * ``ignore_threshold`` --- Acts as ``ignore``, unless the total
+              weight of the ignored samples exceeds a set fraction of the total
+              weight across the entire sampling region, set by the
+              ``boundary_ignore_threshold`` argument. In that case, acts as
+              ``strict``.
+            * ``nearest`` --- Samples outside the input image are replaced by
+              the nearst in-bounds input pixel.
+
+    boundary_fill_value : double
+        The constant value used by the ``constant`` boundary mode.
+    boundary_ignore_threshold : double
+        The threshold used by the ``ignore_threshold`` boundary mode. Should be
+        a value between 0 and 1, representing a fraction of the total weight
+        across the sampling region.
+    x_cyclic, y_cyclic : bool
+        Indicates that the x or y axis of the input image should be treated as
+        cyclic or periodic. Overrides the boundary mode for that axis, so that
+        out-of-bounds samples wrap to the other side of the image.
 
     Returns
     -------
@@ -116,4 +153,8 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
                                   roundtrip_coords=roundtrip_coords,
                                   conserve_flux=conserve_flux,
                                   kernel=kernel, kernel_width=kernel_width,
-                                  sample_region_width=sample_region_width)
+                                  sample_region_width=sample_region_width,
+                                  boundary_mode=boundary_mode,
+                                  boundary_fill_value=boundary_fill_value,
+                                  boundary_ignore_threshold=boundary_ignore_threshold,
+                                  x_cyclic=x_cyclic, y_cyclic=y_cyclic)
