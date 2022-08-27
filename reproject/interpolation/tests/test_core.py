@@ -586,6 +586,25 @@ def test_identity_with_offset(roundtrip_coords):
 @pytest.mark.parametrize('parallel', [True, 0, 2, False])
 @pytest.mark.parametrize('block_size', [[10, 10], [500, 500], [500, 100], None])
 def test_blocked_against_single(parallel, block_size):
+    # the warning import and ignore is needed to keep pytest happy when running with
+    # older versions of astropy which don't have this fix:
+    # https://github.com/astropy/astropy/pull/12844
+    # All the warning code should be removed when old version no longer being used
+    import warnings
+    warnings.simplefilter('ignore', category=FITSFixedWarning)
+    if (block_size == [10, 10]):
+        # this one is needed to avoid the following warning from when the np.as_strided() is
+        # called in wcs_utils.unbroadcast(), only shows up with py3.8, numpy1.17, astropy 4.0.*:
+        #     DeprecationWarning: Numpy has detected that you (may be) writing to an array with
+        #     overlapping memory from np.broadcast_arrays. If this is intentional
+        #     set the WRITEABLE flag True or make a copy immediately before writing.
+        # We do call as_strided with writeable=True as it recommends and only shows up with the 10px
+        # testcase so assuming a numpy bug in the detection code which was fixed in later version.
+        # The pixel values all still match in the end, only shows up due to pytest clearing
+        # the standard python warning filters by default and failing as the warnings are now
+        # treated as the exceptions they're implemented on
+        warnings.simplefilter('ignore', category=DeprecationWarning)
+
     hdu1 = fits.open(get_pkg_data_filename('galactic_center/gc_2mass_k.fits'))[0]
     hdu2 = fits.open(get_pkg_data_filename('galactic_center/gc_msx_e.fits'))[0]
 
@@ -609,6 +628,9 @@ def test_blocked_corner_cases():
     machines where num_cores > x or y dim of output image. So make sure it correctly
     functions when 0 block size goes in
     """
+    # same reason as test above for FITSFixedWarning
+    import warnings
+    warnings.simplefilter('ignore', category=FITSFixedWarning)
 
     # Read in the input cube
     hdu_in = fits.open(
