@@ -586,13 +586,24 @@ def test_identity_with_offset(roundtrip_coords):
 @pytest.mark.parametrize('parallel', [True, 0, 2, False])
 @pytest.mark.parametrize('block_size', [[10, 10], [500, 500], [500, 100], None])
 def test_blocked_against_single(parallel, block_size):
+
+    # Ensure when we break a reprojection down into multiple discrete blocks
+    # it has the same result as if all pixels where reprejcted at once
+
+    hdu1 = fits.open(get_pkg_data_filename('galactic_center/gc_2mass_k.fits'))[0]
+    hdu2 = fits.open(get_pkg_data_filename('galactic_center/gc_msx_e.fits'))[0]
+    array_test = None
+    footprint_test = None
+
     # the warning import and ignore is needed to keep pytest happy when running with
     # older versions of astropy which don't have this fix:
     # https://github.com/astropy/astropy/pull/12844
     # All the warning code should be removed when old version no longer being used
+    # Using context manager ensure only blocked function has them ignored
     import warnings
-    warnings.simplefilter('ignore', category=FITSFixedWarning)
-    if (block_size == [10, 10]):
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', category=FITSFixedWarning)
+
         # this one is needed to avoid the following warning from when the np.as_strided() is
         # called in wcs_utils.unbroadcast(), only shows up with py3.8, numpy1.17, astropy 4.0.*:
         #     DeprecationWarning: Numpy has detected that you (may be) writing to an array with
@@ -603,16 +614,14 @@ def test_blocked_against_single(parallel, block_size):
         # The pixel values all still match in the end, only shows up due to pytest clearing
         # the standard python warning filters by default and failing as the warnings are now
         # treated as the exceptions they're implemented on
-        warnings.simplefilter('ignore', category=DeprecationWarning)
+        if (block_size == [10, 10]):
+            warnings.simplefilter('ignore', category=DeprecationWarning)
 
-    hdu1 = fits.open(get_pkg_data_filename('galactic_center/gc_2mass_k.fits'))[0]
-    hdu2 = fits.open(get_pkg_data_filename('galactic_center/gc_msx_e.fits'))[0]
+        array_test, footprint_test = reproject_interp(hdu2, hdu1.header,
+                                                      parallel=parallel, block_size=block_size)
 
     array_reference, footprint_reference = reproject_interp(hdu2, hdu1.header,
                                                             parallel=False, block_size=None)
-
-    array_test, footprint_test = reproject_interp(hdu2, hdu1.header,
-                                                  parallel=parallel, block_size=block_size)
 
     np.testing.assert_allclose(array_test, array_reference, equal_nan=True)
     np.testing.assert_allclose(footprint_test, footprint_reference, equal_nan=True)
@@ -628,9 +637,6 @@ def test_blocked_corner_cases():
     machines where num_cores > x or y dim of output image. So make sure it correctly
     functions when 0 block size goes in
     """
-    # same reason as test above for FITSFixedWarning
-    import warnings
-    warnings.simplefilter('ignore', category=FITSFixedWarning)
 
     # Read in the input cube
     hdu_in = fits.open(
@@ -650,7 +656,14 @@ def test_blocked_corner_cases():
 
     array_reference = reproject_interp(hdu_in, header_out, return_footprint=False)
 
-    array_test = reproject_interp(hdu_in, header_out, parallel=True,
-                                  block_size=[0, 4], return_footprint=False)
+    array_test = None
+
+    # same reason as test above for FITSFixedWarning
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', category=FITSFixedWarning)
+
+        array_test = reproject_interp(hdu_in, header_out, parallel=True,
+                                      block_size=[0, 4], return_footprint=False)
 
     np.testing.assert_allclose(array_test, array_reference, equal_nan=True, verbose=True)
