@@ -1,5 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 import astropy.utils
+import warnings
 
 from ..utils import parse_input_data, parse_output_projection
 from .core import _reproject_adaptive_2d
@@ -12,8 +13,9 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
                        order=None,
                        return_footprint=True, center_jacobian=False,
                        roundtrip_coords=True, conserve_flux=False,
-                       kernel='Hann', kernel_width=1.3, sample_region_width=4,
-                       boundary_mode='ignore', boundary_fill_value=0,
+                       kernel=None, kernel_width=1.3,
+                       sample_region_width=4,
+                       boundary_mode=None, boundary_fill_value=0,
                        boundary_ignore_threshold=0.5, x_cyclic=False,
                        y_cyclic=False):
     """
@@ -78,7 +80,9 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
         The averaging kernel to use. Allowed values are 'Hann' and 'Gaussian'.
         Case-insensitive. The Gaussian kernel produces better photometric
         accuracy and stronger anti-aliasing at the cost of some blurring (on
-        the scale of a few pixels).
+        the scale of a few pixels). If not specified, the Hann kernel is used
+        by default, but this will change to the Gaussian kernel in a future
+        release.
     kernel_width : double
         The width of the kernel in pixels, measuring to +/- 1 sigma for the
         Gaussian window. Does not apply to the Hann window. Reducing this width
@@ -99,7 +103,8 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
         accuracy.
     boundary_mode : str
         How to handle when the sampling region includes regions outside the
-        bounds of the input image. Allowed values are:
+        bounds of the input image. The default is ``ignore``, but this will
+        change to ``strict`` in a future release. Allowed values are:
 
             * ``strict`` --- Output pixels will be NaN if any input sample
               falls outside the input image.
@@ -141,6 +146,22 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
         no coverage or valid values in the input image, while values of 1
         indicate valid values.
     """
+
+    if kernel is None:
+        kernel = 'hann'
+        warnings.warn(
+                "The default kernel will change from 'Hann' to "
+                " 'Gaussian' in a future release. To suppress this warning, "
+                "explicitly select a kernel with the 'kernel' argument.",
+                FutureWarning, stacklevel=3)
+
+    if boundary_mode is None:
+        boundary_mode = 'ignore'
+        warnings.warn(
+                "The default boundary mode will change from 'ignore' to "
+                " 'strict' in a future release. To suppress this warning, "
+                "explicitly select a mode with the 'boundary_mode' argument.",
+                FutureWarning, stacklevel=3)
 
     # TODO: add support for output_array
 
