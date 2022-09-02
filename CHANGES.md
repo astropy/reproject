@@ -1,4 +1,4 @@
-0.9 (unreleased)
+0.9 (2022-09-02)
 ----------------
 
 - Drop support for Python 3.7.
