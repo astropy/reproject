@@ -1,5 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 import os
+
 from astropy.utils import deprecated_renamed_argument
 
 from ..utils import parse_input_data, parse_output_projection, reproject_blocked
@@ -70,6 +71,11 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
         reprojected to one block at a time, this is useful for memory limited scenarios
         such as dealing with very large arrays or high resolution output spaces.
     parallel : bool or int
+        Flag for parallel implementation. If ``True``, a parallel implementation
+        is chosen, the number of processes selected automatically to be equal to
+        the number of logical CPUs detected on the machine. If ``False``, a
+        serial implementation is chosen. If the flag is a positive integer ``n``
+        greater than one, a parallel implementation using ``n`` processes is chosen.
     roundtrip_coords : bool
         Whether to verify that coordinate transformations are defined in both
         directions.

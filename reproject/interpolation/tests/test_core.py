@@ -583,7 +583,7 @@ def test_identity_with_offset(roundtrip_coords):
     assert_allclose(expected, array_out, atol=1e-10)
 
 
-@pytest.mark.parametrize('parallel', [True, 0, 2, False])
+@pytest.mark.parametrize('parallel', [True, 2, False])
 @pytest.mark.parametrize('block_size', [[10, 10], [500, 500], [500, 100], None])
 def test_blocked_against_single(parallel, block_size):
 
