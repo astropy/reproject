@@ -17,12 +17,12 @@ repos:
       - id: isort
         name: isort (python)
 
-        #  - repo: https://github.com/asottile/pyupgrade
-        #    rev: v2.34.0
-        #    hooks:
-        #      - id: pyupgrade
-        #        args: ["--py38-plus"]
-        #        exclude: ".*(extern.*|_parsetab.py|_lextab.py)$"
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v2.34.0
+    hooks:
+      - id: pyupgrade
+        args: ["--py38-plus"]
+        exclude: ".*(extern.*|_parsetab.py|_lextab.py)$"
 
   # We list the warnings/errors to check for here rather than in setup.cfg because
   # we don't want these options to apply whenever anyone calls flake8 from the

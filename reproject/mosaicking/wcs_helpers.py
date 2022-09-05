@@ -83,7 +83,7 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
     for shape, wcs in input_shapes:
 
         if len(shape) != 2:
-            raise ValueError("Input data is not 2-dimensional (got shape {!r})".format(shape))
+            raise ValueError(f"Input data is not 2-dimensional (got shape {shape!r})")
 
         if wcs.naxis != 2:
             raise ValueError("Input WCS is not 2-dimensional")
