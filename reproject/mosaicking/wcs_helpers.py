@@ -3,8 +3,9 @@
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord, frame_transform_graph
-from astropy.wcs.utils import (celestial_frame_to_wcs, pixel_to_skycoord, proj_plane_pixel_scales,
-                               skycoord_to_pixel, wcs_to_celestial_frame)
+from astropy.wcs.utils import (
+    celestial_frame_to_wcs, pixel_to_skycoord, proj_plane_pixel_scales, skycoord_to_pixel,
+    wcs_to_celestial_frame)
 
 from ..utils import parse_input_shape
 
@@ -82,7 +83,7 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
     for shape, wcs in input_shapes:
 
         if len(shape) != 2:
-            raise ValueError("Input data is not 2-dimensional (got shape {!r})".format(shape))
+            raise ValueError(f"Input data is not 2-dimensional (got shape {shape!r})")
 
         if wcs.naxis != 2:
             raise ValueError("Input WCS is not 2-dimensional")

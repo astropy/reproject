@@ -1,6 +1,5 @@
-import numpy as np
-
 import astropy.nddata
+import numpy as np
 from astropy.io import fits
 from astropy.io.fits import CompImageHDU, HDUList, Header, ImageHDU, PrimaryHDU
 from astropy.wcs import WCS
@@ -109,7 +108,7 @@ def parse_output_projection(output_projection, shape_out=None, output_array=None
     if isinstance(output_projection, Header):
         wcs_out = WCS(output_projection)
         try:
-            shape_out = [output_projection['NAXIS{}'.format(i + 1)]
+            shape_out = [output_projection[f'NAXIS{i + 1}']
                          for i in range(output_projection['NAXIS'])][::-1]
         except KeyError:
             if shape_out is None:

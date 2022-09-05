@@ -1,6 +1,7 @@
 import os
-from setuptools import Extension
+
 import numpy as np
+from setuptools import Extension
 
 REPROJECT_ROOT = os.path.relpath(os.path.dirname(__file__))
 

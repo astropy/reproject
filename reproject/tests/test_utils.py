@@ -1,9 +1,9 @@
 import numpy as np
 import pytest
 from astropy.io import fits
+from astropy.nddata import NDData
 from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
-from astropy.nddata import NDData
 
 from reproject.utils import parse_input_data, parse_input_shape, parse_output_projection
 

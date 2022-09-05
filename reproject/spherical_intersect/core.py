@@ -4,8 +4,8 @@ import signal
 import warnings
 
 import numpy as np
-from astropy.wcs import WCS
 from astropy import units as u
+from astropy.wcs import WCS
 from astropy.wcs.utils import proj_plane_pixel_area
 
 

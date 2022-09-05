@@ -1,13 +1,9 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
-from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
 
 import numpy as np
 
+from ..wcs_utils import efficient_pixel_to_pixel, efficient_pixel_to_pixel_with_roundtrip
 from .deforest import map_coordinates
-from ..wcs_utils import (efficient_pixel_to_pixel_with_roundtrip,
-                         efficient_pixel_to_pixel)
-
 
 __all__ = ['_reproject_adaptive_2d']
 

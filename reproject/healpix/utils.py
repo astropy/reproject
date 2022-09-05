@@ -21,7 +21,7 @@ def parse_coord_system(system):
         else:
             system_new = frame_transform_graph.lookup_name(system)
             if system_new is None:
-                raise ValueError("Could not determine frame for system={}".format(system))
+                raise ValueError(f"Could not determine frame for system={system}")
             else:
                 return system_new()
 
