@@ -11,7 +11,7 @@ Here is the process to follow to make a new release:
   descriptive titles (these will become the changelog entry) and are labelled
   correctly.
 * Go to the GitHub releases interface and draft a new release, new tags should
-  drop include the trailing `.0` on major releases. (Releases prior to 0.10.0
+  include the trailing `.0` on major releases. (Releases prior to 0.10.0
   didn't.)
 * Use the GitHub autochange log generator, this should use the configuration in
   `.github/release.yml` to make headings based on labels.
