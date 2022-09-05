@@ -7,9 +7,9 @@ repos:
       - id: check-yaml
       - id: debug-statements
       - id: end-of-file-fixer
-        exclude: ".*(data.*|extern.*|licenses.*|_parsetab.py)$"
+        exclude: ".*(data.*|extern.*|licenses.*|.*.fits)$"
       - id: trailing-whitespace
-        exclude: ".*(data.*|extern.*|licenses.*|_parsetab.py|test_cds.py)$"
+        exclude: ".*(data.*|extern.*|licenses.*|.*.fits)$"
 
   - repo: https://github.com/pycqa/isort
     rev: 5.10.1
