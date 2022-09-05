@@ -10,8 +10,8 @@ from astropy.wcs import WCS
 from astropy.wcs.wcsapi import HighLevelWCSWrapper, SlicedLowLevelWCS
 from numpy.testing import assert_allclose
 
-from ..high_level import reproject_adaptive
 from ...tests.helpers import array_footprint_to_hdulist
+from ..high_level import reproject_adaptive
 
 DATA = os.path.join(os.path.dirname(__file__), '..', '..', 'tests', 'data')
 
@@ -558,8 +558,8 @@ def test_boundary_modes(x_cyclic, y_cyclic, rotated):
 
 def prepare_test_data(file_format):
     pytest.importorskip('sunpy', minversion='2.1.0')
-    from sunpy.map import Map
     from sunpy.coordinates.ephemeris import get_body_heliographic_stonyhurst
+    from sunpy.map import Map
 
     if file_format == 'fits':
         map_aia = Map(os.path.join(DATA, 'aia_171_level1.fits'))

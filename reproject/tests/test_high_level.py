@@ -8,7 +8,7 @@ from astropy.io import fits
 from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
 
-from .. import reproject_exact, reproject_interp, reproject_adaptive
+from .. import reproject_adaptive, reproject_exact, reproject_interp
 
 # TODO: add reference comparisons
 

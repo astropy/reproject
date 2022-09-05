@@ -1,6 +1,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
 import warnings
+
 import numpy as np
 import pytest
 from astropy.io import fits

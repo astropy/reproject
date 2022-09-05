@@ -29,10 +29,13 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import numpy as np
-cimport numpy as np
+
 cimport cython
-from libc.math cimport sin, cos, atan2, sqrt, floor, ceil, round, exp, fabs
+cimport numpy as np
+from libc.math cimport atan2, ceil, cos, exp, fabs, floor, round, sin, sqrt
+
 import sys
+
 
 cdef double pi = np.pi
 cdef double nan = np.nan

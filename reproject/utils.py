@@ -1,6 +1,5 @@
-import numpy as np
-
 import astropy.nddata
+import numpy as np
 from astropy.io import fits
 from astropy.io.fits import CompImageHDU, HDUList, Header, ImageHDU, PrimaryHDU
 from astropy.wcs import WCS

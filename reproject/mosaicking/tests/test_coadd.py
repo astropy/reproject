@@ -5,10 +5,9 @@ import random
 
 import numpy as np
 import pytest
-from astropy.wcs import WCS
 from astropy.io import fits
 from astropy.io.fits import Header
-
+from astropy.wcs import WCS
 from numpy.testing import assert_allclose
 
 from reproject import reproject_exact, reproject_interp

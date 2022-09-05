@@ -506,8 +506,8 @@ def test_reproject_roundtrip(file_format):
 
     # The observer handling changed in 2.1.
     pytest.importorskip('sunpy', minversion='2.1.0')
-    from sunpy.map import Map
     from sunpy.coordinates.ephemeris import get_body_heliographic_stonyhurst
+    from sunpy.map import Map
 
     if file_format == 'fits':
         map_aia = Map(get_pkg_data_filename('data/aia_171_level1.fits', package='reproject.tests'))
