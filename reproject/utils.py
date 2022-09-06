@@ -1,6 +1,7 @@
 from concurrent import futures
 
 import astropy.nddata
+import dask.array as da
 import numpy as np
 from astropy.io import fits
 from astropy.io.fits import CompImageHDU, HDUList, Header, ImageHDU, PrimaryHDU
@@ -162,49 +163,6 @@ def parse_output_projection(output_projection, shape_in=None, shape_out=None, ou
     return wcs_out, shape_out
 
 
-def _block(
-    reproject_func, array_in, wcs_in, wcs_out_sub, shape_out, i_range, j_range, return_footprint
-):
-    """
-    Implementation function that handles reprojecting subsets blocks of pixels
-    from an input image and holds metadata about where to reinsert when done.
-
-    Parameters
-    ----------
-    reproject_func
-        One the existing reproject functions implementing a reprojection algorithm
-        that that will be used be used to perform reprojection
-    array_in
-        Data following the same format as expected by underlying reproject_func,
-        expected to `~numpy.ndarray` when used from reproject_blocked()
-    wcs_in: `~astropy.wcs.WCS`
-        WCS object corresponding to array_in
-    wcs_out_sub:
-        Output WCS image will be projected to. Normally will correspond to subset of
-        total output image when used by repoject_blocked()
-    shape_out:
-        Passed to reproject_func() alongside WCS out to determine image size
-    i_range:
-        Passed through unmodified, used to determine where to reinsert block
-    j_range:
-        Passed through unmodified, used to determine where to reinsert block
-    """
-
-    result = reproject_func(
-        array_in, wcs_in, wcs_out_sub, shape_out=shape_out, return_footprint=return_footprint
-    )
-
-    res_arr = None
-    res_fp = None
-
-    if return_footprint:
-        res_arr, res_fp = result
-    else:
-        res_arr = result
-
-    return {"i": i_range, "j": j_range, "res_arr": res_arr, "res_fp": res_fp}
-
-
 def reproject_blocked(
     reproject_func,
     array_in,
@@ -218,7 +176,7 @@ def reproject_blocked(
     parallel=True,
 ):
     """
-    Implementation function that handles reprojecting subsets blocks of pixels
+    Implementaton function that handles reprojecting subsets blocks of pixels
     from an input image and holds metadata about where to reinsert when done.
 
     Parameters
@@ -258,99 +216,29 @@ def reproject_blocked(
         greater than one, a parallel implementation using ``n`` processes is chosen.
     """
 
+    # TODO: use block_size
+
     if output_array is None:
         output_array = np.zeros(shape_out, dtype=float)
     if output_footprint is None and return_footprint:
         output_footprint = np.zeros(shape_out, dtype=float)
 
-    # setup variables needed for multiprocessing if required
-    proc_pool = None
-    blocks_futures = []
+    def reproject_single_block(a, block_info=None):
+        if a.ndim == 0:
+            return a
+        slices = [slice(*x) for x in block_info[None]["array-location"]]
+        wcs_out_sub = HighLevelWCSWrapper(SlicedLowLevelWCS(wcs_out, slices=slices))  #
+        array, footprint = reproject_func(
+            array_in, wcs_in, wcs_out_sub, block_info[None]["chunk-shape"]
+        )
+        return np.array([array, footprint])
 
-    if parallel or type(parallel) is int:
-        if type(parallel) is int:
-            if parallel <= 0:
-                raise ValueError("The number of processors to use must be strictly positive")
-            else:
-                proc_pool = futures.ProcessPoolExecutor(max_workers=parallel)
-        else:
-            proc_pool = futures.ProcessPoolExecutor()
+    output_array_dask = da.map_blocks(reproject_single_block, output_array, dtype=float)
 
-    # This will iterate over the output space, generating slices of that
-    # WCS and either processing and reinserting them immediately,
-    # or when doing parallel impl submit them to workers then wait and reinsert as
-    # the workers complete each block
-    for imin in range(0, output_array.shape[-2], block_size[0]):
-        imax = min(imin + block_size[0], output_array.shape[-2])
-        for jmin in range(0, output_array.shape[-1], block_size[1]):
-            jmax = min(jmin + block_size[1], output_array.shape[-1])
-            shape_out_sub = (imax - imin, jmax - jmin)
-            # if the output has more than two dims, apply our blocking to only the last two
-            shape_out_sub = output_array.shape[:-2] + shape_out_sub
-
-            slices = [slice(imin, imax), slice(jmin, jmax)]
-            if wcs_out.low_level_wcs.pixel_n_dim > 2:
-                slices = [Ellipsis] + slices
-            wcs_out_sub = HighLevelWCSWrapper(SlicedLowLevelWCS(wcs_out, slices=slices))
-
-            if proc_pool is None:
-                # if sequential input data and reinsert block into main array immediately
-                completed_block = _block(
-                    reproject_func=reproject_func,
-                    array_in=array_in,
-                    wcs_in=wcs_in,
-                    wcs_out_sub=wcs_out_sub,
-                    shape_out=shape_out_sub,
-                    return_footprint=return_footprint,
-                    j_range=(jmin, jmax),
-                    i_range=(imin, imax),
-                )
-
-                output_array[..., imin:imax, jmin:jmax] = completed_block["res_arr"][:]
-                if return_footprint:
-                    output_footprint[..., imin:imax, jmin:jmax] = completed_block["res_fp"][:]
-
-            else:
-                # if parallel just submit all work items and move on to waiting for them to be done
-                future = proc_pool.submit(
-                    _block,
-                    reproject_func=reproject_func,
-                    array_in=array_in,
-                    wcs_in=wcs_in,
-                    wcs_out_sub=wcs_out_sub,
-                    shape_out=shape_out_sub,
-                    return_footprint=return_footprint,
-                    j_range=(jmin, jmax),
-                    i_range=(imin, imax),
-                )
-                blocks_futures.append(future)
-
-    # If a parallel implementation is being used that means the
-    # blocks have not been reassembled yet and must be done now as their
-    # block call completes in the worker processes
-    if proc_pool is not None:
-        completed_future_count = 0
-        for completed_future in futures.as_completed(blocks_futures):
-            completed_block = completed_future.result()
-            i_range = completed_block["i"]
-            j_range = completed_block["j"]
-            output_array[..., i_range[0] : i_range[1], j_range[0] : j_range[1]] = completed_block[
-                "res_arr"
-            ][:]
-
-            if return_footprint:
-                footprint_block = completed_block["res_fp"][:]
-                output_footprint[
-                    ..., i_range[0] : i_range[1], j_range[0] : j_range[1]
-                ] = footprint_block
-
-            completed_future_count += 1
-            idx = blocks_futures.index(completed_future)
-            # ensure memory used by returned data is freed
-            completed_future._result = None
-            del blocks_futures[idx], completed_future
-        proc_pool.shutdown()
-        del blocks_futures
+    # TODO: set the relevant scheduler
+    da.store(
+        [output_array_dask[0], output_array_dask[0]], [output_array, output_footprint], compute=True
+    )
 
     if return_footprint:
         return output_array, output_footprint
