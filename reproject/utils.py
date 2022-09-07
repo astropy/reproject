@@ -216,31 +216,38 @@ def reproject_blocked(
         greater than one, a parallel implementation using ``n`` processes is chosen.
     """
 
-    # TODO: use block_size
-
     if output_array is None:
         output_array = np.zeros(shape_out, dtype=float)
     if output_footprint is None and return_footprint:
         output_footprint = np.zeros(shape_out, dtype=float)
 
+    scheduler = "processes" if parallel else "synchronous"
+
     def reproject_single_block(a, block_info=None):
         if a.ndim == 0:
             return a
-        slices = [slice(*x) for x in block_info[None]["array-location"]]
+        slices = [slice(*x) for x in block_info[None]["array-location"][1:]]
         wcs_out_sub = HighLevelWCSWrapper(SlicedLowLevelWCS(wcs_out, slices=slices))  #
         array, footprint = reproject_func(
-            array_in, wcs_in, wcs_out_sub, block_info[None]["chunk-shape"]
+            array_in, wcs_in, wcs_out_sub, block_info[None]["chunk-shape"][1:]
         )
         return np.array([array, footprint])
 
-    output_array_dask = da.map_blocks(reproject_single_block, output_array, dtype=float)
-
-    # TODO: set the relevant scheduler
-    da.store(
-        [output_array_dask[0], output_array_dask[0]], [output_array, output_footprint], compute=True
+    output_array_dask = da.map_blocks(
+        reproject_single_block,
+        da.from_array(output_array, chunks=block_size),
+        dtype=float,
+        new_axis=0,
     )
 
     if return_footprint:
+        da.store(
+            [output_array_dask[0], output_array_dask[1]],
+            [output_array, output_footprint],
+            compute=True,
+            scheduler=scheduler,
+        )
         return output_array, output_footprint
     else:
+        da.store(output_array_dask[0], output_array, compute=True, scheduler=scheduler)
         return output_array
