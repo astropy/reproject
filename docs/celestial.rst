@@ -205,14 +205,14 @@ kernel---see below.)
 
 The kernel used for interpolation and averaging can be controlled with a set of
 options. The ``kernel`` argument can be set to 'hann' or 'gaussian' to set the
-function being used. The Hann window is the default, and the Gaussian window
-improves anti-aliasing and photometric accuracy (or flux conservation, when the
-flux-conserving mode is enabled) at the cost of blurring the output image by a
-few pixels. The ``kernel_width`` argument sets the width of the Gaussian
-kernel, in pixels, and is ignored for the Hann window. This width is measured
-between the Gaussian's :math:`\pm 1 \sigma` points. The default value is 1.3
-for the Gaussian, chosen to minimize blurring without compromising accuracy.
-Lower values may introduce photometric errors or leave input pixels
+function being used. The Gaussian window is the default, as it provides better
+anti-aliasing and photometric accuracy (or flux conservation, when the
+flux-conserving mode is enabled), though at the cost of blurring the output
+image by a few pixels. The ``kernel_width`` argument sets the width of the
+Gaussian kernel, in pixels, and is ignored for the Hann window. This width is
+measured between the Gaussian's :math:`\pm 1 \sigma` points. The default value
+is 1.3 for the Gaussian, chosen to minimize blurring without compromising
+accuracy. Lower values may introduce photometric errors or leave input pixels
 under-sampled, while larger values may improve anti-aliasing behavior but will
 increase blurring of the output image. Since the Gaussian function has infinite
 extent, it must be truncated. This is done by sampling within a region of

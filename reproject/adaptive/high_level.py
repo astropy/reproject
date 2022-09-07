@@ -1,7 +1,4 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
-import warnings
-
-import astropy.utils
 
 from ..utils import parse_input_data, parse_output_projection
 from .core import _reproject_adaptive_2d
@@ -9,14 +6,12 @@ from .core import _reproject_adaptive_2d
 __all__ = ['reproject_adaptive']
 
 
-@astropy.utils.deprecated_renamed_argument('order', None, since=0.9)
 def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
-                       order=None,
                        return_footprint=True, center_jacobian=False,
                        roundtrip_coords=True, conserve_flux=False,
-                       kernel=None, kernel_width=1.3,
+                       kernel='gaussian', kernel_width=1.3,
                        sample_region_width=4,
-                       boundary_mode=None, boundary_fill_value=0,
+                       boundary_mode='strict', boundary_fill_value=0,
                        boundary_ignore_threshold=0.5, x_cyclic=False,
                        y_cyclic=False):
     """
@@ -51,9 +46,6 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
     hdu_in : int or str, optional
         If ``input_data`` is a FITS file or an `~astropy.io.fits.HDUList`
         instance, specifies the HDU to use.
-    order : str
-        Deprecated, and no longer has any effect. Will be removed in a future
-        release.
     return_footprint : bool
         Whether to return the footprint in addition to the output array.
     center_jacobian : bool
@@ -147,22 +139,6 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
         no coverage or valid values in the input image, while values of 1
         indicate valid values.
     """
-
-    if kernel is None:
-        kernel = 'hann'
-        warnings.warn(
-                "The default kernel will change from 'Hann' to "
-                " 'Gaussian' in a future release. To suppress this warning, "
-                "explicitly select a kernel with the 'kernel' argument.",
-                FutureWarning, stacklevel=3)
-
-    if boundary_mode is None:
-        boundary_mode = 'ignore'
-        warnings.warn(
-                "The default boundary mode will change from 'ignore' to "
-                " 'strict' in a future release. To suppress this warning, "
-                "explicitly select a mode with the 'boundary_mode' argument.",
-                FutureWarning, stacklevel=3)
 
     # TODO: add support for output_array
 

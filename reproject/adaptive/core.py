@@ -30,9 +30,9 @@ class CoordinateTransformer:
 def _reproject_adaptive_2d(array, wcs_in, wcs_out, shape_out,
                            return_footprint=True, center_jacobian=False,
                            roundtrip_coords=True, conserve_flux=False,
-                           kernel='Hann', kernel_width=1.3,
+                           kernel='Gaussian', kernel_width=1.3,
                            sample_region_width=4,
-                           boundary_mode='ignore', boundary_fill_value=0,
+                           boundary_mode='strict', boundary_fill_value=0,
                            boundary_ignore_threshold=0.5,
                            x_cyclic=False, y_cyclic=False):
     """
@@ -112,7 +112,8 @@ def _reproject_adaptive_2d(array, wcs_in, wcs_out, shape_out,
 
     transformer = CoordinateTransformer(wcs_in, wcs_out, roundtrip_coords)
     map_coordinates(array_in, array_out, transformer, out_of_range_nan=True,
-                    center_jacobian=center_jacobian, conserve_flux=conserve_flux,
+                    center_jacobian=center_jacobian,
+                    conserve_flux=conserve_flux,
                     kernel=kernel, kernel_width=kernel_width,
                     sample_region_width=sample_region_width,
                     boundary_mode=boundary_mode,
