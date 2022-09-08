@@ -34,7 +34,9 @@ jobs:
       test_command: pytest -p no:warnings --pyargs reproject
       targets: |
         - cp*-manylinux_x86_64
-        - cp*-manylinux_aarch64
+        - cp38-manylinux_aarch64
+        - cp39-manylinux_aarch64
+        - cp31*-manylinux_aarch64
         - cp*-macosx_x86_64
         - cp*-macosx_arm64
         - cp*-win*
