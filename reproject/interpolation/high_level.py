@@ -6,20 +6,30 @@ from astropy.utils import deprecated_renamed_argument
 from ..utils import parse_input_data, parse_output_projection, reproject_blocked
 from .core import _reproject_full
 
-__all__ = ['reproject_interp']
+__all__ = ["reproject_interp"]
 
 ORDER = {}
-ORDER['nearest-neighbor'] = 0
-ORDER['bilinear'] = 1
-ORDER['biquadratic'] = 2
-ORDER['bicubic'] = 3
+ORDER["nearest-neighbor"] = 0
+ORDER["bilinear"] = 1
+ORDER["biquadratic"] = 2
+ORDER["bicubic"] = 3
 
 
-@deprecated_renamed_argument('independent_celestial_slices', None, since='0.6')
-def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
-                     order='bilinear', independent_celestial_slices=False,
-                     output_array=None, return_footprint=True, output_footprint=None,
-                     block_size=None, parallel=False, roundtrip_coords=True):
+@deprecated_renamed_argument("independent_celestial_slices", None, since="0.6")
+def reproject_interp(
+    input_data,
+    output_projection,
+    shape_out=None,
+    hdu_in=0,
+    order="bilinear",
+    independent_celestial_slices=False,
+    output_array=None,
+    return_footprint=True,
+    output_footprint=None,
+    block_size=None,
+    parallel=False,
+    roundtrip_coords=True,
+):
     """
     Reproject data to a new projection using interpolation (this is typically
     the fastest way to reproject an image).
@@ -91,8 +101,9 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
     """
 
     array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
-    wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out,
-                                                 output_array=output_array)
+    wcs_out, shape_out = parse_output_projection(
+        output_projection, shape_out=shape_out, output_array=output_array
+    )
 
     if isinstance(order, str):
         order = ORDER[order]
@@ -112,11 +123,26 @@ def reproject_interp(input_data, output_projection, shape_out=None, hdu_in=0,
             if block_size[dim_idx] == 0:
                 block_size[dim_idx] = shape_out[dim_idx]
 
-        return reproject_blocked(_reproject_full, array_in=array_in, wcs_in=wcs_in, wcs_out=wcs_out,
-                                 shape_out=shape_out, output_array=output_array, parallel=parallel,
-                                 block_size=block_size, return_footprint=return_footprint,
-                                 output_footprint=output_footprint)
+        return reproject_blocked(
+            _reproject_full,
+            array_in=array_in,
+            wcs_in=wcs_in,
+            wcs_out=wcs_out,
+            shape_out=shape_out,
+            output_array=output_array,
+            parallel=parallel,
+            block_size=block_size,
+            return_footprint=return_footprint,
+            output_footprint=output_footprint,
+        )
     else:
-        return _reproject_full(array_in, wcs_in, wcs_out, shape_out=shape_out,
-                               order=order, array_out=output_array,
-                               return_footprint=return_footprint, roundtrip_coords=roundtrip_coords)
+        return _reproject_full(
+            array_in,
+            wcs_in,
+            wcs_out,
+            shape_out=shape_out,
+            order=order,
+            array_out=output_array,
+            return_footprint=return_footprint,
+            roundtrip_coords=roundtrip_coords,
+        )

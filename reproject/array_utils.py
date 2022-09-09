@@ -1,10 +1,10 @@
 import numpy as np
 
-__all__ = ['map_coordinates']
+__all__ = ["map_coordinates"]
 
 
 def pad_edge_1(array):
-    return np.pad(array, 1, mode='edge')
+    return np.pad(array, 1, mode="edge")
 
 
 def map_coordinates(image, coords, **kwargs):
@@ -27,9 +27,9 @@ def map_coordinates(image, coords, **kwargs):
     reset = np.zeros(coords.shape[1], dtype=bool)
 
     for i in range(coords.shape[0]):
-        reset |= (coords[i] < -0.5)
-        reset |= (coords[i] > original_shape[i] - 0.5)
+        reset |= coords[i] < -0.5
+        reset |= coords[i] > original_shape[i] - 0.5
 
-    values[reset] = kwargs.get('cval', 0.)
+    values[reset] = kwargs.get("cval", 0.0)
 
     return values

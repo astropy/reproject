@@ -4,7 +4,7 @@ from math import exp
 
 import numpy as np
 
-__all__ = ['solve_corrections_sgd', 'determine_offset_matrix']
+__all__ = ["solve_corrections_sgd", "determine_offset_matrix"]
 
 
 def determine_offset_matrix(arrays):
@@ -33,8 +33,7 @@ def determine_offset_matrix(arrays):
     return offset_matrix
 
 
-def solve_corrections_sgd(offset_matrix, eta_initial=1, eta_half_life=100,
-                          rtol=1e-10, atol=0):
+def solve_corrections_sgd(offset_matrix, eta_initial=1, eta_half_life=100, rtol=1e-10, atol=0):
     r"""
     Given a matrix of offsets from each image to each other image, find the
     optimal offsets to use using Stochastic Gradient Descent.
@@ -74,8 +73,7 @@ def solve_corrections_sgd(offset_matrix, eta_initial=1, eta_half_life=100,
         converged.
     """
 
-    if (offset_matrix.ndim != 2 or
-            offset_matrix.shape[0] != offset_matrix.shape[1]):
+    if offset_matrix.ndim != 2 or offset_matrix.shape[0] != offset_matrix.shape[1]:
         raise ValueError("offset_matrix should be a square NxN matrix")
 
     N = offset_matrix.shape[0]
@@ -93,7 +91,7 @@ def solve_corrections_sgd(offset_matrix, eta_initial=1, eta_half_life=100,
         np.random.shuffle(indices)
 
         # Update learning rate
-        eta = eta_initial * exp(-iteration/eta_half_life)
+        eta = eta_initial * exp(-iteration / eta_half_life)
 
         # Loop over each index and update the offset. What we call rows and
         # columns is arbitrary, but for the purpose of the comments below, we
@@ -114,16 +112,14 @@ def solve_corrections_sgd(offset_matrix, eta_initial=1, eta_half_life=100,
             # The difference between the actual row in the matrix and this
             # fitted row gives us a measure of the gradient, so we then
             # adjust the solution in that direction.
-            corrections[i] += eta * np.mean(offset_matrix[i, keep]
-                                            - fitted_offset_matrix_row)
+            corrections[i] += eta * np.mean(offset_matrix[i, keep] - fitted_offset_matrix_row)
 
         # Subtract the mean offset from the offsets to make sure that the
         # corrections stay centered around zero
         corrections -= np.nanmean(corrections)
 
         if previous_corrections is not None:
-            if np.allclose(corrections, previous_corrections,
-                           rtol=rtol, atol=atol):
+            if np.allclose(corrections, previous_corrections, rtol=rtol, atol=atol):
                 break  # the algorithm has converged
 
         previous_corrections = corrections.copy()

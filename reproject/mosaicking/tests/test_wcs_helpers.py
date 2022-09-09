@@ -20,16 +20,15 @@ else:
     SHAPELY_INSTALLED = True
 
 
-class TestOptimalWCS():
-
+class TestOptimalWCS:
     def setup_method(self, method):
 
         self.wcs = WCS(naxis=2)
-        self.wcs.wcs.ctype = 'RA---TAN', 'DEC--TAN'
+        self.wcs.wcs.ctype = "RA---TAN", "DEC--TAN"
         self.wcs.wcs.crpix = 10, 15
         self.wcs.wcs.crval = 43, 23
         self.wcs.wcs.cdelt = -0.1, 0.1
-        self.wcs.wcs.equinox = 2000.
+        self.wcs.wcs.equinox = 2000.0
 
         self.array = np.ones((30, 40))
 
@@ -37,11 +36,11 @@ class TestOptimalWCS():
 
         wcs, shape = find_optimal_celestial_wcs([(self.array, self.wcs)], frame=FK5())
 
-        assert tuple(wcs.wcs.ctype) == ('RA---TAN', 'DEC--TAN')
+        assert tuple(wcs.wcs.ctype) == ("RA---TAN", "DEC--TAN")
         assert_allclose(wcs.wcs.crval, (43, 23))
         assert_allclose(wcs.wcs.cdelt, (-0.1, 0.1))
         assert wcs.wcs.equinox == 2000
-        assert wcs.wcs.radesys == 'FK5'
+        assert wcs.wcs.radesys == "FK5"
 
         assert_allclose(wcs.wcs.crpix, (10, 15))
         assert shape == (30, 40)
@@ -50,34 +49,36 @@ class TestOptimalWCS():
         wcs, shape = find_optimal_celestial_wcs([(self.array.shape, self.wcs)], frame=FK5())
 
     def test_args_tuple_header(self):
-        wcs, shape = find_optimal_celestial_wcs([(self.array.shape, self.wcs.to_header())],
-                                                frame=FK5())
+        wcs, shape = find_optimal_celestial_wcs(
+            [(self.array.shape, self.wcs.to_header())], frame=FK5()
+        )
 
     def test_frame_projection(self):
 
-        wcs, shape = find_optimal_celestial_wcs([(self.array, self.wcs)], frame=Galactic(),
-                                                projection='CAR')
+        wcs, shape = find_optimal_celestial_wcs(
+            [(self.array, self.wcs)], frame=Galactic(), projection="CAR"
+        )
 
-        assert tuple(wcs.wcs.ctype) == ('GLON-CAR', 'GLAT-CAR')
-        c = SkyCoord(43, 23, unit=('deg', 'deg'), frame='fk5').galactic
+        assert tuple(wcs.wcs.ctype) == ("GLON-CAR", "GLAT-CAR")
+        c = SkyCoord(43, 23, unit=("deg", "deg"), frame="fk5").galactic
         assert_allclose(wcs.wcs.crval, (c.l.degree, c.b.degree))
         assert_allclose(wcs.wcs.cdelt, (-0.1, 0.1))
         assert np.isnan(wcs.wcs.equinox)
-        assert wcs.wcs.radesys == ''
+        assert wcs.wcs.radesys == ""
 
         # The following values are empirical and just to make sure there are no regressions
         assert_allclose(wcs.wcs.crpix, (16.21218937, 28.86119519))
         assert shape == (47, 50)
 
     def test_frame_str(self):
-        wcs, shape = find_optimal_celestial_wcs([(self.array, self.wcs)], frame='galactic')
-        assert tuple(wcs.wcs.ctype) == ('GLON-TAN', 'GLAT-TAN')
+        wcs, shape = find_optimal_celestial_wcs([(self.array, self.wcs)], frame="galactic")
+        assert tuple(wcs.wcs.ctype) == ("GLON-TAN", "GLAT-TAN")
 
     def test_resolution(self):
         wcs, shape = find_optimal_celestial_wcs([(self.array, self.wcs)], resolution=3 * u.arcmin)
         assert_allclose(wcs.wcs.cdelt, (-0.05, 0.05))
 
-    @pytest.mark.skipif('not SHAPELY_INSTALLED')
+    @pytest.mark.skipif("not SHAPELY_INSTALLED")
     def test_auto_rotate(self):
 
         # To test auto_rotate, we set the frame to Galactic and the final image
@@ -85,21 +86,22 @@ class TestOptimalWCS():
         # actually gets rotated 90 degrees, so the values aren't quite the same
         # as the input, but they are round values.
 
-        wcs, shape = find_optimal_celestial_wcs([(self.array, self.wcs)],
-                                                frame=Galactic(), auto_rotate=True)
+        wcs, shape = find_optimal_celestial_wcs(
+            [(self.array, self.wcs)], frame=Galactic(), auto_rotate=True
+        )
 
-        assert tuple(wcs.wcs.ctype) == ('GLON-TAN', 'GLAT-TAN')
-        c = SkyCoord(43, 23, unit=('deg', 'deg'), frame='fk5').galactic
+        assert tuple(wcs.wcs.ctype) == ("GLON-TAN", "GLAT-TAN")
+        c = SkyCoord(43, 23, unit=("deg", "deg"), frame="fk5").galactic
         assert_allclose(wcs.wcs.crval, (c.l.degree, c.b.degree))
         assert_allclose(wcs.wcs.cdelt, (-0.1, 0.1))
         assert np.isnan(wcs.wcs.equinox)
-        assert wcs.wcs.radesys == ''
+        assert wcs.wcs.radesys == ""
 
         assert_allclose(wcs.wcs.crpix, (10, 15))
         assert shape == (30, 40)
 
-    @pytest.mark.skipif('not SHAPELY_INSTALLED')
-    @pytest.mark.parametrize('angle', np.linspace(0, 360, 13))
+    @pytest.mark.skipif("not SHAPELY_INSTALLED")
+    @pytest.mark.parametrize("angle", np.linspace(0, 360, 13))
     def test_auto_rotate_systematic(self, angle):
 
         # This is a test to make sure for a number of angles that the corners
@@ -107,8 +109,7 @@ class TestOptimalWCS():
         # not. We test the full 360 range of angles.
 
         angle = np.radians(angle)
-        pc = np.array([[np.cos(angle), -np.sin(angle)],
-                       [np.sin(angle), np.cos(angle)]])
+        pc = np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
         self.wcs.wcs.pc = pc
 
         wcs, shape = find_optimal_celestial_wcs([(self.array, self.wcs)], auto_rotate=True)
@@ -123,8 +124,12 @@ class TestOptimalWCS():
 
         ny_final, nx_final = shape
 
-        inside = ((xp_final >= -0.5) & (xp_final <= nx_final - 0.5) &
-                  (yp_final >= -0.5) & (yp_final <= ny_final - 0.5))
+        inside = (
+            (xp_final >= -0.5)
+            & (xp_final <= nx_final - 0.5)
+            & (yp_final >= -0.5)
+            & (yp_final <= ny_final - 0.5)
+        )
 
         assert_equal(inside, [1, 1, 1, 1, 0, 0, 0, 0])
 
@@ -142,11 +147,11 @@ class TestOptimalWCS():
 
         wcs, shape = find_optimal_celestial_wcs(input_data, frame=FK5())
 
-        assert tuple(wcs.wcs.ctype) == ('RA---TAN', 'DEC--TAN')
+        assert tuple(wcs.wcs.ctype) == ("RA---TAN", "DEC--TAN")
         assert_allclose(wcs.wcs.crval, (43, 23))
         assert_allclose(wcs.wcs.cdelt, (-0.1, 0.1))
         assert wcs.wcs.equinox == 2000
-        assert wcs.wcs.radesys == 'FK5'
+        assert wcs.wcs.radesys == "FK5"
 
         assert_allclose(wcs.wcs.crpix, (20, 15))
         assert shape == (35, 50)
@@ -172,22 +177,22 @@ class TestOptimalWCS():
 
         with pytest.raises(ValueError) as exc:
             wcs, shape = find_optimal_celestial_wcs([(array, self.wcs)])
-        assert exc.value.args[0] == 'Input data is not 2-dimensional (got shape (30, 20, 10))'
+        assert exc.value.args[0] == "Input data is not 2-dimensional (got shape (30, 20, 10))"
 
     def test_invalid_wcs_shape(self):
 
         wcs = WCS(naxis=3)
-        wcs.wcs.ctype = 'RA---TAN', 'DEC--TAN', 'VELO-LSR'
+        wcs.wcs.ctype = "RA---TAN", "DEC--TAN", "VELO-LSR"
         wcs.wcs.set()
 
         with pytest.raises(ValueError) as exc:
             wcs, shape = find_optimal_celestial_wcs([(self.array, wcs)])
-        assert exc.value.args[0] == 'Input WCS is not 2-dimensional'
+        assert exc.value.args[0] == "Input WCS is not 2-dimensional"
 
     def test_invalid_not_celestial(self):
 
-        self.wcs.wcs.ctype = 'OFFSETX', 'OFFSETY'
+        self.wcs.wcs.ctype = "OFFSETX", "OFFSETY"
 
         with pytest.raises(TypeError) as exc:
             wcs, shape = find_optimal_celestial_wcs([(self.array, self.wcs)])
-        assert exc.value.args[0] == 'WCS does not have celestial components'
+        assert exc.value.args[0] == "WCS does not have celestial components"

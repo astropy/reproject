@@ -6,13 +6,22 @@ from ..utils import parse_input_data, parse_input_weights, parse_output_projecti
 from .background import determine_offset_matrix, solve_corrections_sgd
 from .subset_array import ReprojectedArraySubset
 
-__all__ = ['reproject_and_coadd']
+__all__ = ["reproject_and_coadd"]
 
 
-def reproject_and_coadd(input_data, output_projection, shape_out=None,
-                        input_weights=None, hdu_in=None, reproject_function=None,
-                        hdu_weights=None, combine_function='mean', match_background=False,
-                        background_reference=None, **kwargs):
+def reproject_and_coadd(
+    input_data,
+    output_projection,
+    shape_out=None,
+    input_weights=None,
+    hdu_in=None,
+    reproject_function=None,
+    hdu_weights=None,
+    combine_function="mean",
+    match_background=False,
+    background_reference=None,
+    **kwargs,
+):
     """
     Given a set of input images, reproject and co-add these to a single
     final image.
@@ -83,17 +92,17 @@ def reproject_and_coadd(input_data, output_projection, shape_out=None,
 
     # Validate inputs
 
-    if combine_function not in ('mean', 'sum', 'median'):
+    if combine_function not in ("mean", "sum", "median"):
         raise ValueError("combine_function should be one of mean/sum/median")
 
     if reproject_function is None:
-        raise ValueError("reprojection function should be specified with "
-                         "the reproject_function argument")
+        raise ValueError(
+            "reprojection function should be specified with " "the reproject_function argument"
+        )
 
     # Parse the output projection to avoid having to do it for each
 
-    wcs_out, shape_out = parse_output_projection(output_projection,
-                                                 shape_out=shape_out)
+    wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
 
     # Start off by reprojecting individual images to the final projection
 
@@ -153,32 +162,35 @@ def reproject_and_coadd(input_data, output_projection, shape_out=None,
         # able to handle weights, and make the footprint become the combined
         # footprint + weight map
 
-        array, footprint = reproject_function((array_in, wcs_in),
-                                              output_projection=wcs_out_indiv,
-                                              shape_out=shape_out_indiv,
-                                              hdu_in=hdu_in,
-                                              **kwargs)
+        array, footprint = reproject_function(
+            (array_in, wcs_in),
+            output_projection=wcs_out_indiv,
+            shape_out=shape_out_indiv,
+            hdu_in=hdu_in,
+            **kwargs,
+        )
 
         if weights_in is not None:
-            weights, _ = reproject_function((weights_in, wcs_in),
-                                            output_projection=wcs_out_indiv,
-                                            shape_out=shape_out_indiv,
-                                            hdu_in=hdu_in,
-                                            **kwargs)
+            weights, _ = reproject_function(
+                (weights_in, wcs_in),
+                output_projection=wcs_out_indiv,
+                shape_out=shape_out_indiv,
+                hdu_in=hdu_in,
+                **kwargs,
+            )
 
         # For the purposes of mosaicking, we mask out NaN values from the array
         # and set the footprint to 0 at these locations.
         reset = np.isnan(array)
-        array[reset] = 0.
-        footprint[reset] = 0.
+        array[reset] = 0.0
+        footprint[reset] = 0.0
 
         # Combine weights and footprint
         if weights_in is not None:
-            weights[reset] = 0.
+            weights[reset] = 0.0
             footprint *= weights
 
-        array = ReprojectedArraySubset(array, footprint,
-                                       imin, imax, jmin, jmax)
+        array = ReprojectedArraySubset(array, footprint, imin, imax, jmin, jmax)
 
         # TODO: make sure we gracefully handle the case where the
         # output image is empty (due e.g. to no overlap).
@@ -201,7 +213,7 @@ def reproject_and_coadd(input_data, output_projection, shape_out=None,
     final_array = np.zeros(shape_out)
     final_footprint = np.zeros(shape_out)
 
-    if combine_function in ('mean', 'sum'):
+    if combine_function in ("mean", "sum"):
 
         for array in arrays:
 
@@ -213,16 +225,15 @@ def reproject_and_coadd(input_data, output_projection, shape_out=None,
             final_array[array.view_in_original_array] += array.array * array.footprint
             final_footprint[array.view_in_original_array] += array.footprint
 
-        if combine_function == 'mean':
-            with np.errstate(invalid='ignore'):
+        if combine_function == "mean":
+            with np.errstate(invalid="ignore"):
                 final_array /= final_footprint
 
-    elif combine_function == 'median':
+    elif combine_function == "median":
 
         # Here we need to operate in chunks since we could otherwise run
         # into memory issues
 
-        raise NotImplementedError("combine_function='median' is "
-                                  "not yet implemented")
+        raise NotImplementedError("combine_function='median' is " "not yet implemented")
 
     return final_array, final_footprint

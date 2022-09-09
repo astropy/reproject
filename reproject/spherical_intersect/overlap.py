@@ -2,7 +2,7 @@ import numpy as np
 
 from ._overlap import _compute_overlap
 
-__all__ = ['compute_overlap']
+__all__ = ["compute_overlap"]
 
 
 def compute_overlap(ilon, ilat, olon, olat):

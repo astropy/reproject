@@ -18,11 +18,11 @@ def _init_worker():
 
 def _reproject_slice(args):
     from ._overlap import _reproject_slice_cython
+
     return _reproject_slice_cython(*args)
 
 
-def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True,
-                         return_footprint=True):
+def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, return_footprint=True):
 
     # Check the parallel flag.
     if type(parallel) != bool and type(parallel) != int:
@@ -42,11 +42,15 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True,
     # emit a warning if this is the case. For more details, see:
     # https://github.com/astropy/reproject/issues/199
     area_threshold = (0.05 / 3600) ** 2
-    if ((isinstance(wcs_in, WCS) and proj_plane_pixel_area(wcs_in) < area_threshold)
-            or (isinstance(wcs_out, WCS) and proj_plane_pixel_area(wcs_out) < area_threshold)):
-        warnings.warn("The reproject_exact function currently has precision "
-                      "issues with images that have resolutions below ~0.05 "
-                      "arcsec, so the results may not be accurate.", UserWarning)
+    if (isinstance(wcs_in, WCS) and proj_plane_pixel_area(wcs_in) < area_threshold) or (
+        isinstance(wcs_out, WCS) and proj_plane_pixel_area(wcs_out) < area_threshold
+    ):
+        warnings.warn(
+            "The reproject_exact function currently has precision "
+            "issues with images that have resolutions below ~0.05 "
+            "arcsec, so the results may not be accurate.",
+            UserWarning,
+        )
 
     # Convert input array to float values. If this comes from a FITS, it might have
     # float32 as value type and that can break things in Cython
@@ -64,10 +68,10 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True,
 
     ny_in, nx_in = array.shape
 
-    x = np.arange(nx_in + 1.) - 0.5
-    y = np.arange(ny_in + 1.) - 0.5
+    x = np.arange(nx_in + 1.0) - 0.5
+    y = np.arange(ny_in + 1.0) - 0.5
 
-    xp_in, yp_in = np.meshgrid(x, y, indexing='xy', sparse=False, copy=False)
+    xp_in, yp_in = np.meshgrid(x, y, indexing="xy", sparse=False, copy=False)
 
     world_in = wcs_in.pixel_to_world(xp_in, yp_in)
 
@@ -75,10 +79,10 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True,
 
     ny_out, nx_out = shape_out
 
-    x = np.arange(nx_out + 1.) - 0.5
-    y = np.arange(ny_out + 1.) - 0.5
+    x = np.arange(nx_out + 1.0) - 0.5
+    y = np.arange(ny_out + 1.0) - 0.5
 
-    xp_out, yp_out = np.meshgrid(x, y, indexing='xy', sparse=False, copy=False)
+    xp_out, yp_out = np.meshgrid(x, y, indexing="xy", sparse=False, copy=False)
 
     world_out = wcs_out.pixel_to_world(xp_out, yp_out)
 
@@ -92,10 +96,10 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True,
 
     xp_inout, yp_inout = wcs_out.world_to_pixel(world_in)
 
-    world_in_unitsph = world_in.represent_as('unitspherical')
+    world_in_unitsph = world_in.represent_as("unitspherical")
     xw_in, yw_in = world_in_unitsph.lon.to_value(u.deg), world_in_unitsph.lat.to_value(u.deg)
 
-    world_out_unitsph = world_out.represent_as('unitspherical')
+    world_out_unitsph = world_out.represent_as("unitspherical")
     xw_out, yw_out = world_out_unitsph.lon.to_value(u.deg), world_out_unitsph.lat.to_value(u.deg)
 
     # Put together the parameters common both to the serial and parallel implementations. The aca
@@ -103,15 +107,26 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True,
     # raw C function, otherwise Cython might complain.
 
     aca = np.ascontiguousarray
-    common_func_par = [0, ny_in, nx_out, ny_out, aca(xp_inout), aca(yp_inout),
-                       aca(xw_in), aca(yw_in), aca(xw_out), aca(yw_out), aca(array),
-                       shape_out]
+    common_func_par = [
+        0,
+        ny_in,
+        nx_out,
+        ny_out,
+        aca(xp_inout),
+        aca(yp_inout),
+        aca(xw_in),
+        aca(yw_in),
+        aca(xw_out),
+        aca(yw_out),
+        aca(array),
+        shape_out,
+    ]
 
     if nproc == 1:
 
         array_new, weights = _reproject_slice([0, nx_in] + common_func_par)
 
-        with np.errstate(invalid='ignore'):
+        with np.errstate(invalid="ignore"):
             array_new /= weights
 
         if return_footprint:
@@ -119,7 +134,7 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True,
         else:
             return array_new
 
-    elif (nproc is None or nproc > 1):
+    elif nproc is None or nproc > 1:
 
         from multiprocessing import Pool, cpu_count
 
@@ -146,7 +161,7 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True,
         array_new = sum(array_new)
         weights = sum(weights)
 
-        with np.errstate(invalid='ignore'):
+        with np.errstate(invalid="ignore"):
             array_new /= weights
 
         if return_footprint:

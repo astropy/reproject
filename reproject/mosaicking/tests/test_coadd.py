@@ -14,27 +14,25 @@ from reproject import reproject_exact, reproject_interp
 from reproject.mosaicking.coadd import reproject_and_coadd
 from reproject.tests.helpers import array_footprint_to_hdulist
 
-ATOL = 1.e-9
+ATOL = 1.0e-9
 
-DATA = os.path.join(os.path.dirname(__file__), '..', '..', 'tests', 'data')
+DATA = os.path.join(os.path.dirname(__file__), "..", "..", "tests", "data")
 
 
-@pytest.fixture(params=[reproject_interp, reproject_exact],
-                ids=["interp", "exact"])
+@pytest.fixture(params=[reproject_interp, reproject_exact], ids=["interp", "exact"])
 def reproject_function(request):
     return request.param
 
 
-class TestReprojectAndCoAdd():
-
+class TestReprojectAndCoAdd:
     def setup_method(self, method):
 
         self.wcs = WCS(naxis=2)
-        self.wcs.wcs.ctype = 'RA---TAN', 'DEC--TAN'
+        self.wcs.wcs.ctype = "RA---TAN", "DEC--TAN"
         self.wcs.wcs.crpix = 322, 151
         self.wcs.wcs.crval = 43, 23
         self.wcs.wcs.cdelt = -0.1, 0.1
-        self.wcs.wcs.equinox = 2000.
+        self.wcs.wcs.equinox = 2000.0
 
         self.array = np.random.random((399, 334))
 
@@ -63,7 +61,7 @@ class TestReprojectAndCoAdd():
         views = []
         for i in range(4):
             for j in range(5):
-                views.append((je[j], je[j+1], ie[i], ie[i+1]))
+                views.append((je[j], je[j + 1], ie[i], ie[i + 1]))
 
         return views
 
@@ -76,11 +74,11 @@ class TestReprojectAndCoAdd():
         views = []
         for i in range(4):
             for j in range(5):
-                views.append((je[j], je[j+1] + 10, ie[i], ie[i+1] + 10))
+                views.append((je[j], je[j + 1] + 10, ie[i], ie[i + 1] + 10))
 
         return views
 
-    @pytest.mark.parametrize('combine_function', ['mean', 'sum'])
+    @pytest.mark.parametrize("combine_function", ["mean", "sum"])
     def test_coadd_no_overlap(self, combine_function, reproject_function):
 
         # Make sure that if all tiles are exactly non-overlapping, and
@@ -89,10 +87,13 @@ class TestReprojectAndCoAdd():
         input_data = self._get_tiles(self._nonoverlapping_views)
 
         input_data = [(self.array, self.wcs)]
-        array, footprint = reproject_and_coadd(input_data, self.wcs,
-                                               shape_out=self.array.shape,
-                                               combine_function=combine_function,
-                                               reproject_function=reproject_function)
+        array, footprint = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=self.array.shape,
+            combine_function=combine_function,
+            reproject_function=reproject_function,
+        )
 
         assert_allclose(array, self.array, atol=ATOL)
         assert_allclose(footprint, 1, atol=ATOL)
@@ -104,10 +105,13 @@ class TestReprojectAndCoAdd():
 
         input_data = self._get_tiles(self._overlapping_views)
 
-        array, footprint = reproject_and_coadd(input_data, self.wcs,
-                                               shape_out=self.array.shape,
-                                               combine_function='mean',
-                                               reproject_function=reproject_function)
+        array, footprint = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=self.array.shape,
+            combine_function="mean",
+            reproject_function=reproject_function,
+        )
 
         assert_allclose(array, self.array, atol=ATOL)
 
@@ -122,26 +126,31 @@ class TestReprojectAndCoAdd():
 
         # First check that without background matching the arrays don't match
 
-        array, footprint = reproject_and_coadd(input_data, self.wcs,
-                                               shape_out=self.array.shape,
-                                               combine_function='mean',
-                                               reproject_function=reproject_function)
+        array, footprint = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=self.array.shape,
+            combine_function="mean",
+            reproject_function=reproject_function,
+        )
 
         assert not np.allclose(array, self.array, atol=ATOL)
 
         # Now check that once the backgrounds are matched the values agree
 
-        array, footprint = reproject_and_coadd(input_data, self.wcs,
-                                               shape_out=self.array.shape,
-                                               combine_function='mean',
-                                               reproject_function=reproject_function,
-                                               match_background=True)
+        array, footprint = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=self.array.shape,
+            combine_function="mean",
+            reproject_function=reproject_function,
+            match_background=True,
+        )
 
         # The absolute values of the two arrays will be offset since any
         # solution that reproduces the offsets between images is valid
 
-        assert_allclose(array - np.mean(array),
-                        self.array - np.mean(self.array), atol=ATOL)
+        assert_allclose(array - np.mean(array), self.array - np.mean(self.array), atol=ATOL)
 
     def test_coadd_background_matching_with_nan(self, reproject_function):
 
@@ -160,20 +169,22 @@ class TestReprojectAndCoAdd():
 
         input_data = [(array1, self.wcs), (array2, self.wcs), (array3, self.wcs)]
 
-        array, footprint = reproject_and_coadd(input_data, self.wcs,
-                                               shape_out=self.array.shape,
-                                               combine_function='mean',
-                                               reproject_function=reproject_function,
-                                               match_background=True)
+        array, footprint = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=self.array.shape,
+            combine_function="mean",
+            reproject_function=reproject_function,
+            match_background=True,
+        )
 
         # The absolute values of the two arrays will be offset since any
         # solution that reproduces the offsets between images is valid
 
-        assert_allclose(array - np.mean(array),
-                        self.array - np.mean(self.array), atol=ATOL)
+        assert_allclose(array - np.mean(array), self.array - np.mean(self.array), atol=ATOL)
 
-    @pytest.mark.filterwarnings('ignore:unclosed file:ResourceWarning')
-    @pytest.mark.parametrize('mode', ['arrays', 'filenames', 'hdus'])
+    @pytest.mark.filterwarnings("ignore:unclosed file:ResourceWarning")
+    @pytest.mark.parametrize("mode", ["arrays", "filenames", "hdus"])
     def test_coadd_with_weights(self, tmpdir, reproject_function, mode):
 
         # Make sure that things work properly when specifying weights
@@ -186,25 +197,28 @@ class TestReprojectAndCoAdd():
 
         input_data = [(array1, self.wcs), (array2, self.wcs)]
 
-        if mode == 'arrays':
+        if mode == "arrays":
             input_weights = [weight1, weight2]
-        elif mode == 'filenames':
-            filename1 = tmpdir.join('weight1.fits').strpath
-            filename2 = tmpdir.join('weight2.fits').strpath
+        elif mode == "filenames":
+            filename1 = tmpdir.join("weight1.fits").strpath
+            filename2 = tmpdir.join("weight2.fits").strpath
             fits.writeto(filename1, weight1)
             fits.writeto(filename2, weight2)
             input_weights = [filename1, filename2]
-        elif mode == 'hdus':
+        elif mode == "hdus":
             hdu1 = fits.ImageHDU(weight1)
             hdu2 = fits.ImageHDU(weight2)
             input_weights = [hdu1, hdu2]
 
-        array, footprint = reproject_and_coadd(input_data, self.wcs,
-                                               shape_out=self.array.shape,
-                                               combine_function='mean',
-                                               input_weights=input_weights,
-                                               reproject_function=reproject_function,
-                                               match_background=False)
+        array, footprint = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=self.array.shape,
+            combine_function="mean",
+            input_weights=input_weights,
+            reproject_function=reproject_function,
+            match_background=False,
+        )
 
         expected = self.array + (2 * (weight1 / weight1.max()) - 1)
 
@@ -242,11 +256,11 @@ def test_coadd_solar_map():
     # The reference image was generated for sunpy 3.0.1 - it will not work with
     # previous versions due to the bug that https://github.com/sunpy/sunpy/pull/5381
     # fixes.
-    pytest.importorskip('sunpy', minversion='3.0.1')
+    pytest.importorskip("sunpy", minversion="3.0.1")
     from sunpy.map import Map, all_coordinates_from_map
 
     # Load in three images from different viewpoints around the Sun
-    filenames = ['secchi_l0_a.fits', 'aia_171_level1.fits', 'secchi_l0_b.fits']
+    filenames = ["secchi_l0_a.fits", "aia_171_level1.fits", "secchi_l0_b.fits"]
     maps = [Map(os.path.join(DATA, f)) for f in filenames]
 
     # Produce weight maps that are centered on the solar disk and go to zero at the edges
@@ -255,22 +269,26 @@ def test_coadd_solar_map():
     input_weights = [(w / np.nanmax(w)) ** 4 for w in input_weights]
 
     shape_out = [90, 180]
-    wcs_out = WCS(Header.fromstring(HEADER_SOLAR_OUT, sep='\n'))
-    scales = [1/6, 1, 1/6]
+    wcs_out = WCS(Header.fromstring(HEADER_SOLAR_OUT, sep="\n"))
+    scales = [1 / 6, 1, 1 / 6]
 
     input_data = tuple((a.data * scale, a.wcs) for (a, scale) in zip(maps, scales))
 
-    array, footprint = reproject_and_coadd(input_data, wcs_out, shape_out,
-                                           input_weights=input_weights,
-                                           reproject_function=reproject_interp,
-                                           match_background=True)
+    array, footprint = reproject_and_coadd(
+        input_data,
+        wcs_out,
+        shape_out,
+        input_weights=input_weights,
+        reproject_function=reproject_interp,
+        match_background=True,
+    )
 
     header_out = wcs_out.to_header()
 
     # ASTROPY_LT_40: astropy v4.0 introduced new default header keywords,
     # once we support only astropy 4.0 and later we can update the reference
     # data files and remove this section.
-    for key in ('MJDREFF', 'MJDREFI', 'MJDREF', 'MJD-OBS'):
+    for key in ("MJDREFF", "MJDREFI", "MJDREF", "MJD-OBS"):
         header_out.pop(key, None)
 
     return array_footprint_to_hdulist(array, footprint, header_out)

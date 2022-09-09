@@ -3,12 +3,12 @@ from ..wcs_utils import has_celestial
 from .core import healpix_to_image, image_to_healpix
 from .utils import parse_coord_system, parse_input_healpix_data
 
-__all__ = ['reproject_from_healpix', 'reproject_to_healpix']
+__all__ = ["reproject_from_healpix", "reproject_to_healpix"]
 
 
-def reproject_from_healpix(input_data, output_projection, shape_out=None,
-                           hdu_in=1, order='bilinear', nested=None,
-                           field=0):
+def reproject_from_healpix(
+    input_data, output_projection, shape_out=None, hdu_in=1, order="bilinear", nested=None, field=0
+):
     """
     Reproject data from a HEALPIX projection to a standard projection.
 
@@ -61,21 +61,26 @@ def reproject_from_healpix(input_data, output_projection, shape_out=None,
         indicate valid values.
     """
 
-    array_in, coord_system_in, nested = parse_input_healpix_data(input_data, hdu_in=hdu_in,
-                                                                 field=field, nested=nested)
+    array_in, coord_system_in, nested = parse_input_healpix_data(
+        input_data, hdu_in=hdu_in, field=field, nested=nested
+    )
     wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
 
     if nested is None:
-        raise ValueError("Could not determine whether the data follows the "
-                         "'ring' or 'nested' ordering, so you should set "
-                         "nested=True or nested=False explicitly.")
+        raise ValueError(
+            "Could not determine whether the data follows the "
+            "'ring' or 'nested' ordering, so you should set "
+            "nested=True or nested=False explicitly."
+        )
 
-    return healpix_to_image(array_in, coord_system_in, wcs_out, shape_out,
-                            order=order, nested=nested)
+    return healpix_to_image(
+        array_in, coord_system_in, wcs_out, shape_out, order=order, nested=nested
+    )
 
 
-def reproject_to_healpix(input_data, coord_system_out, hdu_in=0,
-                         order='bilinear', nested=False, nside=128):
+def reproject_to_healpix(
+    input_data, coord_system_out, hdu_in=0, order="bilinear", nested=False, nside=128
+):
     """
     Reproject data from a standard projection to a HEALPIX projection.
 
@@ -126,10 +131,15 @@ def reproject_to_healpix(input_data, coord_system_out, hdu_in=0,
     array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
     coord_system_out = parse_coord_system(coord_system_out)
 
-    if (has_celestial(wcs_in) and wcs_in.low_level_wcs.pixel_n_dim == 2 and
-            wcs_in.low_level_wcs.world_n_dim == 2):
-        return image_to_healpix(array_in, wcs_in, coord_system_out,
-                                nside=nside, order=order, nested=nested)
+    if (
+        has_celestial(wcs_in)
+        and wcs_in.low_level_wcs.pixel_n_dim == 2
+        and wcs_in.low_level_wcs.world_n_dim == 2
+    ):
+        return image_to_healpix(
+            array_in, wcs_in, coord_system_out, nside=nside, order=order, nested=nested
+        )
     else:
-        raise NotImplementedError("Only data with a 2-d celestial WCS can be "
-                                  "reprojected to a HEALPIX projection")
+        raise NotImplementedError(
+            "Only data with a 2-d celestial WCS can be " "reprojected to a HEALPIX projection"
+        )

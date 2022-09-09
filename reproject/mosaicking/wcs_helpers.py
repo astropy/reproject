@@ -4,17 +4,21 @@ import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord, frame_transform_graph
 from astropy.wcs.utils import (
-    celestial_frame_to_wcs, pixel_to_skycoord, proj_plane_pixel_scales, skycoord_to_pixel,
-    wcs_to_celestial_frame)
+    celestial_frame_to_wcs,
+    pixel_to_skycoord,
+    proj_plane_pixel_scales,
+    skycoord_to_pixel,
+    wcs_to_celestial_frame,
+)
 
 from ..utils import parse_input_shape
 
-__all__ = ['find_optimal_celestial_wcs']
+__all__ = ["find_optimal_celestial_wcs"]
 
 
-def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
-                               projection='TAN', resolution=None,
-                               reference=None):
+def find_optimal_celestial_wcs(
+    input_data, frame=None, auto_rotate=False, projection="TAN", resolution=None, reference=None
+):
     """
     Given one or more images, return an optimal WCS projection object and
     shape.
@@ -146,7 +150,7 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
     # Construct WCS object centered on position
     wcs_final = celestial_frame_to_wcs(frame, projection=projection)
 
-    rep = reference.represent_as('unitspherical')
+    rep = reference.represent_as("unitspherical")
     wcs_final.wcs.crval = rep.lon.degree, rep.lat.degree
     wcs_final.wcs.cdelt = -cdelt, cdelt
 
@@ -163,6 +167,7 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
         # Use shapely to represent the points and find the minimum rotated
         # rectangle
         from shapely.geometry import MultiPoint
+
         mp = MultiPoint(list(zip(xp, yp)))
 
         # The following returns a list of rectangle vertices - in fact there
@@ -190,8 +195,7 @@ def find_optimal_celestial_wcs(input_data, frame=None, auto_rotate=False,
 
         # Set rotation matrix (use PC instead of CROTA2 since PC is the
         # recommended approach)
-        pc = np.array([[np.cos(angle), -np.sin(angle)],
-                       [np.sin(angle), np.cos(angle)]])
+        pc = np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
         wcs_final.wcs.pc = pc
 
         # Recompute pixel coordinates (more accurate than simply rotating xp, yp)

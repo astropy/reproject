@@ -3,17 +3,27 @@
 from ..utils import parse_input_data, parse_output_projection
 from .core import _reproject_adaptive_2d
 
-__all__ = ['reproject_adaptive']
+__all__ = ["reproject_adaptive"]
 
 
-def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
-                       return_footprint=True, center_jacobian=False,
-                       roundtrip_coords=True, conserve_flux=False,
-                       kernel='gaussian', kernel_width=1.3,
-                       sample_region_width=4,
-                       boundary_mode='strict', boundary_fill_value=0,
-                       boundary_ignore_threshold=0.5, x_cyclic=False,
-                       y_cyclic=False):
+def reproject_adaptive(
+    input_data,
+    output_projection,
+    shape_out=None,
+    hdu_in=0,
+    return_footprint=True,
+    center_jacobian=False,
+    roundtrip_coords=True,
+    conserve_flux=False,
+    kernel="gaussian",
+    kernel_width=1.3,
+    sample_region_width=4,
+    boundary_mode="strict",
+    boundary_fill_value=0,
+    boundary_ignore_threshold=0.5,
+    x_cyclic=False,
+    y_cyclic=False,
+):
     """
     Reproject a 2D array from one WCS to another using the DeForest (2004)
     adaptive, anti-aliased resampling algorithm, with optional flux
@@ -145,14 +155,21 @@ def reproject_adaptive(input_data, output_projection, shape_out=None, hdu_in=0,
     array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
     wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
 
-    return _reproject_adaptive_2d(array_in, wcs_in, wcs_out, shape_out,
-                                  return_footprint=return_footprint,
-                                  center_jacobian=center_jacobian,
-                                  roundtrip_coords=roundtrip_coords,
-                                  conserve_flux=conserve_flux,
-                                  kernel=kernel, kernel_width=kernel_width,
-                                  sample_region_width=sample_region_width,
-                                  boundary_mode=boundary_mode,
-                                  boundary_fill_value=boundary_fill_value,
-                                  boundary_ignore_threshold=boundary_ignore_threshold,
-                                  x_cyclic=x_cyclic, y_cyclic=y_cyclic)
+    return _reproject_adaptive_2d(
+        array_in,
+        wcs_in,
+        wcs_out,
+        shape_out,
+        return_footprint=return_footprint,
+        center_jacobian=center_jacobian,
+        roundtrip_coords=roundtrip_coords,
+        conserve_flux=conserve_flux,
+        kernel=kernel,
+        kernel_width=kernel_width,
+        sample_region_width=sample_region_width,
+        boundary_mode=boundary_mode,
+        boundary_fill_value=boundary_fill_value,
+        boundary_ignore_threshold=boundary_ignore_threshold,
+        x_cyclic=x_cyclic,
+        y_cyclic=y_cyclic,
+    )
