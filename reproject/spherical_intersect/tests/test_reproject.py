@@ -12,8 +12,8 @@ from ..core import _reproject_celestial
 
 def test_reproject_celestial_slices_2d():
 
-    header_in = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/gc_ga.hdr'))
-    header_out = fits.Header.fromtextfile(get_pkg_data_filename('../../tests/data/gc_eq.hdr'))
+    header_in = fits.Header.fromtextfile(get_pkg_data_filename("../../tests/data/gc_ga.hdr"))
+    header_out = fits.Header.fromtextfile(get_pkg_data_filename("../../tests/data/gc_eq.hdr"))
 
     array_in = np.ones((100, 100))
 
@@ -58,34 +58,38 @@ LATPOLE =        -28.768527143 / [deg] Native latitude of celestial pole
 EQUINOX =               2000.0 / [yr] Equinox of equatorial coordinates
 """
 
-MONTAGE_REF = np.array([[np.nan, 2., 2., np.nan],
-                        [1., 1.6768244, 3.35364754, 4.],
-                        [1., 1.6461656, 3.32308315, 4.],
-                        [np.nan, 3., 3., np.nan]])
+MONTAGE_REF = np.array(
+    [
+        [np.nan, 2.0, 2.0, np.nan],
+        [1.0, 1.6768244, 3.35364754, 4.0],
+        [1.0, 1.6461656, 3.32308315, 4.0],
+        [np.nan, 3.0, 3.0, np.nan],
+    ]
+)
 
 
 def test_reproject_celestial_consistency():
 
     # Consistency between the different modes
 
-    wcs_in = WCS(fits.Header.fromstring(INPUT_HDR, sep='\n'))
-    wcs_out = WCS(fits.Header.fromstring(OUTPUT_HDR, sep='\n'))
+    wcs_in = WCS(fits.Header.fromstring(INPUT_HDR, sep="\n"))
+    wcs_out = WCS(fits.Header.fromstring(OUTPUT_HDR, sep="\n"))
 
     array1, footprint1 = _reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), parallel=False)
     array2, footprint2 = _reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), parallel=True)
 
-    np.testing.assert_allclose(array1, array2, rtol=1.e-5)
+    np.testing.assert_allclose(array1, array2, rtol=1.0e-5)
 
-    np.testing.assert_allclose(footprint1, footprint2, rtol=3.e-5)
+    np.testing.assert_allclose(footprint1, footprint2, rtol=3.0e-5)
 
 
-@pytest.mark.parametrize('wcsapi', (False, True))
+@pytest.mark.parametrize("wcsapi", (False, True))
 def test_reproject_celestial_montage(wcsapi):
 
     # Accuracy compared to Montage
 
-    wcs_in = WCS(fits.Header.fromstring(INPUT_HDR, sep='\n'))
-    wcs_out = WCS(fits.Header.fromstring(OUTPUT_HDR, sep='\n'))
+    wcs_in = WCS(fits.Header.fromstring(INPUT_HDR, sep="\n"))
+    wcs_out = WCS(fits.Header.fromstring(OUTPUT_HDR, sep="\n"))
 
     if wcsapi:  # Enforce a pure wcsapi API
         wcs_in, wcs_out = as_high_level_wcs(wcs_in), as_high_level_wcs(wcs_out)
@@ -101,26 +105,27 @@ def test_reproject_flipping():
     # Regression test for a bug that caused issues when the WCS was oriented
     # in a way that meant polygon vertices were clockwise.
 
-    wcs_in = WCS(fits.Header.fromstring(INPUT_HDR, sep='\n'))
-    wcs_out = WCS(fits.Header.fromstring(OUTPUT_HDR, sep='\n'))
+    wcs_in = WCS(fits.Header.fromstring(INPUT_HDR, sep="\n"))
+    wcs_out = WCS(fits.Header.fromstring(OUTPUT_HDR, sep="\n"))
     array1, footprint1 = _reproject_celestial(DATA, wcs_in, wcs_out, (4, 4), parallel=False)
 
     # Repeat with an input that is flipped horizontally with the equivalent WCS
-    wcs_in_flipped = WCS(fits.Header.fromstring(INPUT_HDR, sep='\n'))
+    wcs_in_flipped = WCS(fits.Header.fromstring(INPUT_HDR, sep="\n"))
     wcs_in_flipped.wcs.cdelt[0] = -wcs_in_flipped.wcs.cdelt[0]
     wcs_in_flipped.wcs.crpix[0] = 3 - wcs_in_flipped.wcs.crpix[0]
-    array2, footprint2 = _reproject_celestial(DATA[:, ::-1], wcs_in_flipped,
-                                              wcs_out, (4, 4), parallel=False)
+    array2, footprint2 = _reproject_celestial(
+        DATA[:, ::-1], wcs_in_flipped, wcs_out, (4, 4), parallel=False
+    )
 
     # Repeat with an output that is flipped horizontally with the equivalent WCS
-    wcs_out_flipped = WCS(fits.Header.fromstring(OUTPUT_HDR, sep='\n'))
+    wcs_out_flipped = WCS(fits.Header.fromstring(OUTPUT_HDR, sep="\n"))
     wcs_out_flipped.wcs.cdelt[0] = -wcs_out_flipped.wcs.cdelt[0]
     wcs_out_flipped.wcs.crpix[0] = 5 - wcs_out_flipped.wcs.crpix[0]
     array3, footprint3 = _reproject_celestial(DATA, wcs_in, wcs_out_flipped, (4, 4), parallel=False)
     array3, footprint3 = array3[:, ::-1], footprint3[:, ::-1]
 
-    np.testing.assert_allclose(array1, array2, rtol=1.e-5)
-    np.testing.assert_allclose(array1, array3, rtol=1.e-5)
+    np.testing.assert_allclose(array1, array2, rtol=1.0e-5)
+    np.testing.assert_allclose(array1, array3, rtol=1.0e-5)
 
-    np.testing.assert_allclose(footprint1, footprint2, rtol=3.e-5)
-    np.testing.assert_allclose(footprint1, footprint3, rtol=3.e-5)
+    np.testing.assert_allclose(footprint1, footprint2, rtol=3.0e-5)
+    np.testing.assert_allclose(footprint1, footprint3, rtol=3.0e-5)

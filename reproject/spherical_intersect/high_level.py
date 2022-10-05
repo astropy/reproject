@@ -4,11 +4,12 @@ from ..utils import parse_input_data, parse_output_projection
 from ..wcs_utils import has_celestial
 from .core import _reproject_celestial
 
-__all__ = ['reproject_exact']
+__all__ = ["reproject_exact"]
 
 
-def reproject_exact(input_data, output_projection, shape_out=None, hdu_in=0,
-                    parallel=False, return_footprint=True):
+def reproject_exact(
+    input_data, output_projection, shape_out=None, hdu_in=0, parallel=False, return_footprint=True
+):
     """
     Reproject data to a new projection using flux-conserving spherical
     polygon intersection (this is the slowest algorithm).
@@ -61,8 +62,16 @@ def reproject_exact(input_data, output_projection, shape_out=None, hdu_in=0,
     wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
 
     if has_celestial(wcs_in) and wcs_in.pixel_n_dim == 2 and wcs_in.world_n_dim == 2:
-        return _reproject_celestial(array_in, wcs_in, wcs_out, shape_out=shape_out,
-                                    parallel=parallel, return_footprint=return_footprint)
+        return _reproject_celestial(
+            array_in,
+            wcs_in,
+            wcs_out,
+            shape_out=shape_out,
+            parallel=parallel,
+            return_footprint=return_footprint,
+        )
     else:
-        raise NotImplementedError("Currently only data with a 2-d celestial "
-                                  "WCS can be reprojected using flux-conserving algorithm")
+        raise NotImplementedError(
+            "Currently only data with a 2-d celestial "
+            "WCS can be reprojected using flux-conserving algorithm"
+        )

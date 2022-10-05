@@ -5,11 +5,10 @@ import numpy as np
 from ..wcs_utils import efficient_pixel_to_pixel, efficient_pixel_to_pixel_with_roundtrip
 from .deforest import map_coordinates
 
-__all__ = ['_reproject_adaptive_2d']
+__all__ = ["_reproject_adaptive_2d"]
 
 
 class CoordinateTransformer:
-
     def __init__(self, wcs_in, wcs_out, roundtrip_coords):
         self.wcs_in = wcs_in
         self.wcs_out = wcs_out
@@ -19,22 +18,32 @@ class CoordinateTransformer:
         pixel_out = pixel_out[:, :, 0], pixel_out[:, :, 1]
         if self.roundtrip_coords:
             pixel_in = efficient_pixel_to_pixel_with_roundtrip(
-                    self.wcs_out, self.wcs_in, *pixel_out)
+                self.wcs_out, self.wcs_in, *pixel_out
+            )
         else:
-            pixel_in = efficient_pixel_to_pixel(
-                    self.wcs_out, self.wcs_in, *pixel_out)
+            pixel_in = efficient_pixel_to_pixel(self.wcs_out, self.wcs_in, *pixel_out)
         pixel_in = np.array(pixel_in).transpose().swapaxes(0, 1)
         return pixel_in
 
 
-def _reproject_adaptive_2d(array, wcs_in, wcs_out, shape_out,
-                           return_footprint=True, center_jacobian=False,
-                           roundtrip_coords=True, conserve_flux=False,
-                           kernel='Gaussian', kernel_width=1.3,
-                           sample_region_width=4,
-                           boundary_mode='strict', boundary_fill_value=0,
-                           boundary_ignore_threshold=0.5,
-                           x_cyclic=False, y_cyclic=False):
+def _reproject_adaptive_2d(
+    array,
+    wcs_in,
+    wcs_out,
+    shape_out,
+    return_footprint=True,
+    center_jacobian=False,
+    roundtrip_coords=True,
+    conserve_flux=False,
+    kernel="Gaussian",
+    kernel_width=1.3,
+    sample_region_width=4,
+    boundary_mode="strict",
+    boundary_fill_value=0,
+    boundary_ignore_threshold=0.5,
+    x_cyclic=False,
+    y_cyclic=False,
+):
     """
     Reproject celestial slices from an n-d array from one WCS to another
     using the DeForest (2004) algorithm [1]_, and assuming all other dimensions
@@ -111,15 +120,22 @@ def _reproject_adaptive_2d(array, wcs_in, wcs_out, shape_out,
     array_out = np.zeros(shape_out)
 
     transformer = CoordinateTransformer(wcs_in, wcs_out, roundtrip_coords)
-    map_coordinates(array_in, array_out, transformer, out_of_range_nan=True,
-                    center_jacobian=center_jacobian,
-                    conserve_flux=conserve_flux,
-                    kernel=kernel, kernel_width=kernel_width,
-                    sample_region_width=sample_region_width,
-                    boundary_mode=boundary_mode,
-                    boundary_fill_value=boundary_fill_value,
-                    boundary_ignore_threshold=boundary_ignore_threshold,
-                    x_cyclic=x_cyclic, y_cyclic=y_cyclic)
+    map_coordinates(
+        array_in,
+        array_out,
+        transformer,
+        out_of_range_nan=True,
+        center_jacobian=center_jacobian,
+        conserve_flux=conserve_flux,
+        kernel=kernel,
+        kernel_width=kernel_width,
+        sample_region_width=sample_region_width,
+        boundary_mode=boundary_mode,
+        boundary_fill_value=boundary_fill_value,
+        boundary_ignore_threshold=boundary_ignore_threshold,
+        x_cyclic=x_cyclic,
+        y_cyclic=y_cyclic,
+    )
 
     if return_footprint:
         return array_out, (~np.isnan(array_out)).astype(float)

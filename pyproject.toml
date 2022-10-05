@@ -15,13 +15,18 @@ skip = "cp36-* pp* *-musllinux* cp310-win32"
 test-skip = "*-macosx_arm64 *-manylinux_aarch64"
 
 [tool.isort]
+profile = "black"
+multi_line_output = 3
 extend_skip_glob = [
     "docs/*",
     "setup.py"]
 line_length = 100
 known_third_party = ["astropy"]
 known_first_party = ["reproject"]
-multi_line_output = 4
 group_by_package = true
 indented_import_headings = false
 length_sort_sections = ["future", "stdlib"]
+
+[tool.black]
+line-length = 100
+target-version = ['py38']

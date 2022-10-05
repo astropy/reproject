@@ -9,7 +9,7 @@ from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
 from numpy.lib.stride_tricks import as_strided
 
-__all__ = ['efficient_pixel_to_pixel', 'has_celestial']
+__all__ = ["efficient_pixel_to_pixel", "has_celestial"]
 
 
 def unbroadcast(array):
@@ -235,7 +235,7 @@ def efficient_pixel_to_pixel_with_roundtrip(wcs1, wcs2, *inputs):
     inputs_check = efficient_pixel_to_pixel(wcs2, wcs1, *outputs)
     reset = np.zeros(inputs_check[0].shape, dtype=bool)
     for ipix in range(len(inputs_check)):
-        reset |= (np.abs(inputs_check[ipix] - inputs[ipix]) > 1)
+        reset |= np.abs(inputs_check[ipix] - inputs[ipix]) > 1
     if np.any(reset):
         for ipix in range(len(inputs_check)):
             outputs[ipix] = outputs[ipix].copy()

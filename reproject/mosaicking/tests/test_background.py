@@ -7,14 +7,10 @@ from numpy.testing import assert_allclose
 from ..background import solve_corrections_sgd
 
 # Try and cover a range of matrix sizes and absolute scales of corrections
-CASES = [(4, 1.),
-         (33, 1e30),
-         (44, 1e-50),
-         (132, 1e10),
-         (1441, 1e-5)]
+CASES = [(4, 1.0), (33, 1e30), (44, 1e-50), (132, 1e10), (1441, 1e-5)]
 
 
-@pytest.mark.parametrize(('N', 'scale'), CASES)
+@pytest.mark.parametrize(("N", "scale"), CASES)
 def test_solve_corrections_sgd(N, scale):
 
     # Generate random corrections

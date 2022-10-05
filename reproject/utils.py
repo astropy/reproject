@@ -8,8 +8,12 @@ from astropy.wcs import WCS
 from astropy.wcs.wcsapi import BaseHighLevelWCS, SlicedLowLevelWCS
 from astropy.wcs.wcsapi.high_level_wcs_wrapper import HighLevelWCSWrapper
 
-__all__ = ['parse_input_data', 'parse_input_shape', 'parse_input_weights',
-           'parse_output_projection']
+__all__ = [
+    "parse_input_data",
+    "parse_input_shape",
+    "parse_input_weights",
+    "parse_output_projection",
+]
 
 
 def parse_input_data(input_data, hdu_in=None):
@@ -23,8 +27,10 @@ def parse_input_data(input_data, hdu_in=None):
     elif isinstance(input_data, HDUList):
         if hdu_in is None:
             if len(input_data) > 1:
-                raise ValueError("More than one HDU is present, please specify "
-                                 "HDU to use with ``hdu_in=`` option")
+                raise ValueError(
+                    "More than one HDU is present, please specify "
+                    "HDU to use with ``hdu_in=`` option"
+                )
             else:
                 hdu_in = 0
         return parse_input_data(input_data[hdu_in])
@@ -38,8 +44,10 @@ def parse_input_data(input_data, hdu_in=None):
     elif isinstance(input_data, astropy.nddata.NDDataBase):
         return input_data.data, input_data.wcs
     else:
-        raise TypeError("input_data should either be an HDU object or a tuple "
-                        "of (array, WCS) or (array, Header)")
+        raise TypeError(
+            "input_data should either be an HDU object or a tuple "
+            "of (array, WCS) or (array, Header)"
+        )
 
 
 def parse_input_shape(input_shape, hdu_in=None):
@@ -52,8 +60,10 @@ def parse_input_shape(input_shape, hdu_in=None):
     elif isinstance(input_shape, HDUList):
         if hdu_in is None:
             if len(input_shape) > 1:
-                raise ValueError("More than one HDU is present, please specify "
-                                 "HDU to use with ``hdu_in=`` option")
+                raise ValueError(
+                    "More than one HDU is present, please specify "
+                    "HDU to use with ``hdu_in=`` option"
+                )
             else:
                 hdu_in = 0
         return parse_input_shape(input_shape[hdu_in])
@@ -72,8 +82,10 @@ def parse_input_shape(input_shape, hdu_in=None):
     elif isinstance(input_shape, astropy.nddata.NDDataBase):
         return input_shape.data.shape, input_shape.wcs
     else:
-        raise TypeError("input_shape should either be an HDU object or a tuple "
-                        "of (array-or-shape, WCS) or (array-or-shape, Header)")
+        raise TypeError(
+            "input_shape should either be an HDU object or a tuple "
+            "of (array-or-shape, WCS) or (array-or-shape, Header)"
+        )
 
 
 def parse_input_weights(input_weights, hdu_weights=None):
@@ -86,8 +98,10 @@ def parse_input_weights(input_weights, hdu_weights=None):
     elif isinstance(input_weights, HDUList):
         if hdu_weights is None:
             if len(input_weights) > 1:
-                raise ValueError("More than one HDU is present, please specify "
-                                 "HDU to use with ``hdu_weights=`` option")
+                raise ValueError(
+                    "More than one HDU is present, please specify "
+                    "HDU to use with ``hdu_weights=`` option"
+                )
             else:
                 hdu_weights = 0
         return parse_input_data(input_weights[hdu_weights])[0]
@@ -111,17 +125,21 @@ def parse_output_projection(output_projection, shape_out=None, output_array=None
     if isinstance(output_projection, Header):
         wcs_out = WCS(output_projection)
         try:
-            shape_out = [output_projection[f'NAXIS{i + 1}']
-                         for i in range(output_projection['NAXIS'])][::-1]
+            shape_out = [
+                output_projection[f"NAXIS{i + 1}"] for i in range(output_projection["NAXIS"])
+            ][::-1]
         except KeyError:
             if shape_out is None:
-                raise ValueError("Need to specify shape since output header "
-                                 "does not contain complete shape information")
+                raise ValueError(
+                    "Need to specify shape since output header "
+                    "does not contain complete shape information"
+                )
     elif isinstance(output_projection, BaseHighLevelWCS):
         wcs_out = output_projection
         if shape_out is None:
-            raise ValueError("Need to specify shape_out when specifying "
-                             "output_projection as WCS object")
+            raise ValueError(
+                "Need to specify shape_out when specifying " "output_projection as WCS object"
+            )
     elif isinstance(output_projection, str):
         hdu_list = fits.open(output_projection)
         shape_out = hdu_list[0].data.shape
@@ -129,17 +147,18 @@ def parse_output_projection(output_projection, shape_out=None, output_array=None
         wcs_out = WCS(header)
         hdu_list.close()
     else:
-        raise TypeError('output_projection should either be a Header, a WCS '
-                        'object, or a filename')
+        raise TypeError(
+            "output_projection should either be a Header, a WCS " "object, or a filename"
+        )
 
     if len(shape_out) == 0:
-        raise ValueError("The shape of the output image should not be an "
-                         "empty tuple")
+        raise ValueError("The shape of the output image should not be an " "empty tuple")
     return wcs_out, shape_out
 
 
-def _block(reproject_func, array_in, wcs_in, wcs_out_sub, shape_out, i_range, j_range,
-           return_footprint):
+def _block(
+    reproject_func, array_in, wcs_in, wcs_out_sub, shape_out, i_range, j_range, return_footprint
+):
     """
     Implementation function that handles reprojecting subsets blocks of pixels
     from an input image and holds metadata about where to reinsert when done.
@@ -165,8 +184,9 @@ def _block(reproject_func, array_in, wcs_in, wcs_out_sub, shape_out, i_range, j_
         Passed through unmodified, used to determine where to reinsert block
     """
 
-    result = reproject_func(array_in, wcs_in, wcs_out_sub,
-                            shape_out=shape_out, return_footprint=return_footprint)
+    result = reproject_func(
+        array_in, wcs_in, wcs_out_sub, shape_out=shape_out, return_footprint=return_footprint
+    )
 
     res_arr = None
     res_fp = None
@@ -176,12 +196,21 @@ def _block(reproject_func, array_in, wcs_in, wcs_out_sub, shape_out, i_range, j_
     else:
         res_arr = result
 
-    return {'i': i_range, 'j': j_range, 'res_arr': res_arr, 'res_fp': res_fp}
+    return {"i": i_range, "j": j_range, "res_arr": res_arr, "res_fp": res_fp}
 
 
-def reproject_blocked(reproject_func, array_in, wcs_in, shape_out, wcs_out, block_size,
-                      output_array=None,
-                      return_footprint=True, output_footprint=None, parallel=True):
+def reproject_blocked(
+    reproject_func,
+    array_in,
+    wcs_in,
+    shape_out,
+    wcs_out,
+    block_size,
+    output_array=None,
+    return_footprint=True,
+    output_footprint=None,
+    parallel=True,
+):
     """
     Implementation function that handles reprojecting subsets blocks of pixels
     from an input image and holds metadata about where to reinsert when done.
@@ -260,23 +289,34 @@ def reproject_blocked(reproject_func, array_in, wcs_in, shape_out, wcs_out, bloc
 
             if proc_pool is None:
                 # if sequential input data and reinsert block into main array immediately
-                completed_block = _block(reproject_func=reproject_func, array_in=array_in,
-                                         wcs_in=wcs_in,
-                                         wcs_out_sub=wcs_out_sub, shape_out=shape_out_sub,
-                                         return_footprint=return_footprint,
-                                         j_range=(jmin, jmax), i_range=(imin, imax))
+                completed_block = _block(
+                    reproject_func=reproject_func,
+                    array_in=array_in,
+                    wcs_in=wcs_in,
+                    wcs_out_sub=wcs_out_sub,
+                    shape_out=shape_out_sub,
+                    return_footprint=return_footprint,
+                    j_range=(jmin, jmax),
+                    i_range=(imin, imax),
+                )
 
-                output_array[imin:imax, jmin:jmax] = completed_block['res_arr'][:]
+                output_array[imin:imax, jmin:jmax] = completed_block["res_arr"][:]
                 if return_footprint:
-                    output_footprint[imin:imax, jmin:jmax] = completed_block['res_fp'][:]
+                    output_footprint[imin:imax, jmin:jmax] = completed_block["res_fp"][:]
 
             else:
                 # if parallel just submit all work items and move on to waiting for them to be done
-                future = proc_pool.submit(_block, reproject_func=reproject_func, array_in=array_in,
-                                          wcs_in=wcs_in, wcs_out_sub=wcs_out_sub,
-                                          shape_out=shape_out_sub,
-                                          return_footprint=return_footprint, j_range=(jmin, jmax),
-                                          i_range=(imin, imax))
+                future = proc_pool.submit(
+                    _block,
+                    reproject_func=reproject_func,
+                    array_in=array_in,
+                    wcs_in=wcs_in,
+                    wcs_out_sub=wcs_out_sub,
+                    shape_out=shape_out_sub,
+                    return_footprint=return_footprint,
+                    j_range=(jmin, jmax),
+                    i_range=(imin, imax),
+                )
                 blocks_futures.append(future)
 
     # If a parallel implementation is being used that means the
@@ -286,14 +326,15 @@ def reproject_blocked(reproject_func, array_in, wcs_in, shape_out, wcs_out, bloc
         completed_future_count = 0
         for completed_future in futures.as_completed(blocks_futures):
             completed_block = completed_future.result()
-            i_range = completed_block['i']
-            j_range = completed_block['j']
-            output_array[i_range[0]:i_range[1], j_range[0]:j_range[1]] = (
-                completed_block['res_arr'][:])
+            i_range = completed_block["i"]
+            j_range = completed_block["j"]
+            output_array[i_range[0] : i_range[1], j_range[0] : j_range[1]] = completed_block[
+                "res_arr"
+            ][:]
 
             if return_footprint:
-                footprint_block = completed_block['res_fp'][:]
-                output_footprint[i_range[0]:i_range[1], j_range[0]:j_range[1]] = footprint_block
+                footprint_block = completed_block["res_fp"][:]
+                output_footprint[i_range[0] : i_range[1], j_range[0] : j_range[1]] = footprint_block
 
             completed_future_count += 1
             idx = blocks_futures.index(completed_future)

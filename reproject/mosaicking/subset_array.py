@@ -2,7 +2,7 @@
 
 import operator
 
-__all__ = ['ReprojectedArraySubset']
+__all__ = ["ReprojectedArraySubset"]
 
 
 class ReprojectedArraySubset:
@@ -26,8 +26,7 @@ class ReprojectedArraySubset:
         self.jmax = jmax
 
     def __repr__(self):
-        return ('<ReprojectedArraySubset at [{}:{},{}:{}]>'
-                .format(self.jmin, self.jmax, self.imin, self.imax))
+        return f"<ReprojectedArraySubset at [{self.jmin}:{self.jmax},{self.imin}:{self.imax}]>"
 
     @property
     def view_in_original_array(self):
@@ -41,8 +40,12 @@ class ReprojectedArraySubset:
         # Note that the use of <= or >= instead of < and > is due to
         # the fact that the max values are exclusive (so +1 above the
         # last value).
-        return not (self.imax <= other.imin or other.imax <= self.imin or
-                    self.jmax <= other.jmin or other.jmax <= self.jmin)
+        return not (
+            self.imax <= other.imin
+            or other.imax <= self.imin
+            or self.jmax <= other.jmin
+            or other.jmax <= self.jmin
+        )
 
     def __add__(self, other):
         return self._operation(other, operator.add)
@@ -73,15 +76,23 @@ class ReprojectedArraySubset:
 
         # Extract cutout from each
 
-        self_array = self.array[jmin - self.jmin:jmax - self.jmin,
-                                imin - self.imin:imax - self.imin]
-        self_footprint = self.footprint[jmin - self.jmin:jmax - self.jmin,
-                                        imin - self.imin:imax - self.imin]
+        self_array = self.array[
+            jmin - self.jmin : jmax - self.jmin,
+            imin - self.imin : imax - self.imin,
+        ]
+        self_footprint = self.footprint[
+            jmin - self.jmin : jmax - self.jmin,
+            imin - self.imin : imax - self.imin,
+        ]
 
-        other_array = other.array[jmin - other.jmin:jmax - other.jmin,
-                                  imin - other.imin:imax - other.imin]
-        other_footprint = other.footprint[jmin - other.jmin:jmax - other.jmin,
-                                          imin - other.imin:imax - other.imin]
+        other_array = other.array[
+            jmin - other.jmin : jmax - other.jmin,
+            imin - other.imin : imax - other.imin,
+        ]
+        other_footprint = other.footprint[
+            jmin - other.jmin : jmax - other.jmin,
+            imin - other.imin : imax - other.imin,
+        ]
 
         # Carry out operator and store result in ReprojectedArraySubset
 

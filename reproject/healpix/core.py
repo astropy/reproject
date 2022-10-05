@@ -2,17 +2,18 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy_healpix import HEALPix, npix_to_nside
 
-__all__ = ['healpix_to_image', 'image_to_healpix']
+__all__ = ["healpix_to_image", "image_to_healpix"]
 
 ORDER = {}
-ORDER['nearest-neighbor'] = 0
-ORDER['bilinear'] = 1
-ORDER['biquadratic'] = 2
-ORDER['bicubic'] = 3
+ORDER["nearest-neighbor"] = 0
+ORDER["bilinear"] = 1
+ORDER["biquadratic"] = 2
+ORDER["bicubic"] = 3
 
 
-def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
-                     order='bilinear', nested=False):
+def healpix_to_image(
+    healpix_data, coord_system_in, wcs_out, shape_out, order="bilinear", nested=False
+):
     """
     Convert image in HEALPIX format to a normal FITS projection image (e.g.
     CAR or AIT).
@@ -57,7 +58,7 @@ def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
     # Look up lon, lat of pixels in reference system and convert celestial coordinates
     yinds, xinds = np.indices(shape_out)
     world_in = wcs_out.pixel_to_world(xinds, yinds).transform_to(coord_system_in)
-    world_in_unitsph = world_in.represent_as('unitspherical')
+    world_in_unitsph = world_in.represent_as("unitspherical")
     lon_in, lat_in = world_in_unitsph.lon, world_in_unitsph.lat
 
     if isinstance(order, str):
@@ -65,7 +66,7 @@ def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
 
     nside = npix_to_nside(len(healpix_data))
 
-    hp = HEALPix(nside=nside, order='nested' if nested else 'ring')
+    hp = HEALPix(nside=nside, order="nested" if nested else "ring")
 
     if order == 1:
         data = hp.interpolate_bilinear_lonlat(lon_in, lat_in, healpix_data)
@@ -80,8 +81,7 @@ def healpix_to_image(healpix_data, coord_system_in, wcs_out, shape_out,
     return data, footprint
 
 
-def image_to_healpix(data, wcs_in, coord_system_out,
-                     nside, order='bilinear', nested=False):
+def image_to_healpix(data, wcs_in, coord_system_out, nside, order="bilinear", nested=False):
     """
     Convert image in a normal WCS projection to HEALPIX format.
 
@@ -121,7 +121,7 @@ def image_to_healpix(data, wcs_in, coord_system_out,
     """
     from scipy.ndimage import map_coordinates
 
-    hp = HEALPix(nside=nside, order='nested' if nested else 'ring')
+    hp = HEALPix(nside=nside, order="nested" if nested else "ring")
 
     npix = hp.npix
 
@@ -139,8 +139,6 @@ def image_to_healpix(data, wcs_in, coord_system_out,
     if isinstance(order, str):
         order = ORDER[order]
 
-    healpix_data = map_coordinates(data, [xinds, yinds],
-                                   order=order,
-                                   mode='constant', cval=np.nan)
+    healpix_data = map_coordinates(data, [xinds, yinds], order=order, mode="constant", cval=np.nan)
 
     return healpix_data, (~np.isnan(healpix_data)).astype(float)
