@@ -116,19 +116,6 @@ def reproject_interp(
 
     # if either of these are not default, it means a blocked method must be used
     if block_size is not None or parallel is not False:
-        # if parallel is set but block size isn't, we'll choose
-        # block size so each thread gets one block each
-        if parallel is not False and block_size is None:
-            block_size = list(shape_out)
-            # each thread gets an equal sized strip of output area to process
-            block_size[-2] = shape_out[-2] // os.cpu_count()
-
-        # given we have cases where modern system have many cpu cores some sanity clamping is
-        # to avoid 0 length block sizes when num_cpu_cores is greater than the side of the image
-        for dim_idx in range(min(len(shape_out), 2)):
-            if block_size[dim_idx] == 0:
-                block_size[dim_idx] = shape_out[dim_idx]
-
         return reproject_blocked(
             _reproject_full,
             array_in=array_in,
