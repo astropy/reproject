@@ -8,6 +8,7 @@ from astropy.io.fits import CompImageHDU, HDUList, Header, ImageHDU, PrimaryHDU
 from astropy.wcs import WCS
 from astropy.wcs.wcsapi import BaseHighLevelWCS, SlicedLowLevelWCS
 from astropy.wcs.wcsapi.high_level_wcs_wrapper import HighLevelWCSWrapper
+from dask.utils import SerializableLock
 
 __all__ = [
     "parse_input_data",
@@ -233,29 +234,36 @@ def reproject_blocked(
         )
         return np.array([array, footprint])
 
-    output_array_dask = da.map_blocks(
+    if block_size is None:
+        output_array_dask = da.from_array(output_array, chunks="auto")
+    else:
+        output_array_dask = da.from_array(output_array, chunks=block_size)
+
+    result = da.map_blocks(
         reproject_single_block,
-        da.from_array(output_array, chunks=block_size),
+        output_array_dask,
         dtype=float,
         new_axis=0,
-        chunks=(2,) + tuple(block_size),
+        chunks=(2,) + output_array_dask.chunksize,
     )
 
-    output_array_dask = output_array_dask[:, : output_array.shape[0], : output_array.shape[1]]
+    result = result[:, : output_array.shape[0], : output_array.shape[1]]
 
     if return_footprint:
         da.store(
-            [output_array_dask[0], output_array_dask[1]],
+            [result[0], result[1]],
             [output_array, output_footprint],
             compute=True,
             scheduler=scheduler,
+            lock=SerializableLock(),
         )
         return output_array, output_footprint
     else:
         da.store(
-            output_array_dask[0],
+            result[0],
             output_array,
             compute=True,
             scheduler=scheduler,
+            lock=SerializableLock(),
         )
         return output_array
