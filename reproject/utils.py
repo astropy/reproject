@@ -236,10 +236,7 @@ def reproject_blocked(
 
     # NOTE: the following array is just used to set up the iteration in map_blocks
     # but isn't actually used otherwise - this is deliberate.
-    if block_size is None:
-        output_array_dask = da.from_array(output_array, chunks="auto")
-    else:
-        output_array_dask = da.from_array(output_array, chunks=block_size)
+    output_array_dask = da.from_array(output_array, chunks=block_size or "auto")
 
     result = da.map_blocks(
         reproject_single_block,
