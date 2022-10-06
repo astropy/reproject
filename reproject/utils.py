@@ -234,6 +234,8 @@ def reproject_blocked(
         )
         return np.array([array, footprint])
 
+    # NOTE: the following array is just used to set up the iteration in map_blocks
+    # but isn't actually used otherwise - this is deliberate.
     if block_size is None:
         output_array_dask = da.from_array(output_array, chunks="auto")
     else:
