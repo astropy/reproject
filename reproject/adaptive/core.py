@@ -1,7 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
 import numpy as np
-
 from astropy.wcs.utils import pixel_to_pixel
 
 from ..wcs_utils import pixel_to_pixel_with_roundtrip
@@ -19,9 +18,7 @@ class CoordinateTransformer:
     def __call__(self, pixel_out):
         pixel_out = pixel_out[:, :, 0], pixel_out[:, :, 1]
         if self.roundtrip_coords:
-            pixel_in = pixel_to_pixel_with_roundtrip(
-                self.wcs_out, self.wcs_in, *pixel_out
-            )
+            pixel_in = pixel_to_pixel_with_roundtrip(self.wcs_out, self.wcs_in, *pixel_out)
         else:
             pixel_in = pixel_to_pixel(self.wcs_out, self.wcs_in, *pixel_out)
         pixel_in = np.array(pixel_in).transpose().swapaxes(0, 1)
