@@ -249,21 +249,28 @@ def reproject_blocked(
 
     result = result[:, : output_array.shape[0], : output_array.shape[1]]
 
+    # FIXME: for some reason, the store() calls below do not work correctly
+    # and result in output_array and output_footprint being unmodified compared
+    # to the versions passed in.
+
     if return_footprint:
-        da.store(
-            [result[0], result[1]],
-            [output_array, output_footprint],
-            compute=True,
-            scheduler=scheduler,
-            lock=SerializableLock(),
-        )
+        output_array[:] = result[0].compute(scheduler=scheduler)
+        output_footprint[:] = result[1].compute(scheduler=scheduler)
+        # da.store(
+        #     [result[0], result[1]],
+        #     [output_array, output_footprint],
+        #     compute=True,
+        #     scheduler=scheduler,
+        #     lock=SerializableLock(),
+        # )
         return output_array, output_footprint
     else:
-        da.store(
-            result[0],
-            output_array,
-            compute=True,
-            scheduler=scheduler,
-            lock=SerializableLock(),
-        )
+        output_array[:] = result[0].compute(scheduler=scheduler)
+        # da.store(
+        #     result[0],
+        #     output_array,
+        #     compute=True,
+        #     scheduler=scheduler,
+        #     lock=SerializableLock(),
+        # )
         return output_array
