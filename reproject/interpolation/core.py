@@ -2,11 +2,11 @@
 
 import numpy as np
 from astropy.wcs import WCS
+from astropy.wcs.utils import pixel_to_pixel
 
 from ..array_utils import map_coordinates
 from ..wcs_utils import (
-    efficient_pixel_to_pixel,
-    efficient_pixel_to_pixel_with_roundtrip,
+    pixel_to_pixel_with_roundtrip,
     has_celestial,
 )
 
@@ -96,9 +96,9 @@ def _reproject_full(
     pixel_out = [p.ravel() for p in pixel_out]
     # For each pixel in the ouput array, get the pixel value in the input WCS
     if roundtrip_coords:
-        pixel_in = efficient_pixel_to_pixel_with_roundtrip(wcs_out, wcs_in, *pixel_out[::-1])[::-1]
+        pixel_in = pixel_to_pixel_with_roundtrip(wcs_out, wcs_in, *pixel_out[::-1])[::-1]
     else:
-        pixel_in = efficient_pixel_to_pixel(wcs_out, wcs_in, *pixel_out[::-1])[::-1]
+        pixel_in = pixel_to_pixel(wcs_out, wcs_in, *pixel_out[::-1])[::-1]
     pixel_in = np.array(pixel_in)
 
     if array_out is not None:
