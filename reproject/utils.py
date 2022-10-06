@@ -224,8 +224,8 @@ def reproject_blocked(
     scheduler = "processes" if parallel else "synchronous"
 
     def reproject_single_block(a, block_info=None):
-        if a.ndim == 0:
-            return a
+        if a.ndim == 0 or block_info is None or block_info == []:
+            return np.array([a, a])
         slices = [slice(*x) for x in block_info[None]["array-location"][1:]]
         wcs_out_sub = HighLevelWCSWrapper(SlicedLowLevelWCS(wcs_out, slices=slices))  #
         array, footprint = reproject_func(
@@ -238,7 +238,10 @@ def reproject_blocked(
         da.from_array(output_array, chunks=block_size),
         dtype=float,
         new_axis=0,
+        chunks=(2,) + tuple(block_size),
     )
+
+    output_array_dask = output_array_dask[:, : output_array.shape[0], : output_array.shape[1]]
 
     if return_footprint:
         da.store(
@@ -249,5 +252,10 @@ def reproject_blocked(
         )
         return output_array, output_footprint
     else:
-        da.store(output_array_dask[0], output_array, compute=True, scheduler=scheduler)
+        da.store(
+            output_array_dask[0],
+            output_array,
+            compute=True,
+            scheduler=scheduler,
+        )
         return output_array
