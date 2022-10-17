@@ -14,6 +14,10 @@ write_to = "reproject/version.py"
 skip = "cp36-* pp* *-musllinux* cp310-win32"
 test-skip = "*-macosx_arm64 *-manylinux_aarch64"
 
+[[tool.cibuildwheel.overrides]]
+select = "*-win32"
+test-requires = "scipy==1.9.1"
+
 [tool.isort]
 profile = "black"
 multi_line_output = 3
