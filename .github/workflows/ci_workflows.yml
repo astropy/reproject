@@ -21,9 +21,13 @@ jobs:
         - linux: py38-test
         - linux: py39-test
         - linux: py310-test
+        - linux: py311-test-devdeps
         - windows: py38-test-oldestdeps
         - windows: py39-test
         - windows: py310-test
+      libraries: |
+        apt:
+          - libopenblas-dev
       coverage: 'codecov'
 
   publish:
