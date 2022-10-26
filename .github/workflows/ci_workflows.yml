@@ -15,7 +15,6 @@ jobs:
     with:
       envs: |
         - linux: py311-test-devdeps
-          python-version: '3.11.0-rc.2'
       libraries: |
         apt:
           - libopenblas-dev
