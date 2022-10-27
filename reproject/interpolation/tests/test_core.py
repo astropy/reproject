@@ -630,7 +630,7 @@ def test_identity_with_offset(roundtrip_coords):
 
 
 @pytest.mark.parametrize("parallel", [True, 2, False])
-@pytest.mark.parametrize("block_size", [[10, 10], [500, 500], [500, 100], None])
+@pytest.mark.parametrize("block_size", [[40, 40], [500, 500], [500, 100], None])
 def test_blocked_against_single(parallel, block_size):
 
     # Ensure when we break a reprojection down into multiple discrete blocks
