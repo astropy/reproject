@@ -13,34 +13,10 @@ jobs:
   tests:
     uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@v1
     with:
+      toxargs: -vvv
       envs: |
-        - macos: py38-test-oldestdeps
-        - macos: py39-test
         - macos: py310-test
-        - linux: py38-test-oldestdeps
-        - linux: py38-test
-        - linux: py39-test
-        - linux: py310-test
-        - linux: py311-test-devdeps
-        - windows: py38-test-oldestdeps
-        - windows: py39-test
-        - windows: py310-test
       libraries: |
         apt:
           - libopenblas-dev
       coverage: 'codecov'
-
-  publish:
-    needs: tests
-    uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish.yml@v1
-    with:
-      test_extras: test
-      test_command: pytest -p no:warnings --pyargs reproject
-      targets: |
-        - cp*-manylinux_x86_64
-        - cp*-manylinux_aarch64
-        - cp*-macosx_x86_64
-        - cp*-macosx_arm64
-        - cp*-win_amd64
-    secrets:
-      pypi_token: ${{ secrets.pypi_token }}
