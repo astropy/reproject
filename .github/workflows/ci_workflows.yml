@@ -41,6 +41,6 @@ jobs:
         - cp*-manylinux_aarch64
         - cp*-macosx_x86_64
         - cp*-macosx_arm64
-        - cp{8,9,10}-win*
+        - cp*-win_amd64
     secrets:
       pypi_token: ${{ secrets.pypi_token }}
