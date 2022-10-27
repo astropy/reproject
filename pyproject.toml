@@ -16,7 +16,7 @@ test-skip = "*-macosx_arm64 *-manylinux_aarch64"
 
 [[tool.cibuildwheel.overrides]]
 select = "*-win32"
-test-requires = "scipy==1.9.1"
+before-test = "pip install scipy==1.9.1"
 
 [tool.isort]
 profile = "black"
