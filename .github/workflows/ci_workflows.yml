@@ -22,9 +22,13 @@ jobs:
         - linux: py38-test
         - linux: py39-test
         - linux: py310-test
+        - linux: py311-test-devdeps
         - windows: py38-test-oldestdeps
         - windows: py39-test
         - windows: py310-test
+      libraries: |
+        apt:
+          - libopenblas-dev
       coverage: 'codecov'
 
   publish:
@@ -38,6 +42,6 @@ jobs:
         - cp*-manylinux_aarch64
         - cp*-macosx_x86_64
         - cp*-macosx_arm64
-        - cp*-win*
+        - cp*-win_amd64
     secrets:
       pypi_token: ${{ secrets.pypi_token }}
