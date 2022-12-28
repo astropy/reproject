@@ -22,8 +22,8 @@ def parse_input_data(input_data, hdu_in=None):
     """
 
     if isinstance(input_data, str):
-        # NOTE: File handler is not closed here.
-        return parse_input_data(fits.open(input_data), hdu_in=hdu_in)
+        with fits.open(input_data) as hdul:
+            return parse_input_data(hdul, hdu_in=hdu_in)
     elif isinstance(input_data, HDUList):
         if hdu_in is None:
             if len(input_data) > 1:
