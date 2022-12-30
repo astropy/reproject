@@ -8,11 +8,27 @@ from ..array_utils import map_coordinates
 from ..wcs_utils import has_celestial, pixel_to_pixel_with_roundtrip
 
 
-def _validate_wcs(wcs_in, wcs_out, shape_out):
+def _validate_wcs(wcs_in, wcs_out, shape_in, shape_out):
     if wcs_in.low_level_wcs.pixel_n_dim != wcs_out.low_level_wcs.pixel_n_dim:
-        raise ValueError("Number of dimensions between input and output WCS should match")
-    elif len(shape_out) != wcs_out.low_level_wcs.pixel_n_dim:
-        raise ValueError("Length of shape_out should match number of dimensions in wcs_out")
+        raise ValueError("Number of dimensions in input and output WCS should match")
+    elif len(shape_out) < wcs_out.low_level_wcs.pixel_n_dim:
+        raise ValueError("Too few dimensions in shape_out")
+    elif len(shape_in) < wcs_in.low_level_wcs.pixel_n_dim:
+        raise ValueError("Too few dimensions in input data")
+
+    if len(shape_out) < len(shape_in) and len(shape_out) == wcs_out.low_level_wcs.pixel_n_dim:
+        # Add the broadcast dimensions to the output shape, which does not
+        # currently have any broadcast dims
+        shape_out = (*shape_in[:-len(shape_out)], *shape_out)
+    if len(shape_in) != len(shape_out):
+        raise ValueError("Number of dimensions in input and output data should match")
+
+    # Separate the "extra" dimensions that don't correspond to a WCS axis and
+    # which we'll be looping over
+    extra_dimens_in = shape_in[: -wcs_in.low_level_wcs.pixel_n_dim]
+    extra_dimens_out = shape_out[: -wcs_out.low_level_wcs.pixel_n_dim]
+    if extra_dimens_in != extra_dimens_out:
+        raise ValueError("Dimensions to be looped over must match exactly")
 
     if has_celestial(wcs_in) and not has_celestial(wcs_out):
         raise ValueError("Input WCS has celestial components but output WCS does not")
@@ -20,7 +36,6 @@ def _validate_wcs(wcs_in, wcs_out, shape_out):
         raise ValueError("Output WCS has celestial components but input WCS does not")
 
     if isinstance(wcs_in, WCS) and isinstance(wcs_out, WCS):
-
         # Check whether a spectral component is present, and if so, check that
         # the CTYPEs match.
         if wcs_in.wcs.spec >= 0 and wcs_out.wcs.spec >= 0:
@@ -35,6 +50,7 @@ def _validate_wcs(wcs_in, wcs_out, shape_out):
             raise ValueError("Input WCS has a spectral component but output WCS does not")
         elif wcs_out.wcs.spec >= 0:
             raise ValueError("Output WCS has a spectral component but input WCS does not")
+    return shape_out
 
 
 def _validate_array_out(array_out, array, shape_out):
@@ -74,18 +90,44 @@ def _reproject_full(
     - The output shape should match the dimensionality of the WCS
     - The input and output WCS should have matching physical types, although
       the order can be different as long as the physical types are unique.
-    """
-    _validate_wcs(wcs_in, wcs_out, shape_out)
 
+    If the input array contains extra dimensions beyond what the input WCS has,
+    the extra leading dimensions are assumed to represent multiple images with
+    the same coordinate information. The transformation is computed once and
+    "broadcast" across those images.
+    """
     # Make sure image is floating point
     array = np.asarray(array, dtype=float)
-    # shape_out must be exact a tuple type
+    # shape_out must be exactly a tuple type
     shape_out = tuple(shape_out)
-
+    # shape_out may be updated by _validate_wcs if the transformation is being
+    # broadcast
+    shape_out = _validate_wcs(wcs_in, wcs_out, array.shape, shape_out)
     _validate_array_out(array_out, array, shape_out)
 
+    if array_out is None:
+        array_out = np.empty(shape_out)
+
+    array_out_loopable = array_out
+    if len(array.shape) == wcs_in.low_level_wcs.pixel_n_dim:
+        # We don't need to broadcast the transformation over any extra
+        # axes---add an extra axis of length one just so we have something
+        # to loop over in all cases.
+        array = array.reshape((1, *array.shape))
+        array_out_loopable = array_out.reshape((1, *array_out.shape))
+    elif len(array.shape) > wcs_in.low_level_wcs.pixel_n_dim:
+        # We're broadcasting. Flatten the extra dimensions so there's just one
+        # to loop over
+        array = array.reshape((-1, *array.shape[-wcs_in.low_level_wcs.pixel_n_dim :]))
+        array_out_loopable = array_out.reshape(
+            (-1, *array_out.shape[-wcs_out.low_level_wcs.pixel_n_dim :])
+        )
+    else:
+        raise ValueError("Too few dimensions for input array")
+
+    wcs_dims = shape_out[-wcs_in.low_level_wcs.pixel_n_dim :]
     pixel_out = np.meshgrid(
-        *[np.arange(size, dtype=float) for size in shape_out],
+        *[np.arange(size, dtype=float) for size in wcs_dims],
         indexing="ij",
         sparse=False,
         copy=False,
@@ -98,22 +140,21 @@ def _reproject_full(
         pixel_in = pixel_to_pixel(wcs_out, wcs_in, *pixel_out[::-1])[::-1]
     pixel_in = np.array(pixel_in)
 
-    if array_out is not None:
-        array_out.shape = (array_out.size,)
-    else:
-        array_out = np.empty(shape_out).ravel()
+    # Loop over the broadcasted dimensions in our array, re-using the same
+    # computed transformation each time
+    for i in range(len(array)):
+        # Interpolate array on to the pixels coordinates in pixel_in
+        map_coordinates(
+            array[i],
+            pixel_in,
+            order=order,
+            cval=np.nan,
+            mode="constant",
+            output=array_out_loopable[i].ravel(),
+        )
 
-    # Interpolate array on to the pixels coordinates in pixel_in
-    map_coordinates(
-        array,
-        pixel_in,
-        order=order,
-        cval=np.nan,
-        mode="constant",
-        output=array_out,
-    ).reshape(shape_out)
-
-    array_out.shape = shape_out
+    # n.b. We write the reprojected data into array_out_loopable, but array_out
+    # also contains this data and has the user's desired output shape.
 
     if return_footprint:
         return array_out, (~np.isnan(array_out)).astype(float)
