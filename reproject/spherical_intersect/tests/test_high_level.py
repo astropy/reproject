@@ -84,7 +84,7 @@ def test_reproject_precision_warning():
 
         if res < 0.05 / 3600:
             with pytest.warns(
-                UserWarning, match="The reproject_exact function " "currently has precision"
+                UserWarning, match="The reproject_exact function currently has precision"
             ):
                 reproject_exact((array, wcs1), wcs2, shape_out=(5, 5))
         else:

@@ -97,7 +97,7 @@ def reproject_and_coadd(
 
     if reproject_function is None:
         raise ValueError(
-            "reprojection function should be specified with " "the reproject_function argument"
+            "reprojection function should be specified with the reproject_function argument"
         )
 
     # Parse the output projection to avoid having to do it for each
@@ -234,6 +234,6 @@ def reproject_and_coadd(
         # Here we need to operate in chunks since we could otherwise run
         # into memory issues
 
-        raise NotImplementedError("combine_function='median' is " "not yet implemented")
+        raise NotImplementedError("combine_function='median' is not yet implemented")
 
     return final_array, final_footprint

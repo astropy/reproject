@@ -138,7 +138,7 @@ def parse_output_projection(output_projection, shape_out=None, output_array=None
         wcs_out = output_projection
         if shape_out is None:
             raise ValueError(
-                "Need to specify shape_out when specifying " "output_projection as WCS object"
+                "Need to specify shape_out when specifying output_projection as WCS object"
             )
     elif isinstance(output_projection, str):
         hdu_list = fits.open(output_projection)
@@ -147,12 +147,10 @@ def parse_output_projection(output_projection, shape_out=None, output_array=None
         wcs_out = WCS(header)
         hdu_list.close()
     else:
-        raise TypeError(
-            "output_projection should either be a Header, a WCS " "object, or a filename"
-        )
+        raise TypeError("output_projection should either be a Header, a WCS object, or a filename")
 
     if len(shape_out) == 0:
-        raise ValueError("The shape of the output image should not be an " "empty tuple")
+        raise ValueError("The shape of the output image should not be an empty tuple")
     return wcs_out, shape_out
 
 
