@@ -141,5 +141,5 @@ def reproject_to_healpix(
         )
     else:
         raise NotImplementedError(
-            "Only data with a 2-d celestial WCS can be " "reprojected to a HEALPIX projection"
+            "Only data with a 2-d celestial WCS can be reprojected to a HEALPIX projection"
         )

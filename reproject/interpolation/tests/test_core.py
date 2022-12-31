@@ -226,7 +226,7 @@ def test_celestial_mismatch_2d(roundtrip_coords):
         wcs2 = WCS(header_out)
 
         with pytest.raises(
-            ValueError, match="Input WCS has celestial components but output WCS " "does not"
+            ValueError, match="Input WCS has celestial components but output WCS does not"
         ):
             array_out, footprint_out = reproject_interp(
                 (data, wcs1), wcs2, shape_out=(2, 2), roundtrip_coords=roundtrip_coords
@@ -255,14 +255,14 @@ def test_celestial_mismatch_3d(roundtrip_coords):
         wcs2 = WCS(header_out)
 
         with pytest.raises(
-            ValueError, match="Input WCS has celestial components but output WCS " "does not"
+            ValueError, match="Input WCS has celestial components but output WCS does not"
         ):
             array_out, footprint_out = reproject_interp(
                 (data, wcs1), wcs2, shape_out=(1, 2, 3), roundtrip_coords=roundtrip_coords
             )
 
         with pytest.raises(
-            ValueError, match="Output WCS has celestial components but input WCS " "does not"
+            ValueError, match="Output WCS has celestial components but input WCS does not"
         ):
             array_out, footprint_out = reproject_interp(
                 (data, wcs2), wcs1, shape_out=(1, 2, 3), roundtrip_coords=roundtrip_coords
@@ -301,14 +301,14 @@ def test_spectral_mismatch_3d(roundtrip_coords):
         wcs2 = WCS(header_out)
 
         with pytest.raises(
-            ValueError, match="Input WCS has a spectral component but output WCS " "does not"
+            ValueError, match="Input WCS has a spectral component but output WCS does not"
         ):
             array_out, footprint_out = reproject_interp(
                 (data, wcs1), wcs2, shape_out=(1, 2, 3), roundtrip_coords=roundtrip_coords
             )
 
         with pytest.raises(
-            ValueError, match="Output WCS has a spectral component but input WCS " "does not"
+            ValueError, match="Output WCS has a spectral component but input WCS does not"
         ):
             array_out, footprint_out = reproject_interp(
                 (data, wcs2), wcs1, shape_out=(1, 2, 3), roundtrip_coords=roundtrip_coords
@@ -326,7 +326,7 @@ def test_naxis_mismatch(roundtrip_coords):
     wcs_out = WCS(naxis=2)
 
     with pytest.raises(
-        ValueError, match="Number of dimensions between input and output WCS " "should match"
+        ValueError, match="Number of dimensions between input and output WCS should match"
     ):
         array_out, footprint_out = reproject_interp(
             (data, wcs_in), wcs_out, shape_out=(1, 2), roundtrip_coords=roundtrip_coords
@@ -398,7 +398,7 @@ def test_4d_fails(roundtrip_coords):
     array_in = np.zeros((2, 3, 4, 5))
 
     with pytest.raises(
-        ValueError, match="Length of shape_out should match number of dimensions " "in wcs_out"
+        ValueError, match="Length of shape_out should match number of dimensions in wcs_out"
     ):
         x_out, y_out, z_out = reproject_interp(
             (array_in, w_in), w_out, shape_out=[2, 4, 5, 6], roundtrip_coords=roundtrip_coords
@@ -421,7 +421,7 @@ def test_inequal_wcs_dims(roundtrip_coords):
     wcs_out = WCS(header_out)
 
     with pytest.raises(
-        ValueError, match="Output WCS has a spectral component but input WCS " "does not"
+        ValueError, match="Output WCS has a spectral component but input WCS does not"
     ):
         out_cube, out_cube_valid = reproject_interp(
             (inp_cube, header_in), wcs_out, shape_out=(2, 4, 5), roundtrip_coords=roundtrip_coords
