@@ -104,19 +104,50 @@ def _reproject_adaptive_2d(
     to numerical issues, causing a band of NaN values around the edge of the
     final image (when reprojecting from helioprojective to heliographic).
     See https://github.com/astropy/reproject/issues/195 for more information.
+
+    Note
+    ----
+    If the input array contains extra dimensions beyond what the input WCS has,
+    the extra leading dimensions are assumed to represent multiple images with
+    the same coordinate information. The transformation is computed once and
+    "broadcast" across those images.
     """
 
     # Make sure image is floating point
     array_in = np.asarray(array, dtype=float)
+    shape_out = tuple(shape_out)
 
     # Check dimensionality of WCS and shape_out
     if wcs_in.low_level_wcs.pixel_n_dim != wcs_out.low_level_wcs.pixel_n_dim:
         raise ValueError("Number of dimensions between input and output WCS should match")
-    elif len(shape_out) != wcs_out.low_level_wcs.pixel_n_dim:
-        raise ValueError("Length of shape_out should match number of dimensions in wcs_out")
+    elif len(shape_out) < wcs_out.low_level_wcs.pixel_n_dim:
+        raise ValueError("Length of shape_out too small for number of dimensions in wcs_out")
+    elif len(array_in.shape) < wcs_in.low_level_wcs.pixel_n_dim:
+        raise ValueError("Too few input-data dimensions for number of dimensions in wcs_out")
+    elif len(array_in.shape) != len(shape_out):
+        raise ValueError("Number of dimensions in input and output data should match")
+
+    # Separate the "extra" dimensions that don't correspond to a WCS axis and
+    # which we'll be looping over
+    extra_dimens_in = array_in.shape[: -wcs_in.low_level_wcs.pixel_n_dim]
+    extra_dimens_out = shape_out[: -wcs_out.low_level_wcs.pixel_n_dim]
+    if extra_dimens_in != extra_dimens_out:
+        raise ValueError("Dimensions to be looped over must match exactly")
 
     # Create output array
     array_out = np.zeros(shape_out)
+
+    if len(array_in.shape) == wcs_in.low_level_wcs.pixel_n_dim:
+        # We don't need to broadcast the transformation over any extra
+        # axes---add an extra axis of length one just so we have something
+        # to loop over in all cases.
+        array_in = array_in.reshape((1, *array_in.shape))
+        array_out = array_out.reshape((1, *array_out.shape))
+    elif len(array_in.shape) > wcs_in.low_level_wcs.pixel_n_dim:
+        # We're broadcasting. Flatten the extra dimensions so there's just one
+        # to loop over
+        array_in = array_in.reshape((-1, *array_in.shape[-wcs_in.low_level_wcs.pixel_n_dim :]))
+        array_out = array_out.reshape((-1, *array_out.shape[-wcs_out.low_level_wcs.pixel_n_dim :]))
 
     transformer = CoordinateTransformer(wcs_in, wcs_out, roundtrip_coords)
     map_coordinates(
@@ -135,6 +166,8 @@ def _reproject_adaptive_2d(
         x_cyclic=x_cyclic,
         y_cyclic=y_cyclic,
     )
+
+    array_out.shape = shape_out
 
     if return_footprint:
         return array_out, (~np.isnan(array_out)).astype(float)

@@ -156,15 +156,19 @@ cdef double clip(double x, double vmin, double vmax, int cyclic,
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef (double, bint) sample_array(double[:,:] source, double x, double y,
-        int x_cyclic, int y_cyclic, bint out_of_range_nearest) nogil:
-    x = clip(x, 0, source.shape[1] - 1, x_cyclic, out_of_range_nearest)
-    y = clip(y, 0, source.shape[0] - 1, y_cyclic, out_of_range_nearest)
+cdef bint sample_array(double[:,:,:] source, double[:] dest,
+        double x, double y, int x_cyclic, int y_cyclic,
+        bint out_of_range_nearest) nogil:
+    x = clip(x, 0, source.shape[2] - 1, x_cyclic, out_of_range_nearest)
+    y = clip(y, 0, source.shape[1] - 1, y_cyclic, out_of_range_nearest)
 
     if isnan(x) or isnan(y):
-        return nan, False
+        return False
 
-    return source[<int> y, <int> x], True
+    # Cython doesn't like a return type of (double[:], bint), so we put the
+    # input data into the provided output array
+    dest[:] = source[:, <int> y, <int> x]
+    return True
 
 
 KERNELS = {}
@@ -185,12 +189,18 @@ BOUNDARY_MODES['nearest'] = 6
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_width=-1,
+def map_coordinates(double[:,:,:] source, double[:,:,:] target, Ci, int max_samples_width=-1,
                     int conserve_flux=False, int progress=False, int singularities_nan=False,
                     int x_cyclic=False, int y_cyclic=False, int out_of_range_nan=False,
                     bint center_jacobian=False, str kernel='gaussian', double kernel_width=1.3,
                     double sample_region_width=4, str boundary_mode="strict",
                     double boundary_fill_value=0, double boundary_ignore_threshold=0.5):
+    # n.b. the source and target arrays are expected to contain three
+    # dimensions---the last two are the image dimensions, while the first
+    # indexes multiple images with the same coordinates. The transformation is
+    # computed once, and then each image is reprojected using that
+    # transformation. For the single-image case, the first dimension is still
+    # required and will have size 1.
     cdef int kernel_flag
     try:
         kernel_flag = KERNELS[kernel.lower()]
@@ -207,12 +217,12 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
     cdef np.ndarray[np.float64_t, ndim=3] pixel_target
     cdef int delta
     if center_jacobian:
-        pixel_target = np.zeros((target.shape[0], target.shape[1], 2))
+        pixel_target = np.zeros((target.shape[1], target.shape[2], 2))
         delta = 0
     else:
         # Pad by one on all four sides of the array, so we can interpolate
         # Jacobian values from both directions at all points.
-        pixel_target = np.zeros((target.shape[0]+2, target.shape[1]+2, 2))
+        pixel_target = np.zeros((target.shape[1]+2, target.shape[2]+2, 2))
         # With this delta set, the value of pixel_target at (0,0) will really
         # be representing (-1,-1) in the output image.
         delta = -1
@@ -229,19 +239,19 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
         # Prepare arrays marking coordinates offset by a half pixel, to allow
         # for calculating centered Jacobians for each output pixel by using the
         # corresponding input coordinate at locations offset by +/- 0.5 pixels.
-        offset_target_x = np.zeros((target.shape[0], target.shape[1]+1, 2))
-        offset_target_y = np.zeros((target.shape[0]+1, target.shape[1], 2))
-        for yi in range(target.shape[0]):
-            for xi in range(target.shape[1]):
+        offset_target_x = np.zeros((target.shape[1], target.shape[2]+1, 2))
+        offset_target_y = np.zeros((target.shape[1]+1, target.shape[2], 2))
+        for yi in range(target.shape[1]):
+            for xi in range(target.shape[2]):
                 offset_target_x[yi,xi,0] = xi - 0.5
                 offset_target_x[yi,xi,1] = yi
                 offset_target_y[yi,xi,0] = xi
                 offset_target_y[yi,xi,1] = yi - 0.5
-            offset_target_x[yi,target.shape[1],0] = target.shape[1]-1 + 0.5
-            offset_target_x[yi,target.shape[1],1] = yi
-        for xi in range(target.shape[1]):
-            offset_target_y[target.shape[0],xi,0] = xi
-            offset_target_y[target.shape[0],xi,1] = target.shape[0]-1 + 0.5
+            offset_target_x[yi,target.shape[2],0] = target.shape[2]-1 + 0.5
+            offset_target_x[yi,target.shape[2],1] = yi
+        for xi in range(target.shape[2]):
+            offset_target_y[target.shape[1],xi,0] = xi
+            offset_target_y[target.shape[1],xi,1] = target.shape[1]-1 + 0.5
 
     # These source arrays store a corresponding input-image coordinate for each
     # pixel in the output image.
@@ -261,19 +271,19 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
         # d(input coordinate)/d(output x) at (x=-.5, y=0) in the output image,
         # and Jy at [0, 0, :] representing d(input coordinate)/d(output y) at
         # (x=0,y=-.5).
-        Jx = np.empty((target.shape[0], target.shape[1] + 1, 2))
-        Jy = np.empty((target.shape[0] + 1, target.shape[1], 2))
-        for yi in range(target.shape[0]):
-            for xi in range(target.shape[1]):
+        Jx = np.empty((target.shape[1], target.shape[2] + 1, 2))
+        Jy = np.empty((target.shape[1] + 1, target.shape[2], 2))
+        for yi in range(target.shape[1]):
+            for xi in range(target.shape[2]):
                 Jx[yi, xi, 0] = -pixel_source[yi+1, xi, 0] + pixel_source[yi+1, xi+1, 0]
                 Jx[yi, xi, 1] = -pixel_source[yi+1, xi, 1] + pixel_source[yi+1, xi+1, 1]
                 Jy[yi, xi, 0] = -pixel_source[yi, xi+1, 0] + pixel_source[yi+1, xi+1, 0]
                 Jy[yi, xi, 1] = -pixel_source[yi, xi+1, 1] + pixel_source[yi+1, xi+1, 1]
-            xi = target.shape[1]
+            xi = target.shape[2]
             Jx[yi, xi, 0] = -pixel_source[yi+1, xi, 0] + pixel_source[yi+1, xi+1, 0]
             Jx[yi, xi, 1] = -pixel_source[yi+1, xi, 1] + pixel_source[yi+1, xi+1, 1]
-        yi = target.shape[0]
-        for xi in range(target.shape[1]):
+        yi = target.shape[1]
+        for xi in range(target.shape[2]):
             Jy[yi, xi, 0] = -pixel_source[yi, xi+1, 0] + pixel_source[yi+1, xi+1, 0]
             Jy[yi, xi, 1] = -pixel_source[yi, xi+1, 1] + pixel_source[yi+1, xi+1, 1]
 
@@ -296,18 +306,19 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
     cdef double weight_sum
     cdef double ignored_weight_sum
     cdef double weight
-    cdef double value
+    cdef double[:] value = np.empty(source.shape[0])
     cdef double[:] P1 = np.empty((2,))
     cdef double[:] P2 = np.empty((2,))
     cdef double[:] P3 = np.empty((2,))
     cdef double[:] P4 = np.empty((2,))
     cdef double top, bottom, left, right
+    cdef double determinant
     cdef bint has_sampled_this_row
     cdef bint is_good_sample
     with nogil:
         # Iterate through each pixel in the output image.
-        for yi in range(target.shape[0]):
-            for xi in range(target.shape[1]):
+        for yi in range(target.shape[1]):
+            for xi in range(target.shape[2]):
                 if center_jacobian:
                     # Compute the Jacobian for the transformation applied to
                     # this pixel, as finite differences.
@@ -324,7 +335,7 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
                     Ji[0,1] = (Jy[yi, xi, 0] + Jy[yi+1, xi, 0]) / 2
                     Ji[1,1] = (Jy[yi, xi, 1] + Jy[yi+1, xi, 1]) / 2
                 if isnan(Ji[0,0]) or isnan(Ji[0,1]) or isnan(Ji[1,0]) or isnan(Ji[1,1]) or isnan(pixel_source[yi,xi,0]) or isnan(pixel_source[yi,xi,1]):
-                    target[yi,xi] = nan
+                    target[:,yi,xi] = nan
                     continue
 
                 # Find and pad the singular values of the Jacobian.
@@ -395,18 +406,18 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
 
                 if max_samples_width > 0 and max(right-left, top-bottom) > max_samples_width:
                     if singularities_nan:
-                        target[yi,xi] = nan
+                        target[:,yi,xi] = nan
                     else:
-                        value, is_good_sample = sample_array(
-                                source, current_pixel_source[0],
+                        is_good_sample = sample_array(
+                                source, value, current_pixel_source[0],
                                 current_pixel_source[1], x_cyclic, y_cyclic,
                                 out_of_range_nearest=boundary_flag == 6)
                         if is_good_sample:
-                            target[yi,xi] = value
+                            target[:,yi,xi] = value
                         elif boundary_flag == 2 or boundary_flag == 3:
-                            target[yi,xi] = boundary_fill_value
+                            target[:,yi,xi] = boundary_fill_value
                         else:
-                            target[yi,xi] = nan
+                            target[:,yi,xi] = nan
                     continue
 
                 top += pixel_source[yi,xi,1]
@@ -427,28 +438,28 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
                 # all other boundary modes, we still need to calculate weights
                 # for each out-of-bounds sample, so we do nothing here.
                 if not x_cyclic:
-                    if right > source.shape[1] - 1:
+                    if right > source.shape[2] - 1:
                         if boundary_flag == 1:
-                            target[yi,xi] = nan
+                            target[:,yi,xi] = nan
                             continue
                         if boundary_flag == 4:
-                            right = source.shape[1] - 1
+                            right = source.shape[2] - 1
                     if left < 0:
                         if boundary_flag == 1:
-                            target[yi,xi] = nan
+                            target[:,yi,xi] = nan
                             continue
                         if boundary_flag == 4:
                             left = 0
                 if not y_cyclic:
-                    if top > source.shape[0] - 1:
+                    if top > source.shape[1] - 1:
                         if boundary_flag == 1:
-                            target[yi,xi] = nan
+                            target[:,yi,xi] = nan
                             continue
                         if boundary_flag == 4:
-                            top = source.shape[0] - 1
+                            top = source.shape[1] - 1
                     if bottom < 0:
                         if boundary_flag == 1:
-                            target[yi,xi] = nan
+                            target[:,yi,xi] = nan
                             continue
                         if boundary_flag == 4:
                             bottom = 0
@@ -460,16 +471,16 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
                 # sampling region can become very large when well outside the
                 # input image, and so this detection becomes an important
                 # optimization.
-                if (not x_cyclic and (right < 0 or left > source.shape[1] - 1)
+                if (not x_cyclic and (right < 0 or left > source.shape[2] - 1)
                         or not y_cyclic
-                            and (top < 0 or bottom > source.shape[0] - 1)):
+                            and (top < 0 or bottom > source.shape[1] - 1)):
                     if boundary_flag == 3:
-                        target[yi,xi] = boundary_fill_value
+                        target[:,yi,xi] = boundary_fill_value
                         continue
                     if (boundary_flag == 2
                             or boundary_flag == 4
                             or boundary_flag == 5):
-                        target[yi,xi] = nan
+                        target[:,yi,xi] = nan
                         continue
                     if boundary_flag == 6:
                         # Just sample one row or column so that we get all of
@@ -481,7 +492,7 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
                         if top < bottom:
                             top = bottom
 
-                target[yi,xi] = 0
+                target[:,yi,xi] = 0
                 weight_sum = 0
                 ignored_weight_sum = 0
 
@@ -529,18 +540,19 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
                             continue
                         has_sampled_this_row = True
 
-                        value, is_good_sample = sample_array(
-                                source, current_pixel_source[0],
+                        is_good_sample = sample_array(
+                                source, value, current_pixel_source[0],
                                 current_pixel_source[1], x_cyclic, y_cyclic,
                                 out_of_range_nearest=(boundary_flag == 6))
 
                         if ((boundary_flag == 2 or boundary_flag == 3)
                                 and not is_good_sample):
-                            value = boundary_fill_value
+                            value[:] = boundary_fill_value
                             is_good_sample = True
 
                         if is_good_sample:
-                            target[yi,xi] += weight * value
+                            for i in range(target.shape[0]):
+                                target[i,yi,xi] += weight * value[i]
                             weight_sum += weight
                         else:
                             if boundary_flag == 5:
@@ -549,14 +561,17 @@ def map_coordinates(double[:,:] source, double[:,:] target, Ci, int max_samples_
                 if (boundary_flag == 5 and
                         ignored_weight_sum / (ignored_weight_sum + weight_sum)
                             > boundary_ignore_threshold):
-                    target[yi,xi] = nan
+                    target[:,yi,xi] = nan
                 else:
-                    target[yi,xi] /= weight_sum
                     if conserve_flux:
-                        target[yi,xi] *= fabs(det2x2(Ji))
+                        determinant = fabs(det2x2(Ji))
+                    for i in range(target.shape[0]):
+                        target[i,yi,xi] /= weight_sum
+                        if conserve_flux:
+                            target[i,yi,xi] *= determinant
             if progress:
                 with gil:
-                    sys.stdout.write("\r%d/%d done" % (yi+1, target.shape[0]))
+                    sys.stdout.write("\r%d/%d done" % (yi+1, target.shape[1]))
                     sys.stdout.flush()
     if progress:
         sys.stdout.write("\n")

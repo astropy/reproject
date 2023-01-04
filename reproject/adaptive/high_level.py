@@ -47,6 +47,12 @@ def reproject_adaptive(
             * An `~astropy.nddata.NDData` object from which the ``.data`` and
               ``.wcs`` attributes will be used as the input data.
 
+        If the data array contains more dimensions than are described by the
+        input header or WCS, the extra dimensions (assumed to be the first
+        dimensions) are taken to represent multiple images with the same
+        coordinate information. The coordinate transformation will be computed
+        once and then each image will be reprojected, offering a speedup over
+        reprojecting each image individually.
     output_projection : `~astropy.wcs.WCS` or `~astropy.io.fits.Header`
         The output projection, which can be either a `~astropy.wcs.WCS`
         or a `~astropy.io.fits.Header` instance.
@@ -153,7 +159,9 @@ def reproject_adaptive(
     # TODO: add support for output_array
 
     array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
-    wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
+    wcs_out, shape_out = parse_output_projection(
+        output_projection, shape_in=array_in.shape, shape_out=shape_out
+    )
 
     return _reproject_adaptive_2d(
         array_in,

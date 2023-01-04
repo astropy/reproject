@@ -6,6 +6,8 @@ from itertools import product
 import numpy as np
 import pytest
 from astropy import units as u
+from astropy.io import fits
+from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
 from astropy.wcs.wcsapi import HighLevelWCSWrapper, SlicedLowLevelWCS
 from numpy.testing import assert_allclose
@@ -737,3 +739,126 @@ def test_reproject_adaptive_uncentered_jacobian():
     header_out["DATE-OBS"] = header_out["DATE-OBS"].replace("T", " ")
 
     return array_footprint_to_hdulist(output, footprint, header_out)
+
+
+def _setup_for_broadcast_test(
+    conserve_flux=False, boundary_mode="strict", kernel="gaussian", center_jacobian=False
+):
+    with fits.open(get_pkg_data_filename("data/galactic_2d.fits", package="reproject.tests")) as pf:
+        hdu_in = pf[0]
+        header_in = hdu_in.header.copy()
+        header_out = hdu_in.header.copy()
+        header_out["CTYPE1"] = "RA---TAN"
+        header_out["CTYPE2"] = "DEC--TAN"
+        header_out["CRVAL1"] = 266.39311
+        header_out["CRVAL2"] = -28.939779
+
+        data = hdu_in.data
+
+    image_stack = np.stack((data, data.T, data[::-1], data[:, ::-1]))
+
+    # Build the reference array through un-broadcast reprojections
+    array_ref = np.empty_like(image_stack)
+    footprint_ref = np.empty_like(image_stack)
+    for i in range(len(image_stack)):
+        array_out, footprint_out = reproject_adaptive(
+            (image_stack[i], header_in),
+            header_out,
+            conserve_flux=conserve_flux,
+            boundary_mode=boundary_mode,
+            kernel=kernel,
+            center_jacobian=center_jacobian,
+        )
+        array_ref[i] = array_out
+        footprint_ref[i] = footprint_out
+
+    return image_stack, array_ref, footprint_ref, header_in, header_out
+
+
+@pytest.mark.parametrize("input_extra_dims", (1, 2))
+@pytest.mark.parametrize("output_shape", (None, "single", "full"))
+@pytest.mark.parametrize("input_as_wcs", (True, False))
+@pytest.mark.parametrize("output_as_wcs", (True, False))
+def test_broadcast_reprojection(input_extra_dims, output_shape, input_as_wcs, output_as_wcs):
+    image_stack, array_ref, footprint_ref, header_in, header_out = _setup_for_broadcast_test()
+
+    # Test both single and multiple dimensions being broadcast
+    if input_extra_dims == 2:
+        image_stack = image_stack.reshape((2, 2, *image_stack.shape[-2:]))
+        array_ref.shape = image_stack.shape
+        footprint_ref.shape = image_stack.shape
+
+    # Test different ways of providing the output shape
+    if output_shape == "single":
+        # Have the broadcast dimensions be auto-added to the output shape
+        output_shape = image_stack.shape[-2:]
+    elif output_shape == "full":
+        # Provide the broadcast dimensions as part of the output shape
+        output_shape = image_stack.shape
+
+    # Ensure logic works with WCS inputs as well as Header inputs
+    if input_as_wcs:
+        header_in = WCS(header_in)
+    if output_as_wcs:
+        header_out = WCS(header_out)
+        if output_shape is None:
+            # This combination of parameter values is not valid
+            return
+
+    array_broadcast, footprint_broadcast = reproject_adaptive(
+        (image_stack, header_in),
+        header_out,
+        output_shape,
+        conserve_flux=False,
+        boundary_mode="strict",
+    )
+
+    np.testing.assert_array_equal(footprint_broadcast, footprint_ref)
+    np.testing.assert_allclose(array_broadcast, array_ref)
+
+
+def _test_broadcast_reprojection_algo_specific_options(
+    conserve_flux=False, boundary_mode="strict", kernel="gaussian", center_jacobian=False
+):
+    image_stack, array_ref, footprint_ref, header_in, header_out = _setup_for_broadcast_test(
+        conserve_flux=conserve_flux,
+        boundary_mode=boundary_mode,
+        kernel=kernel,
+        center_jacobian=center_jacobian,
+    )
+
+    array_broadcast, footprint_broadcast = reproject_adaptive(
+        (image_stack, header_in),
+        header_out,
+        image_stack.shape,
+        conserve_flux=conserve_flux,
+        boundary_mode=boundary_mode,
+        kernel=kernel,
+        center_jacobian=center_jacobian,
+    )
+
+    np.testing.assert_array_equal(footprint_broadcast, footprint_ref)
+    np.testing.assert_allclose(array_broadcast, array_ref)
+
+
+@pytest.mark.parametrize("kernel", ("gaussian", "hann"))
+def test_broadcast_reprojection_kernel(kernel):
+    _test_broadcast_reprojection_algo_specific_options(kernel=kernel)
+
+
+@pytest.mark.parametrize(
+    "boundary_mode",
+    ("strict", "constant", "grid-constant", "ignore", "ignore_threshold", "nearest"),
+)
+def test_broadcast_reprojection_boundary_mode(boundary_mode):
+    _test_broadcast_reprojection_algo_specific_options(boundary_mode=boundary_mode)
+
+
+@pytest.mark.parametrize("conserve_flux", (True, False))
+def test_broadcast_reprojection_conserve_flux(conserve_flux):
+    _test_broadcast_reprojection_algo_specific_options(conserve_flux=conserve_flux)
+
+
+@pytest.mark.parametrize("center_jacobian", (True, False))
+def test_broadcast_reprojection_center_jacobian(center_jacobian):
+    _test_broadcast_reprojection_algo_specific_options(center_jacobian=center_jacobian)
