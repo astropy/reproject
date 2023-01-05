@@ -121,9 +121,9 @@ def _reproject_adaptive_2d(
     if wcs_in.low_level_wcs.pixel_n_dim != wcs_out.low_level_wcs.pixel_n_dim:
         raise ValueError("Number of dimensions between input and output WCS should match")
     elif len(shape_out) < wcs_out.low_level_wcs.pixel_n_dim:
-        raise ValueError("Length of shape_out too small for number of dimensions in wcs_out")
+        raise ValueError("Too few dimensions in shape_out")
     elif len(array_in.shape) < wcs_in.low_level_wcs.pixel_n_dim:
-        raise ValueError("Too few input-data dimensions for number of dimensions in wcs_out")
+        raise ValueError("Too few dimensions in input data")
     elif len(array_in.shape) != len(shape_out):
         raise ValueError("Number of dimensions in input and output data should match")
 

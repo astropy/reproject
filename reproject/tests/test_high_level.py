@@ -207,3 +207,53 @@ def test_identity_projection(projection_type):
     else:
         # The Gaussian kernel in the adaptive algorithm blurs the image
         assert np.all(data_in != data_out)
+
+
+@pytest.mark.parametrize(
+    "reproject_function", [reproject_interp, reproject_adaptive, reproject_exact]
+)
+def test_dimensions_checks(reproject_function):
+    header_in = fits.Header.fromtextfile(
+        get_pkg_data_filename("data/gc_eq.hdr", package="reproject.tests")
+    )
+
+    header_out = header_in.copy()
+    w_in = WCS(header_in)
+    w_out = WCS(header_out)
+
+    array_in = np.zeros((2, 3, 4, 5))
+
+    # Create mis-matches between the input and output shapes
+
+    with pytest.raises(
+        ValueError, match="Number of dimensions in input and output data should match"
+    ):
+        array_out, footprint = reproject_function(
+            (array_in, w_in), w_out, shape_out=[2, 3, 4, 5, 6]
+        )
+
+    with pytest.raises(
+        ValueError, match="Number of dimensions in input and output data should match"
+    ):
+        array_out, footprint = reproject_function(
+            (array_in[0], w_in), w_out, shape_out=[3, 4, 5, 6]
+        )
+
+    # Give fewer array dimensions than WCS dimensions
+
+    with pytest.raises(ValueError, match="Too few dimensions in input data"):
+        array_out, footprint = reproject_function(
+            (array_in[0, 0, 0], w_in), w_out, shape_out=[4, 5, 6]
+        )
+
+    with pytest.raises(ValueError, match="Too few dimensions in shape_out"):
+        array_out, footprint = reproject_function(
+            (array_in[0], w_in),
+            w_out,
+            shape_out=[
+                5,
+            ],
+        )
+
+    with pytest.raises(ValueError, match="Dimensions to be looped over must match exactly"):
+        array_out, footprint = reproject_function((array_in, w_in), w_out, shape_out=[3, 3, 4, 5])

@@ -382,40 +382,6 @@ def test_slice_reprojection(roundtrip_coords):
     np.testing.assert_allclose(out_cube, ((inp_cube[:-1] + inp_cube[1:]) / 2.0))
 
 
-def test_too_few_dimens():
-    header_in = fits.Header.fromtextfile(
-        get_pkg_data_filename("data/cube.hdr", package="reproject.tests")
-    )
-
-    header_in["NAXIS"] = 3
-
-    header_out = header_in.copy()
-    w_in = WCS(header_in)
-    w_out = WCS(header_out)
-
-    array_in = np.zeros((2, 3, 4, 5))
-
-    # Create mis-matches between the input and output shapes
-
-    with pytest.raises(
-        ValueError, match="Number of dimensions in input and output data should match"
-    ):
-        array_out, footprint = reproject_interp((array_in, w_in), w_out, shape_out=[2, 3, 4, 5, 6])
-
-    with pytest.raises(
-        ValueError, match="Number of dimensions in input and output data should match"
-    ):
-        array_out, footprint = reproject_interp((array_in[0], w_in), w_out, shape_out=[3, 4, 5, 6])
-
-    # Give fewer array dimensions than WCS dimensions
-
-    with pytest.raises(ValueError, match="Too few dimensions in input data"):
-        array_out, footprint = reproject_interp((array_in[0, 0], w_in), w_out, shape_out=[4, 5, 6])
-
-    with pytest.raises(ValueError, match="Too few dimensions in shape_out"):
-        array_out, footprint = reproject_interp((array_in[0], w_in), w_out, shape_out=[5, 6])
-
-
 @pytest.mark.parametrize("roundtrip_coords", (False, True))
 def test_inequal_wcs_dims(roundtrip_coords):
     inp_cube = np.arange(3, dtype="float").repeat(4 * 5).reshape(3, 4, 5)
@@ -723,9 +689,18 @@ def test_blocked_broadcast_reprojection(input_extra_dims, output_shape, parallel
         # Provide the broadcast dimensions as part of the output shape
         output_shape = image_stack.shape
 
-    array_broadcast, footprint_broadcast = reproject_interp(
-        (image_stack, header_in), header_out, output_shape, parallel=parallel, block_size=[5, 5]
-    )
+    # the warning import and ignore is needed to keep pytest happy when running with
+    # older versions of astropy which don't have this fix:
+    # https://github.com/astropy/astropy/pull/12844
+    # All the warning code should be removed when old version no longer being used
+    # Using context manager ensure only blocked function has them ignored
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=FITSFixedWarning)
+        array_broadcast, footprint_broadcast = reproject_interp(
+            (image_stack, header_in), header_out, output_shape, parallel=parallel, block_size=[5, 5]
+        )
 
     np.testing.assert_array_equal(footprint_broadcast, footprint_ref)
     np.testing.assert_allclose(array_broadcast, array_ref)
