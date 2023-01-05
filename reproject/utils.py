@@ -113,7 +113,7 @@ def parse_input_weights(input_weights, hdu_weights=None):
         raise TypeError("input_weights should either be an HDU object or a Numpy array")
 
 
-def parse_output_projection(output_projection, shape_out=None, output_array=None):
+def parse_output_projection(output_projection, shape_in=None, shape_out=None, output_array=None):
 
     if shape_out is None:
         if output_array is not None:
@@ -151,6 +151,15 @@ def parse_output_projection(output_projection, shape_out=None, output_array=None
 
     if len(shape_out) == 0:
         raise ValueError("The shape of the output image should not be an empty tuple")
+
+    if (
+        shape_in is not None
+        and len(shape_out) < len(shape_in)
+        and len(shape_out) == wcs_out.low_level_wcs.pixel_n_dim
+    ):
+        # Add the broadcast dimensions to the output shape, which does not
+        # currently have any broadcast dims
+        shape_out = (*shape_in[: -len(shape_out)], *shape_out)
     return wcs_out, shape_out
 
 
@@ -272,17 +281,17 @@ def reproject_blocked(
     # WCS and either processing and reinserting them immediately,
     # or when doing parallel impl submit them to workers then wait and reinsert as
     # the workers complete each block
-    for imin in range(0, output_array.shape[0], block_size[0]):
-        imax = min(imin + block_size[0], output_array.shape[0])
-        for jmin in range(0, output_array.shape[1], block_size[1]):
-            jmax = min(jmin + block_size[1], output_array.shape[1])
+    for imin in range(0, output_array.shape[-2], block_size[0]):
+        imax = min(imin + block_size[0], output_array.shape[-2])
+        for jmin in range(0, output_array.shape[-1], block_size[1]):
+            jmax = min(jmin + block_size[1], output_array.shape[-1])
             shape_out_sub = (imax - imin, jmax - jmin)
-            # if the output has more than two dims, just append them on the end of the
-            # shape to it still matches the base WCS
-            for dim in range(2, len(output_array.shape)):
-                shape_out_sub = shape_out_sub + (output_array.shape[dim],)
+            # if the output has more than two dims, apply our blocking to only the last two
+            shape_out_sub = output_array.shape[:-2] + shape_out_sub
 
             slices = [slice(imin, imax), slice(jmin, jmax)]
+            if wcs_out.low_level_wcs.pixel_n_dim > 2:
+                slices = [Ellipsis] + slices
             wcs_out_sub = HighLevelWCSWrapper(SlicedLowLevelWCS(wcs_out, slices=slices))
 
             if proc_pool is None:
@@ -298,9 +307,9 @@ def reproject_blocked(
                     i_range=(imin, imax),
                 )
 
-                output_array[imin:imax, jmin:jmax] = completed_block["res_arr"][:]
+                output_array[..., imin:imax, jmin:jmax] = completed_block["res_arr"][:]
                 if return_footprint:
-                    output_footprint[imin:imax, jmin:jmax] = completed_block["res_fp"][:]
+                    output_footprint[..., imin:imax, jmin:jmax] = completed_block["res_fp"][:]
 
             else:
                 # if parallel just submit all work items and move on to waiting for them to be done
@@ -326,13 +335,15 @@ def reproject_blocked(
             completed_block = completed_future.result()
             i_range = completed_block["i"]
             j_range = completed_block["j"]
-            output_array[i_range[0] : i_range[1], j_range[0] : j_range[1]] = completed_block[
+            output_array[..., i_range[0] : i_range[1], j_range[0] : j_range[1]] = completed_block[
                 "res_arr"
             ][:]
 
             if return_footprint:
                 footprint_block = completed_block["res_fp"][:]
-                output_footprint[i_range[0] : i_range[1], j_range[0] : j_range[1]] = footprint_block
+                output_footprint[
+                    ..., i_range[0] : i_range[1], j_range[0] : j_range[1]
+                ] = footprint_block
 
             completed_future_count += 1
             idx = blocks_futures.index(completed_future)

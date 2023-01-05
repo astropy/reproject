@@ -15,12 +15,7 @@ def _validate_wcs(wcs_in, wcs_out, shape_in, shape_out):
         raise ValueError("Too few dimensions in shape_out")
     elif len(shape_in) < wcs_in.low_level_wcs.pixel_n_dim:
         raise ValueError("Too few dimensions in input data")
-
-    if len(shape_out) < len(shape_in) and len(shape_out) == wcs_out.low_level_wcs.pixel_n_dim:
-        # Add the broadcast dimensions to the output shape, which does not
-        # currently have any broadcast dims
-        shape_out = (*shape_in[:-len(shape_out)], *shape_out)
-    if len(shape_in) != len(shape_out):
+    elif len(shape_in) != len(shape_out):
         raise ValueError("Number of dimensions in input and output data should match")
 
     # Separate the "extra" dimensions that don't correspond to a WCS axis and
@@ -50,7 +45,6 @@ def _validate_wcs(wcs_in, wcs_out, shape_in, shape_out):
             raise ValueError("Input WCS has a spectral component but output WCS does not")
         elif wcs_out.wcs.spec >= 0:
             raise ValueError("Output WCS has a spectral component but input WCS does not")
-    return shape_out
 
 
 def _validate_array_out(array_out, array, shape_out):
@@ -100,9 +94,7 @@ def _reproject_full(
     array = np.asarray(array, dtype=float)
     # shape_out must be exactly a tuple type
     shape_out = tuple(shape_out)
-    # shape_out may be updated by _validate_wcs if the transformation is being
-    # broadcast
-    shape_out = _validate_wcs(wcs_in, wcs_out, array.shape, shape_out)
+    _validate_wcs(wcs_in, wcs_out, array.shape, shape_out)
     _validate_array_out(array_out, array, shape_out)
 
     if array_out is None:

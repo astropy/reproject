@@ -640,11 +640,7 @@ def test_identity_with_offset(roundtrip_coords):
     assert_allclose(expected, array_out, atol=1e-10)
 
 
-@pytest.mark.parametrize("input_extra_dims", (1, 2))
-@pytest.mark.parametrize("output_shape", (None, 'single', 'full'))
-@pytest.mark.parametrize("input_as_wcs", (True, False))
-@pytest.mark.parametrize("output_as_wcs", (True, False))
-def test_broadcast_reprojection(input_extra_dims, output_shape, input_as_wcs, output_as_wcs):
+def _setup_for_broadcast_test():
     with fits.open(get_pkg_data_filename("data/galactic_2d.fits", package="reproject.tests")) as pf:
         hdu_in = pf[0]
         header_in = hdu_in.header.copy()
@@ -659,20 +655,27 @@ def test_broadcast_reprojection(input_extra_dims, output_shape, input_as_wcs, ou
     image_stack = np.stack((data, data.T, data[::-1], data[:, ::-1]))
 
     # Build the reference array through un-broadcast reprojections
-    array_indiv = np.empty_like(image_stack)
-    footprint_indiv = np.empty_like(image_stack)
+    array_ref = np.empty_like(image_stack)
+    footprint_ref = np.empty_like(image_stack)
     for i in range(len(image_stack)):
-        array_out, footprint_out = reproject_interp(
-            (image_stack[i], header_in), header_out
-        )
-        array_indiv[i] = array_out
-        footprint_indiv[i] = footprint_out
+        array_out, footprint_out = reproject_interp((image_stack[i], header_in), header_out)
+        array_ref[i] = array_out
+        footprint_ref[i] = footprint_out
 
+    return image_stack, array_ref, footprint_ref, header_in, header_out
+
+
+@pytest.mark.parametrize("input_extra_dims", (1, 2))
+@pytest.mark.parametrize("output_shape", (None, "single", "full"))
+@pytest.mark.parametrize("input_as_wcs", (True, False))
+@pytest.mark.parametrize("output_as_wcs", (True, False))
+def test_broadcast_reprojection(input_extra_dims, output_shape, input_as_wcs, output_as_wcs):
+    image_stack, array_ref, footprint_ref, header_in, header_out = _setup_for_broadcast_test()
     # Test both single and multiple dimensions being broadcast
     if input_extra_dims == 2:
-        image_stack = image_stack.reshape((2, 2, *data.shape))
-        array_indiv.shape = image_stack.shape
-        footprint_indiv.shape = image_stack.shape
+        image_stack = image_stack.reshape((2, 2, *image_stack.shape[-2:]))
+        array_ref.shape = image_stack.shape
+        footprint_ref.shape = image_stack.shape
 
     # Test different ways of providing the output shape
     if output_shape == "single":
@@ -688,15 +691,44 @@ def test_broadcast_reprojection(input_extra_dims, output_shape, input_as_wcs, ou
     if output_as_wcs:
         header_out = WCS(header_out)
         if output_shape is None:
-            # Shape must be provided in this case
-            output_shape = data.shape
+            # This combination of parameter values is not valid
+            return
 
     array_broadcast, footprint_broadcast = reproject_interp(
-        (image_stack, header_in), header_out, output_shape
+        (image_stack, header_in),
+        header_out,
+        output_shape,
     )
 
-    np.testing.assert_array_equal(footprint_broadcast, footprint_indiv)
-    np.testing.assert_allclose(array_broadcast, array_indiv)
+    np.testing.assert_array_equal(footprint_broadcast, footprint_ref)
+    np.testing.assert_allclose(array_broadcast, array_ref)
+
+
+@pytest.mark.parametrize("input_extra_dims", (1, 2))
+@pytest.mark.parametrize("output_shape", (None, "single", "full"))
+@pytest.mark.parametrize("parallel", [True, False])
+def test_blocked_broadcast_reprojection(input_extra_dims, output_shape, parallel):
+    image_stack, array_ref, footprint_ref, header_in, header_out = _setup_for_broadcast_test()
+    # Test both single and multiple dimensions being broadcast
+    if input_extra_dims == 2:
+        image_stack = image_stack.reshape((2, 2, *image_stack.shape[-2:]))
+        array_ref.shape = image_stack.shape
+        footprint_ref.shape = image_stack.shape
+
+    # Test different ways of providing the output shape
+    if output_shape == "single":
+        # Have the broadcast dimensions be auto-added to the output shape
+        output_shape = image_stack.shape[-2:]
+    elif output_shape == "full":
+        # Provide the broadcast dimensions as part of the output shape
+        output_shape = image_stack.shape
+
+    array_broadcast, footprint_broadcast = reproject_interp(
+        (image_stack, header_in), header_out, output_shape, parallel=parallel, block_size=[5, 5]
+    )
+
+    np.testing.assert_array_equal(footprint_broadcast, footprint_ref)
+    np.testing.assert_allclose(array_broadcast, array_ref)
 
 
 @pytest.mark.parametrize("parallel", [True, 2, False])
