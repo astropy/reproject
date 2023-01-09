@@ -15,11 +15,18 @@ def test_parse_input_data(tmpdir):
 
     data = np.arange(200).reshape((10, 20))
 
-    hdu = fits.ImageHDU(data)
+    hdu = fits.ImageHDU(data, header)
+
+    # We want to test that the WCS is being parsed and output correctly in each
+    # of these cases. WCS doesn't seem to implement __eq__, so we convert the
+    # output WCS to a Header and compare that. Here we convert the original
+    # Header to a WCS and back to ensure an apples-to-apples comparision.
+    ref_coord_system = WCS(header).to_header()
 
     # As HDU
     array, coordinate_system = parse_input_data(hdu)
     np.testing.assert_allclose(array, data)
+    assert coordinate_system.to_header() == ref_coord_system
 
     # As filename
     filename = tmpdir.join("test.fits").strpath
@@ -33,15 +40,18 @@ def test_parse_input_data(tmpdir):
 
     array, coordinate_system = parse_input_data(filename, hdu_in=1)
     np.testing.assert_allclose(array, data)
+    assert coordinate_system.to_header() == ref_coord_system
 
     # As array, header
     array, coordinate_system = parse_input_data((data, header))
     np.testing.assert_allclose(array, data)
+    assert coordinate_system.to_header() == ref_coord_system
 
     # As array, WCS
     wcs = WCS(hdu.header)
     array, coordinate_system = parse_input_data((data, wcs))
     np.testing.assert_allclose(array, data)
+    assert coordinate_system is wcs
 
     ndd = NDData(data, wcs=wcs)
     array, coordinate_system = parse_input_data(ndd)
