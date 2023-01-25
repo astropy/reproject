@@ -4,10 +4,15 @@ from copy import deepcopy
 
 import numpy as np
 import pytest
+from astropy import coordinates as coord
 from astropy import units as u
 from astropy.coordinates import FK5, Galactic, SkyCoord
+from astropy.modeling import models
 from astropy.wcs import WCS
 from astropy.wcs.utils import pixel_to_skycoord, skycoord_to_pixel
+from astropy.wcs.wcsapi import HighLevelWCSWrapper, SlicedLowLevelWCS
+from gwcs import coordinate_frames as cf
+from gwcs.wcs import WCS as GWCS
 from numpy.testing import assert_allclose, assert_equal
 
 from ..wcs_helpers import find_optimal_celestial_wcs
@@ -20,16 +25,9 @@ else:
     SHAPELY_INSTALLED = True
 
 
-class TestOptimalWCS:
+class BaseTestOptimalWCS:
     def setup_method(self, method):
-
-        self.wcs = WCS(naxis=2)
-        self.wcs.wcs.ctype = "RA---TAN", "DEC--TAN"
-        self.wcs.wcs.crpix = 10, 15
-        self.wcs.wcs.crval = 43, 23
-        self.wcs.wcs.cdelt = -0.1, 0.1
-        self.wcs.wcs.equinox = 2000.0
-
+        self.wcs = self.generate_wcs()
         self.array = np.ones((30, 40))
 
     def test_identity(self):
@@ -37,12 +35,12 @@ class TestOptimalWCS:
         wcs, shape = find_optimal_celestial_wcs([(self.array, self.wcs)], frame=FK5())
 
         assert tuple(wcs.wcs.ctype) == ("RA---TAN", "DEC--TAN")
-        assert_allclose(wcs.wcs.crval, (43, 23))
-        assert_allclose(wcs.wcs.cdelt, (-0.1, 0.1))
+        assert_allclose(wcs.wcs.crval, (43, 23), atol=self.crval_atol)
+        assert_allclose(wcs.wcs.cdelt, (-0.1, 0.1), rtol=self.cdelt_rtol)
         assert wcs.wcs.equinox == 2000
         assert wcs.wcs.radesys == "FK5"
 
-        assert_allclose(wcs.wcs.crpix, (10, 15))
+        assert_allclose(wcs.wcs.crpix, self.identity_expected_crpix)
         assert shape == (30, 40)
 
     def test_args_tuple_wcs(self):
@@ -61,14 +59,13 @@ class TestOptimalWCS:
 
         assert tuple(wcs.wcs.ctype) == ("GLON-CAR", "GLAT-CAR")
         c = SkyCoord(43, 23, unit=("deg", "deg"), frame="fk5").galactic
-        assert_allclose(wcs.wcs.crval, (c.l.degree, c.b.degree))
-        assert_allclose(wcs.wcs.cdelt, (-0.1, 0.1))
+        assert_allclose(wcs.wcs.crval, (c.l.degree, c.b.degree), atol=self.crval_atol)
+        assert_allclose(wcs.wcs.cdelt, (-0.1, 0.1), rtol=self.cdelt_rtol)
         assert np.isnan(wcs.wcs.equinox)
         assert wcs.wcs.radesys == ""
 
-        # The following values are empirical and just to make sure there are no regressions
-        assert_allclose(wcs.wcs.crpix, (16.21218937, 28.86119519))
-        assert shape == (47, 50)
+        assert_allclose(wcs.wcs.crpix, self.frame_projection_expected_crpix)
+        assert shape == self.frame_projection_expected_shape
 
     def test_frame_str(self):
         wcs, shape = find_optimal_celestial_wcs([(self.array, self.wcs)], frame="galactic")
@@ -92,12 +89,12 @@ class TestOptimalWCS:
 
         assert tuple(wcs.wcs.ctype) == ("GLON-TAN", "GLAT-TAN")
         c = SkyCoord(43, 23, unit=("deg", "deg"), frame="fk5").galactic
-        assert_allclose(wcs.wcs.crval, (c.l.degree, c.b.degree))
-        assert_allclose(wcs.wcs.cdelt, (-0.1, 0.1))
+        assert_allclose(wcs.wcs.crval, (c.l.degree, c.b.degree), atol=self.crval_atol)
+        assert_allclose(wcs.wcs.cdelt, (-0.1, 0.1), rtol=self.cdelt_rtol)
         assert np.isnan(wcs.wcs.equinox)
         assert wcs.wcs.radesys == ""
 
-        assert_allclose(wcs.wcs.crpix, (10, 15))
+        assert_allclose(wcs.wcs.crpix, self.auto_rotate_expected_crpix)
         assert shape == (30, 40)
 
     @pytest.mark.skipif("not SHAPELY_INSTALLED")
@@ -110,7 +107,7 @@ class TestOptimalWCS:
 
         angle = np.radians(angle)
         pc = np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
-        self.wcs.wcs.pc = pc
+        self.generate_wcs(pc=pc)
 
         wcs, shape = find_optimal_celestial_wcs([(self.array, self.wcs)], auto_rotate=True)
 
@@ -119,8 +116,8 @@ class TestOptimalWCS:
         xp = np.array([0, 0, nx - 1, nx - 1, -1, -1, nx, nx])
         yp = np.array([0, ny - 1, ny - 1, 0, -1, ny, ny, -1])
 
-        c = pixel_to_skycoord(xp, yp, self.wcs, origin=0)
-        xp_final, yp_final = skycoord_to_pixel(c, wcs, origin=0)
+        c = self.wcs.pixel_to_world(xp, yp)
+        xp_final, yp_final = wcs.world_to_pixel(c)
 
         ny_final, nx_final = shape
 
@@ -136,40 +133,32 @@ class TestOptimalWCS:
     def test_multiple_size(self):
 
         wcs1 = self.wcs
-
-        wcs2 = deepcopy(self.wcs)
-        wcs2.wcs.crpix[0] += 10
-
-        wcs3 = deepcopy(self.wcs)
-        wcs3.wcs.crpix[1] -= 5
+        wcs2 = self.generate_wcs(crpix=(20, 15))
+        wcs3 = self.generate_wcs(crpix=(10, 10))
 
         input_data = [(self.array, wcs1), (self.array, wcs2), (self.array, wcs3)]
 
         wcs, shape = find_optimal_celestial_wcs(input_data, frame=FK5())
 
         assert tuple(wcs.wcs.ctype) == ("RA---TAN", "DEC--TAN")
-        assert_allclose(wcs.wcs.crval, (43, 23))
-        assert_allclose(wcs.wcs.cdelt, (-0.1, 0.1))
+        assert_allclose(wcs.wcs.crval, (43, 23), atol=self.crval_atol)
+        assert_allclose(wcs.wcs.cdelt, (-0.1, 0.1), rtol=self.cdelt_rtol)
         assert wcs.wcs.equinox == 2000
         assert wcs.wcs.radesys == "FK5"
 
-        assert_allclose(wcs.wcs.crpix, (20, 15))
+        assert_allclose(wcs.wcs.crpix, self.multiple_size_expected_crpix)
         assert shape == (35, 50)
 
     def test_multiple_resolution(self):
 
         wcs1 = self.wcs
-
-        wcs2 = deepcopy(self.wcs)
-        wcs2.wcs.cdelt = -0.01, 0.02
-
-        wcs3 = deepcopy(self.wcs)
-        wcs3.wcs.crpix = -0.2, 0.3
+        wcs2 = self.generate_wcs(cdelt=(-0.01, 0.02))
+        wcs3 = self.generate_wcs(cdelt=(-0.2, 0.3))
 
         input_data = [(self.array, wcs1), (self.array, wcs2), (self.array, wcs3)]
 
         wcs, shape = find_optimal_celestial_wcs(input_data)
-        assert_allclose(wcs.wcs.cdelt, (-0.01, 0.01))
+        assert_allclose(wcs.wcs.cdelt, (-0.01, 0.01), rtol=self.cdelt_rtol)
 
     def test_invalid_array_shape(self):
 
@@ -191,8 +180,62 @@ class TestOptimalWCS:
 
     def test_invalid_not_celestial(self):
 
-        self.wcs.wcs.ctype = "OFFSETX", "OFFSETY"
+        self.wcs = self.generate_wcs(celestial=False)
 
         with pytest.raises(TypeError) as exc:
             wcs, shape = find_optimal_celestial_wcs([(self.array, self.wcs)])
         assert exc.value.args[0] == "WCS does not have celestial components"
+
+
+class TestOptimalFITSWCS(BaseTestOptimalWCS):
+    def generate_wcs(
+        self, crpix=(10, 15), crval=(43, 23), cdelt=(-0.1, 0.1), pc=None, celestial=True
+    ):
+        wcs = WCS(naxis=2)
+        if celestial:
+            wcs.wcs.ctype = "RA---TAN", "DEC--TAN"
+        else:
+            wcs.wcs.ctype = "OFFSETX", "OFFSETY"
+        wcs.wcs.crpix = crpix
+        wcs.wcs.crval = crval
+        wcs.wcs.cdelt = cdelt
+        wcs.wcs.equinox = 2000.0
+        if pc is not None:
+            wcs.wcs.pc = pc
+        return wcs
+
+    crval_atol = 1e-8
+    crpix_atol = 1e-6
+    cdelt_rtol = 1e-8
+
+    identity_expected_crpix = 10, 15
+    auto_rotate_expected_crpix = 10, 15
+    multiple_size_expected_crpix = 20, 15
+
+    # The following values are empirical and just to make sure there are no regressions
+    frame_projection_expected_crpix = 16.212189, 28.861195
+    frame_projection_expected_shape = 47, 50
+
+
+class TestOptimalGWCS(TestOptimalFITSWCS):
+    def generate_wcs(
+        self, crpix=(10, 15), crval=(43, 23), cdelt=(-0.1, 0.1), pc=None, celestial=True
+    ):
+        wcs = super().generate_wcs(
+            crpix=crpix, crval=crval, cdelt=cdelt, pc=pc, celestial=celestial
+        )
+        return HighLevelWCSWrapper(wcs)
+
+    def test_args_tuple_header(self):
+        pytest.skip()
+
+    crval_atol = 1.5
+    crpix_atol = 1e-6
+    cdelt_rtol = 1.0e-3
+
+    # The following values are empirical and just to make sure there are no regressions
+    identity_expected_crpix = 20.630112, 15.649142
+    frame_projection_expected_crpix = 25.381691, 23.668728
+    frame_projection_expected_shape = 46, 50
+    auto_rotate_expected_crpix = 20.520875, 15.503349
+    multiple_size_expected_crpix = 27.279739, 17.29016

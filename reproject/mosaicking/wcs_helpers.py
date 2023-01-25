@@ -3,6 +3,7 @@
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord, frame_transform_graph
+from astropy.wcs import WCS
 from astropy.wcs.utils import (
     celestial_frame_to_wcs,
     pixel_to_skycoord,
@@ -89,15 +90,29 @@ def find_optimal_celestial_wcs(
         if len(shape) != 2:
             raise ValueError(f"Input data is not 2-dimensional (got shape {shape!r})")
 
-        if wcs.naxis != 2:
+        if wcs.pixel_n_dim != 2 or wcs.world_n_dim != 2:
             raise ValueError("Input WCS is not 2-dimensional")
 
-        if not wcs.has_celestial:
-            raise TypeError("WCS does not have celestial components")
+        if isinstance(wcs, WCS):
 
-        # Determine frame if it wasn't specified
-        if frame is None:
-            frame = wcs_to_celestial_frame(wcs)
+            if not wcs.has_celestial:
+                raise TypeError("WCS does not have celestial components")
+
+            # Determine frame if it wasn't specified
+            if frame is None:
+                frame = wcs_to_celestial_frame(wcs)
+
+        else:
+
+            # Convert a single position to determine type of output and make
+            # sure there is only a single SkyCoord returned.
+            coord = wcs.pixel_to_world(0, 0)
+
+            if not isinstance(coord, SkyCoord):
+                raise TypeError("WCS does not have celestial components")
+
+            if frame is None:
+                frame = coord.frame.replicate_without_data()
 
         # Find pixel coordinates of corners. In future if we are worried about
         # significant distortions of the edges in the reprojection process we
@@ -108,21 +123,35 @@ def find_optimal_celestial_wcs(
 
         # We have to do .frame here to make sure that we get an ICRS object
         # without any 'hidden' attributes, otherwise the stacking below won't
-        # work. TODO: check if we need to enable distortions here.
-        corners.append(pixel_to_skycoord(xc, yc, wcs, origin=0).icrs.frame)
+        # work.
+        corners.append(wcs.pixel_to_world(xc, yc).icrs.frame)
 
-        # We now figure out the reference coordinate for the image in ICRS. The
-        # easiest way to do this is actually to use pixel_to_skycoord with the
-        # reference position in pixel coordinates. We have to set origin=1
-        # because crpix values are 1-based.
-        xp, yp = wcs.wcs.crpix
-        references.append(pixel_to_skycoord(xp, yp, wcs, origin=1).icrs.frame)
+        if isinstance(wcs, WCS):
 
-        # Find the pixel scale at the reference position - we take the minimum
-        # since we are going to set up a header with 'square' pixels with the
-        # smallest resolution specified.
-        scales = proj_plane_pixel_scales(wcs)
-        resolutions.append(np.min(np.abs(scales)))
+            # We now figure out the reference coordinate for the image in ICRS. The
+            # easiest way to do this is actually to use pixel_to_skycoord with the
+            # reference position in pixel coordinates. We have to set origin=1
+            # because crpix values are 1-based.
+            xp, yp = wcs.wcs.crpix
+            references.append(pixel_to_skycoord(xp, yp, wcs, origin=1).icrs.frame)
+
+            # Find the pixel scale at the reference position - we take the minimum
+            # since we are going to set up a header with 'square' pixels with the
+            # smallest resolution specified.
+            scales = proj_plane_pixel_scales(wcs)
+            resolutions.append(np.min(np.abs(scales)))
+
+        else:
+
+            xp, yp = (nx - 1) / 2, (ny - 1) / 2
+            references.append(wcs.pixel_to_world(xp, yp).icrs.frame)
+
+            xs = np.array([xp, xp, xp + 1])
+            ys = np.array([yp, yp + 1, yp])
+            cs = wcs.pixel_to_world(xs, ys)
+            dx = abs(cs[0].separation(cs[2]).deg)
+            dy = abs(cs[0].separation(cs[1]).deg)
+            resolutions.append(min(dx, dy))
 
     # We now stack the coordinates - however the ICRS class can't do this
     # so we have to use the high-level SkyCoord class.
