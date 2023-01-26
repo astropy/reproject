@@ -30,6 +30,12 @@ def reproject_exact(
             * An `~astropy.nddata.NDData` object from which the ``.data`` and
               ``.wcs`` attributes will be used as the input data.
 
+        If the data array contains more dimensions than are described by the
+        input header or WCS, the extra dimensions (assumed to be the first
+        dimensions) are taken to represent multiple images with the same
+        coordinate information. The coordinate transformation will be computed
+        once and then each image will be reprojected, offering a speedup over
+        reprojecting each image individually.
     output_projection : `~astropy.wcs.WCS` or `~astropy.io.fits.Header`
         The output projection, which can be either a `~astropy.wcs.WCS`
         or a `~astropy.io.fits.Header` instance.
@@ -59,7 +65,9 @@ def reproject_exact(
     """
 
     array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
-    wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
+    wcs_out, shape_out = parse_output_projection(
+        output_projection, shape_in=array_in.shape, shape_out=shape_out
+    )
 
     if has_celestial(wcs_in) and wcs_in.pixel_n_dim == 2 and wcs_in.world_n_dim == 2:
         return _reproject_celestial(

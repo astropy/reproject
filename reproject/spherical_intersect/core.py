@@ -55,10 +55,24 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, retur
     # Convert input array to float values. If this comes from a FITS, it might have
     # float32 as value type and that can break things in Cython
     array = np.asarray(array, dtype=float)
+    shape_out = tuple(shape_out)
 
-    # TODO: make this work for n-dimensional arrays
     if wcs_in.pixel_n_dim != 2:
+        # TODO: make this work for n-dimensional arrays
         raise NotImplementedError("Only 2-dimensional arrays can be reprojected at this time")
+    elif len(shape_out) < wcs_out.low_level_wcs.pixel_n_dim:
+        raise ValueError("Too few dimensions in shape_out")
+    elif len(array.shape) < wcs_in.low_level_wcs.pixel_n_dim:
+        raise ValueError("Too few dimensions in input data")
+    elif len(array.shape) != len(shape_out):
+        raise ValueError("Number of dimensions in input and output data should match")
+
+    # Separate the "extra" dimensions that don't correspond to a WCS axis and
+    # which we'll be looping over
+    extra_dimens_in = array.shape[: -wcs_in.low_level_wcs.pixel_n_dim]
+    extra_dimens_out = shape_out[: -wcs_out.low_level_wcs.pixel_n_dim]
+    if extra_dimens_in != extra_dimens_out:
+        raise ValueError("Dimensions to be looped over must match exactly")
 
     # TODO: at the moment, we compute the coordinates of all of the corners,
     # but we might want to do it in steps for large images.
@@ -66,7 +80,7 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, retur
     # Start off by finding the world position of all the corners of the input
     # image in world coordinates
 
-    ny_in, nx_in = array.shape
+    ny_in, nx_in = array.shape[-2:]
 
     x = np.arange(nx_in + 1.0) - 0.5
     y = np.arange(ny_in + 1.0) - 0.5
@@ -77,7 +91,7 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, retur
 
     # Now compute the world positions of all the corners in the output header
 
-    ny_out, nx_out = shape_out
+    ny_out, nx_out = shape_out[-2:]
 
     x = np.arange(nx_out + 1.0) - 0.5
     y = np.arange(ny_out + 1.0) - 0.5
@@ -102,6 +116,22 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, retur
     world_out_unitsph = world_out.represent_as("unitspherical")
     xw_out, yw_out = world_out_unitsph.lon.to_value(u.deg), world_out_unitsph.lat.to_value(u.deg)
 
+    # If the input array contains extra dimensions beyond what the input WCS
+    # has, the extra leading dimensions are assumed to represent multiple
+    # images with the same coordinate information. The transformation is
+    # computed once and "broadcast" across those images.
+    if len(array.shape) == wcs_in.low_level_wcs.pixel_n_dim:
+        # We don't need to broadcast the transformation over any extra
+        # axes---add an extra axis of length one just so we have something
+        # to loop over in all cases.
+        array = array.reshape((1, *array.shape))
+    elif len(array.shape) > wcs_in.low_level_wcs.pixel_n_dim:
+        # We're broadcasting. Flatten the extra dimensions so there's just one
+        # to loop over
+        array = array.reshape((-1, *array.shape[-wcs_in.low_level_wcs.pixel_n_dim :]))
+    else:
+        raise ValueError("Too few dimensions for input array")
+
     # Put together the parameters common both to the serial and parallel implementations. The aca
     # function is needed to enforce that the array will be contiguous when passed to the low-level
     # raw C function, otherwise Cython might complain.
@@ -118,24 +148,13 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, retur
         aca(yw_in),
         aca(xw_out),
         aca(yw_out),
-        aca(array),
-        shape_out,
+        None,  # input data
+        shape_out[-2:],
     ]
+    array = aca(array)
 
-    if nproc == 1:
-
-        array_new, weights = _reproject_slice([0, nx_in] + common_func_par)
-
-        with np.errstate(invalid="ignore"):
-            array_new /= weights
-
-        if return_footprint:
-            return array_new, weights
-        else:
-            return array_new
-
-    elif nproc is None or nproc > 1:
-
+    if nproc is None or nproc > 1:
+        # Spin up our process pool outside the loop over broadcast dimensions
         from multiprocessing import Pool, cpu_count
 
         # If needed, establish the number of processors to use.
@@ -146,25 +165,61 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, retur
         # the ctrl+c signal in the child process.
         pool = Pool(nproc, _init_worker)
 
-        inputs = []
-        for i in range(nproc):
-            start = int(nx_in) // nproc * i
-            end = int(nx_in) if i == nproc - 1 else int(nx_in) // nproc * (i + 1)
-            inputs.append([start, end] + common_func_par)
+    outputs = []
+    output_weights = []
+    for i in range(len(array)):
+        common_func_par[-2] = array[i]
 
-        results = pool.map(_reproject_slice, inputs)
+        if nproc == 1:
 
+            array_new, weights = _reproject_slice([0, nx_in] + common_func_par)
+
+            with np.errstate(invalid="ignore"):
+                array_new /= weights
+
+            outputs.append(array_new)
+            if return_footprint:
+                output_weights.append(weights)
+
+        elif nproc > 1:
+
+            inputs = []
+            for i in range(nproc):
+                start = int(nx_in) // nproc * i
+                end = int(nx_in) if i == nproc - 1 else int(nx_in) // nproc * (i + 1)
+                inputs.append([start, end] + common_func_par)
+
+            results = pool.map(_reproject_slice, inputs)
+
+            array_new, weights = zip(*results)
+
+            array_new = sum(array_new)
+            weights = sum(weights)
+
+            with np.errstate(invalid="ignore"):
+                array_new /= weights
+
+            outputs.append(array_new)
+            if return_footprint:
+                output_weights.append(weights)
+
+    if nproc > 1:
         pool.close()
 
-        array_new, weights = zip(*results)
-
-        array_new = sum(array_new)
-        weights = sum(weights)
-
-        with np.errstate(invalid="ignore"):
-            array_new /= weights
-
+    if len(shape_out) == wcs_out.low_level_wcs.pixel_n_dim:
+        # We weren't broadcasting, so don't return any extra dimensions
+        outputs = outputs[0]
         if return_footprint:
-            return array_new, weights
-        else:
-            return array_new
+            output_weights = output_weights[0]
+    else:
+        outputs = np.stack(outputs)
+        # If we're broadcasting over multiple dimensions, impose them here
+        outputs.shape = shape_out
+        if return_footprint:
+            output_weights = np.stack(output_weights)
+            output_weights.shape = shape_out
+
+    if return_footprint:
+        return outputs, output_weights
+    else:
+        return outputs

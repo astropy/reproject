@@ -419,3 +419,51 @@ Or if you're dealing with FITS files, you can skip the numpy memmap step and use
     ...                                   return_footprint=False,
     ...                                   independent_celestial_slices=True)
     >>> outhdu.flush()
+
+Multiple images with the same coordinates
+=========================================
+
+If you have multiple images with the exact same coordinate system (e.g. a raw
+image and a corresponding processed image) and want to reproject both to the
+same output frame, it is faster to compute the coordinate mapping between input
+and output pixels only once and re-use this mapping for each reprojection. This
+is supported by passing multiple input images as an additional dimension in the
+input data array. When the input array contains more dimensions than the input
+WCS describes, the extra leading dimensions are taken to represent separate
+images with the same coordinates, and the reprojection loops over those
+dimensions after computing the pixel mapping. For example:
+
+.. doctest-skip::
+    >>> raw_image, header_in = fits.getdata('raw_image.fits', header=True)
+    >>> bg_subtracted_image = fits.getdata('background_subtracted_image.fits')
+    >>> header_out = # Prepare your desired output projection here
+    >>> # Combine the two images into one array
+    >>> image_stack = np.stack((raw_image, bg_subtracted_image))
+    >>> # We provide a header that describes 2 WCS dimensions, but our input
+    >>> # array shape is (2, ny, nx)---the 'extra' first dimension represents
+    >>> # separate images sharing the same coordinates.
+    >>> reprojected, footprint = reproject.reproject_adaptive(
+    ...         (image_stack, header_in), header_out)
+    >>> # The shape of `reprojected` is (2, ny', nx')
+    >>> reprojected_raw, reprojected_bg_subtracted = reprojected[0], reprojected[1]
+
+For :func:`~reproject.reproject_interp` and
+:func:`~reproject.reproject_adaptive`, this is approximately twice as fast as
+reprojecting the two images separately. For :func:`~reproject.reproject_exact`
+the savings are much less significant, as producing the coordinate mapping is a
+much smaller portion of the total runtime for this algorithm.
+
+When the output coordinates are provided as a WCS and a ``shape_out`` tuple,
+``shape_out`` may describe the output shape of a single image, in which case
+the extra leading dimensions are prepended automatically, or it may include the
+extra dimensions, in which case the size of the extra dimensions must match
+those of the input data exactly.
+
+While the reproject functions can accept the name of a FITS file as input, from
+which the input data and coordinates are loaded automatically, this multi-image
+reprojection feature does not support loading multiple images automatically
+from multiple HDUs within one FITS file, as it would be difficult to verify
+automatically that the HDUs contain the same exact coordinates. If multiple
+HDUs do share coordinates and are to be reprojected together, they must be
+separately loaded and combined into a single input array (e.g. using
+``np.stack`` as in the above example).

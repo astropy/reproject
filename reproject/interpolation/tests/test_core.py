@@ -326,7 +326,7 @@ def test_naxis_mismatch(roundtrip_coords):
     wcs_out = WCS(naxis=2)
 
     with pytest.raises(
-        ValueError, match="Number of dimensions between input and output WCS should match"
+        ValueError, match="Number of dimensions in input and output WCS should match"
     ):
         array_out, footprint_out = reproject_interp(
             (data, wcs_in), wcs_out, shape_out=(1, 2), roundtrip_coords=roundtrip_coords
@@ -380,29 +380,6 @@ def test_slice_reprojection(roundtrip_coords):
 
     # Actually, I fixed it, so now we can test all
     np.testing.assert_allclose(out_cube, ((inp_cube[:-1] + inp_cube[1:]) / 2.0))
-
-
-@pytest.mark.parametrize("roundtrip_coords", (False, True))
-def test_4d_fails(roundtrip_coords):
-
-    header_in = fits.Header.fromtextfile(
-        get_pkg_data_filename("data/cube.hdr", package="reproject.tests")
-    )
-
-    header_in["NAXIS"] = 4
-
-    header_out = header_in.copy()
-    w_in = WCS(header_in)
-    w_out = WCS(header_out)
-
-    array_in = np.zeros((2, 3, 4, 5))
-
-    with pytest.raises(
-        ValueError, match="Length of shape_out should match number of dimensions in wcs_out"
-    ):
-        x_out, y_out, z_out = reproject_interp(
-            (array_in, w_in), w_out, shape_out=[2, 4, 5, 6], roundtrip_coords=roundtrip_coords
-        )
 
 
 @pytest.mark.parametrize("roundtrip_coords", (False, True))
@@ -627,6 +604,106 @@ def test_identity_with_offset(roundtrip_coords):
     expected = np.pad(array_in, 1, "constant", constant_values=np.nan)
 
     assert_allclose(expected, array_out, atol=1e-10)
+
+
+def _setup_for_broadcast_test():
+    with fits.open(get_pkg_data_filename("data/galactic_2d.fits", package="reproject.tests")) as pf:
+        hdu_in = pf[0]
+        header_in = hdu_in.header.copy()
+        header_out = hdu_in.header.copy()
+        header_out["CTYPE1"] = "RA---TAN"
+        header_out["CTYPE2"] = "DEC--TAN"
+        header_out["CRVAL1"] = 266.39311
+        header_out["CRVAL2"] = -28.939779
+
+        data = hdu_in.data
+
+    image_stack = np.stack((data, data.T, data[::-1], data[:, ::-1]))
+
+    # Build the reference array through un-broadcast reprojections
+    array_ref = np.empty_like(image_stack)
+    footprint_ref = np.empty_like(image_stack)
+    for i in range(len(image_stack)):
+        array_out, footprint_out = reproject_interp((image_stack[i], header_in), header_out)
+        array_ref[i] = array_out
+        footprint_ref[i] = footprint_out
+
+    return image_stack, array_ref, footprint_ref, header_in, header_out
+
+
+@pytest.mark.parametrize("input_extra_dims", (1, 2))
+@pytest.mark.parametrize("output_shape", (None, "single", "full"))
+@pytest.mark.parametrize("input_as_wcs", (True, False))
+@pytest.mark.parametrize("output_as_wcs", (True, False))
+def test_broadcast_reprojection(input_extra_dims, output_shape, input_as_wcs, output_as_wcs):
+    image_stack, array_ref, footprint_ref, header_in, header_out = _setup_for_broadcast_test()
+    # Test both single and multiple dimensions being broadcast
+    if input_extra_dims == 2:
+        image_stack = image_stack.reshape((2, 2, *image_stack.shape[-2:]))
+        array_ref.shape = image_stack.shape
+        footprint_ref.shape = image_stack.shape
+
+    # Test different ways of providing the output shape
+    if output_shape == "single":
+        # Have the broadcast dimensions be auto-added to the output shape
+        output_shape = image_stack.shape[-2:]
+    elif output_shape == "full":
+        # Provide the broadcast dimensions as part of the output shape
+        output_shape = image_stack.shape
+
+    # Ensure logic works with WCS inputs as well as Header inputs
+    if input_as_wcs:
+        header_in = WCS(header_in)
+    if output_as_wcs:
+        header_out = WCS(header_out)
+        if output_shape is None:
+            # This combination of parameter values is not valid
+            return
+
+    array_broadcast, footprint_broadcast = reproject_interp(
+        (image_stack, header_in),
+        header_out,
+        output_shape,
+    )
+
+    np.testing.assert_array_equal(footprint_broadcast, footprint_ref)
+    np.testing.assert_allclose(array_broadcast, array_ref)
+
+
+@pytest.mark.parametrize("input_extra_dims", (1, 2))
+@pytest.mark.parametrize("output_shape", (None, "single", "full"))
+@pytest.mark.parametrize("parallel", [True, False])
+def test_blocked_broadcast_reprojection(input_extra_dims, output_shape, parallel):
+    image_stack, array_ref, footprint_ref, header_in, header_out = _setup_for_broadcast_test()
+    # Test both single and multiple dimensions being broadcast
+    if input_extra_dims == 2:
+        image_stack = image_stack.reshape((2, 2, *image_stack.shape[-2:]))
+        array_ref.shape = image_stack.shape
+        footprint_ref.shape = image_stack.shape
+
+    # Test different ways of providing the output shape
+    if output_shape == "single":
+        # Have the broadcast dimensions be auto-added to the output shape
+        output_shape = image_stack.shape[-2:]
+    elif output_shape == "full":
+        # Provide the broadcast dimensions as part of the output shape
+        output_shape = image_stack.shape
+
+    # the warning import and ignore is needed to keep pytest happy when running with
+    # older versions of astropy which don't have this fix:
+    # https://github.com/astropy/astropy/pull/12844
+    # All the warning code should be removed when old version no longer being used
+    # Using context manager ensure only blocked function has them ignored
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=FITSFixedWarning)
+        array_broadcast, footprint_broadcast = reproject_interp(
+            (image_stack, header_in), header_out, output_shape, parallel=parallel, block_size=[5, 5]
+        )
+
+    np.testing.assert_array_equal(footprint_broadcast, footprint_ref)
+    np.testing.assert_allclose(array_broadcast, array_ref)
 
 
 @pytest.mark.parametrize("parallel", [True, 2, False])

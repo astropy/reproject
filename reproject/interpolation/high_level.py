@@ -50,6 +50,12 @@ def reproject_interp(
             * An `~astropy.nddata.NDData` object from which the ``.data`` and
               ``.wcs`` attributes will be used as the input data.
 
+        If the data array contains more dimensions than are described by the
+        input header or WCS, the extra dimensions (assumed to be the first
+        dimensions) are taken to represent multiple images with the same
+        coordinate information. The coordinate transformation will be computed
+        once and then each image will be reprojected, offering a speedup over
+        reprojecting each image individually.
     output_projection : `~astropy.wcs.WCS` or `~astropy.io.fits.Header`
         The output projection, which can be either a `~astropy.wcs.WCS`
         or a `~astropy.io.fits.Header` instance.
@@ -102,7 +108,7 @@ def reproject_interp(
 
     array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
     wcs_out, shape_out = parse_output_projection(
-        output_projection, shape_out=shape_out, output_array=output_array
+        output_projection, shape_in=array_in.shape, shape_out=shape_out, output_array=output_array
     )
 
     if isinstance(order, str):
@@ -113,9 +119,9 @@ def reproject_interp(
         # if parallel is set but block size isn't, we'll choose
         # block size so each thread gets one block each
         if parallel is not False and block_size is None:
-            block_size = shape_out.copy()
+            block_size = list(shape_out)
             # each thread gets an equal sized strip of output area to process
-            block_size[0] = shape_out[0] // os.cpu_count()
+            block_size[-2] = shape_out[-2] // os.cpu_count()
 
         # given we have cases where modern system have many cpu cores some sanity clamping is
         # to avoid 0 length block sizes when num_cpu_cores is greater than the side of the image
