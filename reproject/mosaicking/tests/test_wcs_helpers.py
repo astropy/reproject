@@ -1,18 +1,11 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
-from copy import deepcopy
-
 import numpy as np
 import pytest
-from astropy import coordinates as coord
 from astropy import units as u
 from astropy.coordinates import FK5, Galactic, SkyCoord
-from astropy.modeling import models
 from astropy.wcs import WCS
-from astropy.wcs.utils import pixel_to_skycoord, skycoord_to_pixel
-from astropy.wcs.wcsapi import HighLevelWCSWrapper, SlicedLowLevelWCS
-from gwcs import coordinate_frames as cf
-from gwcs.wcs import WCS as GWCS
+from astropy.wcs.wcsapi import HighLevelWCSWrapper
 from numpy.testing import assert_allclose, assert_equal
 
 from ..wcs_helpers import find_optimal_celestial_wcs
@@ -217,7 +210,7 @@ class TestOptimalFITSWCS(BaseTestOptimalWCS):
     frame_projection_expected_shape = 47, 50
 
 
-class TestOptimalGWCS(TestOptimalFITSWCS):
+class TestOptimalAPE14WCS(TestOptimalFITSWCS):
     def generate_wcs(
         self, crpix=(10, 15), crval=(43, 23), cdelt=(-0.1, 0.1), pc=None, celestial=True
     ):
