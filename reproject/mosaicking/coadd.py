@@ -6,6 +6,8 @@ from ..utils import parse_input_data, parse_input_weights, parse_output_projecti
 from .background import determine_offset_matrix, solve_corrections_sgd
 from .subset_array import ReprojectedArraySubset
 
+import warnings
+
 __all__ = ['reproject_and_coadd']
 
 
@@ -251,10 +253,17 @@ def reproject_and_coadd(
                     part[foot == 0] = np.nan
                     foots.append(foot)
                     blocks.append(part)
-                final_array[i:i+BLOCK_SIZE, j:j+BLOCK_SIZE] = \
-                    np.nanmedian(blocks, axis=0)
-                final_footprint[i:i+BLOCK_SIZE, j:j+BLOCK_SIZE] = \
-                    np.nansum(foots, axis=0)
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore", category=RuntimeWarning,
+                                            message='All-NaN slice encountered')
+                    patch_shape = final_array[i:i+BLOCK_SIZE,
+                                              j:j+BLOCK_SIZE].shape
+                    final_array[i:i+BLOCK_SIZE, j:j+BLOCK_SIZE] = \
+                        np.nanmedian(blocks, axis=0)[:patch_shape[0],
+                                                     :patch_shape[1]]
+                    final_footprint[i:i+BLOCK_SIZE, j:j+BLOCK_SIZE] = \
+                        np.nansum(foots, axis=0)[:patch_shape[0],
+                                                 :patch_shape[1]]
     return final_array, final_footprint
 
 
