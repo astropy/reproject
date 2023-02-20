@@ -73,7 +73,7 @@ def reproject_and_coadd(
         `~astropy.io.fits.HDUList` instance, specifies the HDU to use.
     reproject_function : callable
         The function to use for the reprojection
-    combine_function : { 'mean', 'sum', 'median' }
+    combine_function : { 'mean', 'sum', 'median', 'min' }
         The type of function to use for combining the values into the final
         image.
     match_background : bool
