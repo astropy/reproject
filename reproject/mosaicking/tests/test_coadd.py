@@ -78,7 +78,7 @@ class TestReprojectAndCoAdd:
 
         return views
 
-    @pytest.mark.parametrize("combine_function", ["mean", "sum"])
+    @pytest.mark.parametrize("combine_function", ["mean", "sum", "min", "median"])
     def test_coadd_no_overlap(self, combine_function, reproject_function):
 
         # Make sure that if all tiles are exactly non-overlapping, and

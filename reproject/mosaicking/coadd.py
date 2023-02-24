@@ -6,7 +6,9 @@ from ..utils import parse_input_data, parse_input_weights, parse_output_projecti
 from .background import determine_offset_matrix, solve_corrections_sgd
 from .subset_array import ReprojectedArraySubset
 
-__all__ = ["reproject_and_coadd"]
+import warnings
+
+__all__ = ['reproject_and_coadd']
 
 
 def reproject_and_coadd(
@@ -17,7 +19,7 @@ def reproject_and_coadd(
     hdu_in=None,
     reproject_function=None,
     hdu_weights=None,
-    combine_function="mean",
+    combine_function='mean',
     match_background=False,
     background_reference=None,
     **kwargs,
@@ -71,7 +73,7 @@ def reproject_and_coadd(
         `~astropy.io.fits.HDUList` instance, specifies the HDU to use.
     reproject_function : callable
         The function to use for the reprojection
-    combine_function : { 'mean', 'sum', 'median' }
+    combine_function : { 'mean', 'sum', 'median', 'min' }
         The type of function to use for combining the values into the final
         image.
     match_background : bool
@@ -92,17 +94,18 @@ def reproject_and_coadd(
 
     # Validate inputs
 
-    if combine_function not in ("mean", "sum", "median"):
-        raise ValueError("combine_function should be one of mean/sum/median")
+    if combine_function not in ('mean', 'sum', 'median', 'min'):
+        raise ValueError('combine_function should be one of mean/sum/median')
 
     if reproject_function is None:
         raise ValueError(
-            "reprojection function should be specified with the reproject_function argument"
+            'reprojection function should be specified with the reproject_function argument'
         )
 
     # Parse the output projection to avoid having to do it for each
 
-    wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
+    wcs_out, shape_out = parse_output_projection(output_projection,
+                                                 shape_out=shape_out)
 
     # Start off by reprojecting individual images to the final projection
 
@@ -118,7 +121,8 @@ def reproject_and_coadd(
         if input_weights is None:
             weights_in = None
         else:
-            weights_in = parse_input_weights(input_weights[idata], hdu_weights=hdu_weights)
+            weights_in = parse_input_weights(input_weights[idata],
+                                             hdu_weights=hdu_weights)
             if np.any(np.isnan(weights_in)):
                 weights_in = np.nan_to_num(weights_in)
 
@@ -190,7 +194,8 @@ def reproject_and_coadd(
             weights[reset] = 0.0
             footprint *= weights
 
-        array = ReprojectedArraySubset(array, footprint, imin, imax, jmin, jmax)
+        array = ReprojectedArraySubset(array, footprint,
+                                       imin, imax, jmin, jmax)
 
         # TODO: make sure we gracefully handle the case where the
         # output image is empty (due e.g. to no overlap).
@@ -213,7 +218,7 @@ def reproject_and_coadd(
     final_array = np.zeros(shape_out)
     final_footprint = np.zeros(shape_out)
 
-    if combine_function in ("mean", "sum"):
+    if combine_function in ('mean', 'sum'):
 
         for array in arrays:
 
@@ -222,18 +227,75 @@ def reproject_and_coadd(
             # means/sums.
             array.array[array.footprint == 0] = 0
 
-            final_array[array.view_in_original_array] += array.array * array.footprint
+            final_array[array.view_in_original_array] += \
+                array.array * array.footprint
             final_footprint[array.view_in_original_array] += array.footprint
 
-        if combine_function == "mean":
-            with np.errstate(invalid="ignore"):
+        if combine_function == 'mean':
+            with np.errstate(invalid='ignore'):
                 final_array /= final_footprint
-
-    elif combine_function == "median":
-
-        # Here we need to operate in chunks since we could otherwise run
-        # into memory issues
-
-        raise NotImplementedError("combine_function='median' is not yet implemented")
-
+    elif combine_function == 'min':
+        final_array = np.ones(shape_out) * np.inf
+        for array in arrays:
+            array.array[array.footprint == 0] = np.nan
+            final_array[array.view_in_original_array] = \
+                np.fmin(final_array[array.view_in_original_array],
+                        array.array * array.footprint)
+            final_footprint[array.view_in_original_array] += array.footprint
+    elif combine_function == 'median':
+        BLOCK_SIZE = 100
+        for i in np.arange(0, shape_out[0], BLOCK_SIZE):
+            for j in np.arange(0, shape_out[1], BLOCK_SIZE):
+                blocks = []
+                foots = []
+                for array in arrays:
+                    part, foot = _get_block(array, i, j, BLOCK_SIZE)
+                    part[foot == 0] = np.nan
+                    foots.append(foot)
+                    blocks.append(part)
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore", category=RuntimeWarning,
+                                            message='All-NaN slice encountered')
+                    patch_shape = final_array[i:i+BLOCK_SIZE,
+                                              j:j+BLOCK_SIZE].shape
+                    final_array[i:i+BLOCK_SIZE, j:j+BLOCK_SIZE] = \
+                        np.nanmedian(blocks, axis=0)[:patch_shape[0],
+                                                     :patch_shape[1]]
+                    final_footprint[i:i+BLOCK_SIZE, j:j+BLOCK_SIZE] = \
+                        np.nansum(foots, axis=0)[:patch_shape[0],
+                                                 :patch_shape[1]]
     return final_array, final_footprint
+
+
+def _get_block(array, block_index_x, block_index_y, block_size=100):
+    """Get square block of proper dimensions from an array.
+
+    Args:
+        array (ReprojectedArraySubset): Input array to select data from.
+        block_index_x (int): X of the lower left corner
+        block_index_y (int): Y of the lower left corner
+        block_size (int, optional): block size in X and Y. Defaults to 100.
+
+    Returns:
+        np.ndarray, np.ndarray: block and its integer-valued footprint.
+    """
+    result = np.ones((block_size, block_size)) * np.nan
+    result_footprint = np.zeros((block_size, block_size))
+    jlower = block_index_x
+    jupper = block_index_x + block_size
+    ilower = block_index_y
+    iupper = block_index_y + block_size
+    if (jlower <= array.jmax and jupper >= array.jmin and
+            ilower <= array.imax and iupper >= array.imin):
+        jlower1 = max(0, array.jmin - jlower)
+        jupper1 = min(jupper - jlower, array.jmax - jlower)
+        ilower1 = max(0, array.imin - ilower)
+        iupper1 = min(iupper - ilower, array.imax - ilower)
+        local = (slice(jlower1, jupper1), slice(ilower1, iupper1))
+        external = (slice(jlower1 + jlower - array.jmin,
+                          jupper1 + jlower - array.jmin),
+                    slice(ilower1 + ilower - array.imin,
+                          iupper1 + ilower - array.imin))
+        result[local] = array.array[external]
+        result_footprint[local] = array.footprint[external]
+    return result, result_footprint
