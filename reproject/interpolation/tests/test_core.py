@@ -25,6 +25,7 @@ def as_high_level_wcs(wcs):
 @pytest.mark.array_compare(single_reference=True)
 @pytest.mark.parametrize("wcsapi", (False, True))
 @pytest.mark.parametrize("roundtrip_coords", (False, True))
+@pytest.mark.remote_data
 def test_reproject_celestial_2d_gal2equ(wcsapi, roundtrip_coords):
     """
     Test reprojection of a 2D celestial image, which includes a coordinate
@@ -65,6 +66,7 @@ for wcsapi in (False, True):
 @pytest.mark.array_compare(single_reference=True)
 @pytest.mark.parametrize(("wcsapi", "axis_order"), tuple(COMBINATIONS))
 @pytest.mark.parametrize("roundtrip_coords", (False, True))
+@pytest.mark.remote_data
 def test_reproject_celestial_3d_equ2gal(wcsapi, axis_order, roundtrip_coords):
     """
     Test reprojection of a 3D cube with celestial components, which includes a
@@ -118,6 +120,7 @@ def test_reproject_celestial_3d_equ2gal(wcsapi, axis_order, roundtrip_coords):
 @pytest.mark.array_compare(single_reference=True)
 @pytest.mark.parametrize("wcsapi", (False, True))
 @pytest.mark.parametrize("roundtrip_coords", (False, True))
+@pytest.mark.remote_data
 def test_small_cutout(wcsapi, roundtrip_coords):
     """
     Test reprojection of a cutout from a larger image (makes sure that the
@@ -151,6 +154,7 @@ def test_small_cutout(wcsapi, roundtrip_coords):
 
 
 @pytest.mark.parametrize("roundtrip_coords", (False, True))
+@pytest.mark.remote_data
 def test_mwpan_car_to_mol(roundtrip_coords):
     """
     Test reprojection of the Mellinger Milky Way Panorama from CAR to MOL,
@@ -183,6 +187,7 @@ def test_mwpan_car_to_mol(roundtrip_coords):
 
 
 @pytest.mark.parametrize("roundtrip_coords", (False, True))
+@pytest.mark.remote_data
 def test_small_cutout_outside(roundtrip_coords):
     """
     Test reprojection of a cutout from a larger image - in this case the
@@ -208,6 +213,7 @@ def test_small_cutout_outside(roundtrip_coords):
 
 
 @pytest.mark.parametrize("roundtrip_coords", (False, True))
+@pytest.mark.remote_data
 def test_celestial_mismatch_2d(roundtrip_coords):
     """
     Make sure an error is raised if the input image has celestial WCS
@@ -234,6 +240,7 @@ def test_celestial_mismatch_2d(roundtrip_coords):
 
 
 @pytest.mark.parametrize("roundtrip_coords", (False, True))
+@pytest.mark.remote_data
 def test_celestial_mismatch_3d(roundtrip_coords):
     """
     Make sure an error is raised if the input image has celestial WCS
@@ -270,6 +277,7 @@ def test_celestial_mismatch_3d(roundtrip_coords):
 
 
 @pytest.mark.parametrize("roundtrip_coords", (False, True))
+@pytest.mark.remote_data
 def test_spectral_mismatch_3d(roundtrip_coords):
     """
     Make sure an error is raised if there are mismatches between the presence
@@ -334,6 +342,7 @@ def test_naxis_mismatch(roundtrip_coords):
 
 
 @pytest.mark.parametrize("roundtrip_coords", (False, True))
+@pytest.mark.remote_data
 def test_slice_reprojection(roundtrip_coords):
     """
     Test case where only the slices change and the celestial projection doesn't
@@ -383,6 +392,7 @@ def test_slice_reprojection(roundtrip_coords):
 
 
 @pytest.mark.parametrize("roundtrip_coords", (False, True))
+@pytest.mark.remote_data
 def test_inequal_wcs_dims(roundtrip_coords):
     inp_cube = np.arange(3, dtype="float").repeat(4 * 5).reshape(3, 4, 5)
     header_in = fits.Header.fromtextfile(
@@ -406,6 +416,7 @@ def test_inequal_wcs_dims(roundtrip_coords):
 
 
 @pytest.mark.parametrize("roundtrip_coords", (False, True))
+@pytest.mark.remote_data
 def test_different_wcs_types(roundtrip_coords):
 
     inp_cube = np.arange(3, dtype="float").repeat(4 * 5).reshape(3, 4, 5)
@@ -435,6 +446,7 @@ def test_different_wcs_types(roundtrip_coords):
 
 
 @pytest.mark.parametrize("roundtrip_coords", (False, True))
+@pytest.mark.remote_data
 def test_reproject_3d_celestial_correctness_ra2gal(roundtrip_coords):
 
     inp_cube = np.arange(3, dtype="float").repeat(7 * 8).reshape(3, 7, 8)
@@ -476,6 +488,7 @@ def test_reproject_3d_celestial_correctness_ra2gal(roundtrip_coords):
 
 
 @pytest.mark.parametrize("roundtrip_coords", (False, True))
+@pytest.mark.remote_data
 def test_reproject_with_output_array(roundtrip_coords):
     """
     Test both full_reproject and slicewise reprojection. We use a case where the
@@ -510,6 +523,7 @@ def test_reproject_with_output_array(roundtrip_coords):
 
 @pytest.mark.array_compare(single_reference=True)
 @pytest.mark.parametrize("file_format", ["fits", "asdf"])
+@pytest.mark.remote_data
 def test_reproject_roundtrip(file_format):
 
     # Test the reprojection with solar data, which ensures that the masking of
@@ -578,6 +592,7 @@ def test_reproject_roundtrip(file_format):
 
 
 @pytest.mark.parametrize("roundtrip_coords", (False, True))
+@pytest.mark.remote_data
 def test_identity_with_offset(roundtrip_coords):
 
     # Reproject an array and WCS to itself but with a margin, which should
@@ -708,6 +723,7 @@ def test_blocked_broadcast_reprojection(input_extra_dims, output_shape, parallel
 
 @pytest.mark.parametrize("parallel", [True, 2, False])
 @pytest.mark.parametrize("block_size", [[40, 40], [500, 500], [500, 100], None])
+@pytest.mark.remote_data
 def test_blocked_against_single(parallel, block_size):
 
     # Ensure when we break a reprojection down into multiple discrete blocks
@@ -753,6 +769,7 @@ def test_blocked_against_single(parallel, block_size):
     np.testing.assert_allclose(footprint_test, footprint_reference, equal_nan=True)
 
 
+@pytest.mark.remote_data
 def test_blocked_corner_cases():
 
     """
