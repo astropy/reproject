@@ -109,7 +109,6 @@ def reproject_and_coadd(
     arrays = []
 
     for idata in range(len(input_data)):
-
         # We need to pre-parse the data here since we need to figure out how to
         # optimize/minimize the size of each output tile (see below).
         array_in, wcs_in = parse_input_data(input_data[idata], hdu_in=hdu_in)
@@ -214,9 +213,7 @@ def reproject_and_coadd(
     final_footprint = np.zeros(shape_out)
 
     if combine_function in ("mean", "sum"):
-
         for array in arrays:
-
             # By default, values outside of the footprint are set to NaN
             # but we set these to 0 here to avoid getting NaNs in the
             # means/sums.
@@ -230,7 +227,6 @@ def reproject_and_coadd(
                 final_array /= final_footprint
 
     elif combine_function == "median":
-
         # Here we need to operate in chunks since we could otherwise run
         # into memory issues
 

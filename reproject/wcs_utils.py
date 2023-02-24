@@ -26,7 +26,6 @@ def has_celestial(wcs):
 
 
 def pixel_to_pixel_with_roundtrip(wcs1, wcs2, *inputs):
-
     outputs = pixel_to_pixel(wcs1, wcs2, *inputs)
 
     # Now convert back to check that coordinates round-trip, if not then set to NaN

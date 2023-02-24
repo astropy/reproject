@@ -114,7 +114,6 @@ def parse_input_weights(input_weights, hdu_weights=None):
 
 
 def parse_output_projection(output_projection, shape_in=None, shape_out=None, output_array=None):
-
     if shape_out is None:
         if output_array is not None:
             shape_out = output_array.shape

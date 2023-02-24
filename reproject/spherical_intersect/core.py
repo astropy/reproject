@@ -23,7 +23,6 @@ def _reproject_slice(args):
 
 
 def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, return_footprint=True):
-
     # Check the parallel flag.
     if type(parallel) != bool and type(parallel) != int:
         raise TypeError("The 'parallel' flag must be a boolean or integral value")
@@ -171,7 +170,6 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, retur
         common_func_par[-2] = array[i]
 
         if nproc == 1:
-
             array_new, weights = _reproject_slice([0, nx_in] + common_func_par)
 
             with np.errstate(invalid="ignore"):
@@ -182,7 +180,6 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, retur
                 output_weights.append(weights)
 
         elif nproc > 1:
-
             inputs = []
             for i in range(nproc):
                 start = int(nx_in) // nproc * i

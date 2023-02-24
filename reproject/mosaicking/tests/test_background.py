@@ -12,7 +12,6 @@ CASES = [(4, 1.0), (33, 1e30), (44, 1e-50), (132, 1e10), (1441, 1e-5)]
 
 @pytest.mark.parametrize(("N", "scale"), CASES)
 def test_solve_corrections_sgd(N, scale):
-
     # Generate random corrections
     expected = np.random.uniform(-scale, scale, N)
 

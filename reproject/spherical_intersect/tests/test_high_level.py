@@ -14,7 +14,6 @@ from ..high_level import reproject_exact
 
 class TestReprojectExact:
     def setup_class(self):
-
         header_gal = get_pkg_data_filename("../../tests/data/gc_ga.hdr")
         header_equ = get_pkg_data_filename("../../tests/data/gc_eq.hdr")
         self.header_in = fits.Header.fromtextfile(header_gal)
@@ -36,7 +35,6 @@ class TestReprojectExact:
         reproject_exact((self.array_in, self.header_in), self.header_out)
 
     def test_parallel_option(self):
-
         reproject_exact((self.array_in, self.header_in), self.header_out, parallel=1)
 
         with pytest.raises(ValueError) as exc:
@@ -45,7 +43,6 @@ class TestReprojectExact:
 
 
 def test_identity():
-
     # Reproject an array and WCS to itself
 
     wcs = WCS(naxis=2)
@@ -64,9 +61,7 @@ def test_identity():
 
 
 def test_reproject_precision_warning():
-
     for res in [0.1 / 3600, 0.01 / 3600]:
-
         wcs1 = WCS()
         wcs1.wcs.ctype = "RA---TAN", "DEC--TAN"
         wcs1.wcs.crval = 13, 80

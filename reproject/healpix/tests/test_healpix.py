@@ -17,7 +17,6 @@ DATA = os.path.join(os.path.dirname(__file__), "data")
 
 
 def get_reference_header(oversample=2, nside=1):
-
     reference_header = fits.Header()
     reference_header.update(
         {

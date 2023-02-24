@@ -7,7 +7,6 @@ from reproject.healpix.utils import parse_coord_system, parse_input_healpix_data
 
 
 def test_parse_coord_system():
-
     frame = parse_coord_system(Galactic())
     assert isinstance(frame, Galactic)
 
@@ -28,7 +27,6 @@ def test_parse_coord_system():
 
 @pytest.mark.filterwarnings("ignore:unclosed file:ResourceWarning")
 def test_parse_input_healpix_data(tmpdir):
-
     data = np.arange(3072)
 
     col = fits.Column(array=data, name="flux", format="E")

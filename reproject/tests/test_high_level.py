@@ -41,7 +41,6 @@ def reproject_function(request):
 
 class TestReproject:
     def setup_method(self, method):
-
         self.header_in = fits.Header.fromtextfile(get_pkg_data_filename("data/gc_ga.hdr"))
         self.header_out = fits.Header.fromtextfile(get_pkg_data_filename("data/gc_eq.hdr"))
 
@@ -60,7 +59,6 @@ class TestReproject:
 
     @pytest.mark.filterwarnings("ignore::FutureWarning")
     def test_hdu_header(self, reproject_function):
-
         with pytest.raises(ValueError) as exc:
             reproject_function(self.hdu_in, self.header_out)
         assert exc.value.args[0] == (
@@ -76,7 +74,6 @@ class TestReproject:
 
     @pytest.mark.filterwarnings("ignore::FutureWarning")
     def test_array_wcs_header(self, reproject_function):
-
         with pytest.raises(ValueError) as exc:
             reproject_function((self.array_in, self.wcs_in), self.header_out)
         assert exc.value.args[0] == (
@@ -122,7 +119,6 @@ LATPOLE =                 90.0 / [deg] Native latitude of celestial pole
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize("projection_type, dtype", itertools.product(ALL_MODES, ALL_DTYPES))
 def test_surface_brightness(projection_type, dtype):
-
     header_in = fits.Header.fromstring(INPUT_HDR, sep="\n")
     header_in["NAXIS"] = 2
     header_in["NAXIS1"] = 10

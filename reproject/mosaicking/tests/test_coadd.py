@@ -26,7 +26,6 @@ def reproject_function(request):
 
 class TestReprojectAndCoAdd:
     def setup_method(self, method):
-
         self.wcs = WCS(naxis=2)
         self.wcs.wcs.ctype = "RA---TAN", "DEC--TAN"
         self.wcs.wcs.crpix = 322, 151
@@ -37,13 +36,12 @@ class TestReprojectAndCoAdd:
         self.array = np.random.random((399, 334))
 
     def _get_tiles(self, views):
-
         # Given a list of views as (imin, imax, jmin, jmax), construct
         #  tiles that can be passed into the co-adding code
 
         input_data = []
 
-        for (jmin, jmax, imin, imax) in views:
+        for jmin, jmax, imin, imax in views:
             array = self.array[jmin:jmax, imin:imax].copy()
             wcs = self.wcs.deepcopy()
             wcs.wcs.crpix[0] -= imin
@@ -54,7 +52,6 @@ class TestReprojectAndCoAdd:
 
     @property
     def _nonoverlapping_views(self):
-
         ie = (0, 122, 233, 245, 334)
         je = (0, 44, 45, 333, 335, 399)
 
@@ -67,7 +64,6 @@ class TestReprojectAndCoAdd:
 
     @property
     def _overlapping_views(self):
-
         ie = (0, 122, 233, 245, 334)
         je = (0, 44, 45, 333, 335, 399)
 
@@ -80,7 +76,6 @@ class TestReprojectAndCoAdd:
 
     @pytest.mark.parametrize("combine_function", ["mean", "sum"])
     def test_coadd_no_overlap(self, combine_function, reproject_function):
-
         # Make sure that if all tiles are exactly non-overlapping, and
         # we use 'sum' or 'mean', we get the exact input array back.
 
@@ -99,7 +94,6 @@ class TestReprojectAndCoAdd:
         assert_allclose(footprint, 1, atol=ATOL)
 
     def test_coadd_with_overlap(self, reproject_function):
-
         # Here we make the input tiles overlapping. We can only check the
         # mean, not the sum.
 
@@ -116,7 +110,6 @@ class TestReprojectAndCoAdd:
         assert_allclose(array, self.array, atol=ATOL)
 
     def test_coadd_background_matching(self, reproject_function):
-
         # Test out the background matching
 
         input_data = self._get_tiles(self._overlapping_views)
@@ -153,7 +146,6 @@ class TestReprojectAndCoAdd:
         assert_allclose(array - np.mean(array), self.array - np.mean(self.array), atol=ATOL)
 
     def test_coadd_background_matching_with_nan(self, reproject_function):
-
         # Test out the background matching when NaN values are present. We do
         # this by using three arrays with the same footprint but with different
         # parts masked.
@@ -186,7 +178,6 @@ class TestReprojectAndCoAdd:
     @pytest.mark.filterwarnings("ignore:unclosed file:ResourceWarning")
     @pytest.mark.parametrize("mode", ["arrays", "filenames", "hdus"])
     def test_coadd_with_weights(self, tmpdir, reproject_function, mode):
-
         # Make sure that things work properly when specifying weights
 
         array1 = self.array + 1
@@ -247,7 +238,6 @@ MJD-OBS =      55607.009764514
 
 @pytest.mark.array_compare()
 def test_coadd_solar_map():
-
     # This is a test that exercises a lot of different parts of the mosaicking
     # code. The idea is to take three solar images from different viewpoints
     # and combine them into a single one. This uses weight maps that are not

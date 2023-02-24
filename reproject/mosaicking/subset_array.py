@@ -60,7 +60,6 @@ class ReprojectedArraySubset:
         return self._operation(other, operator.truediv)
 
     def _operation(self, other, op):
-
         # Determine cutout parameters for overlap region
 
         imin = max(self.imin, other.imin)

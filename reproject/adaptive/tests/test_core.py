@@ -28,7 +28,6 @@ def as_high_level_wcs(wcs):
 @pytest.mark.parametrize("center_jacobian", (False, True))
 @pytest.mark.parametrize("roundtrip_coords", (False, True))
 def test_reproject_adaptive_2d(wcsapi, center_jacobian, roundtrip_coords):
-
     # Set up initial array with pattern
     data_in = np.zeros((256, 256))
     data_in[::20, :] = 1
@@ -78,7 +77,6 @@ def test_reproject_adaptive_2d(wcsapi, center_jacobian, roundtrip_coords):
 @pytest.mark.parametrize("center_jacobian", (False, True))
 @pytest.mark.parametrize("roundtrip_coords", (False, True))
 def test_reproject_adaptive_2d_rotated(center_jacobian, roundtrip_coords):
-
     # Set up initial array with pattern
     data_in = np.zeros((256, 256))
     data_in[::20, :] = 1
@@ -669,7 +667,6 @@ def prepare_test_data(file_format):
 @pytest.mark.array_compare(single_reference=True)
 @pytest.mark.parametrize("file_format", ["fits", "asdf"])
 def test_reproject_adaptive_roundtrip(file_format):
-
     # Test the reprojection with solar data, which ensures that the masking of
     # pixels based on round-tripping works correctly. Using asdf is not just
     # about testing a different format but making sure that GWCS works.
@@ -706,7 +703,6 @@ def test_reproject_adaptive_roundtrip(file_format):
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.array_compare()
 def test_reproject_adaptive_uncentered_jacobian():
-
     # Explicitly test the uncentered-Jacobian path for a non-affine transform.
     # For this case, output pixels change by 6% at most, and usually much less.
     # (Though more nan pixels are present, as the uncentered calculation draws
