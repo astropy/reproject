@@ -86,7 +86,6 @@ def find_optimal_celestial_wcs(
     resolutions = []
 
     for shape, wcs in input_shapes:
-
         if len(shape) != 2:
             raise ValueError(f"Input data is not 2-dimensional (got shape {shape!r})")
 
@@ -94,7 +93,6 @@ def find_optimal_celestial_wcs(
             raise ValueError("Input WCS is not 2-dimensional")
 
         if isinstance(wcs, WCS):
-
             if not wcs.has_celestial:
                 raise TypeError("WCS does not have celestial components")
 
@@ -103,7 +101,6 @@ def find_optimal_celestial_wcs(
                 frame = wcs_to_celestial_frame(wcs)
 
         else:
-
             # Convert a single position to determine type of output and make
             # sure there is only a single SkyCoord returned.
             coord = wcs.pixel_to_world(0, 0)
@@ -127,7 +124,6 @@ def find_optimal_celestial_wcs(
         corners.append(wcs.pixel_to_world(xc, yc).icrs.frame)
 
         if isinstance(wcs, WCS):
-
             # We now figure out the reference coordinate for the image in ICRS. The
             # easiest way to do this is actually to use pixel_to_skycoord with the
             # reference position in pixel coordinates. We have to set origin=1
@@ -142,7 +138,6 @@ def find_optimal_celestial_wcs(
             resolutions.append(np.min(np.abs(scales)))
 
         else:
-
             xp, yp = (nx - 1) / 2, (ny - 1) / 2
             references.append(wcs.pixel_to_world(xp, yp).icrs.frame)
 
@@ -192,7 +187,6 @@ def find_optimal_celestial_wcs(
     xp, yp = skycoord_to_pixel(corners, wcs_final, origin=1)
 
     if auto_rotate:
-
         # Use shapely to represent the points and find the minimum rotated
         # rectangle
         from shapely.geometry import MultiPoint

@@ -7,7 +7,6 @@ REPROJECT_ROOT = os.path.relpath(os.path.dirname(__file__))
 
 
 def get_extensions():
-
     libraries = []
 
     sources = []

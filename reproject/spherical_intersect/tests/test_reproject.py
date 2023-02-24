@@ -11,7 +11,6 @@ from ..core import _reproject_celestial
 
 
 def test_reproject_celestial_slices_2d():
-
     header_in = fits.Header.fromtextfile(get_pkg_data_filename("../../tests/data/gc_ga.hdr"))
     header_out = fits.Header.fromtextfile(get_pkg_data_filename("../../tests/data/gc_eq.hdr"))
 
@@ -69,7 +68,6 @@ MONTAGE_REF = np.array(
 
 
 def test_reproject_celestial_consistency():
-
     # Consistency between the different modes
 
     wcs_in = WCS(fits.Header.fromstring(INPUT_HDR, sep="\n"))
@@ -85,7 +83,6 @@ def test_reproject_celestial_consistency():
 
 @pytest.mark.parametrize("wcsapi", (False, True))
 def test_reproject_celestial_montage(wcsapi):
-
     # Accuracy compared to Montage
 
     wcs_in = WCS(fits.Header.fromstring(INPUT_HDR, sep="\n"))
@@ -101,7 +98,6 @@ def test_reproject_celestial_montage(wcsapi):
 
 
 def test_reproject_flipping():
-
     # Regression test for a bug that caused issues when the WCS was oriented
     # in a way that meant polygon vertices were clockwise.
 

@@ -11,7 +11,6 @@ from ..subset_array import ReprojectedArraySubset
 
 class TestReprojectedArraySubset:
     def setup_method(self, method):
-
         self.array1 = np.random.random((123, 87))
         self.array2 = np.random.random((123, 87))
         self.array3 = np.random.random((123, 87))

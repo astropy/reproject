@@ -86,7 +86,6 @@ def solve_corrections_sgd(offset_matrix, eta_initial=1, eta_half_life=100, rtol=
     previous_corrections = None
 
     for iteration in range(int(eta_half_life * 10)):
-
         # Shuffle the indices to avoid cyclical behavior
         np.random.shuffle(indices)
 
@@ -97,7 +96,6 @@ def solve_corrections_sgd(offset_matrix, eta_initial=1, eta_half_life=100, rtol=
         # columns is arbitrary, but for the purpose of the comments below, we
         # treat this as iterating over rows of the matrix.
         for i in indices:
-
             if np.isnan(corrections[i]):
                 continue
 

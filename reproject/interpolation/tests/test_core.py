@@ -418,7 +418,6 @@ def test_inequal_wcs_dims(roundtrip_coords):
 @pytest.mark.parametrize("roundtrip_coords", (False, True))
 @pytest.mark.remote_data
 def test_different_wcs_types(roundtrip_coords):
-
     inp_cube = np.arange(3, dtype="float").repeat(4 * 5).reshape(3, 4, 5)
     header_in = fits.Header.fromtextfile(
         get_pkg_data_filename("data/cube.hdr", package="reproject.tests")
@@ -448,7 +447,6 @@ def test_different_wcs_types(roundtrip_coords):
 @pytest.mark.parametrize("roundtrip_coords", (False, True))
 @pytest.mark.remote_data
 def test_reproject_3d_celestial_correctness_ra2gal(roundtrip_coords):
-
     inp_cube = np.arange(3, dtype="float").repeat(7 * 8).reshape(3, 7, 8)
 
     header_in = fits.Header.fromtextfile(
@@ -525,7 +523,6 @@ def test_reproject_with_output_array(roundtrip_coords):
 @pytest.mark.parametrize("file_format", ["fits", "asdf"])
 @pytest.mark.remote_data
 def test_reproject_roundtrip(file_format):
-
     # Test the reprojection with solar data, which ensures that the masking of
     # pixels based on round-tripping works correctly. Using asdf is not just
     # about testing a different format but making sure that GWCS works.
@@ -594,7 +591,6 @@ def test_reproject_roundtrip(file_format):
 @pytest.mark.parametrize("roundtrip_coords", (False, True))
 @pytest.mark.remote_data
 def test_identity_with_offset(roundtrip_coords):
-
     # Reproject an array and WCS to itself but with a margin, which should
     # end up empty. This is a regression test for a bug that caused some
     # values to extend beyond the original footprint.
@@ -725,7 +721,6 @@ def test_blocked_broadcast_reprojection(input_extra_dims, output_shape, parallel
 @pytest.mark.parametrize("block_size", [[40, 40], [500, 500], [500, 100], None])
 @pytest.mark.remote_data
 def test_blocked_against_single(parallel, block_size):
-
     # Ensure when we break a reprojection down into multiple discrete blocks
     # it has the same result as if all pixels where reprejcted at once
 
@@ -771,7 +766,6 @@ def test_blocked_against_single(parallel, block_size):
 
 @pytest.mark.remote_data
 def test_blocked_corner_cases():
-
     """
     When doing blocked there are a few checks designed to sanity clamp/preserve
     values. Even though the blocking process only tiles in a 2d manner 3d information

@@ -16,9 +16,7 @@ os.environ["MPLBACKEND"] = "Agg"
 
 
 def pytest_configure(config):
-
     if ASTROPY_HEADER:
-
         config.option.astropy_header = True
 
         PYTEST_HEADER_MODULES.pop("Pandas", None)

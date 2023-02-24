@@ -24,7 +24,6 @@ class BaseTestOptimalWCS:
         self.array = np.ones((30, 40))
 
     def test_identity(self):
-
         wcs, shape = find_optimal_celestial_wcs([(self.array, self.wcs)], frame=FK5())
 
         assert tuple(wcs.wcs.ctype) == ("RA---TAN", "DEC--TAN")
@@ -45,7 +44,6 @@ class BaseTestOptimalWCS:
         )
 
     def test_frame_projection(self):
-
         wcs, shape = find_optimal_celestial_wcs(
             [(self.array, self.wcs)], frame=Galactic(), projection="CAR"
         )
@@ -70,7 +68,6 @@ class BaseTestOptimalWCS:
 
     @pytest.mark.skipif("not SHAPELY_INSTALLED")
     def test_auto_rotate(self):
-
         # To test auto_rotate, we set the frame to Galactic and the final image
         # should have the same size as the input image. In this case, the image
         # actually gets rotated 90 degrees, so the values aren't quite the same
@@ -93,7 +90,6 @@ class BaseTestOptimalWCS:
     @pytest.mark.skipif("not SHAPELY_INSTALLED")
     @pytest.mark.parametrize("angle", np.linspace(0, 360, 13))
     def test_auto_rotate_systematic(self, angle):
-
         # This is a test to make sure for a number of angles that the corners
         # of the image are inside the final WCS but the next pixels outwards are
         # not. We test the full 360 range of angles.
@@ -124,7 +120,6 @@ class BaseTestOptimalWCS:
         assert_equal(inside, [1, 1, 1, 1, 0, 0, 0, 0])
 
     def test_multiple_size(self):
-
         wcs1 = self.wcs
         wcs2 = self.generate_wcs(crpix=(20, 15))
         wcs3 = self.generate_wcs(crpix=(10, 10))
@@ -143,7 +138,6 @@ class BaseTestOptimalWCS:
         assert shape == (35, 50)
 
     def test_multiple_resolution(self):
-
         wcs1 = self.wcs
         wcs2 = self.generate_wcs(cdelt=(-0.01, 0.02))
         wcs3 = self.generate_wcs(cdelt=(-0.2, 0.3))
@@ -154,7 +148,6 @@ class BaseTestOptimalWCS:
         assert_allclose(wcs.wcs.cdelt, (-0.01, 0.01), rtol=self.cdelt_rtol)
 
     def test_invalid_array_shape(self):
-
         array = np.ones((30, 20, 10))
 
         with pytest.raises(ValueError) as exc:
@@ -162,7 +155,6 @@ class BaseTestOptimalWCS:
         assert exc.value.args[0] == "Input data is not 2-dimensional (got shape (30, 20, 10))"
 
     def test_invalid_wcs_shape(self):
-
         wcs = WCS(naxis=3)
         wcs.wcs.ctype = "RA---TAN", "DEC--TAN", "VELO-LSR"
         wcs.wcs.set()
@@ -172,7 +164,6 @@ class BaseTestOptimalWCS:
         assert exc.value.args[0] == "Input WCS is not 2-dimensional"
 
     def test_invalid_not_celestial(self):
-
         self.wcs = self.generate_wcs(celestial=False)
 
         with pytest.raises(TypeError) as exc:

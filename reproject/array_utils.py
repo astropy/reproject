@@ -8,7 +8,6 @@ def pad_edge_1(array):
 
 
 def map_coordinates(image, coords, **kwargs):
-
     # In the built-in scipy map_coordinates, the values are defined at the
     # center of the pixels. This means that map_coordinates does not
     # correctly treat pixels that are in the outer half of the outer pixels.

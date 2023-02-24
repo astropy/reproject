@@ -10,7 +10,6 @@ from reproject.utils import parse_input_data, parse_input_shape, parse_output_pr
 
 @pytest.mark.filterwarnings("ignore:unclosed file:ResourceWarning")
 def test_parse_input_data(tmpdir):
-
     header = fits.Header.fromtextfile(get_pkg_data_filename("data/gc_ga.hdr"))
 
     data = np.arange(200).reshape((10, 20))
@@ -126,7 +125,6 @@ def test_parse_input_shape(tmpdir):
 
 
 def test_parse_output_projection(tmpdir):
-
     header = fits.Header.fromtextfile(get_pkg_data_filename("data/gc_ga.hdr"))
     wcs = WCS(header)
 
