@@ -1,6 +1,8 @@
+import tempfile
 from concurrent import futures
 
 import astropy.nddata
+import dask
 import dask.array as da
 import numpy as np
 from astropy.io import fits
@@ -194,7 +196,7 @@ def reproject_blocked(
         Passed to reproject_func() alongside WCS out to determine image size
     wcs_out: `~astropy.wcs.WCS`
         Output WCS image will be projected to. Normally will correspond to subset of
-        total output image when used by repoject_blocked()
+        total output image when used by reproject_blocked()
     block_size: tuple
         The size of blocks in terms of output array pixels that each block will handle
         reprojecting. Extending out from (0,0) coords positively, block sizes
@@ -217,17 +219,14 @@ def reproject_blocked(
         greater than one, a parallel implementation using ``n`` processes is chosen.
     """
 
-    if output_array is None:
-        output_array = np.zeros(shape_out, dtype=float)
-    if output_footprint is None and return_footprint:
-        output_footprint = np.zeros(shape_out, dtype=float)
-
-    scheduler = "processes" if parallel else "synchronous"
+    if len(block_size) < len(shape_out):
+        block_size = [-1] * (len(shape_out) - len(block_size)) + list(block_size)
 
     def reproject_single_block(a, block_info=None):
         if a.ndim == 0 or block_info is None or block_info == []:
             return np.array([a, a])
-        slices = [slice(*x) for x in block_info[None]["array-location"][1:]]
+        print(block_info[None]["array-location"][-wcs_out.pixel_n_dim :])
+        slices = [slice(*x) for x in block_info[None]["array-location"][-wcs_out.pixel_n_dim :]]
         wcs_out_sub = HighLevelWCSWrapper(SlicedLowLevelWCS(wcs_out, slices=slices))  #
         array, footprint = reproject_func(
             array_in, wcs_in, wcs_out_sub, block_info[None]["chunk-shape"][1:]
@@ -236,7 +235,7 @@ def reproject_blocked(
 
     # NOTE: the following array is just used to set up the iteration in map_blocks
     # but isn't actually used otherwise - this is deliberate.
-    output_array_dask = da.from_array(output_array, chunks=block_size or "auto")
+    output_array_dask = da.empty(shape_out, chunks=block_size or "auto")
 
     result = da.map_blocks(
         reproject_single_block,
@@ -246,30 +245,27 @@ def reproject_blocked(
         chunks=(2,) + output_array_dask.chunksize,
     )
 
-    result = result[:, : output_array.shape[0], : output_array.shape[1]]
+    # Truncate extra elements
+    result = result[tuple([slice(None)] + [slice(s) for s in shape_out])]
 
-    # FIXME: for some reason, the store() calls below do not work correctly
-    # and result in output_array and output_footprint being unmodified compared
-    # to the versions passed in.
-
-    if return_footprint:
-        output_array[:] = result[0].compute(scheduler=scheduler)
-        output_footprint[:] = result[1].compute(scheduler=scheduler)
-        # da.store(
-        #     [result[0], result[1]],
-        #     [output_array, output_footprint],
-        #     compute=True,
-        #     scheduler=scheduler,
-        #     lock=SerializableLock(),
-        # )
-        return output_array, output_footprint
-    else:
-        output_array[:] = result[0].compute(scheduler=scheduler)
-        # da.store(
-        #     result[0],
-        #     output_array,
-        #     compute=True,
-        #     scheduler=scheduler,
-        #     lock=SerializableLock(),
-        # )
-        return output_array
+    with dask.config.set(scheduler="processes" if parallel else "synchronous"):
+        if output_array is None:
+            output_array = result[0].compute()
+        else:
+            filename = tempfile.mktemp()
+            result[0].to_zarr(filename)
+            print(filename)
+            # TODO: load back into array - for now computing into memory
+            output_array = result[0].compute()
+        if return_footprint:
+            if output_footprint is None:
+                output_footprint = result[1].compute()
+            else:
+                filename = tempfile.mktemp()
+                result[1].to_zarr(filename)
+                print(filename)
+                # TODO: load back into array - for now computing into memory
+                output_footprint = result[1].compute()
+            return output_array, output_footprint
+        else:
+            return output_array
