@@ -722,7 +722,7 @@ def test_blocked_broadcast_reprojection(input_extra_dims, output_shape, parallel
 @pytest.mark.parametrize("return_footprint", [False, True])
 @pytest.mark.parametrize("existing_outputs", [False, True])
 @pytest.mark.remote_data
-def test_blocked_against_single(tmp_path, parallel, block_size, return_footprint, existing_outputs):
+def test_blocked_against_single(parallel, block_size, return_footprint, existing_outputs):
     # Ensure when we break a reprojection down into multiple discrete blocks
     # it has the same result as if all pixels where reprejcted at once
 

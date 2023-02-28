@@ -179,7 +179,7 @@ def _reproject_blocked(
     parallel=True,
 ):
     """
-    Implementaton function that handles reprojecting subsets blocks of pixels
+    Implementation function that handles reprojecting subsets blocks of pixels
     from an input image and holds metadata about where to reinsert when done.
 
     Parameters
