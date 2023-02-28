@@ -1,12 +1,16 @@
+import tempfile
 from concurrent import futures
 
 import astropy.nddata
+import dask
+import dask.array as da
 import numpy as np
 from astropy.io import fits
 from astropy.io.fits import CompImageHDU, HDUList, Header, ImageHDU, PrimaryHDU
 from astropy.wcs import WCS
 from astropy.wcs.wcsapi import BaseHighLevelWCS, SlicedLowLevelWCS
 from astropy.wcs.wcsapi.high_level_wcs_wrapper import HighLevelWCSWrapper
+from dask.utils import SerializableLock
 
 __all__ = [
     "parse_input_data",
@@ -162,50 +166,7 @@ def parse_output_projection(output_projection, shape_in=None, shape_out=None, ou
     return wcs_out, shape_out
 
 
-def _block(
-    reproject_func, array_in, wcs_in, wcs_out_sub, shape_out, i_range, j_range, return_footprint
-):
-    """
-    Implementation function that handles reprojecting subsets blocks of pixels
-    from an input image and holds metadata about where to reinsert when done.
-
-    Parameters
-    ----------
-    reproject_func
-        One the existing reproject functions implementing a reprojection algorithm
-        that that will be used be used to perform reprojection
-    array_in
-        Data following the same format as expected by underlying reproject_func,
-        expected to `~numpy.ndarray` when used from reproject_blocked()
-    wcs_in: `~astropy.wcs.WCS`
-        WCS object corresponding to array_in
-    wcs_out_sub:
-        Output WCS image will be projected to. Normally will correspond to subset of
-        total output image when used by repoject_blocked()
-    shape_out:
-        Passed to reproject_func() alongside WCS out to determine image size
-    i_range:
-        Passed through unmodified, used to determine where to reinsert block
-    j_range:
-        Passed through unmodified, used to determine where to reinsert block
-    """
-
-    result = reproject_func(
-        array_in, wcs_in, wcs_out_sub, shape_out=shape_out, return_footprint=return_footprint
-    )
-
-    res_arr = None
-    res_fp = None
-
-    if return_footprint:
-        res_arr, res_fp = result
-    else:
-        res_arr = result
-
-    return {"i": i_range, "j": j_range, "res_arr": res_arr, "res_fp": res_fp}
-
-
-def reproject_blocked(
+def _reproject_blocked(
     reproject_func,
     array_in,
     wcs_in,
@@ -228,14 +189,14 @@ def reproject_blocked(
         that that will be used be used to perform reprojection
     array_in
         Data following the same format as expected by underlying reproject_func,
-        expected to `~numpy.ndarray` when used from reproject_blocked()
+        expected to `~numpy.ndarray` when used from _reproject_blocked()
     wcs_in: `~astropy.wcs.WCS`
         WCS object corresponding to array_in
     shape_out: tuple
         Passed to reproject_func() alongside WCS out to determine image size
     wcs_out: `~astropy.wcs.WCS`
         Output WCS image will be projected to. Normally will correspond to subset of
-        total output image when used by repoject_blocked()
+        total output image when used by _reproject_blocked()
     block_size: tuple
         The size of blocks in terms of output array pixels that each block will handle
         reprojecting. Extending out from (0,0) coords positively, block sizes
@@ -263,96 +224,85 @@ def reproject_blocked(
     if output_footprint is None and return_footprint:
         output_footprint = np.zeros(shape_out, dtype=float)
 
-    # setup variables needed for multiprocessing if required
-    proc_pool = None
-    blocks_futures = []
+    if block_size is not None and len(block_size) < len(shape_out):
+        block_size = [-1] * (len(shape_out) - len(block_size)) + list(block_size)
 
-    if parallel or type(parallel) is int:
-        if type(parallel) is int:
-            if parallel <= 0:
-                raise ValueError("The number of processors to use must be strictly positive")
-            else:
-                proc_pool = futures.ProcessPoolExecutor(max_workers=parallel)
+    shape_in = array_in.shape
+
+    # When in parallel mode, we want to make sure we avoid having to copy the
+    # input array to all processes for each chunk, so instead we write out
+    # the input array to a Numpy memory map and load it in inside each process
+    # as a memory-mapped array. We need to be careful how this gets passed to
+    # reproject_single_block so we pass a variable that can be either a string
+    # or the array itself (for synchronous mode).
+    if parallel:
+        array_in_or_path = tempfile.mktemp()
+        array_in_memmapped = np.memmap(
+            array_in_or_path, dtype=float, shape=array_in.shape, mode="w+"
+        )
+        array_in_memmapped[:] = array_in[:]
+    else:
+        array_in_or_path = array_in
+
+    def reproject_single_block(a, block_info=None):
+        if a.ndim == 0 or block_info is None or block_info == []:
+            return np.array([a, a])
+        slices = [slice(*x) for x in block_info[None]["array-location"][-wcs_out.pixel_n_dim :]]
+        wcs_out_sub = HighLevelWCSWrapper(SlicedLowLevelWCS(wcs_out, slices=slices))
+        if isinstance(array_in_or_path, str):
+            array_in = np.memmap(array_in_or_path, dtype=float, shape=shape_in)
         else:
-            proc_pool = futures.ProcessPoolExecutor()
+            array_in = array_in_or_path
+        array, footprint = reproject_func(
+            array_in, wcs_in, wcs_out_sub, block_info[None]["chunk-shape"][1:]
+        )
+        return np.array([array, footprint])
 
-    # This will iterate over the output space, generating slices of that
-    # WCS and either processing and reinserting them immediately,
-    # or when doing parallel impl submit them to workers then wait and reinsert as
-    # the workers complete each block
-    for imin in range(0, output_array.shape[-2], block_size[0]):
-        imax = min(imin + block_size[0], output_array.shape[-2])
-        for jmin in range(0, output_array.shape[-1], block_size[1]):
-            jmax = min(jmin + block_size[1], output_array.shape[-1])
-            shape_out_sub = (imax - imin, jmax - jmin)
-            # if the output has more than two dims, apply our blocking to only the last two
-            shape_out_sub = output_array.shape[:-2] + shape_out_sub
+    # NOTE: the following array is just used to set up the iteration in map_blocks
+    # but isn't actually used otherwise - this is deliberate.
+    output_array_dask = da.empty(shape_out, chunks=block_size or "auto")
 
-            slices = [slice(imin, imax), slice(jmin, jmax)]
-            if wcs_out.low_level_wcs.pixel_n_dim > 2:
-                slices = [Ellipsis] + slices
-            wcs_out_sub = HighLevelWCSWrapper(SlicedLowLevelWCS(wcs_out, slices=slices))
+    result = da.map_blocks(
+        reproject_single_block,
+        output_array_dask,
+        dtype=float,
+        new_axis=0,
+        chunks=(2,) + output_array_dask.chunksize,
+    )
 
-            if proc_pool is None:
-                # if sequential input data and reinsert block into main array immediately
-                completed_block = _block(
-                    reproject_func=reproject_func,
-                    array_in=array_in,
-                    wcs_in=wcs_in,
-                    wcs_out_sub=wcs_out_sub,
-                    shape_out=shape_out_sub,
-                    return_footprint=return_footprint,
-                    j_range=(jmin, jmax),
-                    i_range=(imin, imax),
-                )
+    # Truncate extra elements
+    result = result[tuple([slice(None)] + [slice(s) for s in shape_out])]
 
-                output_array[..., imin:imax, jmin:jmax] = completed_block["res_arr"][:]
-                if return_footprint:
-                    output_footprint[..., imin:imax, jmin:jmax] = completed_block["res_fp"][:]
-
-            else:
-                # if parallel just submit all work items and move on to waiting for them to be done
-                future = proc_pool.submit(
-                    _block,
-                    reproject_func=reproject_func,
-                    array_in=array_in,
-                    wcs_in=wcs_in,
-                    wcs_out_sub=wcs_out_sub,
-                    shape_out=shape_out_sub,
-                    return_footprint=return_footprint,
-                    j_range=(jmin, jmax),
-                    i_range=(imin, imax),
-                )
-                blocks_futures.append(future)
-
-    # If a parallel implementation is being used that means the
-    # blocks have not been reassembled yet and must be done now as their
-    # block call completes in the worker processes
-    if proc_pool is not None:
-        completed_future_count = 0
-        for completed_future in futures.as_completed(blocks_futures):
-            completed_block = completed_future.result()
-            i_range = completed_block["i"]
-            j_range = completed_block["j"]
-            output_array[..., i_range[0] : i_range[1], j_range[0] : j_range[1]] = completed_block[
-                "res_arr"
-            ][:]
-
-            if return_footprint:
-                footprint_block = completed_block["res_fp"][:]
-                output_footprint[
-                    ..., i_range[0] : i_range[1], j_range[0] : j_range[1]
-                ] = footprint_block
-
-            completed_future_count += 1
-            idx = blocks_futures.index(completed_future)
-            # ensure memory used by returned data is freed
-            completed_future._result = None
-            del blocks_futures[idx], completed_future
-        proc_pool.shutdown()
-        del blocks_futures
+    if parallel:
+        # As discussed in https://github.com/dask/dask/issues/9556, da.store
+        # will not work well in multiprocessing mode when the destination is a
+        # Numpy array. Instead, in this case we save the dask array to a zarr
+        # array on disk which can be done in parallel, and re-load it as a dask
+        # array. We can then use da.store in the next step using the
+        # 'synchronous' scheduler since that is I/O limited so does not need
+        # to be done in parallel.
+        filename = tempfile.mktemp()
+        if isinstance(parallel, int):
+            workers = {"num_workers": parallel}
+        else:
+            workers = {}
+        with dask.config.set(scheduler="processes", **workers):
+            result.to_zarr(filename)
+        result = da.from_zarr(filename)
 
     if return_footprint:
+        da.store(
+            [result[0], result[1]],
+            [output_array, output_footprint],
+            compute=True,
+            scheduler="synchronous",
+        )
         return output_array, output_footprint
     else:
+        da.store(
+            result[0],
+            output_array,
+            compute=True,
+            scheduler="synchronous",
+        )
         return output_array
