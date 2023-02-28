@@ -166,7 +166,7 @@ def parse_output_projection(output_projection, shape_in=None, shape_out=None, ou
     return wcs_out, shape_out
 
 
-def reproject_blocked(
+def _reproject_blocked(
     reproject_func,
     array_in,
     wcs_in,
@@ -189,14 +189,14 @@ def reproject_blocked(
         that that will be used be used to perform reprojection
     array_in
         Data following the same format as expected by underlying reproject_func,
-        expected to `~numpy.ndarray` when used from reproject_blocked()
+        expected to `~numpy.ndarray` when used from _reproject_blocked()
     wcs_in: `~astropy.wcs.WCS`
         WCS object corresponding to array_in
     shape_out: tuple
         Passed to reproject_func() alongside WCS out to determine image size
     wcs_out: `~astropy.wcs.WCS`
         Output WCS image will be projected to. Normally will correspond to subset of
-        total output image when used by reproject_blocked()
+        total output image when used by _reproject_blocked()
     block_size: tuple
         The size of blocks in terms of output array pixels that each block will handle
         reprojecting. Extending out from (0,0) coords positively, block sizes
