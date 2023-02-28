@@ -227,11 +227,22 @@ def reproject_blocked(
     if block_size is not None and len(block_size) < len(shape_out):
         block_size = [-1] * (len(shape_out) - len(block_size)) + list(block_size)
 
+    shape_in = array_in.shape
+
+    # When in parallel mode, we want to make sure we avoid having to copy the
+    # input array to all processes for each chunk, so instead we write out
+    # the input array to a Numpy memory map and load it in inside each process
+    # as a memory-mapped array.
+    array_in_file = tempfile.mktemp()
+    array_in_memmapped = np.memmap(array_in_file, dtype=float, shape=array_in.shape, mode="w+")
+    array_in_memmapped[:] = array_in[:]
+
     def reproject_single_block(a, block_info=None):
         if a.ndim == 0 or block_info is None or block_info == []:
             return np.array([a, a])
         slices = [slice(*x) for x in block_info[None]["array-location"][-wcs_out.pixel_n_dim :]]
-        wcs_out_sub = HighLevelWCSWrapper(SlicedLowLevelWCS(wcs_out, slices=slices))  #
+        wcs_out_sub = HighLevelWCSWrapper(SlicedLowLevelWCS(wcs_out, slices=slices))
+        array_in = np.memmap(array_in_file, dtype=float, shape=shape_in)
         array, footprint = reproject_func(
             array_in, wcs_in, wcs_out_sub, block_info[None]["chunk-shape"][1:]
         )
@@ -262,7 +273,7 @@ def reproject_blocked(
         # to be done in parallel.
         filename = tempfile.mktemp()
         if isinstance(parallel, int):
-            workers = {'num_workers': parallel}
+            workers = {"num_workers": parallel}
         else:
             workers = {}
         with dask.config.set(scheduler="processes", **workers):
@@ -274,7 +285,7 @@ def reproject_blocked(
             [result[0], result[1]],
             [output_array, output_footprint],
             compute=True,
-            scheduler='synchronous',
+            scheduler="synchronous",
         )
         return output_array, output_footprint
     else:
@@ -282,6 +293,6 @@ def reproject_blocked(
             result[0],
             output_array,
             compute=True,
-            scheduler='synchronous',
+            scheduler="synchronous",
         )
         return output_array
