@@ -787,7 +787,6 @@ def test_blocked_against_single(tmp_path, parallel, block_size, return_footprint
             assert footprint_test is output_footprint_test
             assert footprint_reference is output_footprint_reference
 
-
     np.testing.assert_allclose(array_test, array_reference, equal_nan=True)
     if return_footprint:
         np.testing.assert_allclose(footprint_test, footprint_reference, equal_nan=True)
