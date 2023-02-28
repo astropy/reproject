@@ -232,17 +232,27 @@ def reproject_blocked(
     # When in parallel mode, we want to make sure we avoid having to copy the
     # input array to all processes for each chunk, so instead we write out
     # the input array to a Numpy memory map and load it in inside each process
-    # as a memory-mapped array.
-    array_in_file = tempfile.mktemp()
-    array_in_memmapped = np.memmap(array_in_file, dtype=float, shape=array_in.shape, mode="w+")
-    array_in_memmapped[:] = array_in[:]
+    # as a memory-mapped array. We need to be careful how this gets passed to
+    # reproject_single_block so we pass a variable that can be either a string
+    # or the array itself (for synchronous mode).
+    if parallel:
+        array_in_or_path = tempfile.mktemp()
+        array_in_memmapped = np.memmap(
+            array_in_or_path, dtype=float, shape=array_in.shape, mode="w+"
+        )
+        array_in_memmapped[:] = array_in[:]
+    else:
+        array_in_or_path = array_in
 
     def reproject_single_block(a, block_info=None):
         if a.ndim == 0 or block_info is None or block_info == []:
             return np.array([a, a])
         slices = [slice(*x) for x in block_info[None]["array-location"][-wcs_out.pixel_n_dim :]]
         wcs_out_sub = HighLevelWCSWrapper(SlicedLowLevelWCS(wcs_out, slices=slices))
-        array_in = np.memmap(array_in_file, dtype=float, shape=shape_in)
+        if isinstance(array_in_or_path, str):
+            array_in = np.memmap(array_in_or_path, dtype=float, shape=shape_in)
+        else:
+            array_in = array_in_or_path
         array, footprint = reproject_func(
             array_in, wcs_in, wcs_out_sub, block_info[None]["chunk-shape"][1:]
         )
