@@ -718,9 +718,11 @@ def test_blocked_broadcast_reprojection(input_extra_dims, output_shape, parallel
 
 
 @pytest.mark.parametrize("parallel", [True, 2, False])
-@pytest.mark.parametrize("block_size", [[40, 40], [500, 500], [500, 100], None])
+@pytest.mark.parametrize("block_size", [[500, 500], [500, 100], None])
+@pytest.mark.parametrize("return_footprint", [False, True])
+@pytest.mark.parametrize("existing_outputs", [False, True])
 @pytest.mark.remote_data
-def test_blocked_against_single(parallel, block_size):
+def test_blocked_against_single(tmp_path, parallel, block_size, return_footprint, existing_outputs):
     # Ensure when we break a reprojection down into multiple discrete blocks
     # it has the same result as if all pixels where reprejcted at once
 
@@ -728,6 +730,19 @@ def test_blocked_against_single(parallel, block_size):
     hdu2 = fits.open(get_pkg_data_filename("galactic_center/gc_msx_e.fits"))[0]
     array_test = None
     footprint_test = None
+
+    shape_out = (720, 721)
+
+    if existing_outputs:
+        output_array_test = np.zeros(shape_out)
+        output_footprint_test = np.zeros(shape_out)
+        output_array_reference = np.zeros(shape_out)
+        output_footprint_reference = np.zeros(shape_out)
+    else:
+        output_array_test = None
+        output_footprint_test = None
+        output_array_reference = None
+        output_footprint_reference = None
 
     # the warning import and ignore is needed to keep pytest happy when running with
     # older versions of astropy which don't have this fix:
@@ -738,27 +753,41 @@ def test_blocked_against_single(parallel, block_size):
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=FITSFixedWarning)
-
-        # this one is needed to avoid the following warning from when the np.as_strided() is
-        # called in wcs_utils.unbroadcast(), only shows up with py3.8, numpy1.17, astropy 4.0.*:
-        #     DeprecationWarning: Numpy has detected that you (may be) writing to an array with
-        #     overlapping memory from np.broadcast_arrays. If this is intentional
-        #     set the WRITEABLE flag True or make a copy immediately before writing.
-        # We do call as_strided with writeable=True as it recommends and only shows up with the 10px
-        # testcase so assuming a numpy bug in the detection code which was fixed in later version.
-        # The pixel values all still match in the end, only shows up due to pytest clearing
-        # the standard python warning filters by default and failing as the warnings are now
-        # treated as the exceptions they're implemented on
-        if block_size == [10, 10]:
-            warnings.simplefilter("ignore", category=DeprecationWarning)
-
-        array_test, footprint_test = reproject_interp(
-            hdu2, hdu1.header, parallel=parallel, block_size=block_size
+        result_test = reproject_interp(
+            hdu2,
+            hdu1.header,
+            parallel=parallel,
+            block_size=block_size,
+            return_footprint=return_footprint,
+            output_array=output_array_test,
+            output_footprint=output_footprint_test,
         )
 
-    array_reference, footprint_reference = reproject_interp(
-        hdu2, hdu1.header, parallel=False, block_size=None
+    result_reference = reproject_interp(
+        hdu2,
+        hdu1.header,
+        parallel=False,
+        block_size=None,
+        return_footprint=return_footprint,
+        output_array=output_array_reference,
+        output_footprint=output_footprint_reference,
     )
 
+    if return_footprint:
+        array_test, footprint_test = result_test
+        array_reference, footprint_reference = result_reference
+    else:
+        array_test = result_test
+        array_reference = result_reference
+
+    if existing_outputs:
+        assert array_test is output_array_test
+        assert array_reference is output_array_reference
+        if return_footprint:
+            assert footprint_test is output_footprint_test
+            assert footprint_reference is output_footprint_reference
+
+
     np.testing.assert_allclose(array_test, array_reference, equal_nan=True)
-    np.testing.assert_allclose(footprint_test, footprint_reference, equal_nan=True)
+    if return_footprint:
+        np.testing.assert_allclose(footprint_test, footprint_reference, equal_nan=True)

@@ -219,13 +219,17 @@ def reproject_blocked(
         greater than one, a parallel implementation using ``n`` processes is chosen.
     """
 
-    if len(block_size) < len(shape_out):
+    if output_array is None:
+        output_array = np.zeros(shape_out, dtype=float)
+    if output_footprint is None and return_footprint:
+        output_footprint = np.zeros(shape_out, dtype=float)
+
+    if block_size is not None and len(block_size) < len(shape_out):
         block_size = [-1] * (len(shape_out) - len(block_size)) + list(block_size)
 
     def reproject_single_block(a, block_info=None):
         if a.ndim == 0 or block_info is None or block_info == []:
             return np.array([a, a])
-        print(block_info[None]["array-location"][-wcs_out.pixel_n_dim :])
         slices = [slice(*x) for x in block_info[None]["array-location"][-wcs_out.pixel_n_dim :]]
         wcs_out_sub = HighLevelWCSWrapper(SlicedLowLevelWCS(wcs_out, slices=slices))  #
         array, footprint = reproject_func(
@@ -248,24 +252,34 @@ def reproject_blocked(
     # Truncate extra elements
     result = result[tuple([slice(None)] + [slice(s) for s in shape_out])]
 
-    with dask.config.set(scheduler="processes" if parallel else "synchronous"):
-        if output_array is None:
-            output_array = result[0].compute()
-        else:
-            filename = tempfile.mktemp()
-            result[0].to_zarr(filename)
-            print(filename)
-            # TODO: load back into array - for now computing into memory
-            output_array = result[0].compute()
-        if return_footprint:
-            if output_footprint is None:
-                output_footprint = result[1].compute()
-            else:
-                filename = tempfile.mktemp()
-                result[1].to_zarr(filename)
-                print(filename)
-                # TODO: load back into array - for now computing into memory
-                output_footprint = result[1].compute()
-            return output_array, output_footprint
-        else:
-            return output_array
+    scheduler = "processes" if parallel else "synchronous"
+
+    if scheduler == 'processes':
+        # As discussed in https://github.com/dask/dask/issues/9556, da.store
+        # will not work well in multiprocessing mode when the destination is a
+        # Numpy array. Instead, in this case we save the dask array to a zarr
+        # array on disk which can be done in parallel, and re-load it as a dask
+        # array. We can then use da.store in the next step using the
+        # 'synchronous' scheduler since that is I/O limited so does not need
+        # to be done in parallel.
+        filename = tempfile.mktemp()
+        with dask.config.set(scheduler="processes"):
+            result.to_zarr(filename)
+        result = da.from_zarr(filename)
+
+    if return_footprint:
+        da.store(
+            [result[0], result[1]],
+            [output_array, output_footprint],
+            compute=True,
+            scheduler='synchronous',
+        )
+        return output_array, output_footprint
+    else:
+        da.store(
+            result[0],
+            output_array,
+            compute=True,
+            scheduler='synchronous',
+        )
+        return output_array

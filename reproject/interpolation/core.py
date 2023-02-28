@@ -74,6 +74,7 @@ def _reproject_full(
     array_out=None,
     return_footprint=True,
     roundtrip_coords=True,
+    output_footprint=None,
 ):
     """
     Reproject n-dimensional data to a new projection using interpolation.
@@ -99,6 +100,9 @@ def _reproject_full(
 
     if array_out is None:
         array_out = np.empty(shape_out)
+
+    if output_footprint is None:
+        output_footprint = np.empty(shape_out)
 
     array_out_loopable = array_out
     if len(array.shape) == wcs_in.low_level_wcs.pixel_n_dim:
@@ -149,6 +153,7 @@ def _reproject_full(
     # also contains this data and has the user's desired output shape.
 
     if return_footprint:
-        return array_out, (~np.isnan(array_out)).astype(float)
+        output_footprint[:] = (~np.isnan(array_out)).astype(float)
+        return array_out, output_footprint
     else:
         return array_out

@@ -138,4 +138,5 @@ def reproject_interp(
             array_out=output_array,
             return_footprint=return_footprint,
             roundtrip_coords=roundtrip_coords,
+            output_footprint=output_footprint,
         )
