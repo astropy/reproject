@@ -252,9 +252,7 @@ def reproject_blocked(
     # Truncate extra elements
     result = result[tuple([slice(None)] + [slice(s) for s in shape_out])]
 
-    scheduler = "processes" if parallel else "synchronous"
-
-    if scheduler == 'processes':
+    if parallel:
         # As discussed in https://github.com/dask/dask/issues/9556, da.store
         # will not work well in multiprocessing mode when the destination is a
         # Numpy array. Instead, in this case we save the dask array to a zarr
@@ -263,7 +261,11 @@ def reproject_blocked(
         # 'synchronous' scheduler since that is I/O limited so does not need
         # to be done in parallel.
         filename = tempfile.mktemp()
-        with dask.config.set(scheduler="processes"):
+        if isinstance(parallel, int):
+            workers = {'num_workers': parallel}
+        else:
+            workers = {}
+        with dask.config.set(scheduler="processes", **workers):
             result.to_zarr(filename)
         result = da.from_zarr(filename)
 
