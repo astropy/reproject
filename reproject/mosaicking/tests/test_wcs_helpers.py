@@ -10,6 +10,8 @@ from astropy.wcs import WCS
 from astropy.wcs.wcsapi import HighLevelWCSWrapper
 from numpy.testing import assert_allclose, assert_equal
 
+from reproject.tests.helpers import assert_header_allclose
+
 from ..wcs_helpers import find_optimal_celestial_wcs
 
 try:
@@ -231,7 +233,10 @@ class BaseTestOptimalWCS:
             input_value = [input_value]
 
         wcs_test, shape_test = find_optimal_celestial_wcs(input_value, frame=FK5(), hdu_in=hdu_in)
-        assert wcs_test.to_header() == wcs_ref.to_header() and shape_test == shape_ref
+
+        assert_header_allclose(wcs_test.to_header(), wcs_ref.to_header())
+
+        assert shape_test == shape_ref
 
 
 class TestOptimalFITSWCS(BaseTestOptimalWCS):
