@@ -9,24 +9,19 @@ Requirements
 
 This package has the following hard run time dependencies:
 
-* `Python <http://www.python.org/>`__ 3.7 or later
+* `Python <http://www.python.org/>`__ 3.8 or later
 
-* `Numpy <http://www.numpy.org/>`__ 1.14 or later
+* `Numpy <http://www.numpy.org/>`__ 1.20 or later
 
-* `Astropy <http://www.astropy.org/>`__ 3.2 or later
+* `Astropy <http://www.astropy.org/>`__ 5.0 or later
 
-* `Scipy <http://www.scipy.org/>`__ 1.1 or later
+* `Scipy <http://www.scipy.org/>`__ 1.5 or later
 
 * `astropy-healpix <https://astropy-healpix.readthedocs.io>`_ 0.6 or later for HEALPIX image reprojection
 
 and the following optional dependencies:
 
 * `shapely <https://toblerity.org/shapely/project.html>`_ 1.6 or later for some of the mosaicking functionality
-
-If you build the package from the source, the following additional packages
-are required:
-
-* `Cython <http://cython.org>`__
 
 and to run the tests, you will also need:
 
