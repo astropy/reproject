@@ -4,6 +4,8 @@ import numpy as np
 import pytest
 from astropy import units as u
 from astropy.coordinates import FK5, Galactic, SkyCoord
+from astropy.io import fits
+from astropy.nddata import NDData
 from astropy.wcs import WCS
 from astropy.wcs.wcsapi import HighLevelWCSWrapper
 from numpy.testing import assert_allclose, assert_equal
@@ -170,6 +172,67 @@ class BaseTestOptimalWCS:
             wcs, shape = find_optimal_celestial_wcs([(self.array, self.wcs)])
         assert exc.value.args[0] == "WCS does not have celestial components"
 
+    @pytest.mark.parametrize("iterable", [False, True])
+    @pytest.mark.parametrize(
+        "input_type",
+        [
+            "filename",
+            "path",
+            "hdulist",
+            "primary_hdu",
+            "image_hdu",
+            "comp_image_hdu",
+            "shape_wcs_tuple",
+            "data_wcs_tuple",
+            "nddata",
+        ],
+    )
+    def test_input_types(self, tmp_path, iterable, input_type):
+        # Test different kinds of inputs and check the result is always the same
+
+        # Reference
+        wcs_ref, shape_ref = find_optimal_celestial_wcs([(self.array, self.wcs)], frame=FK5())
+
+        # Test
+
+        hdulist = fits.HDUList(
+            [
+                fits.PrimaryHDU(self.array, self.wcs.to_header()),
+                fits.ImageHDU(self.array, self.wcs.to_header()),
+                fits.CompImageHDU(self.array, self.wcs.to_header()),
+            ]
+        )
+
+        hdu_in = None
+
+        if input_type in ["filename", "path"]:
+            input_value = tmp_path / "test.fits"
+            if input_type == "filename":
+                input_value = str(input_value)
+            hdulist.writeto(input_value)
+            hdu_in = 0
+        elif input_type == "hdulist":
+            input_value = hdulist
+            hdu_in = 1
+        elif input_type == "primary_hdu":
+            input_value = hdulist[0]
+        elif input_type == "image_hdu":
+            input_value = hdulist[1]
+        elif input_type == "comp_image_hdu":
+            input_value = hdulist[2]
+        elif input_type == "shape_wcs_tuple":
+            input_value = (self.array.shape, self.wcs)
+        elif input_type == "data_wcs_tuple":
+            input_value = (self.array, self.wcs)
+        elif input_type == "nddata":
+            input_value = NDData(data=self.array, wcs=self.wcs)
+
+        if iterable:
+            input_value = [input_value]
+
+        wcs_test, shape_test = find_optimal_celestial_wcs(input_value, frame=FK5(), hdu_in=hdu_in)
+        assert wcs_test.to_header() == wcs_ref.to_header() and shape_test == shape_ref
+
 
 class TestOptimalFITSWCS(BaseTestOptimalWCS):
     def generate_wcs(
@@ -211,6 +274,9 @@ class TestOptimalAPE14WCS(TestOptimalFITSWCS):
         return HighLevelWCSWrapper(wcs)
 
     def test_args_tuple_header(self):
+        pytest.skip()
+
+    def test_input_types(self):
         pytest.skip()
 
     crval_atol = 1.5

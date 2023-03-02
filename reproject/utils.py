@@ -1,4 +1,5 @@
 import tempfile
+from pathlib import Path
 from concurrent import futures
 
 import astropy.nddata
@@ -59,7 +60,7 @@ def parse_input_shape(input_shape, hdu_in=None):
     Parse input shape information to return an array shape tuple and WCS object.
     """
 
-    if isinstance(input_shape, str):
+    if isinstance(input_shape, (str, Path)):
         return parse_input_shape(fits.open(input_shape), hdu_in=hdu_in)
     elif isinstance(input_shape, HDUList):
         if hdu_in is None:
