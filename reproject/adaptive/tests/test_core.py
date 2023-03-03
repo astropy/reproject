@@ -63,12 +63,6 @@ def test_reproject_adaptive_2d(wcsapi, center_jacobian, roundtrip_coords):
     # Check that surface brightness is conserved in the unrotated case
     assert_allclose(np.nansum(data_in), np.nansum(array_out) * (256 / 60) ** 2, rtol=0.1)
 
-    # ASTROPY_LT_40: astropy v4.0 introduced new default header keywords,
-    # once we support only astropy 4.0 and later we can update the reference
-    # data files and remove this section.
-    for key in ("DATEREF", "MJDREFF", "MJDREFI", "MJDREF", "MJD-OBS"):
-        header_out.pop(key, None)
-
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 
 
@@ -105,12 +99,6 @@ def test_reproject_adaptive_2d_rotated(center_jacobian, roundtrip_coords):
         kernel="hann",
         boundary_mode="ignore",
     )
-
-    # ASTROPY_LT_40: astropy v4.0 introduced new default header keywords,
-    # once we support only astropy 4.0 and later we can update the reference
-    # data files and remove this section.
-    for key in ("DATEREF", "MJDREFF", "MJDREFI", "MJDREF", "MJD-OBS"):
-        header_out.pop(key, None)
 
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 
@@ -679,22 +667,6 @@ def test_reproject_adaptive_roundtrip(file_format):
 
     header_out = target_wcs.to_header()
 
-    # ASTROPY_LT_40: astropy v4.0 introduced new default header keywords,
-    # once we support only astropy 4.0 and later we can update the reference
-    # data files and remove this section.
-    for key in (
-        "CRLN_OBS",
-        "CRLT_OBS",
-        "DSUN_OBS",
-        "HGLN_OBS",
-        "HGLT_OBS",
-        "MJDREFF",
-        "MJDREFI",
-        "MJDREF",
-        "MJD-OBS",
-        "RSUN_REF",
-    ):
-        header_out.pop(key, None)
     header_out["DATE-OBS"] = header_out["DATE-OBS"].replace("T", " ")
 
     return array_footprint_to_hdulist(output, footprint, header_out)
@@ -716,22 +688,6 @@ def test_reproject_adaptive_uncentered_jacobian():
 
     header_out = target_wcs.to_header()
 
-    # ASTROPY_LT_40: astropy v4.0 introduced new default header keywords,
-    # once we support only astropy 4.0 and later we can update the reference
-    # data files and remove this section.
-    for key in (
-        "CRLN_OBS",
-        "CRLT_OBS",
-        "DSUN_OBS",
-        "HGLN_OBS",
-        "HGLT_OBS",
-        "MJDREFF",
-        "MJDREFI",
-        "MJDREF",
-        "MJD-OBS",
-        "RSUN_REF",
-    ):
-        header_out.pop(key, None)
     header_out["DATE-OBS"] = header_out["DATE-OBS"].replace("T", " ")
 
     return array_footprint_to_hdulist(output, footprint, header_out)
