@@ -72,9 +72,6 @@ def valid_celestial_input(tmp_path, request):
         input_value = hdulist[1]
     elif request.param == "comp_image_hdu":
         input_value = hdulist[2]
-    elif request.param == "ape14_wcs":
-        input_value = wcs
-        input_value._naxis = list(array.shape[::-1])
     elif request.param == "shape_wcs_tuple":
         input_value = (array.shape, wcs)
     elif request.param == "data_wcs_tuple":
@@ -92,32 +89,26 @@ def valid_celestial_input(tmp_path, request):
     return array, wcs, input_value, kwargs
 
 
-@pytest.fixture(
-    params=[
-        "filename",
-        "path",
-        "hdulist",
-        "primary_hdu",
-        "image_hdu",
-        "comp_image_hdu",
-        "data_wcs_tuple",
-        "nddata",
-    ]
-)
+COMMON_PARAMS = [
+    "filename",
+    "path",
+    "hdulist",
+    "primary_hdu",
+    "image_hdu",
+    "comp_image_hdu",
+    "data_wcs_tuple",
+    "nddata",
+]
+
+
+@pytest.fixture(params=COMMON_PARAMS)
 def valid_celestial_input_data(tmp_path, request):
     return valid_celestial_input(tmp_path, request)
 
 
 @pytest.fixture(
-    params=[
-        "filename",
-        "path",
-        "hdulist",
-        "primary_hdu",
-        "image_hdu",
-        "comp_image_hdu",
-        "data_wcs_tuple",
-        "nddata",
+    params=COMMON_PARAMS
+    + [
         "ape14_wcs",
         "shape_wcs_tuple",
     ]
