@@ -86,7 +86,6 @@ def valid_celestial_input(tmp_path, request):
         input_value._naxis = list(array.shape[::-1])
     elif request.param == "shape_wcs_tuple":
         input_value = (array.shape, wcs)
-
     else:
         raise ValueError(f"Unknown mode: {request.param}")
 
