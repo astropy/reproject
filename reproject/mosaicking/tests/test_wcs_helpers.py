@@ -181,9 +181,11 @@ class BaseTestOptimalWCS:
             "filename",
             "path",
             "hdulist",
+            "hdulist_all",
             "primary_hdu",
             "image_hdu",
             "comp_image_hdu",
+            "ape14_wcs",
             "shape_wcs_tuple",
             "data_wcs_tuple",
             "nddata",
@@ -216,18 +218,29 @@ class BaseTestOptimalWCS:
         elif input_type == "hdulist":
             input_value = hdulist
             hdu_in = 1
+        elif input_type == "hdulist_all":
+            # If a single HDUList is passed, the function will iterate over
+            # all HDUs. This test is only relevant in the non-iterable case
+            if iterable:
+                pytest.skip()
+            input_value = hdulist
         elif input_type == "primary_hdu":
             input_value = hdulist[0]
         elif input_type == "image_hdu":
             input_value = hdulist[1]
         elif input_type == "comp_image_hdu":
             input_value = hdulist[2]
+        elif input_type == "ape14_wcs":
+            input_value = self.wcs
+            input_value._naxis = list(shape_ref[::-1])
         elif input_type == "shape_wcs_tuple":
             input_value = (self.array.shape, self.wcs)
         elif input_type == "data_wcs_tuple":
             input_value = (self.array, self.wcs)
         elif input_type == "nddata":
             input_value = NDData(data=self.array, wcs=self.wcs)
+        else:
+            raise ValueError(f"Unknown mode: {input_type}")
 
         if iterable:
             input_value = [input_value]
