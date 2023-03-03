@@ -49,7 +49,6 @@ def simple_celestial_wcs():
 
 
 def valid_celestial_input(tmp_path, request, wcs):
-
     array = np.ones((30, 40))
 
     hdulist = fits.HDUList(
@@ -124,7 +123,6 @@ def valid_celestial_input_shapes(tmp_path, request, simple_celestial_wcs):
 
 @pytest.fixture(params=["wcs_shape", "header", "header_shape", "ape14_wcs"])
 def valid_celestial_output_projections(request, simple_celestial_wcs):
-
     shape = (30, 40)
     wcs = simple_celestial_wcs
 

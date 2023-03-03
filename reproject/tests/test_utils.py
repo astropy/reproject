@@ -73,7 +73,6 @@ def test_parse_input_shape_missing_hdu_in():
 
 
 def test_parse_output_projection(valid_celestial_output_projections):
-
     wcs_ref, shape_ref, output_value, kwargs = valid_celestial_output_projections
 
     wcs, shape = parse_output_projection(output_value, **kwargs)
@@ -83,12 +82,10 @@ def test_parse_output_projection(valid_celestial_output_projections):
 
 
 def test_parse_output_projection_invalid_header(simple_celestial_wcs):
-
     with pytest.raises(ValueError, match="Need to specify shape"):
         parse_output_projection(simple_celestial_wcs.to_header())
 
 
 def test_parse_output_projection_invalid_wcs(simple_celestial_wcs):
-
     with pytest.raises(ValueError, match="Need to specify shape"):
         parse_output_projection(simple_celestial_wcs)

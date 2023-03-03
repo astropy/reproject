@@ -9,7 +9,7 @@ import numpy as np
 from astropy.io import fits
 from astropy.io.fits import CompImageHDU, HDUList, Header, ImageHDU, PrimaryHDU
 from astropy.wcs import WCS
-from astropy.wcs.wcsapi import BaseLowLevelWCS, BaseHighLevelWCS, SlicedLowLevelWCS
+from astropy.wcs.wcsapi import BaseHighLevelWCS, BaseLowLevelWCS, SlicedLowLevelWCS
 from astropy.wcs.wcsapi.high_level_wcs_wrapper import HighLevelWCSWrapper
 from dask.utils import SerializableLock
 
@@ -144,7 +144,7 @@ def parse_output_projection(output_projection, shape_in=None, shape_out=None, ou
                 )
     elif isinstance(output_projection, (BaseLowLevelWCS, BaseHighLevelWCS)):
         wcs_out = output_projection
-        if getattr(wcs_out, 'array_shape') is not None:
+        if getattr(wcs_out, "array_shape") is not None:
             shape_out = wcs_out.array_shape
         elif shape_out is None:
             raise ValueError(
