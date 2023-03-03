@@ -37,15 +37,20 @@ def pytest_configure(config):
         TESTED_VERSIONS["reproject"] = __version__
 
 
-def valid_celestial_input(tmp_path, request):
-    array = np.ones((30, 40))
-
+@pytest.fixture
+def simple_celestial_wcs():
     wcs = WCS(naxis=2)
     wcs.wcs.ctype = "RA---TAN", "DEC--TAN"
     wcs.wcs.crpix = (1, 2)
     wcs.wcs.crval = (30, 40)
     wcs.wcs.cdelt = (-0.05, 0.04)
     wcs.wcs.equinox = 2000.0
+    return wcs
+
+
+def valid_celestial_input(tmp_path, request, wcs):
+
+    array = np.ones((30, 40))
 
     hdulist = fits.HDUList(
         [
@@ -102,8 +107,8 @@ COMMON_PARAMS = [
 
 
 @pytest.fixture(params=COMMON_PARAMS)
-def valid_celestial_input_data(tmp_path, request):
-    return valid_celestial_input(tmp_path, request)
+def valid_celestial_input_data(tmp_path, request, simple_celestial_wcs):
+    return valid_celestial_input(tmp_path, request, simple_celestial_wcs)
 
 
 @pytest.fixture(
@@ -113,5 +118,32 @@ def valid_celestial_input_data(tmp_path, request):
         "shape_wcs_tuple",
     ]
 )
-def valid_celestial_input_shapes(tmp_path, request):
-    return valid_celestial_input(tmp_path, request)
+def valid_celestial_input_shapes(tmp_path, request, simple_celestial_wcs):
+    return valid_celestial_input(tmp_path, request, simple_celestial_wcs)
+
+
+@pytest.fixture(params=["wcs_shape", "header", "header_shape", "ape14_wcs"])
+def valid_celestial_output_projections(request, simple_celestial_wcs):
+
+    shape = (30, 40)
+    wcs = simple_celestial_wcs
+
+    kwargs = {}
+
+    if request.param == "wcs_shape":
+        output_value = wcs
+        kwargs["shape_out"] = shape
+    elif request.param == "header":
+        header = wcs.to_header()
+        header["NAXIS"] = 2
+        header["NAXIS1"] = 40
+        header["NAXIS2"] = 30
+        output_value = header
+    elif request.param == "header_shape":
+        output_value = wcs.to_header()
+        kwargs["shape_out"] = shape
+    elif request.param == "ape14_wcs":
+        output_value = wcs
+        output_value._naxis = (40, 30)
+
+    return wcs, shape, output_value, kwargs

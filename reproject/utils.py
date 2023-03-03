@@ -9,7 +9,7 @@ import numpy as np
 from astropy.io import fits
 from astropy.io.fits import CompImageHDU, HDUList, Header, ImageHDU, PrimaryHDU
 from astropy.wcs import WCS
-from astropy.wcs.wcsapi import BaseHighLevelWCS, BaseLowLevelWCS, SlicedLowLevelWCS
+from astropy.wcs.wcsapi import BaseLowLevelWCS, SlicedLowLevelWCS
 from astropy.wcs.wcsapi.high_level_wcs_wrapper import HighLevelWCSWrapper
 from dask.utils import SerializableLock
 
@@ -142,9 +142,11 @@ def parse_output_projection(output_projection, shape_in=None, shape_out=None, ou
                     "Need to specify shape since output header "
                     "does not contain complete shape information"
                 )
-    elif isinstance(output_projection, BaseHighLevelWCS):
+    elif isinstance(output_projection, BaseLowLevelWCS):
         wcs_out = output_projection
-        if shape_out is None:
+        if wcs_out.array_shape is not None:
+            shape_out = wcs_out.array_shape
+        elif shape_out is None:
             raise ValueError(
                 "Need to specify shape_out when specifying output_projection as WCS object"
             )
@@ -168,7 +170,7 @@ def parse_output_projection(output_projection, shape_in=None, shape_out=None, ou
         # Add the broadcast dimensions to the output shape, which does not
         # currently have any broadcast dims
         shape_out = (*shape_in[: -len(shape_out)], *shape_out)
-    return wcs_out, shape_out
+    return wcs_out, tuple(shape_out)
 
 
 def _reproject_blocked(

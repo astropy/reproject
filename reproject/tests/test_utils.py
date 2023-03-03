@@ -25,12 +25,12 @@ def test_parse_input_data_invalid():
         parse_input_data(data)
 
 
-def test_parse_input_shape_missing_hdu_in():
+def test_parse_input_data_missing_hdu_in():
     hdulist = fits.HDUList(
         [fits.PrimaryHDU(data=np.ones((30, 40))), fits.ImageHDU(data=np.ones((20, 30)))]
     )
 
-    with pytest.raises(TypeError, match="More than one HDU"):
+    with pytest.raises(ValueError, match="More than one HDU"):
         parse_input_data(hdulist)
 
 
@@ -72,32 +72,23 @@ def test_parse_input_shape_missing_hdu_in():
     )
 
 
-def test_parse_output_projection(tmpdir):
-    header = fits.Header.fromtextfile(get_pkg_data_filename("data/gc_ga.hdr"))
-    wcs = WCS(header)
+def test_parse_output_projection(valid_celestial_output_projections):
 
-    # As header
+    wcs_ref, shape_ref, output_value, kwargs = valid_celestial_output_projections
 
-    with pytest.raises(ValueError) as exc:
-        parse_output_projection(header)
-    assert exc.value.args[0] == (
-        "Need to specify shape since output header does not contain complete shape information"
-    )
+    wcs, shape = parse_output_projection(output_value, **kwargs)
 
-    parse_output_projection(header, shape_out=(200, 200))
+    assert shape == shape_ref
+    assert_header_allclose(wcs.to_header(), wcs_ref.to_header())
 
-    header["NAXIS"] = 2
-    header["NAXIS1"] = 200
-    header["NAXIS2"] = 300
 
-    parse_output_projection(header)
+def test_parse_output_projection_invalid_header(simple_celestial_wcs):
 
-    # As WCS
+    with pytest.raises(ValueError, match="Need to specify shape"):
+        parse_output_projection(simple_celestial_wcs.to_header())
 
-    with pytest.raises(ValueError) as exc:
-        parse_output_projection(wcs)
-    assert exc.value.args[0] == (
-        "Need to specify shape_out when specifying output_projection as WCS object"
-    )
 
-    parse_output_projection(wcs, shape_out=(200, 200))
+def test_parse_output_projection_invalid_wcs(simple_celestial_wcs):
+
+    with pytest.raises(ValueError, match="Need to specify shape"):
+        parse_output_projection(simple_celestial_wcs)
