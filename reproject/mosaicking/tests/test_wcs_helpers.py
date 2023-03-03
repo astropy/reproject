@@ -174,83 +174,6 @@ class BaseTestOptimalWCS:
             wcs, shape = find_optimal_celestial_wcs([(self.array, self.wcs)])
         assert exc.value.args[0] == "WCS does not have celestial components"
 
-    @pytest.mark.parametrize("iterable", [False, True])
-    @pytest.mark.parametrize(
-        "input_type",
-        [
-            "filename",
-            "path",
-            "hdulist",
-            "hdulist_all",
-            "primary_hdu",
-            "image_hdu",
-            "comp_image_hdu",
-            "ape14_wcs",
-            "shape_wcs_tuple",
-            "data_wcs_tuple",
-            "nddata",
-        ],
-    )
-    def test_input_types(self, tmp_path, iterable, input_type):
-        # Test different kinds of inputs and check the result is always the same
-
-        # Reference
-        wcs_ref, shape_ref = find_optimal_celestial_wcs([(self.array, self.wcs)], frame=FK5())
-
-        # Test
-
-        hdulist = fits.HDUList(
-            [
-                fits.PrimaryHDU(self.array, self.wcs.to_header()),
-                fits.ImageHDU(self.array, self.wcs.to_header()),
-                fits.CompImageHDU(self.array, self.wcs.to_header()),
-            ]
-        )
-
-        hdu_in = None
-
-        if input_type in ["filename", "path"]:
-            input_value = tmp_path / "test.fits"
-            if input_type == "filename":
-                input_value = str(input_value)
-            hdulist.writeto(input_value)
-            hdu_in = 0
-        elif input_type == "hdulist":
-            input_value = hdulist
-            hdu_in = 1
-        elif input_type == "hdulist_all":
-            # If a single HDUList is passed, the function will iterate over
-            # all HDUs. This test is only relevant in the non-iterable case
-            if iterable:
-                pytest.skip()
-            input_value = hdulist
-        elif input_type == "primary_hdu":
-            input_value = hdulist[0]
-        elif input_type == "image_hdu":
-            input_value = hdulist[1]
-        elif input_type == "comp_image_hdu":
-            input_value = hdulist[2]
-        elif input_type == "ape14_wcs":
-            input_value = self.wcs
-            input_value._naxis = list(shape_ref[::-1])
-        elif input_type == "shape_wcs_tuple":
-            input_value = (self.array.shape, self.wcs)
-        elif input_type == "data_wcs_tuple":
-            input_value = (self.array, self.wcs)
-        elif input_type == "nddata":
-            input_value = NDData(data=self.array, wcs=self.wcs)
-        else:
-            raise ValueError(f"Unknown mode: {input_type}")
-
-        if iterable:
-            input_value = [input_value]
-
-        wcs_test, shape_test = find_optimal_celestial_wcs(input_value, frame=FK5(), hdu_in=hdu_in)
-
-        assert_header_allclose(wcs_test.to_header(), wcs_ref.to_header())
-
-        assert shape_test == shape_ref
-
 
 class TestOptimalFITSWCS(BaseTestOptimalWCS):
     def generate_wcs(
@@ -294,9 +217,6 @@ class TestOptimalAPE14WCS(TestOptimalFITSWCS):
     def test_args_tuple_header(self):
         pytest.skip()
 
-    def test_input_types(self):
-        pytest.skip()
-
     crval_atol = 1.5
     crpix_atol = 1e-6
     cdelt_rtol = 1.0e-3
@@ -307,3 +227,25 @@ class TestOptimalAPE14WCS(TestOptimalFITSWCS):
     frame_projection_expected_shape = 46, 50
     auto_rotate_expected_crpix = 20.520875, 15.503349
     multiple_size_expected_crpix = 27.279739, 17.29016
+
+
+@pytest.mark.parametrize("iterable", [False, True])
+def test_input_types(valid_celestial_input, iterable):
+
+    # Test different kinds of inputs and check the result is always the same
+
+    array, wcs, input_value, kwargs = valid_celestial_input
+
+    wcs_ref, shape_ref = find_optimal_celestial_wcs([(array, wcs)], frame=FK5())
+
+    if isinstance(input_value, fits.HDUList) and iterable and kwargs == {}:
+        pytest.skip()
+
+    if iterable:
+        input_value = [input_value]
+
+    wcs_test, shape_test = find_optimal_celestial_wcs(input_value, frame=FK5(), **kwargs)
+
+    assert_header_allclose(wcs_test.to_header(), wcs_ref.to_header())
+
+    assert shape_test == shape_ref
