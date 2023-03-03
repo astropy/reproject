@@ -5,115 +5,51 @@ from astropy.nddata import NDData
 from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
 
+from reproject.tests.helpers import assert_header_allclose
 from reproject.utils import parse_input_data, parse_input_shape, parse_output_projection
 
 
 @pytest.mark.filterwarnings("ignore:unclosed file:ResourceWarning")
-def test_parse_input_data(tmpdir):
-    header = fits.Header.fromtextfile(get_pkg_data_filename("data/gc_ga.hdr"))
+def test_parse_input_data(tmpdir, valid_celestial_input_data, request):
+    array_ref, wcs_ref, input_value, kwargs = valid_celestial_input_data
 
-    data = np.arange(200).reshape((10, 20))
+    data, wcs = parse_input_data(input_value, **kwargs)
+    np.testing.assert_allclose(data, array_ref)
+    assert_header_allclose(wcs.to_header(), wcs_ref.to_header())
 
-    hdu = fits.ImageHDU(data, header)
 
-    # We want to test that the WCS is being parsed and output correctly in each
-    # of these cases. WCS doesn't seem to implement __eq__, so we convert the
-    # output WCS to a Header and compare that. Here we convert the original
-    # Header to a WCS and back to ensure an apples-to-apples comparision.
-    ref_coord_system = WCS(header).to_header()
+def test_parse_input_data_invalid():
+    data = np.ones((30, 40))
 
-    # As HDU
-    array, coordinate_system = parse_input_data(hdu)
-    np.testing.assert_allclose(array, data)
-    assert coordinate_system.to_header() == ref_coord_system
-
-    # As filename
-    filename = tmpdir.join("test.fits").strpath
-    hdu.writeto(filename)
-
-    with pytest.raises(ValueError) as exc:
-        array, coordinate_system = parse_input_data(filename)
-    assert exc.value.args[0] == (
-        "More than one HDU is present, please specify HDU to use with ``hdu_in=`` option"
-    )
-
-    array, coordinate_system = parse_input_data(filename, hdu_in=1)
-    np.testing.assert_allclose(array, data)
-    assert coordinate_system.to_header() == ref_coord_system
-
-    # As array, header
-    array, coordinate_system = parse_input_data((data, header))
-    np.testing.assert_allclose(array, data)
-    assert coordinate_system.to_header() == ref_coord_system
-
-    # As array, WCS
-    wcs = WCS(hdu.header)
-    array, coordinate_system = parse_input_data((data, wcs))
-    np.testing.assert_allclose(array, data)
-    assert coordinate_system is wcs
-
-    ndd = NDData(data, wcs=wcs)
-    array, coordinate_system = parse_input_data(ndd)
-    np.testing.assert_allclose(array, data)
-    assert coordinate_system is wcs
-
-    # Invalid
-    with pytest.raises(TypeError) as exc:
+    with pytest.raises(TypeError, match="input_data should either be an HDU object"):
         parse_input_data(data)
-    assert exc.value.args[0] == (
-        "input_data should either be an HDU object or a tuple of (array, WCS) or (array, Header)"
+
+
+def test_parse_input_shape_missing_hdu_in():
+    hdulist = fits.HDUList(
+        [fits.PrimaryHDU(data=np.ones((30, 40))), fits.ImageHDU(data=np.ones((20, 30)))]
     )
+
+    with pytest.raises(TypeError, match="More than one HDU"):
+        parse_input_data(hdulist)
 
 
 @pytest.mark.filterwarnings("ignore:unclosed file:ResourceWarning")
-def test_parse_input_shape(tmpdir):
+def test_parse_input_shape(tmpdir, valid_celestial_input_shapes):
     """
     This should support everything that parse_input_data does, *plus* an
     "array-like" argument that is just a shape rather than a populated array.
     """
-    header = fits.Header.fromtextfile(get_pkg_data_filename("data/gc_ga.hdr"))
-    in_shape = (10, 20)
-    data = np.arange(200).reshape(in_shape)
-    hdu = fits.ImageHDU(data)
 
-    # As HDU
-    shape, coordinate_system = parse_input_shape(hdu)
-    assert shape == in_shape
+    array_ref, wcs_ref, input_value, kwargs = valid_celestial_input_shapes
 
-    # As filename
-    filename = tmpdir.join("test.fits").strpath
-    hdu.writeto(filename)
+    shape, wcs = parse_input_shape(input_value, **kwargs)
+    assert shape == array_ref.shape
+    assert_header_allclose(wcs.to_header(), wcs_ref.to_header())
 
-    with pytest.raises(ValueError) as exc:
-        shape, coordinate_system = parse_input_shape(filename)
-    assert exc.value.args[0] == (
-        "More than one HDU is present, please specify HDU to use with ``hdu_in=`` option"
-    )
 
-    shape, coordinate_system = parse_input_shape(filename, hdu_in=1)
-    assert shape == in_shape
-
-    # As array, header
-    shape, coordinate_system = parse_input_shape((data, header))
-    assert shape == in_shape
-
-    # As array, WCS
-    wcs = WCS(hdu.header)
-    shape, coordinate_system = parse_input_shape((data, wcs))
-    assert shape == in_shape
-
-    ndd = NDData(data, wcs=wcs)
-    shape, coordinate_system = parse_input_shape(ndd)
-    assert shape == in_shape
-    assert coordinate_system is wcs
-
-    # As shape, header
-    shape, coordinate_system = parse_input_shape((data.shape, header))
-    assert shape == in_shape
-
-    # As shape, WCS
-    shape, coordinate_system = parse_input_shape((data.shape, wcs))
-    assert shape == in_shape
+def test_parse_input_shape_invalid():
+    data = np.ones((30, 40))
 
     # Invalid
     with pytest.raises(TypeError) as exc:
@@ -121,6 +57,18 @@ def test_parse_input_shape(tmpdir):
     assert exc.value.args[0] == (
         "input_shape should either be an HDU object or a tuple "
         "of (array-or-shape, WCS) or (array-or-shape, Header)"
+    )
+
+
+def test_parse_input_shape_missing_hdu_in():
+    hdulist = fits.HDUList(
+        [fits.PrimaryHDU(data=np.ones((30, 40))), fits.ImageHDU(data=np.ones((20, 30)))]
+    )
+
+    with pytest.raises(ValueError) as exc:
+        shape, coordinate_system = parse_input_shape(hdulist)
+    assert exc.value.args[0] == (
+        "More than one HDU is present, please specify HDU to use with ``hdu_in=`` option"
     )
 
 

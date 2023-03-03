@@ -3,6 +3,8 @@
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord, frame_transform_graph
+from astropy.io.fits import Header
+from astropy.utils import isiterable
 from astropy.wcs import WCS
 from astropy.wcs.utils import (
     celestial_frame_to_wcs,
@@ -18,7 +20,13 @@ __all__ = ["find_optimal_celestial_wcs"]
 
 
 def find_optimal_celestial_wcs(
-    input_data, frame=None, auto_rotate=False, projection="TAN", resolution=None, reference=None
+    input_data,
+    hdu_in=None,
+    frame=None,
+    auto_rotate=False,
+    projection="TAN",
+    resolution=None,
+    reference=None,
 ):
     """
     Given one or more images, return an optimal WCS projection object and
@@ -44,7 +52,15 @@ def find_optimal_celestial_wcs(
             * A tuple where the first element is a `~numpy.ndarray` and the
               second element is either a `~astropy.wcs.WCS` or a
               `~astropy.io.fits.Header` object
+            * An `~astropy.nddata.NDData` object from which the ``.data`` and
+              ``.wcs`` attributes will be used as the input data.
 
+        If only one input data needs to be provided, it is also possible to
+        pass it in without including it in an iterable.
+
+    hdu_in : int or str, optional
+        If ``input_data`` is a FITS file or an `~astropy.io.fits.HDUList`
+        instance, specifies the HDU to use.
     frame : str or `~astropy.coordinates.BaseCoordinateFrame`
         The coordinate system for the final image (defaults to the frame of
         the first image specified)
@@ -75,7 +91,25 @@ def find_optimal_celestial_wcs(
     if isinstance(frame, str):
         frame = frame_transform_graph.lookup_name(frame)()
 
-    input_shapes = [parse_input_shape(shape) for shape in input_data]
+    # Determine whether an iterable of input values was given or a single
+    # input data.
+
+    if isinstance(input_data, str):
+        # Handle this explicitly as isiterable(str) is True
+        iterable = False
+    elif isiterable(input_data):
+        if len(input_data) == 2 and isinstance(input_data[1], (WCS, Header)):
+            # Since 2-element tuples are valid single inputs we need to check for this
+            iterable = False
+        else:
+            iterable = True
+    else:
+        iterable = False
+
+    if iterable:
+        input_shapes = [parse_input_shape(shape, hdu_in=hdu_in) for shape in input_data]
+    else:
+        input_shapes = [parse_input_shape(input_data, hdu_in=hdu_in)]
 
     # We start off by looping over images, checking that they are indeed
     # celestial images, and building up a list of all corners and all reference

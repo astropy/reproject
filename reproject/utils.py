@@ -1,4 +1,5 @@
 import tempfile
+from pathlib import Path
 from concurrent import futures
 
 import astropy.nddata
@@ -8,7 +9,7 @@ import numpy as np
 from astropy.io import fits
 from astropy.io.fits import CompImageHDU, HDUList, Header, ImageHDU, PrimaryHDU
 from astropy.wcs import WCS
-from astropy.wcs.wcsapi import BaseHighLevelWCS, SlicedLowLevelWCS
+from astropy.wcs.wcsapi import BaseHighLevelWCS, BaseLowLevelWCS, SlicedLowLevelWCS
 from astropy.wcs.wcsapi.high_level_wcs_wrapper import HighLevelWCSWrapper
 from dask.utils import SerializableLock
 
@@ -25,7 +26,7 @@ def parse_input_data(input_data, hdu_in=None):
     Parse input data to return a Numpy array and WCS object.
     """
 
-    if isinstance(input_data, str):
+    if isinstance(input_data, (str, Path)):
         with fits.open(input_data) as hdul:
             return parse_input_data(hdul, hdu_in=hdu_in)
     elif isinstance(input_data, HDUList):
@@ -45,6 +46,8 @@ def parse_input_data(input_data, hdu_in=None):
             return input_data[0], WCS(input_data[1])
         else:
             return input_data
+    elif isinstance(input_data, BaseLowLevelWCS) and input_data.array_shape is not None:
+        return input_data.array_shape, input_data
     elif isinstance(input_data, astropy.nddata.NDDataBase):
         return input_data.data, input_data.wcs
     else:
@@ -59,7 +62,7 @@ def parse_input_shape(input_shape, hdu_in=None):
     Parse input shape information to return an array shape tuple and WCS object.
     """
 
-    if isinstance(input_shape, str):
+    if isinstance(input_shape, (str, Path)):
         return parse_input_shape(fits.open(input_shape), hdu_in=hdu_in)
     elif isinstance(input_shape, HDUList):
         if hdu_in is None:
@@ -83,6 +86,8 @@ def parse_input_shape(input_shape, hdu_in=None):
             return input_shape[0], WCS(input_shape[1])
         else:
             return input_shape
+    elif isinstance(input_shape, BaseLowLevelWCS) and input_shape.array_shape is not None:
+        return input_shape.array_shape, input_shape
     elif isinstance(input_shape, astropy.nddata.NDDataBase):
         return input_shape.data.shape, input_shape.wcs
     else:

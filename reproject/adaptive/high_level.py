@@ -41,6 +41,9 @@ def reproject_adaptive(
             * An image HDU object such as a `~astropy.io.fits.PrimaryHDU`,
               `~astropy.io.fits.ImageHDU`, or `~astropy.io.fits.CompImageHDU`
               instance
+            * A tuple where the first element is an Numpy array shape tuple
+              the second element is either a `~astropy.wcs.WCS` or a
+              `~astropy.io.fits.Header` object
             * A tuple where the first element is a `~numpy.ndarray` and the
               second element is either a `~astropy.wcs.WCS` or a
               `~astropy.io.fits.Header` object
