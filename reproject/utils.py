@@ -9,7 +9,7 @@ import numpy as np
 from astropy.io import fits
 from astropy.io.fits import CompImageHDU, HDUList, Header, ImageHDU, PrimaryHDU
 from astropy.wcs import WCS
-from astropy.wcs.wcsapi import BaseLowLevelWCS, BaseHighLevelWCS, SlicedLowLevelWCS
+from astropy.wcs.wcsapi import BaseHighLevelWCS, BaseLowLevelWCS, SlicedLowLevelWCS
 from astropy.wcs.wcsapi.high_level_wcs_wrapper import HighLevelWCSWrapper
 from dask.utils import SerializableLock
 
@@ -26,7 +26,7 @@ def parse_input_data(input_data, hdu_in=None):
     Parse input data to return a Numpy array and WCS object.
     """
 
-    if isinstance(input_data, str):
+    if isinstance(input_data, (str, Path)):
         with fits.open(input_data) as hdul:
             return parse_input_data(hdul, hdu_in=hdu_in)
     elif isinstance(input_data, HDUList):

@@ -230,22 +230,23 @@ class TestOptimalAPE14WCS(TestOptimalFITSWCS):
 
 
 @pytest.mark.parametrize("iterable", [False, True])
-def test_input_types(valid_celestial_input, iterable):
-
+def test_input_types(valid_celestial_input_shapes, iterable):
     # Test different kinds of inputs and check the result is always the same
 
-    array, wcs, input_value, kwargs = valid_celestial_input
+    array, wcs, input_value, kwargs = valid_celestial_input_shapes
 
     wcs_ref, shape_ref = find_optimal_celestial_wcs([(array, wcs)], frame=FK5())
-
-    if isinstance(input_value, fits.HDUList) and iterable and kwargs == {}:
-        pytest.skip()
 
     if iterable:
         input_value = [input_value]
 
     wcs_test, shape_test = find_optimal_celestial_wcs(input_value, frame=FK5(), **kwargs)
-
     assert_header_allclose(wcs_test.to_header(), wcs_ref.to_header())
-
     assert shape_test == shape_ref
+
+    if isinstance(input_value, fits.HDUList) and not iterable:
+        # Also check case of not passing hdu_in and having all HDUs being included
+
+        wcs_test, shape_test = find_optimal_celestial_wcs(input_value, frame=FK5())
+        assert_header_allclose(wcs_test.to_header(), wcs_ref.to_header())
+        assert shape_test == shape_ref

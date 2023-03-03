@@ -5,11 +5,11 @@
 
 import os
 
-import pytest
 import numpy as np
-from astropy.wcs import WCS
+import pytest
 from astropy.io import fits
 from astropy.nddata import NDData
+from astropy.wcs import WCS
 
 try:
     from pytest_astropy_header.display import PYTEST_HEADER_MODULES, TESTED_VERSIONS
@@ -37,23 +37,7 @@ def pytest_configure(config):
         TESTED_VERSIONS["reproject"] = __version__
 
 
-@pytest.fixture(params=        [
-            "filename",
-            "path",
-            "hdulist",
-            "hdulist_all",
-            "primary_hdu",
-            "image_hdu",
-            "comp_image_hdu",
-            "ape14_wcs",
-            "shape_wcs_tuple",
-            "data_wcs_tuple",
-            "nddata",
-        ])
 def valid_celestial_input(tmp_path, request):
-
-    request.param
-
     array = np.ones((30, 40))
 
     wcs = WCS(naxis=2)
@@ -78,12 +62,10 @@ def valid_celestial_input(tmp_path, request):
         if request.param == "filename":
             input_value = str(input_value)
         hdulist.writeto(input_value)
-        kwargs['hdu_in'] = 0
+        kwargs["hdu_in"] = 0
     elif request.param == "hdulist":
         input_value = hdulist
-        kwargs['hdu_in'] = 1
-    elif request.param == "hdulist_all":
-        input_value = hdulist
+        kwargs["hdu_in"] = 1
     elif request.param == "primary_hdu":
         input_value = hdulist[0]
     elif request.param == "image_hdu":
@@ -99,7 +81,47 @@ def valid_celestial_input(tmp_path, request):
         input_value = (array, wcs)
     elif request.param == "nddata":
         input_value = NDData(data=array, wcs=wcs)
+    elif request.param == "ape14_wcs":
+        input_value = wcs
+        input_value._naxis = list(array.shape[::-1])
+    elif request.param == "shape_wcs_tuple":
+        input_value = (array.shape, wcs)
+
     else:
         raise ValueError(f"Unknown mode: {request.param}")
 
     return array, wcs, input_value, kwargs
+
+
+@pytest.fixture(
+    params=[
+        "filename",
+        "path",
+        "hdulist",
+        "primary_hdu",
+        "image_hdu",
+        "comp_image_hdu",
+        "data_wcs_tuple",
+        "nddata",
+    ]
+)
+def valid_celestial_input_data(tmp_path, request):
+    return valid_celestial_input(tmp_path, request)
+
+
+@pytest.fixture(
+    params=[
+        "filename",
+        "path",
+        "hdulist",
+        "primary_hdu",
+        "image_hdu",
+        "comp_image_hdu",
+        "data_wcs_tuple",
+        "nddata",
+        "ape14_wcs",
+        "shape_wcs_tuple",
+    ]
+)
+def valid_celestial_input_shapes(tmp_path, request):
+    return valid_celestial_input(tmp_path, request)
