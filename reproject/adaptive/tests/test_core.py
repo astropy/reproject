@@ -878,7 +878,7 @@ def test_adaptive_input_output_types(
     # Compute test
 
     output_test, footprint_test = reproject_adaptive(
-        input_value, output_value, **(kwargs_in | kwargs_out)
+        input_value, output_value, **kwargs_in, **kwargs_out
     )
 
     assert_allclose(output_ref, output_test)

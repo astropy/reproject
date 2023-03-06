@@ -195,7 +195,7 @@ def test_exact_input_output_types(valid_celestial_input_data, valid_celestial_ou
     # Compute test
 
     output_test, footprint_test = reproject_exact(
-        input_value, output_value, **(kwargs_in | kwargs_out)
+        input_value, output_value, **kwargs_in, **kwargs_out
     )
 
     assert_allclose(output_ref, output_test)
