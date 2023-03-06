@@ -1,6 +1,8 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
 import numpy as np
+from astropy.wcs import WCS
+from astropy.wcs.wcsapi import SlicedLowLevelWCS
 
 from ..utils import parse_input_data, parse_input_weights, parse_output_projection
 from .background import determine_offset_matrix, solve_corrections_sgd
@@ -154,7 +156,13 @@ def reproject_and_coadd(
         if imax < imin or jmax < jmin:
             continue
 
-        wcs_out_indiv = wcs_out[jmin:jmax, imin:imax]
+        if isinstance(wcs_out, WCS):
+            wcs_out_indiv = wcs_out[jmin:jmax, imin:imax]
+        else:
+            wcs_out_indiv = SlicedLowLevelWCS(
+                wcs_out.low_level_wcs, (slice(jmin, jmax), slice(imin, imax))
+            )
+
         shape_out_indiv = (jmax - jmin, imax - imin)
 
         # TODO: optimize handling of weights by making reprojection functions
