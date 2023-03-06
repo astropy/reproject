@@ -45,7 +45,10 @@ def parse_input_data(input_data, hdu_in=None):
         if isinstance(input_data[1], Header):
             return input_data[0], WCS(input_data[1])
         else:
-            return input_data
+            if isinstance(input_data[1], BaseHighLevelWCS):
+                return input_data
+            else:
+                return input_data[0], HighLevelWCSWrapper(input_data[1])
     elif (
         isinstance(input_data, BaseHighLevelWCS)
         and input_data.low_level_wcs.array_shape is not None
@@ -85,12 +88,18 @@ def parse_input_shape(input_shape, hdu_in=None):
         if isinstance(input_shape[1], Header):
             return input_shape[0].shape, WCS(input_shape[1])
         else:
-            return input_shape[0].shape, input_shape[1]
+            if isinstance(input_shape[1], BaseHighLevelWCS):
+                return input_shape[0].shape, input_shape[1]
+            else:
+                return input_shape[0].shape, HighLevelWCSWrapper(input_shape[1])
     elif isinstance(input_shape, tuple) and isinstance(input_shape[0], tuple):
         if isinstance(input_shape[1], Header):
             return input_shape[0], WCS(input_shape[1])
         else:
-            return input_shape
+            if isinstance(input_shape[1], BaseHighLevelWCS):
+                return input_shape
+            else:
+                return input_shape[0], HighLevelWCSWrapper(input_shape[1])
     elif (
         isinstance(input_shape, BaseHighLevelWCS)
         and input_shape.low_level_wcs.array_shape is not None

@@ -81,11 +81,11 @@ def test_parse_output_projection(valid_celestial_output_projections):
     assert_wcs_allclose(wcs, wcs_ref)
 
 
-def test_parse_output_projection_invalid_header(simple_celestial_wcs):
+def test_parse_output_projection_invalid_header(simple_celestial_fits_wcs):
     with pytest.raises(ValueError, match="Need to specify shape"):
-        parse_output_projection(simple_celestial_wcs.to_header())
+        parse_output_projection(simple_celestial_fits_wcs.to_header())
 
 
-def test_parse_output_projection_invalid_wcs(simple_celestial_wcs):
+def test_parse_output_projection_invalid_wcs(simple_celestial_fits_wcs):
     with pytest.raises(ValueError, match="Need to specify shape"):
-        parse_output_projection(simple_celestial_wcs)
+        parse_output_projection(simple_celestial_fits_wcs)

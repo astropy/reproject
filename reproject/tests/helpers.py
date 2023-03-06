@@ -14,11 +14,15 @@ def array_footprint_to_hdulist(array, footprint, header):
 
 def _underlying_wcs(wcs):
     # For testing purposes, try and return an underlying WCS object if equivalent
+
     if hasattr(wcs, "low_level_wcs"):
         if isinstance(wcs.low_level_wcs, WCS):
             return wcs.low_level_wcs
         elif isinstance(wcs.low_level_wcs, TestLowLevelWCS):
             return wcs.low_level_wcs._low_level_wcs
+    elif isinstance(wcs, TestLowLevelWCS):
+        return wcs._low_level_wcs
+
     return wcs
 
 

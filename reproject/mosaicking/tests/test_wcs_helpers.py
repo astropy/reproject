@@ -262,8 +262,13 @@ def test_input_types(valid_celestial_input_shapes, iterable):
 
     wcs_ref, shape_ref = find_optimal_celestial_wcs([(array, wcs)], frame=FK5())
 
-    if not isinstance(input_value, WCS) and isinstance(
-        input_value, (BaseLowLevelWCS, BaseHighLevelWCS)
+    if (
+        not isinstance(input_value, WCS)
+        and isinstance(input_value, (BaseLowLevelWCS, BaseHighLevelWCS))
+    ) or (
+        isinstance(input_value, tuple)
+        and not isinstance(input_value[1], WCS)
+        and isinstance(input_value[1], (BaseLowLevelWCS, BaseHighLevelWCS))
     ):
         wcs_ref = WCS(fits.Header.fromstring(APE14_HEADER_REF, sep="\n"))
         shape_ref = (31, 50)
