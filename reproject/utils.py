@@ -9,7 +9,7 @@ import numpy as np
 from astropy.io import fits
 from astropy.io.fits import CompImageHDU, HDUList, Header, ImageHDU, PrimaryHDU
 from astropy.wcs import WCS
-from astropy.wcs.wcsapi import BaseHighLevelWCS, SlicedLowLevelWCS
+from astropy.wcs.wcsapi import BaseHighLevelWCS, BaseLowLevelWCS, SlicedLowLevelWCS
 from astropy.wcs.wcsapi.high_level_wcs_wrapper import HighLevelWCSWrapper
 from dask.utils import SerializableLock
 
@@ -51,6 +51,8 @@ def parse_input_data(input_data, hdu_in=None):
         and input_data.low_level_wcs.array_shape is not None
     ):
         return input_data.array_shape, input_data
+    elif isinstance(input_data, BaseLowLevelWCS) and input_data.array_shape is not None:
+        return input_data.array_shape, HighLevelWCSWrapper(input_data)
     elif isinstance(input_data, astropy.nddata.NDDataBase):
         return input_data.data, input_data.wcs
     else:
@@ -93,7 +95,9 @@ def parse_input_shape(input_shape, hdu_in=None):
         isinstance(input_shape, BaseHighLevelWCS)
         and input_shape.low_level_wcs.array_shape is not None
     ):
-        return input_shape.array_shape, input_shape
+        return input_shape.low_level_wcs.array_shape, input_shape
+    elif isinstance(input_shape, BaseLowLevelWCS) and input_shape.array_shape is not None:
+        return input_shape.array_shape, HighLevelWCSWrapper(input_shape)
     elif isinstance(input_shape, astropy.nddata.NDDataBase):
         return input_shape.data.shape, input_shape.wcs
     else:
@@ -148,10 +152,13 @@ def parse_output_projection(output_projection, shape_in=None, shape_out=None, ou
                     "Need to specify shape since output header "
                     "does not contain complete shape information"
                 )
-    elif isinstance(output_projection, BaseHighLevelWCS):
-        wcs_out = output_projection
-        if getattr(wcs_out, "array_shape") is not None:
-            shape_out = wcs_out.array_shape
+    elif isinstance(output_projection, (BaseLowLevelWCS, BaseHighLevelWCS)):
+        if isinstance(output_projection, BaseLowLevelWCS):
+            wcs_out = HighLevelWCSWrapper(output_projection)
+        else:
+            wcs_out = output_projection
+        if wcs_out.low_level_wcs.array_shape is not None:
+            shape_out = wcs_out.low_level_wcs.array_shape
         elif shape_out is None:
             raise ValueError(
                 "Need to specify shape_out when specifying output_projection as WCS object"

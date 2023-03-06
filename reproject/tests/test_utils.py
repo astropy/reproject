@@ -5,7 +5,7 @@ from astropy.nddata import NDData
 from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
 
-from reproject.tests.helpers import assert_header_allclose
+from reproject.tests.helpers import assert_wcs_allclose
 from reproject.utils import parse_input_data, parse_input_shape, parse_output_projection
 
 
@@ -15,7 +15,7 @@ def test_parse_input_data(tmpdir, valid_celestial_input_data, request):
 
     data, wcs = parse_input_data(input_value, **kwargs)
     np.testing.assert_allclose(data, array_ref)
-    assert_header_allclose(wcs.to_header(), wcs_ref.to_header())
+    assert_wcs_allclose(wcs, wcs_ref)
 
 
 def test_parse_input_data_invalid():
@@ -45,7 +45,7 @@ def test_parse_input_shape(tmpdir, valid_celestial_input_shapes):
 
     shape, wcs = parse_input_shape(input_value, **kwargs)
     assert shape == array_ref.shape
-    assert_header_allclose(wcs.to_header(), wcs_ref.to_header())
+    assert_wcs_allclose(wcs, wcs_ref)
 
 
 def test_parse_input_shape_invalid():
@@ -78,7 +78,7 @@ def test_parse_output_projection(valid_celestial_output_projections):
     wcs, shape = parse_output_projection(output_value, **kwargs)
 
     assert shape == shape_ref
-    assert_header_allclose(wcs.to_header(), wcs_ref.to_header())
+    assert_wcs_allclose(wcs, wcs_ref)
 
 
 def test_parse_output_projection_invalid_header(simple_celestial_wcs):

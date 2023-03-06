@@ -7,10 +7,10 @@ from astropy.coordinates import FK5, Galactic, SkyCoord
 from astropy.io import fits
 from astropy.nddata import NDData
 from astropy.wcs import WCS
-from astropy.wcs.wcsapi import HighLevelWCSWrapper
+from astropy.wcs.wcsapi import BaseHighLevelWCS, BaseLowLevelWCS, HighLevelWCSWrapper
 from numpy.testing import assert_allclose, assert_equal
 
-from reproject.tests.helpers import assert_header_allclose
+from reproject.tests.helpers import assert_wcs_allclose
 
 from ..wcs_helpers import find_optimal_celestial_wcs
 
@@ -229,6 +229,31 @@ class TestOptimalAPE14WCS(TestOptimalFITSWCS):
     multiple_size_expected_crpix = 27.279739, 17.29016
 
 
+# In cases where the input WCS is wrapped in a pure APE-14 WCS, the results
+# are a little different - as find_optimal_celestial_wcs takes shortcuts if
+# FITS WCSes are passed in.
+
+APE14_HEADER_REF = """
+WCSAXES =                    2 / Number of coordinate axes
+CRPIX1  =       25.72083769123 / Pixel coordinate of reference point
+CRPIX2  =       15.85922213012 / Pixel coordinate of reference point
+CDELT1  =   -0.039990388998799 / [deg] Coordinate increment at reference point
+CDELT2  =    0.039990388998799 / [deg] Coordinate increment at reference point
+CUNIT1  = 'deg'                / Units of coordinate increment and value
+CUNIT2  = 'deg'                / Units of coordinate increment and value
+CTYPE1  = 'RA---TAN'           / Right ascension, gnomonic projection
+CTYPE2  = 'DEC--TAN'           / Declination, gnomonic projection
+CRVAL1  =      28.717296496293 / [deg] Coordinate value at reference point
+CRVAL2  =      40.532891284598 / [deg] Coordinate value at reference point
+LONPOLE =                180.0 / [deg] Native longitude of celestial pole
+LATPOLE =      40.532891284598 / [deg] Native latitude of celestial pole
+MJDREF  =                  0.0 / [d] MJD of fiducial time
+RADESYS = 'FK5'                / Equatorial coordinate system
+EQUINOX =               2000.0 / [yr] Equinox of equatorial coordinates
+END
+""".strip()
+
+
 @pytest.mark.parametrize("iterable", [False, True])
 def test_input_types(valid_celestial_input_shapes, iterable):
     # Test different kinds of inputs and check the result is always the same
@@ -237,16 +262,23 @@ def test_input_types(valid_celestial_input_shapes, iterable):
 
     wcs_ref, shape_ref = find_optimal_celestial_wcs([(array, wcs)], frame=FK5())
 
+    if not isinstance(input_value, WCS) and isinstance(
+        input_value, (BaseLowLevelWCS, BaseHighLevelWCS)
+    ):
+        wcs_ref = WCS(fits.Header.fromstring(APE14_HEADER_REF, sep="\n"))
+        shape_ref = (31, 50)
+
     if iterable:
         input_value = [input_value]
 
     wcs_test, shape_test = find_optimal_celestial_wcs(input_value, frame=FK5(), **kwargs)
-    assert_header_allclose(wcs_test.to_header(), wcs_ref.to_header())
+    assert_wcs_allclose(wcs_test, wcs_ref)
     assert shape_test == shape_ref
 
     if isinstance(input_value, fits.HDUList) and not iterable:
         # Also check case of not passing hdu_in and having all HDUs being included
 
         wcs_test, shape_test = find_optimal_celestial_wcs(input_value, frame=FK5())
-        assert_header_allclose(wcs_test.to_header(), wcs_ref.to_header())
+
+        assert_wcs_allclose(wcs_test, wcs_ref)
         assert shape_test == shape_ref
