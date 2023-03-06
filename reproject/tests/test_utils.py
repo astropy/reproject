@@ -5,7 +5,7 @@ from astropy.nddata import NDData
 from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
 
-from reproject.tests.helpers import assert_header_allclose
+from reproject.tests.helpers import assert_wcs_allclose
 from reproject.utils import parse_input_data, parse_input_shape, parse_output_projection
 
 
@@ -15,7 +15,7 @@ def test_parse_input_data(tmpdir, valid_celestial_input_data, request):
 
     data, wcs = parse_input_data(input_value, **kwargs)
     np.testing.assert_allclose(data, array_ref)
-    assert_header_allclose(wcs.to_header(), wcs_ref.to_header())
+    assert_wcs_allclose(wcs, wcs_ref)
 
 
 def test_parse_input_data_invalid():
@@ -25,12 +25,12 @@ def test_parse_input_data_invalid():
         parse_input_data(data)
 
 
-def test_parse_input_shape_missing_hdu_in():
+def test_parse_input_data_missing_hdu_in():
     hdulist = fits.HDUList(
         [fits.PrimaryHDU(data=np.ones((30, 40))), fits.ImageHDU(data=np.ones((20, 30)))]
     )
 
-    with pytest.raises(TypeError, match="More than one HDU"):
+    with pytest.raises(ValueError, match="More than one HDU"):
         parse_input_data(hdulist)
 
 
@@ -45,7 +45,7 @@ def test_parse_input_shape(tmpdir, valid_celestial_input_shapes):
 
     shape, wcs = parse_input_shape(input_value, **kwargs)
     assert shape == array_ref.shape
-    assert_header_allclose(wcs.to_header(), wcs_ref.to_header())
+    assert_wcs_allclose(wcs, wcs_ref)
 
 
 def test_parse_input_shape_invalid():
@@ -72,32 +72,20 @@ def test_parse_input_shape_missing_hdu_in():
     )
 
 
-def test_parse_output_projection(tmpdir):
-    header = fits.Header.fromtextfile(get_pkg_data_filename("data/gc_ga.hdr"))
-    wcs = WCS(header)
+def test_parse_output_projection(valid_celestial_output_projections):
+    wcs_ref, shape_ref, output_value, kwargs = valid_celestial_output_projections
 
-    # As header
+    wcs, shape = parse_output_projection(output_value, **kwargs)
 
-    with pytest.raises(ValueError) as exc:
-        parse_output_projection(header)
-    assert exc.value.args[0] == (
-        "Need to specify shape since output header does not contain complete shape information"
-    )
+    assert shape == shape_ref
+    assert_wcs_allclose(wcs, wcs_ref)
 
-    parse_output_projection(header, shape_out=(200, 200))
 
-    header["NAXIS"] = 2
-    header["NAXIS1"] = 200
-    header["NAXIS2"] = 300
+def test_parse_output_projection_invalid_header(simple_celestial_fits_wcs):
+    with pytest.raises(ValueError, match="Need to specify shape"):
+        parse_output_projection(simple_celestial_fits_wcs.to_header())
 
-    parse_output_projection(header)
 
-    # As WCS
-
-    with pytest.raises(ValueError) as exc:
-        parse_output_projection(wcs)
-    assert exc.value.args[0] == (
-        "Need to specify shape_out when specifying output_projection as WCS object"
-    )
-
-    parse_output_projection(wcs, shape_out=(200, 200))
+def test_parse_output_projection_invalid_wcs(simple_celestial_fits_wcs):
+    with pytest.raises(ValueError, match="Need to specify shape"):
+        parse_output_projection(simple_celestial_fits_wcs)

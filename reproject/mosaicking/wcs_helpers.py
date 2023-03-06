@@ -13,6 +13,7 @@ from astropy.wcs.utils import (
     skycoord_to_pixel,
     wcs_to_celestial_frame,
 )
+from astropy.wcs.wcsapi import BaseHighLevelWCS, BaseLowLevelWCS
 
 from ..utils import parse_input_shape
 
@@ -41,19 +42,26 @@ def find_optimal_celestial_wcs(
         the final WCS. This should be an iterable containing one entry for each
         specification, where a single data specification is one of:
 
-            * The name of a FITS file
+            * The name of a FITS file as a `str` or a `pathlib.Path` object
             * An `~astropy.io.fits.HDUList` object
             * An image HDU object such as a `~astropy.io.fits.PrimaryHDU`,
               `~astropy.io.fits.ImageHDU`, or `~astropy.io.fits.CompImageHDU`
               instance
-            * A tuple where the first element is an Numpy array shape tuple
-              the second element is either a `~astropy.wcs.WCS` or a
+            * A tuple where the first element is an Numpy array shape tuple and
+              the second element is either a
+              `~astropy.wcs.wcsapi.BaseLowLevelWCS`,
+              `~astropy.wcs.wcsapi.BaseHighLevelWCS`, or a
               `~astropy.io.fits.Header` object
             * A tuple where the first element is a `~numpy.ndarray` and the
-              second element is either a `~astropy.wcs.WCS` or a
+              second element is either a
+              `~astropy.wcs.wcsapi.BaseLowLevelWCS`,
+              `~astropy.wcs.wcsapi.BaseHighLevelWCS`, or a
               `~astropy.io.fits.Header` object
             * An `~astropy.nddata.NDData` object from which the ``.data`` and
               ``.wcs`` attributes will be used as the input data.
+            * A `~astropy.wcs.wcsapi.BaseLowLevelWCS` object with ``array_shape`` set
+              or a `~astropy.wcs.wcsapi.BaseHighLevelWCS` object whose
+              underlying low level WCS object has ``array_shape`` set.
 
         If only one input data needs to be provided, it is also possible to
         pass it in without including it in an iterable.
@@ -98,7 +106,9 @@ def find_optimal_celestial_wcs(
         # Handle this explicitly as isiterable(str) is True
         iterable = False
     elif isiterable(input_data):
-        if len(input_data) == 2 and isinstance(input_data[1], (WCS, Header)):
+        if len(input_data) == 2 and isinstance(
+            input_data[1], (BaseLowLevelWCS, BaseHighLevelWCS, Header)
+        ):
             # Since 2-element tuples are valid single inputs we need to check for this
             iterable = False
         else:

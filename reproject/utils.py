@@ -45,9 +45,17 @@ def parse_input_data(input_data, hdu_in=None):
         if isinstance(input_data[1], Header):
             return input_data[0], WCS(input_data[1])
         else:
-            return input_data
-    elif isinstance(input_data, BaseLowLevelWCS) and input_data.array_shape is not None:
+            if isinstance(input_data[1], BaseHighLevelWCS):
+                return input_data
+            else:
+                return input_data[0], HighLevelWCSWrapper(input_data[1])
+    elif (
+        isinstance(input_data, BaseHighLevelWCS)
+        and input_data.low_level_wcs.array_shape is not None
+    ):
         return input_data.array_shape, input_data
+    elif isinstance(input_data, BaseLowLevelWCS) and input_data.array_shape is not None:
+        return input_data.array_shape, HighLevelWCSWrapper(input_data)
     elif isinstance(input_data, astropy.nddata.NDDataBase):
         return input_data.data, input_data.wcs
     else:
@@ -80,14 +88,25 @@ def parse_input_shape(input_shape, hdu_in=None):
         if isinstance(input_shape[1], Header):
             return input_shape[0].shape, WCS(input_shape[1])
         else:
-            return input_shape[0].shape, input_shape[1]
+            if isinstance(input_shape[1], BaseHighLevelWCS):
+                return input_shape[0].shape, input_shape[1]
+            else:
+                return input_shape[0].shape, HighLevelWCSWrapper(input_shape[1])
     elif isinstance(input_shape, tuple) and isinstance(input_shape[0], tuple):
         if isinstance(input_shape[1], Header):
             return input_shape[0], WCS(input_shape[1])
         else:
-            return input_shape
+            if isinstance(input_shape[1], BaseHighLevelWCS):
+                return input_shape
+            else:
+                return input_shape[0], HighLevelWCSWrapper(input_shape[1])
+    elif (
+        isinstance(input_shape, BaseHighLevelWCS)
+        and input_shape.low_level_wcs.array_shape is not None
+    ):
+        return input_shape.low_level_wcs.array_shape, input_shape
     elif isinstance(input_shape, BaseLowLevelWCS) and input_shape.array_shape is not None:
-        return input_shape.array_shape, input_shape
+        return input_shape.array_shape, HighLevelWCSWrapper(input_shape)
     elif isinstance(input_shape, astropy.nddata.NDDataBase):
         return input_shape.data.shape, input_shape.wcs
     else:
@@ -142,9 +161,14 @@ def parse_output_projection(output_projection, shape_in=None, shape_out=None, ou
                     "Need to specify shape since output header "
                     "does not contain complete shape information"
                 )
-    elif isinstance(output_projection, BaseHighLevelWCS):
-        wcs_out = output_projection
-        if shape_out is None:
+    elif isinstance(output_projection, (BaseLowLevelWCS, BaseHighLevelWCS)):
+        if isinstance(output_projection, BaseLowLevelWCS):
+            wcs_out = HighLevelWCSWrapper(output_projection)
+        else:
+            wcs_out = output_projection
+        if wcs_out.low_level_wcs.array_shape is not None:
+            shape_out = wcs_out.low_level_wcs.array_shape
+        elif shape_out is None:
             raise ValueError(
                 "Need to specify shape_out when specifying output_projection as WCS object"
             )
@@ -168,7 +192,7 @@ def parse_output_projection(output_projection, shape_in=None, shape_out=None, ou
         # Add the broadcast dimensions to the output shape, which does not
         # currently have any broadcast dims
         shape_out = (*shape_in[: -len(shape_out)], *shape_out)
-    return wcs_out, shape_out
+    return wcs_out, tuple(shape_out)
 
 
 def _reproject_blocked(

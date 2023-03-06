@@ -39,16 +39,15 @@ def reproject_interp(
     input_data
         The input data to reproject. This can be:
 
-            * The name of a FITS file
+            * The name of a FITS file as a `str` or a `pathlib.Path` object
             * An `~astropy.io.fits.HDUList` object
             * An image HDU object such as a `~astropy.io.fits.PrimaryHDU`,
               `~astropy.io.fits.ImageHDU`, or `~astropy.io.fits.CompImageHDU`
               instance
-            * A tuple where the first element is an Numpy array shape tuple
-              the second element is either a `~astropy.wcs.WCS` or a
-              `~astropy.io.fits.Header` object
             * A tuple where the first element is a `~numpy.ndarray` and the
-              second element is either a `~astropy.wcs.WCS` or a
+              second element is either a
+              `~astropy.wcs.wcsapi.BaseLowLevelWCS`,
+              `~astropy.wcs.wcsapi.BaseHighLevelWCS`, or a
               `~astropy.io.fits.Header` object
             * An `~astropy.nddata.NDData` object from which the ``.data`` and
               ``.wcs`` attributes will be used as the input data.
