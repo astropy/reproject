@@ -790,3 +790,26 @@ def test_blocked_against_single(parallel, block_size, return_footprint, existing
     np.testing.assert_allclose(array_test, array_reference, equal_nan=True)
     if return_footprint:
         np.testing.assert_allclose(footprint_test, footprint_reference, equal_nan=True)
+
+
+def test_interp_input_output_types(valid_celestial_input_data, valid_celestial_output_projections):
+    # Check that all valid input/output types work properly
+
+    array_ref, wcs_in_ref, input_value, kwargs_in = valid_celestial_input_data
+
+    wcs_out_ref, shape_ref, output_value, kwargs_out = valid_celestial_output_projections
+
+    # Compute reference
+
+    output_ref, footprint_ref = reproject_interp(
+        (array_ref, wcs_in_ref), wcs_out_ref, shape_out=shape_ref
+    )
+
+    # Compute test
+
+    output_test, footprint_test = reproject_interp(
+        input_value, output_value, **(kwargs_in | kwargs_out)
+    )
+
+    assert_allclose(output_ref, output_test)
+    assert_allclose(footprint_ref, footprint_test)

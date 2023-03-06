@@ -858,3 +858,28 @@ def test_broadcast_reprojection_conserve_flux(conserve_flux):
 @pytest.mark.parametrize("center_jacobian", (True, False))
 def test_broadcast_reprojection_center_jacobian(center_jacobian):
     _test_broadcast_reprojection_algo_specific_options(center_jacobian=center_jacobian)
+
+
+def test_adaptive_input_output_types(
+    valid_celestial_input_data, valid_celestial_output_projections
+):
+    # Check that all valid input/output types work properly
+
+    array_ref, wcs_in_ref, input_value, kwargs_in = valid_celestial_input_data
+
+    wcs_out_ref, shape_ref, output_value, kwargs_out = valid_celestial_output_projections
+
+    # Compute reference
+
+    output_ref, footprint_ref = reproject_adaptive(
+        (array_ref, wcs_in_ref), wcs_out_ref, shape_out=shape_ref
+    )
+
+    # Compute test
+
+    output_test, footprint_test = reproject_adaptive(
+        input_value, output_value, **(kwargs_in | kwargs_out)
+    )
+
+    assert_allclose(output_ref, output_test)
+    assert_allclose(footprint_ref, footprint_test)

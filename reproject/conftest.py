@@ -82,7 +82,7 @@ def valid_celestial_input(tmp_path, request, wcs):
         input_value = (array, wcs)
     elif request.param == "nddata":
         input_value = NDData(data=array, wcs=wcs)
-    elif request.param == "ape14_wcs":
+    elif request.param == "ape14_highlevel_wcs":
         input_value = wcs
         input_value._naxis = list(array.shape[::-1])
     elif request.param == "shape_wcs_tuple":
@@ -113,7 +113,7 @@ def valid_celestial_input_data(tmp_path, request, simple_celestial_wcs):
 @pytest.fixture(
     params=COMMON_PARAMS
     + [
-        "ape14_wcs",
+        "ape14_highlevel_wcs",
         "shape_wcs_tuple",
     ]
 )
@@ -121,10 +121,21 @@ def valid_celestial_input_shapes(tmp_path, request, simple_celestial_wcs):
     return valid_celestial_input(tmp_path, request, simple_celestial_wcs)
 
 
-@pytest.fixture(params=["wcs_shape", "header", "header_shape", "ape14_wcs"])
+@pytest.fixture(
+    params=[
+        "wcs_shape",
+        "header",
+        "header_shape",
+        "ape14_highlevel_wcs",
+    ]
+)
 def valid_celestial_output_projections(request, simple_celestial_wcs):
     shape = (30, 40)
     wcs = simple_celestial_wcs
+
+    # Rotate the WCS in case this is used for actual reprojection tests
+
+    wcs.wcs.pc = np.array([[np.cos(0.4), -np.sin(0.4)], [np.sin(0.4), np.cos(0.4)]])
 
     kwargs = {}
 
@@ -140,7 +151,7 @@ def valid_celestial_output_projections(request, simple_celestial_wcs):
     elif request.param == "header_shape":
         output_value = wcs.to_header()
         kwargs["shape_out"] = shape
-    elif request.param == "ape14_wcs":
+    elif request.param == "ape14_highlevel_wcs":
         output_value = wcs
         output_value._naxis = (40, 30)
 

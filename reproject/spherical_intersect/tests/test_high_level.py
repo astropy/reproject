@@ -177,3 +177,26 @@ def test_broadcast_parallel_reprojection(input_extra_dims, output_shape, paralle
 
     np.testing.assert_allclose(footprint_broadcast, footprint_ref)
     np.testing.assert_allclose(array_broadcast, array_ref)
+
+
+def test_exact_input_output_types(valid_celestial_input_data, valid_celestial_output_projections):
+    # Check that all valid input/output types work properly
+
+    array_ref, wcs_in_ref, input_value, kwargs_in = valid_celestial_input_data
+
+    wcs_out_ref, shape_ref, output_value, kwargs_out = valid_celestial_output_projections
+
+    # Compute reference
+
+    output_ref, footprint_ref = reproject_exact(
+        (array_ref, wcs_in_ref), wcs_out_ref, shape_out=shape_ref
+    )
+
+    # Compute test
+
+    output_test, footprint_test = reproject_exact(
+        input_value, output_value, **(kwargs_in | kwargs_out)
+    )
+
+    assert_allclose(output_ref, output_test)
+    assert_allclose(footprint_ref, footprint_test)
