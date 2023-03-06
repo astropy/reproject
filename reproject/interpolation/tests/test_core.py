@@ -567,22 +567,6 @@ def test_reproject_roundtrip(file_format):
 
     header_out = target_wcs.to_header()
 
-    # ASTROPY_LT_40: astropy v4.0 introduced new default header keywords,
-    # once we support only astropy 4.0 and later we can update the reference
-    # data files and remove this section.
-    for key in (
-        "CRLN_OBS",
-        "CRLT_OBS",
-        "DSUN_OBS",
-        "HGLN_OBS",
-        "HGLT_OBS",
-        "MJDREFF",
-        "MJDREFI",
-        "MJDREF",
-        "MJD-OBS",
-        "RSUN_REF",
-    ):
-        header_out.pop(key, None)
     header_out["DATE-OBS"] = header_out["DATE-OBS"].replace("T", " ")
 
     return array_footprint_to_hdulist(output, footprint, header_out)
@@ -681,9 +665,14 @@ def test_broadcast_reprojection(input_extra_dims, output_shape, input_as_wcs, ou
     np.testing.assert_allclose(array_broadcast, array_ref)
 
 
+# In the tests below we ignore FITSFixedWarning due to:
+# https://github.com/astropy/astropy/pull/12844
+
+
 @pytest.mark.parametrize("input_extra_dims", (1, 2))
 @pytest.mark.parametrize("output_shape", (None, "single", "full"))
 @pytest.mark.parametrize("parallel", [True, False])
+@pytest.mark.filterwarnings("ignore::astropy.wcs.wcs.FITSFixedWarning")
 def test_blocked_broadcast_reprojection(input_extra_dims, output_shape, parallel):
     image_stack, array_ref, footprint_ref, header_in, header_out = _setup_for_broadcast_test()
     # Test both single and multiple dimensions being broadcast
@@ -700,18 +689,9 @@ def test_blocked_broadcast_reprojection(input_extra_dims, output_shape, parallel
         # Provide the broadcast dimensions as part of the output shape
         output_shape = image_stack.shape
 
-    # the warning import and ignore is needed to keep pytest happy when running with
-    # older versions of astropy which don't have this fix:
-    # https://github.com/astropy/astropy/pull/12844
-    # All the warning code should be removed when old version no longer being used
-    # Using context manager ensure only blocked function has them ignored
-    import warnings
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", category=FITSFixedWarning)
-        array_broadcast, footprint_broadcast = reproject_interp(
-            (image_stack, header_in), header_out, output_shape, parallel=parallel, block_size=[5, 5]
-        )
+    array_broadcast, footprint_broadcast = reproject_interp(
+        (image_stack, header_in), header_out, output_shape, parallel=parallel, block_size=[5, 5]
+    )
 
     np.testing.assert_array_equal(footprint_broadcast, footprint_ref)
     np.testing.assert_allclose(array_broadcast, array_ref)
@@ -722,6 +702,7 @@ def test_blocked_broadcast_reprojection(input_extra_dims, output_shape, parallel
 @pytest.mark.parametrize("return_footprint", [False, True])
 @pytest.mark.parametrize("existing_outputs", [False, True])
 @pytest.mark.remote_data
+@pytest.mark.filterwarnings("ignore::astropy.wcs.wcs.FITSFixedWarning")
 def test_blocked_against_single(parallel, block_size, return_footprint, existing_outputs):
     # Ensure when we break a reprojection down into multiple discrete blocks
     # it has the same result as if all pixels where reprejcted at once
@@ -744,24 +725,15 @@ def test_blocked_against_single(parallel, block_size, return_footprint, existing
         output_array_reference = None
         output_footprint_reference = None
 
-    # the warning import and ignore is needed to keep pytest happy when running with
-    # older versions of astropy which don't have this fix:
-    # https://github.com/astropy/astropy/pull/12844
-    # All the warning code should be removed when old version no longer being used
-    # Using context manager ensure only blocked function has them ignored
-    import warnings
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", category=FITSFixedWarning)
-        result_test = reproject_interp(
-            hdu2,
-            hdu1.header,
-            parallel=parallel,
-            block_size=block_size,
-            return_footprint=return_footprint,
-            output_array=output_array_test,
-            output_footprint=output_footprint_test,
-        )
+    result_test = reproject_interp(
+        hdu2,
+        hdu1.header,
+        parallel=parallel,
+        block_size=block_size,
+        return_footprint=return_footprint,
+        output_array=output_array_test,
+        output_footprint=output_footprint_test,
+    )
 
     result_reference = reproject_interp(
         hdu2,
