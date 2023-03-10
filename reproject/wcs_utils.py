@@ -20,6 +20,8 @@ def has_celestial(wcs):
     if isinstance(wcs, WCS):
         return wcs.has_celestial
     else:
+        if isinstance(wcs.low_level_wcs, BaseHighLevelWCS):
+            wcs = wcs.low_level_wcs
         for world_axis_class in wcs.low_level_wcs.world_axis_object_classes.values():
             if issubclass(world_axis_class[0], SkyCoord):
                 return True
