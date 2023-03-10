@@ -95,6 +95,7 @@ def _reproject_full(
     array = np.asarray(array, dtype=float)
     # shape_out must be exactly a tuple type
     shape_out = tuple(shape_out)
+
     _validate_wcs(wcs_in, wcs_out, array.shape, shape_out)
     _validate_array_out(array_out, array, shape_out)
 

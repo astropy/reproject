@@ -117,8 +117,10 @@ LATPOLE =                 90.0 / [deg] Native latitude of celestial pole
 
 
 @pytest.mark.filterwarnings("ignore::FutureWarning")
-@pytest.mark.parametrize("projection_type, dtype", itertools.product(ALL_MODES, ALL_DTYPES))
-def test_surface_brightness(projection_type, dtype):
+@pytest.mark.parametrize(
+    "projection_type, dtype, block_size", itertools.product(ALL_MODES, ALL_DTYPES, (None, [2, 2]))
+)
+def test_surface_brightness(projection_type, dtype, block_size):
     header_in = fits.Header.fromstring(INPUT_HDR, sep="\n")
     header_in["NAXIS"] = 2
     header_in["NAXIS1"] = 10
@@ -144,7 +146,7 @@ def test_surface_brightness(projection_type, dtype):
         )
     else:
         data_out, footprint = reproject_interp(
-            (data_in, header_in), header_out, order=projection_type
+            (data_in, header_in), header_out, order=projection_type, block_size=block_size
         )
 
     assert data_out.shape == (20, 20)
