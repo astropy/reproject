@@ -672,8 +672,9 @@ def test_broadcast_reprojection(input_extra_dims, output_shape, input_as_wcs, ou
 @pytest.mark.parametrize("input_extra_dims", (1, 2))
 @pytest.mark.parametrize("output_shape", (None, "single", "full"))
 @pytest.mark.parametrize("parallel", [True, False])
+@pytest.mark.parametrize("header_or_wcs", (lambda x: x, WCS))
 @pytest.mark.filterwarnings("ignore::astropy.wcs.wcs.FITSFixedWarning")
-def test_blocked_broadcast_reprojection(input_extra_dims, output_shape, parallel):
+def test_blocked_broadcast_reprojection(input_extra_dims, output_shape, parallel, header_or_wcs):
     image_stack, array_ref, footprint_ref, header_in, header_out = _setup_for_broadcast_test()
     # Test both single and multiple dimensions being broadcast
     if input_extra_dims == 2:
@@ -689,6 +690,9 @@ def test_blocked_broadcast_reprojection(input_extra_dims, output_shape, parallel
         # Provide the broadcast dimensions as part of the output shape
         output_shape = image_stack.shape
 
+    # test different behavior when the output projection is a WCS
+    header_out = header_or_wcs(header_out)
+
     array_broadcast, footprint_broadcast = reproject_interp(
         (image_stack, header_in), header_out, output_shape, parallel=parallel, block_size=[5, 5]
     )
@@ -701,9 +705,12 @@ def test_blocked_broadcast_reprojection(input_extra_dims, output_shape, parallel
 @pytest.mark.parametrize("block_size", [[500, 500], [500, 100], None])
 @pytest.mark.parametrize("return_footprint", [False, True])
 @pytest.mark.parametrize("existing_outputs", [False, True])
+@pytest.mark.parametrize("header_or_wcs", (lambda x: x, WCS))
 @pytest.mark.remote_data
 @pytest.mark.filterwarnings("ignore::astropy.wcs.wcs.FITSFixedWarning")
-def test_blocked_against_single(parallel, block_size, return_footprint, existing_outputs):
+def test_blocked_against_single(
+    parallel, block_size, return_footprint, existing_outputs, header_or_wcs
+):
     # Ensure when we break a reprojection down into multiple discrete blocks
     # it has the same result as if all pixels where reprejcted at once
 
@@ -727,7 +734,7 @@ def test_blocked_against_single(parallel, block_size, return_footprint, existing
 
     result_test = reproject_interp(
         hdu2,
-        hdu1.header,
+        header_or_wcs(hdu1.header),
         parallel=parallel,
         block_size=block_size,
         return_footprint=return_footprint,
@@ -737,7 +744,7 @@ def test_blocked_against_single(parallel, block_size, return_footprint, existing
 
     result_reference = reproject_interp(
         hdu2,
-        hdu1.header,
+        header_or_wcs(hdu1.header),
         parallel=False,
         block_size=None,
         return_footprint=return_footprint,

@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-import warnings
 from astropy.io import fits
 from astropy.nddata import NDData
 from astropy.utils.data import get_pkg_data_filename
@@ -93,13 +92,13 @@ def test_parse_output_projection_invalid_wcs(simple_celestial_fits_wcs):
         parse_output_projection(simple_celestial_fits_wcs)
 
 
+@pytest.mark.filterwarnings("ignore::astropy.utils.exceptions.AstropyUserWarning")
+@pytest.mark.filterwarnings("ignore::astropy.wcs.wcs.FITSFixedWarning")
 def test_has_celestial():
     from .test_high_level import INPUT_HDR
 
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        hdr = fits.Header.fromstring(INPUT_HDR)
-        ww = WCS(hdr)
+    hdr = fits.Header.fromstring(INPUT_HDR)
+    ww = WCS(hdr)
     assert ww.has_celestial
     assert has_celestial(ww)
 
