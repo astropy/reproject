@@ -141,9 +141,15 @@ def reproject_and_coadd(
         raise ValueError("If you specify an output footprint array, it must have a shape matching "
                          f"the output shape {shape_out}")
 
+    if output_array is None:
+        output_array = np.zeros(shape_out)
+    if output_footprint is None:
+        output_footprint = np.zeros(shape_out)
+
     # Start off by reprojecting individual images to the final projection
 
-    arrays = []
+    if match_background:
+        arrays = []
 
     for idata in range(len(input_data)):
         # We need to pre-parse the data here since we need to figure out how to
@@ -270,7 +276,18 @@ def reproject_and_coadd(
         # TODO: make sure we gracefully handle the case where the
         # output image is empty (due e.g. to no overlap).
 
-        arrays.append(array)
+        if match_background:
+            arrays.append(array)
+        else:
+            if combine_function in ("mean", "sum"):
+                # By default, values outside of the footprint are set to NaN
+                # but we set these to 0 here to avoid getting NaNs in the
+                # means/sums.
+                array.array[array.footprint == 0] = 0
+
+                output_array[array.view_in_original_array] += array.array * array.footprint
+                output_footprint[array.view_in_original_array] += array.footprint
+
 
     # If requested, try and match the backgrounds.
     if match_background and len(arrays) > 1:
@@ -281,12 +298,14 @@ def reproject_and_coadd(
         for array, correction in zip(arrays, corrections, strict=True):
             array.array -= correction
 
-    # At this point, the images are now ready to be co-added.
+        # At this point, the images are now ready to be co-added.
 
-    if output_array is None:
-        output_array = np.zeros(shape_out)
-    if output_footprint is None:
-        output_footprint = np.zeros(shape_out)
+        if combine_function in ("mean", "sum"):
+            for array in arrays:
+                # By default, values outside of the footprint are set to NaN
+                # but we set these to 0 here to avoid getting NaNs in the
+                # means/sums.
+                array.array[array.footprint == 0] = 0
 
     if combine_function == "min":
         output_array[...] = np.inf
