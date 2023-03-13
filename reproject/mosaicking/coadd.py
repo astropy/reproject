@@ -167,13 +167,23 @@ def reproject_and_coadd(
         # significant distortion (when the edges of the input image become
         # convex in the output projection), and transforming every edge pixel,
         # which provides a lot of redundant information.
-        ny, nx = array_in.shape
-        n_per_edge = 11
-        xs = np.linspace(-0.5, nx - 0.5, n_per_edge)
-        ys = np.linspace(-0.5, ny - 0.5, n_per_edge)
-        xs = np.concatenate((xs, np.full(n_per_edge, xs[-1]), xs, np.full(n_per_edge, xs[0])))
-        ys = np.concatenate((np.full(n_per_edge, ys[0]), ys, np.full(n_per_edge, ys[-1]), ys))
-        xc_out, yc_out = wcs_out.world_to_pixel(wcs_in.pixel_to_world(xs, ys))
+        if array_in.ndim == 2:
+            ny, nx = array_in.shape
+            n_per_edge = 11
+            xs = np.linspace(-0.5, nx - 0.5, n_per_edge)
+            ys = np.linspace(-0.5, ny - 0.5, n_per_edge)
+            xs = np.concatenate((xs, np.full(n_per_edge, xs[-1]), xs, np.full(n_per_edge, xs[0])))
+            ys = np.concatenate((np.full(n_per_edge, ys[0]), ys, np.full(n_per_edge, ys[-1]), ys))
+            xc_out, yc_out = wcs_out.world_to_pixel(wcs_in.pixel_to_world(xs, ys))
+        elif array_in.ndim == 3:
+            # for cubes, we only handle single corners now
+            nz, ny, nx = array_in.shape
+            xc = np.array([-0.5, nx - 0.5, nx - 0.5, -0.5])
+            yc = np.array([-0.5, -0.5, ny - 0.5, ny - 0.5])
+            zc = np.array([-0.5, nz - 0.5])
+            xc_out, yc_out = wcs_out.celestial.world_to_pixel(wcs_in.celestial.pixel_to_world(xc, yc))
+            zc_out = wcs_out.spectral.world_to_pixel(wcs_in.spectral.pixel_to_world(zc))
+            shape_out_cel = shape_out[1:]
 
         # Determine the cutout parameters
 
@@ -183,26 +193,37 @@ def reproject_and_coadd(
 
         if np.any(np.isnan(xc_out)) or np.any(np.isnan(yc_out)):
             imin = 0
-            imax = shape_out[1]
+            imax = shape_out_cel[1]
             jmin = 0
-            jmax = shape_out[0]
+            jmax = shape_out_cel[0]
         else:
             imin = max(0, int(np.floor(xc_out.min() + 0.5)))
-            imax = min(shape_out[1], int(np.ceil(xc_out.max() + 0.5)))
+            imax = min(shape_out_cel[1], int(np.ceil(xc_out.max() + 0.5)))
             jmin = max(0, int(np.floor(yc_out.min() + 0.5)))
-            jmax = min(shape_out[0], int(np.ceil(yc_out.max() + 0.5)))
+            jmax = min(shape_out_cel[0], int(np.ceil(yc_out.max() + 0.5)))
 
         if imax < imin or jmax < jmin:
             continue
 
-        if isinstance(wcs_out, WCS):
-            wcs_out_indiv = wcs_out[jmin:jmax, imin:imax]
-        else:
-            wcs_out_indiv = SlicedLowLevelWCS(
-                wcs_out.low_level_wcs, (slice(jmin, jmax), slice(imin, imax))
-            )
+        if array_in.ndim == 2:
+            if isinstance(wcs_out, WCS):
+                wcs_out_indiv = wcs_out[jmin:jmax, imin:imax]
+            else:
+                wcs_out_indiv = SlicedLowLevelWCS(
+                    wcs_out.low_level_wcs, (slice(jmin, jmax), slice(imin, imax))
+                )
+            shape_out_indiv = (jmax - jmin, imax - imin)
+        elif array_in.ndim == 3:
+            kmin = max(0, int(np.floor(zc_out.min() + 0.5)))
+            kmax = min(shape_out[0], int(np.ceil(zc_out.max() + 0.5)))
+            if isinstance(wcs_out, WCS):
+                wcs_out_indiv = wcs_out[kmin:kmax, jmin:jmax, imin:imax]
+            else:
+                wcs_out_indiv = SlicedLowLevelWCS(
+                    wcs_out.low_level_wcs, (slice(kmin, kmax), slice(jmin, jmax), slice(imin, imax))
+                )
+            shape_out_indiv = (kmax - kmin, jmax - jmin, imax - imin)
 
-        shape_out_indiv = (jmax - jmin, imax - imin)
 
         if block_sizes is not None:
             kwargs['block_size'] = block_sizes[idata]
