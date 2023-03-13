@@ -15,35 +15,56 @@ class ReprojectedArraySubset:
     # rather than the center, which is not well defined for even-sized
     # cutouts.
 
-    def __init__(self, array, footprint, imin, imax, jmin, jmax):
+    def __init__(self, array, footprint, imin, imax, jmin, jmax, kmin=None, kmax=None):
         self.array = array
         self.footprint = footprint
         self.imin = imin
         self.imax = imax
         self.jmin = jmin
         self.jmax = jmax
+        self.kmin = kmin
+        self.kmax = kmax
 
     def __repr__(self):
-        return f"<ReprojectedArraySubset at [{self.jmin}:{self.jmax},{self.imin}:{self.imax}]>"
+        if self.kmin is not None:
+            return f"<ReprojectedArraySubset at [{self.kmin}:{self.kmax},{self.jmin}:{self.jmax},{self.imin}:{self.imax}]>"
+        else:
+            return f"<ReprojectedArraySubset at [{self.jmin}:{self.jmax},{self.imin}:{self.imax}]>"
 
     @property
     def view_in_original_array(self):
-        return (slice(self.jmin, self.jmax), slice(self.imin, self.imax))
+        if self.kmin is not None:
+            return (slice(self.kmin, self.kmax), slice(self.jmin, self.jmax), slice(self.imin, self.imax))
+        else
+            return (slice(self.jmin, self.jmax), slice(self.imin, self.imax))
 
     @property
     def shape(self):
-        return (self.jmax - self.jmin, self.imax - self.imin)
+        if self.kmin is not None:
+            return (self.kmax - self.kmin, self.jmax - self.jmin, self.imax - self.imin)
+        else:
+            return (self.jmax - self.jmin, self.imax - self.imin)
 
     def overlaps(self, other):
         # Note that the use of <= or >= instead of < and > is due to
         # the fact that the max values are exclusive (so +1 above the
         # last value).
-        return not (
-            self.imax <= other.imin
-            or other.imax <= self.imin
-            or self.jmax <= other.jmin
-            or other.jmax <= self.jmin
-        )
+        if self.kmin is not None:
+            return not (
+                self.imax <= other.imin
+                or other.imax <= self.imin
+                or self.jmax <= other.jmin
+                or other.jmax <= self.jmin
+                or self.kmax <= other.kmin
+                or other.kmax <= self.kmin
+            )
+        else:
+            return not (
+                self.imax <= other.imin
+                or other.imax <= self.imin
+                or self.jmax <= other.jmin
+                or other.jmax <= self.jmin
+            )
 
     def __add__(self, other):
         return self._operation(other, operator.add)
@@ -71,29 +92,63 @@ class ReprojectedArraySubset:
         if jmax < jmin:
             jmax = jmin
 
-        # Extract cutout from each
 
-        self_array = self.array[
-            jmin - self.jmin : jmax - self.jmin,
-            imin - self.imin : imax - self.imin,
-        ]
-        self_footprint = self.footprint[
-            jmin - self.jmin : jmax - self.jmin,
-            imin - self.imin : imax - self.imin,
-        ]
+        if self.kmin is None:
+            # Extract cutout from each
 
-        other_array = other.array[
-            jmin - other.jmin : jmax - other.jmin,
-            imin - other.imin : imax - other.imin,
-        ]
-        other_footprint = other.footprint[
-            jmin - other.jmin : jmax - other.jmin,
-            imin - other.imin : imax - other.imin,
-        ]
+            self_array = self.array[
+                jmin - self.jmin : jmax - self.jmin,
+                imin - self.imin : imax - self.imin,
+            ]
+            self_footprint = self.footprint[
+                jmin - self.jmin : jmax - self.jmin,
+                imin - self.imin : imax - self.imin,
+            ]
 
-        # Carry out operator and store result in ReprojectedArraySubset
+            other_array = other.array[
+                jmin - other.jmin : jmax - other.jmin,
+                imin - other.imin : imax - other.imin,
+            ]
+            other_footprint = other.footprint[
+                jmin - other.jmin : jmax - other.jmin,
+                imin - other.imin : imax - other.imin,
+            ]
 
-        array = op(self_array, other_array)
-        footprint = (self_footprint > 0) & (other_footprint > 0)
+            # Carry out operator and store result in ReprojectedArraySubset
 
-        return ReprojectedArraySubset(array, footprint, imin, imax, jmin, jmax)
+            array = op(self_array, other_array)
+            footprint = (self_footprint > 0) & (other_footprint > 0)
+
+            return ReprojectedArraySubset(array, footprint, imin, imax, jmin, jmax)
+
+        else:
+            # Extract cutout from each
+
+            self_array = self.array[
+                kmin - self.kmin : kmax - self.kmin,
+                jmin - self.jmin : jmax - self.jmin,
+                imin - self.imin : imax - self.imin,
+            ]
+            self_footprint = self.footprint[
+                kmin - self.kmin : kmax - self.kmin,
+                jmin - self.jmin : jmax - self.jmin,
+                imin - self.imin : imax - self.imin,
+            ]
+
+            other_array = other.array[
+                kmin - other.kmin : kmax - other.kmin,
+                jmin - other.jmin : jmax - other.jmin,
+                imin - other.imin : imax - other.imin,
+            ]
+            other_footprint = other.footprint[
+                kmin - other.kmin : kmax - other.kmin,
+                jmin - other.jmin : jmax - other.jmin,
+                imin - other.imin : imax - other.imin,
+            ]
+
+            # Carry out operator and store result in ReprojectedArraySubset
+
+            array = op(self_array, other_array)
+            footprint = (self_footprint > 0) & (other_footprint > 0)
+
+            return ReprojectedArraySubset(array, footprint, imin, imax, jmin, jmax, kmin, kmax)
