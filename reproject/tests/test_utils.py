@@ -7,6 +7,7 @@ from astropy.wcs import WCS
 
 from reproject.tests.helpers import assert_wcs_allclose
 from reproject.utils import parse_input_data, parse_input_shape, parse_output_projection
+from reproject.wcs_utils import has_celestial
 
 
 @pytest.mark.filterwarnings("ignore:unclosed file:ResourceWarning")
@@ -89,3 +90,22 @@ def test_parse_output_projection_invalid_header(simple_celestial_fits_wcs):
 def test_parse_output_projection_invalid_wcs(simple_celestial_fits_wcs):
     with pytest.raises(ValueError, match="Need to specify shape"):
         parse_output_projection(simple_celestial_fits_wcs)
+
+
+@pytest.mark.filterwarnings("ignore::astropy.utils.exceptions.AstropyUserWarning")
+@pytest.mark.filterwarnings("ignore::astropy.wcs.wcs.FITSFixedWarning")
+def test_has_celestial():
+    from .test_high_level import INPUT_HDR
+
+    hdr = fits.Header.fromstring(INPUT_HDR)
+    ww = WCS(hdr)
+    assert ww.has_celestial
+    assert has_celestial(ww)
+
+    from astropy.wcs.wcsapi import HighLevelWCSWrapper, SlicedLowLevelWCS
+
+    wwh = HighLevelWCSWrapper(SlicedLowLevelWCS(ww, Ellipsis))
+    assert has_celestial(wwh)
+
+    wwh2 = HighLevelWCSWrapper(SlicedLowLevelWCS(ww, [slice(0, 1), slice(0, 1)]))
+    assert has_celestial(wwh2)

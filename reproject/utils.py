@@ -277,7 +277,12 @@ def _reproject_blocked(
         if a.ndim == 0 or block_info is None or block_info == []:
             return np.array([a, a])
         slices = [slice(*x) for x in block_info[None]["array-location"][-wcs_out.pixel_n_dim :]]
-        wcs_out_sub = HighLevelWCSWrapper(SlicedLowLevelWCS(wcs_out, slices=slices))
+
+        if isinstance(wcs_out, BaseHighLevelWCS):
+            low_level_wcs = SlicedLowLevelWCS(wcs_out.low_level_wcs, slices=slices)
+        else:
+            low_level_wcs = SlicedLowLevelWCS(wcs_out, slices=slices)
+        wcs_out_sub = HighLevelWCSWrapper(low_level_wcs)
         if isinstance(array_in_or_path, str):
             array_in = np.memmap(array_in_or_path, dtype=float, shape=shape_in)
         else:
