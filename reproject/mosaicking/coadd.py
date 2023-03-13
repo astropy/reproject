@@ -214,6 +214,7 @@ def reproject_and_coadd(
                     wcs_out.low_level_wcs, (slice(jmin, jmax), slice(imin, imax))
                 )
             shape_out_indiv = (jmax - jmin, imax - imin)
+            kmin, kmax = None, None # for reprojectedarraysubset below
         elif array_in.ndim == 3:
             kmin = max(0, int(np.floor(zc_out.min() + 0.5)))
             kmax = min(shape_out[0], int(np.ceil(zc_out.max() + 0.5)))
@@ -264,7 +265,7 @@ def reproject_and_coadd(
             weights[reset] = 0.0
             footprint *= weights
 
-        array = ReprojectedArraySubset(array, footprint, imin, imax, jmin, jmax)
+        array = ReprojectedArraySubset(array, footprint, imin, imax, jmin, jmax, kmin, kmax)
 
         # TODO: make sure we gracefully handle the case where the
         # output image is empty (due e.g. to no overlap).
