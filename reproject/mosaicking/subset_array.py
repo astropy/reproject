@@ -35,7 +35,7 @@ class ReprojectedArraySubset:
     def view_in_original_array(self):
         if self.kmin is not None:
             return (slice(self.kmin, self.kmax), slice(self.jmin, self.jmax), slice(self.imin, self.imax))
-        else
+        else:
             return (slice(self.jmin, self.jmax), slice(self.imin, self.imax))
 
     @property
