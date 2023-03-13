@@ -22,8 +22,9 @@ def reproject_and_coadd(
     combine_function="mean",
     match_background=False,
     background_reference=None,
-    output_array=None,
-    output_footprint=None,
+    final_array=None,
+    final_footprint=None,
+    block_sizes=None,
     **kwargs,
 ):
     """
@@ -89,15 +90,19 @@ def reproject_and_coadd(
         If `None`, the background matching will make it so that the average of
         the corrections for all images is zero. If an integer, this specifies
         the index of the image to use as a reference.
-    output_array : array or None
+    final_array : array or None
         The final output array.  Specify this if you already have an
         appropriately-shaped array to store the data in.  Must match shape
-        specified with ``shape_out`` or derived from the output projection.
-    output_footprint : array or None
+        specified with `shape_out` or derived from the output
+        projection.
+    final_footprint : array or None
         The final output footprint array.  Specify this if you already have an
         appropriately-shaped array to store the data in.  Must match shape
-        specified with ``shape_out`` or derived from the output projection.
-    **kwargs
+        specified with `shape_out` or derived from the output projection.
+    block_sizes : list of tuples or None
+        The block size to use for each cube (optional; meant for dask use)
+
+    kwargs
         Keyword arguments to be passed to the reprojection function.
 
     Returns
@@ -128,16 +133,12 @@ def reproject_and_coadd(
 
     wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
 
-    if output_array is not None and output_array.shape != shape_out:
-        raise ValueError(
-            "If you specify an output array, it must have a shape matching "
-            f"the output shape {shape_out}"
-        )
-    if output_footprint is not None and output_footprint.shape != shape_out:
-        raise ValueError(
-            "If you specify an output footprint array, it must have a shape matching "
-            f"the output shape {shape_out}"
-        )
+    if final_array is not None and final_array.shape != shape_out:
+        raise ValueError("If you specify an output array, it must have a shape matching "
+                         f"the output shape {shape_out}")
+    if final_footprint is not None and final_footprint.shape != shape_out:
+        raise ValueError("If you specify an output footprint array, it must have a shape matching "
+                         f"the output shape {shape_out}")
 
     # Start off by reprojecting individual images to the final projection
 
@@ -203,6 +204,9 @@ def reproject_and_coadd(
 
         shape_out_indiv = (jmax - jmin, imax - imin)
 
+        if block_sizes is not None:
+            kwargs['block_size'] = block_sizes[idata]
+
         # TODO: optimize handling of weights by making reprojection functions
         # able to handle weights, and make the footprint become the combined
         # footprint + weight map
@@ -253,10 +257,10 @@ def reproject_and_coadd(
 
     # At this point, the images are now ready to be co-added.
 
-    if output_array is None:
-        output_array = np.zeros(shape_out)
-    if output_footprint is None:
-        output_footprint = np.zeros(shape_out)
+    if final_array is None:
+        final_array = np.zeros(shape_out)
+    if final_footprint is None:
+        final_footprint = np.zeros(shape_out)
 
     if combine_function == "min":
         output_array[...] = np.inf
