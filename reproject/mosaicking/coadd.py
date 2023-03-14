@@ -102,6 +102,9 @@ def reproject_and_coadd(
     block_sizes : list of tuples or None
         The block size to use for each dataset.  Could also be a single tuple
         if you want the sample block size for all data sets
+    progressbar : False
+        If specified, use this as a progressbar to track loop iterations over
+        data sets.
 
     kwargs
         Keyword arguments to be passed to the reprojection function.
@@ -130,6 +133,9 @@ def reproject_and_coadd(
             "reprojection function should be specified with the reproject_function argument"
         )
 
+    if not progressbar:
+        progressbar = lambda x: x
+
     # Parse the output projection to avoid having to do it for each
 
     wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
@@ -151,7 +157,7 @@ def reproject_and_coadd(
     if match_background:
         arrays = []
 
-    for idata in range(len(input_data)):
+    for idata in progressbar(range(len(input_data))):
         # We need to pre-parse the data here since we need to figure out how to
         # optimize/minimize the size of each output tile (see below).
         array_in, wcs_in = parse_input_data(input_data[idata], hdu_in=hdu_in)
