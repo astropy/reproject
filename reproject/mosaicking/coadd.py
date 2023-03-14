@@ -195,8 +195,9 @@ def reproject_and_coadd(
             xc = np.array([-0.5, nx - 0.5, nx - 0.5, -0.5])
             yc = np.array([-0.5, -0.5, ny - 0.5, ny - 0.5])
             zc = np.array([-0.5, nz - 0.5])
-            xc_out, yc_out = wcs_out.celestial.world_to_pixel(wcs_in.celestial.pixel_to_world(xc, yc))
-            zc_out = wcs_out.spectral.world_to_pixel(wcs_in.spectral.pixel_to_world(zc))
+            # TODO: figure out what to do here if the low_level_wcs doesn't  support subsetting
+            xc_out, yc_out = wcs_out.low_level_wcs.celestial.world_to_pixel(wcs_in.celestial.pixel_to_world(xc, yc))
+            zc_out = wcs_out.low_level_wcs.spectral.world_to_pixel(wcs_in.spectral.pixel_to_world(zc))
             shape_out_cel = shape_out[1:]
 
         # Determine the cutout parameters
