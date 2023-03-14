@@ -25,6 +25,7 @@ def reproject_and_coadd(
     output_array=None,
     output_footprint=None,
     block_sizes=None,
+    progressbar=False,
     **kwargs,
 ):
     """
