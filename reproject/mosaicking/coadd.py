@@ -199,6 +199,8 @@ def reproject_and_coadd(
             xc_out, yc_out = wcs_out.low_level_wcs.celestial.world_to_pixel(wcs_in.celestial.pixel_to_world(xc, yc))
             zc_out = wcs_out.low_level_wcs.spectral.world_to_pixel(wcs_in.spectral.pixel_to_world(zc))
             shape_out_cel = shape_out[1:]
+        else:
+            raise ValueError(f"Wrong number of dimensions: {array_in.ndim}")
 
         # Determine the cutout parameters
 
