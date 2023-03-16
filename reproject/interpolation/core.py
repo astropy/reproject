@@ -91,8 +91,9 @@ def _reproject_full(
     the same coordinate information. The transformation is computed once and
     "broadcast" across those images.
     """
-    # Make sure image is floating point
-    array = np.asarray(array, dtype=float)
+    # Make sure image is floating point.
+    if not np.issubdtype(array.dtype, np.floating):
+        raise ValueError("Input array must be floating point.")
     # shape_out must be exactly a tuple type
     shape_out = tuple(shape_out)
     _validate_wcs(wcs_in, wcs_out, array.shape, shape_out)
