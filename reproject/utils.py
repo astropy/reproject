@@ -41,7 +41,7 @@ def parse_input_data(input_data, hdu_in=None):
         return parse_input_data(input_data[hdu_in])
     elif isinstance(input_data, (PrimaryHDU, ImageHDU, CompImageHDU)):
         return input_data.data, WCS(input_data.header)
-    elif isinstance(input_data, tuple) and isinstance(input_data[0], np.ndarray):
+    elif isinstance(input_data, tuple) and isinstance(input_data[0], (np.ndarray, da.core.Array)):
         if isinstance(input_data[1], Header):
             return input_data[0], WCS(input_data[1])
         else:
@@ -259,18 +259,41 @@ def _reproject_blocked(
 
     shape_in = array_in.shape
 
+    dask_input = isinstance(array_in, da.core.Array)
+
     # When in parallel mode, we want to make sure we avoid having to copy the
     # input array to all processes for each chunk, so instead we write out
     # the input array to a Numpy memory map and load it in inside each process
     # as a memory-mapped array. We need to be careful how this gets passed to
     # reproject_single_block so we pass a variable that can be either a string
-    # or the array itself (for synchronous mode).
-    if parallel:
+    # or the array itself (for synchronous mode). We don't need to do this if
+    # the input dataset is a dask array as then dask knows how to pass it between
+    # processes. When the input array is a dask array, we also for now write
+    # this to a memmap array and pass that to the individual reproject functions.
+    # In future, it might be possible to make at least some of the reproject
+    # functions understand dask arrays directly.
+    if parallel or dask_input:
         array_in_or_path = tempfile.mktemp()
         array_in_memmapped = np.memmap(
             array_in_or_path, dtype=float, shape=array_in.shape, mode="w+"
         )
-        array_in_memmapped[:] = array_in[:]
+        if dask_input:
+            # First compute and store the dask array to zarr using whatever
+            # the default scheduler is at this point
+            filename = tempfile.mktemp()
+            array_in.to_zarr(filename)
+            array_in = da.from_zarr(filename)
+            # Then store this in the Numpy memmap array (schedulers other than
+            # synchronous don't work well when writing to a Numpy array)
+            da.store(
+                array_in,
+                array_in_memmapped,
+                compute=True,
+                scheduler="synchronous",
+            )
+        else:
+            array_in_memmapped[:] = array_in[:]
+
     else:
         array_in_or_path = array_in
 

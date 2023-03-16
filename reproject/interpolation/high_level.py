@@ -1,6 +1,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 import os
 
+from dask import array as da
 from astropy.utils import deprecated_renamed_argument
 
 from ..utils import _reproject_blocked, parse_input_data, parse_output_projection
@@ -115,6 +116,9 @@ def reproject_interp(
 
     if isinstance(order, str):
         order = ORDER[order]
+
+    if isinstance(array_in, da.core.Array) and block_size is None:
+        block_size = array_in.chunksize
 
     # if either of these are not default, it means a blocked method must be used
     if block_size is not None or parallel is not False:
