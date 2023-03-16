@@ -5,9 +5,9 @@
 
 import os
 
+import dask.array as da
 import numpy as np
 import pytest
-import dask.array as da
 from astropy.io import fits
 from astropy.nddata import NDData
 from astropy.wcs import WCS
