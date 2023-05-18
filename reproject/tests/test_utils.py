@@ -95,11 +95,18 @@ def test_parse_output_projection_invalid_wcs(simple_celestial_fits_wcs):
 
 def test_parse_output_projection_override_shape_out(simple_celestial_wcs):
 
+    # Regression test for a bug that caused shape_out to be ignored if the
+    # WCS object had array_shape set - but shape_out should override the WCS
+    # shape.
+
     wcs_ref = simple_celestial_wcs
 
     set_wcs_array_shape(wcs_ref, (10, 20))
 
-    assert wcs_ref.low_level_wcs.array_shape == (10, 20)
+    if hasattr(wcs_ref, 'low_level_wcs'):
+        assert wcs_ref.low_level_wcs.array_shape == (10, 20)
+    else:
+        assert wcs_ref.array_shape == (10, 20)
 
     wcs, shape = parse_output_projection(wcs_ref, shape_out=(30, 40))
 
