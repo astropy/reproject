@@ -316,17 +316,21 @@ VELOSYS =                  0.0
 """
 
 
+@pytest.mark.filterwarnings("ignore::astropy.wcs.wcs.FITSFixedWarning")
 def test_solar_wcs():
 
     # Regression test for issues that occurred when trying to find
     # the optimal WCS for a set of solar WCSes
 
+    pytest.importorskip("sunpy", minversion="2.1.0")
+
+    # Make sure the WCS <-> frame functions are registered
     import sunpy.coordinates
 
-    wcs_ref = WCS(fits.Header.fromstring(SOLAR_HEADER, sep="\n"), fix=False)
+    wcs_ref = WCS(fits.Header.fromstring(SOLAR_HEADER, sep="\n"))
 
-    wcs1 = wcs_ref
-    wcs2 = wcs_ref.copy()
+    wcs1 = wcs_ref.deepcopy()
+    wcs2 = wcs_ref.deepcopy()
     wcs2.wcs.crpix[0] -= 4096
 
     wcs, shape = find_optimal_celestial_wcs([((4096, 4096), wcs1), ((4096, 4096), wcs2)])
@@ -337,3 +341,5 @@ def test_solar_wcs():
     assert wcs.wcs.ctype[1] == wcs_ref.wcs.ctype[1]
     assert wcs.wcs.cunit[0] == wcs_ref.wcs.cunit[0]
     assert wcs.wcs.cunit[1] == wcs_ref.wcs.cunit[1]
+
+    assert shape == (4281, 8237)
