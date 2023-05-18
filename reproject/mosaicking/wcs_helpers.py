@@ -216,6 +216,12 @@ def find_optimal_celestial_wcs(
     # Construct WCS object centered on position
     wcs_final = celestial_frame_to_wcs(frame, projection=projection)
 
+    if wcs_final.wcs.cunit[0] == "":
+        wcs_final.wcs.cunit[0] = "deg"
+
+    if wcs_final.wcs.cunit[1] == "":
+        wcs_final.wcs.cunit[1] = "deg"
+
     rep = reference.represent_as("unitspherical")
     wcs_final.wcs.crval = (
         rep.lon.to_value(wcs_final.wcs.cunit[0]),
