@@ -318,7 +318,6 @@ VELOSYS =                  0.0
 
 @pytest.mark.filterwarnings("ignore::astropy.wcs.wcs.FITSFixedWarning")
 def test_solar_wcs():
-
     # Regression test for issues that occurred when trying to find
     # the optimal WCS for a set of solar WCSes
 
