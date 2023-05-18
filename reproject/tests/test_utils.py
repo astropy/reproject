@@ -5,6 +5,7 @@ from astropy.nddata import NDData
 from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
 
+from reproject.conftest import set_wcs_array_shape
 from reproject.tests.helpers import assert_wcs_allclose
 from reproject.utils import parse_input_data, parse_input_shape, parse_output_projection
 from reproject.wcs_utils import has_celestial
@@ -90,6 +91,20 @@ def test_parse_output_projection_invalid_header(simple_celestial_fits_wcs):
 def test_parse_output_projection_invalid_wcs(simple_celestial_fits_wcs):
     with pytest.raises(ValueError, match="Need to specify shape"):
         parse_output_projection(simple_celestial_fits_wcs)
+
+
+def test_parse_output_projection_override_shape_out(simple_celestial_wcs):
+
+    wcs_ref = simple_celestial_wcs
+
+    set_wcs_array_shape(wcs_ref, (10, 20))
+
+    assert wcs_ref.low_level_wcs.array_shape == (10, 20)
+
+    wcs, shape = parse_output_projection(wcs_ref, shape_out=(30, 40))
+
+    assert shape == (30, 40)
+    assert_wcs_allclose(wcs, wcs_ref)
 
 
 @pytest.mark.filterwarnings("ignore::astropy.utils.exceptions.AstropyUserWarning")
