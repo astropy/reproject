@@ -84,7 +84,7 @@ def parse_input_shape(input_shape, hdu_in=None):
         return parse_input_shape(input_shape[hdu_in])
     elif isinstance(input_shape, (PrimaryHDU, ImageHDU, CompImageHDU)):
         return input_shape.shape, WCS(input_shape.header)
-    elif isinstance(input_shape, tuple) and isinstance(input_shape[0], np.ndarray):
+    elif isinstance(input_shape, tuple) and isinstance(input_shape[0], (np.ndarray, da.core.Array)):
         if isinstance(input_shape[1], Header):
             return input_shape[0].shape, WCS(input_shape[1])
         else:
