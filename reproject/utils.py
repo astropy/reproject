@@ -21,6 +21,47 @@ __all__ = [
 ]
 
 
+def _dask_to_numpy_memmap(dask_array):
+    """
+    Given a dask array, write it out to disk and load it again as a Numpy
+    memmap array.
+    """
+
+    with tempfile.TemporaryDirectory() as zarr_tmp:
+        # First compute and store the dask array to zarr using whatever
+        # the default scheduler is at this point
+        dask_array.to_zarr(zarr_tmp)
+
+        # Load the array back to dask
+        zarr_array = da.from_zarr(zarr_tmp)
+
+        # Then store this in the Numpy memmap array (schedulers other than
+        # synchronous don't work well when writing to a Numpy array)
+
+        memmap_path = tempfile.mktemp()
+
+        memmapped_array = np.memmap(
+            memmap_path,
+            dtype=zarr_array.dtype,
+            shape=zarr_array.shape,
+            mode="w+",
+        )
+
+        da.store(
+            zarr_array,
+            memmapped_array,
+            compute=True,
+            scheduler="synchronous",
+        )
+
+    # Note that at this point the zarr directory should be removed, but
+    # the memmapped array will persist on disk. In future we may want to
+    # clean this up automatically once reproject has completed to avoid
+    # a build-up of temporary files
+
+    return memmapped_array
+
+
 def parse_input_data(input_data, hdu_in=None):
     """
     Parse input data to return a Numpy array and WCS object.
@@ -42,13 +83,17 @@ def parse_input_data(input_data, hdu_in=None):
     elif isinstance(input_data, (PrimaryHDU, ImageHDU, CompImageHDU)):
         return input_data.data, WCS(input_data.header)
     elif isinstance(input_data, tuple) and isinstance(input_data[0], (np.ndarray, da.core.Array)):
+        if isinstance(input_data[0], da.core.Array):
+            data = _dask_to_numpy_memmap(input_data[0])
+        else:
+            data = input_data[0]
         if isinstance(input_data[1], Header):
-            return input_data[0], WCS(input_data[1])
+            return data, WCS(input_data[1])
         else:
             if isinstance(input_data[1], BaseHighLevelWCS):
-                return input_data
+                return data, input_data[1]
             else:
-                return input_data[0], HighLevelWCSWrapper(input_data[1])
+                return data, HighLevelWCSWrapper(input_data[1])
     elif (
         isinstance(input_data, BaseHighLevelWCS)
         and input_data.low_level_wcs.array_shape is not None
@@ -266,33 +311,13 @@ def _reproject_blocked(
     # the input array to a Numpy memory map and load it in inside each process
     # as a memory-mapped array. We need to be careful how this gets passed to
     # reproject_single_block so we pass a variable that can be either a string
-    # or the array itself (for synchronous mode). We don't need to do this if
-    # the input dataset is a dask array as then dask knows how to pass it between
-    # processes. When the input array is a dask array, we also for now write
-    # this to a memmap array and pass that to the individual reproject functions.
-    # In future, it might be possible to make at least some of the reproject
-    # functions understand dask arrays directly.
-    if parallel or dask_input:
+    # or the array itself (for synchronous mode).
+    if parallel:
         array_in_or_path = tempfile.mktemp()
         array_in_memmapped = np.memmap(
             array_in_or_path, dtype=float, shape=array_in.shape, mode="w+"
         )
-        if dask_input:
-            # First compute and store the dask array to zarr using whatever
-            # the default scheduler is at this point
-            filename = tempfile.mktemp()
-            array_in.to_zarr(filename)
-            array_in = da.from_zarr(filename)
-            # Then store this in the Numpy memmap array (schedulers other than
-            # synchronous don't work well when writing to a Numpy array)
-            da.store(
-                array_in,
-                array_in_memmapped,
-                compute=True,
-                scheduler="synchronous",
-            )
-        else:
-            array_in_memmapped[:] = array_in[:]
+        array_in_memmapped[:] = array_in[:]
 
     else:
         array_in_or_path = array_in

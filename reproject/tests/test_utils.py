@@ -16,6 +16,7 @@ def test_parse_input_data(tmpdir, valid_celestial_input_data, request):
     array_ref, wcs_ref, input_value, kwargs = valid_celestial_input_data
 
     data, wcs = parse_input_data(input_value, **kwargs)
+    assert isinstance(data, np.ndarray)
     np.testing.assert_allclose(data, array_ref)
     assert_wcs_allclose(wcs, wcs_ref)
 
