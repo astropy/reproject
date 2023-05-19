@@ -287,3 +287,58 @@ def test_input_types(valid_celestial_input_shapes, iterable):
 
         assert_wcs_allclose(wcs_test, wcs_ref)
         assert shape_test == shape_ref
+
+
+SOLAR_HEADER = """
+CRPIX1  =   -1374.571094981584 / [pix]
+CRPIX2  =    2081.629159922445 / [pix]
+CRDATE1 = '2017-01-01T00:00:00.000'
+CRDATE2 = '2017-01-01T00:00:00.000'
+CRVAL1  =   -619.0078311637853
+CRVAL2  =    -407.000970936774
+CDELT1  =  0.01099999994039536
+CDELT2  =  0.01099999994039536
+CUNIT1  = 'arcsec  '
+CUNIT2  = 'arcsec  '
+CTYPE1  = 'HPLN-TAN'
+CTYPE2  = 'HPLT-TAN'
+PC1_1   =    0.966887196065055
+PC1_2   = -0.01087372434907635
+PC2_1   =  0.01173971407248916
+PC2_2   =   0.9871195868097251
+LONPOLE =                180.0 / [deg]
+DATEREF = '2022-06-02T17:22:53.220'
+OBSGEO-X=   -5466045.256954942 / [m]
+OBSGEO-Y=   -2404388.737412784 / [m]
+OBSGEO-Z=    2242133.887690042 / [m]
+SPECSYS = 'TOPOCENT'
+VELOSYS =                  0.0
+"""
+
+
+@pytest.mark.filterwarnings("ignore::astropy.wcs.wcs.FITSFixedWarning")
+def test_solar_wcs():
+    # Regression test for issues that occurred when trying to find
+    # the optimal WCS for a set of solar WCSes
+
+    pytest.importorskip("sunpy", minversion="2.1.0")
+
+    # Make sure the WCS <-> frame functions are registered
+    import sunpy.coordinates
+
+    wcs_ref = WCS(fits.Header.fromstring(SOLAR_HEADER, sep="\n"))
+
+    wcs1 = wcs_ref.deepcopy()
+    wcs2 = wcs_ref.deepcopy()
+    wcs2.wcs.crpix[0] -= 4096
+
+    wcs, shape = find_optimal_celestial_wcs([((4096, 4096), wcs1), ((4096, 4096), wcs2)])
+
+    wcs.wcs.set()
+
+    assert wcs.wcs.ctype[0] == wcs_ref.wcs.ctype[0]
+    assert wcs.wcs.ctype[1] == wcs_ref.wcs.ctype[1]
+    assert wcs.wcs.cunit[0] == wcs_ref.wcs.cunit[0]
+    assert wcs.wcs.cunit[1] == wcs_ref.wcs.cunit[1]
+
+    assert shape == (4281, 8237)

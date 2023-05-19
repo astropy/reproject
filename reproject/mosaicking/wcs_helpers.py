@@ -123,7 +123,7 @@ def find_optimal_celestial_wcs(
 
     # We start off by looping over images, checking that they are indeed
     # celestial images, and building up a list of all corners and all reference
-    # coordinates in celestial (ICRS) coordinates.
+    # coordinates in the frame of reference of the first image.
 
     corners = []
     references = []
@@ -162,18 +162,19 @@ def find_optimal_celestial_wcs(
         xc = np.array([-0.5, nx - 0.5, nx - 0.5, -0.5])
         yc = np.array([-0.5, -0.5, ny - 0.5, ny - 0.5])
 
-        # We have to do .frame here to make sure that we get an ICRS object
+        # We have to do .frame here to make sure that we get a frame object
         # without any 'hidden' attributes, otherwise the stacking below won't
         # work.
-        corners.append(wcs.pixel_to_world(xc, yc).icrs.frame)
+        corners.append(wcs.pixel_to_world(xc, yc).transform_to(frame).frame)
 
         if isinstance(wcs, WCS):
-            # We now figure out the reference coordinate for the image in ICRS. The
-            # easiest way to do this is actually to use pixel_to_skycoord with the
-            # reference position in pixel coordinates. We have to set origin=1
-            # because crpix values are 1-based.
+            # We now figure out the reference coordinate for the image in the
+            # frame of the first image. The easiest way to do this is actually
+            # to use pixel_to_skycoord with the reference position in pixel
+            # coordinates. We have to set origin=1 because crpix values are
+            # 1-based.
             xp, yp = wcs.wcs.crpix
-            references.append(pixel_to_skycoord(xp, yp, wcs, origin=1).icrs.frame)
+            references.append(pixel_to_skycoord(xp, yp, wcs, origin=1).transform_to(frame).frame)
 
             # Find the pixel scale at the reference position - we take the minimum
             # since we are going to set up a header with 'square' pixels with the
@@ -183,7 +184,7 @@ def find_optimal_celestial_wcs(
 
         else:
             xp, yp = (nx - 1) / 2, (ny - 1) / 2
-            references.append(wcs.pixel_to_world(xp, yp).icrs.frame)
+            references.append(wcs.pixel_to_world(xp, yp).transform_to(frame).frame)
 
             xs = np.array([xp, xp, xp + 1])
             ys = np.array([yp, yp + 1, yp])
@@ -192,7 +193,7 @@ def find_optimal_celestial_wcs(
             dy = abs(cs[0].separation(cs[1]).deg)
             resolutions.append(min(dx, dy))
 
-    # We now stack the coordinates - however the ICRS class can't do this
+    # We now stack the coordinates - however the frame classes can't do this
     # so we have to use the high-level SkyCoord class.
     corners = SkyCoord(corners)
     references = SkyCoord(references)
@@ -212,15 +213,24 @@ def find_optimal_celestial_wcs(
     if resolution is None:
         resolution = np.min(resolutions) * u.deg
 
-    # Determine the resolution in degrees
-    cdelt = resolution.to(u.deg).value
-
     # Construct WCS object centered on position
     wcs_final = celestial_frame_to_wcs(frame, projection=projection)
 
+    if wcs_final.wcs.cunit[0] == "":
+        wcs_final.wcs.cunit[0] = "deg"
+
+    if wcs_final.wcs.cunit[1] == "":
+        wcs_final.wcs.cunit[1] = "deg"
+
     rep = reference.represent_as("unitspherical")
-    wcs_final.wcs.crval = rep.lon.degree, rep.lat.degree
-    wcs_final.wcs.cdelt = -cdelt, cdelt
+    wcs_final.wcs.crval = (
+        rep.lon.to_value(wcs_final.wcs.cunit[0]),
+        rep.lat.to_value(wcs_final.wcs.cunit[1]),
+    )
+    wcs_final.wcs.cdelt = (
+        -resolution.to_value(wcs_final.wcs.cunit[0]),
+        resolution.to_value(wcs_final.wcs.cunit[1]),
+    )
 
     # For now, set crpix to (1, 1) and we'll then figure out where all the
     # images fall in this projection, then we'll adjust crpix.
