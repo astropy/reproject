@@ -166,12 +166,13 @@ def parse_output_projection(output_projection, shape_in=None, shape_out=None, ou
             wcs_out = HighLevelWCSWrapper(output_projection)
         else:
             wcs_out = output_projection
-        if wcs_out.low_level_wcs.array_shape is not None:
-            shape_out = wcs_out.low_level_wcs.array_shape
-        elif shape_out is None:
-            raise ValueError(
-                "Need to specify shape_out when specifying output_projection as WCS object"
-            )
+        if shape_out is None:
+            if wcs_out.low_level_wcs.array_shape is not None:
+                shape_out = wcs_out.low_level_wcs.array_shape
+            else:
+                raise ValueError(
+                    "Need to specify shape_out when specifying output_projection as WCS object"
+                )
     elif isinstance(output_projection, str):
         hdu_list = fits.open(output_projection)
         shape_out = hdu_list[0].data.shape
