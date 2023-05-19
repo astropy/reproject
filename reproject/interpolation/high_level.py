@@ -2,7 +2,6 @@
 import os
 
 from astropy.utils import deprecated_renamed_argument
-from dask import array as da
 
 from ..utils import _reproject_blocked, parse_input_data, parse_output_projection
 from .core import _reproject_full
