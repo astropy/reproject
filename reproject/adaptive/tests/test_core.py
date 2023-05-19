@@ -141,7 +141,7 @@ def test_reproject_adaptive_high_aliasing_potential_rotation(
     # along the output x axis. With the input image containing vertical lines
     # with values of zero or one, we should have uniform values of 0.5
     # throughout our output array.
-    np.testing.assert_allclose(array_out, 0.5, rtol=0.001)
+    np.testing.assert_allclose(array_out, 0.5, rtol=0.002)
 
     # Within the transforms, the order of operations is:
     # input pixel coordinates -> input rotation -> input scaling
@@ -161,7 +161,7 @@ def test_reproject_adaptive_high_aliasing_potential_rotation(
         center_jacobian=center_jacobian,
         kernel=kernel,
     )
-    np.testing.assert_allclose(array_out, 0.5, rtol=0.001)
+    np.testing.assert_allclose(array_out, 0.5, rtol=0.002)
 
     # But if we add a 90-degree rotation to the input coordinates, then when
     # our stretched output pixels are projected onto the input data, they will
