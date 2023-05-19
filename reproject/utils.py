@@ -304,8 +304,6 @@ def _reproject_blocked(
 
     shape_in = array_in.shape
 
-    dask_input = isinstance(array_in, da.core.Array)
-
     # When in parallel mode, we want to make sure we avoid having to copy the
     # input array to all processes for each chunk, so instead we write out
     # the input array to a Numpy memory map and load it in inside each process
@@ -318,7 +316,6 @@ def _reproject_blocked(
             array_in_or_path, dtype=float, shape=array_in.shape, mode="w+"
         )
         array_in_memmapped[:] = array_in[:]
-
     else:
         array_in_or_path = array_in
 
