@@ -5,6 +5,7 @@
 
 import os
 
+import dask.array as da
 import numpy as np
 import pytest
 from astropy.io import fits
@@ -132,6 +133,8 @@ def valid_celestial_input(tmp_path, request, wcs):
         input_value = (array.shape, wcs)
     elif request.param == "data_wcs_tuple":
         input_value = (array, wcs)
+    elif request.param == "dask_wcs_tuple":
+        input_value = (da.from_array(array), wcs)
     elif request.param == "nddata":
         input_value = NDData(data=array, wcs=wcs)
     elif request.param == "wcs":
@@ -153,6 +156,7 @@ COMMON_PARAMS = [
     "image_hdu",
     "comp_image_hdu",
     "data_wcs_tuple",
+    "dask_wcs_tuple",
     "nddata",
 ]
 

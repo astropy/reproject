@@ -21,6 +21,47 @@ __all__ = [
 ]
 
 
+def _dask_to_numpy_memmap(dask_array):
+    """
+    Given a dask array, write it out to disk and load it again as a Numpy
+    memmap array.
+    """
+
+    with tempfile.TemporaryDirectory() as zarr_tmp:
+        # First compute and store the dask array to zarr using whatever
+        # the default scheduler is at this point
+        dask_array.to_zarr(zarr_tmp)
+
+        # Load the array back to dask
+        zarr_array = da.from_zarr(zarr_tmp)
+
+        # Then store this in the Numpy memmap array (schedulers other than
+        # synchronous don't work well when writing to a Numpy array)
+
+        memmap_path = tempfile.mktemp()
+
+        memmapped_array = np.memmap(
+            memmap_path,
+            dtype=zarr_array.dtype,
+            shape=zarr_array.shape,
+            mode="w+",
+        )
+
+        da.store(
+            zarr_array,
+            memmapped_array,
+            compute=True,
+            scheduler="synchronous",
+        )
+
+    # Note that at this point the zarr directory should be removed, but
+    # the memmapped array will persist on disk. In future we may want to
+    # clean this up automatically once reproject has completed to avoid
+    # a build-up of temporary files
+
+    return memmapped_array
+
+
 def parse_input_data(input_data, hdu_in=None):
     """
     Parse input data to return a Numpy array and WCS object.
@@ -41,14 +82,18 @@ def parse_input_data(input_data, hdu_in=None):
         return parse_input_data(input_data[hdu_in])
     elif isinstance(input_data, (PrimaryHDU, ImageHDU, CompImageHDU)):
         return input_data.data, WCS(input_data.header)
-    elif isinstance(input_data, tuple) and isinstance(input_data[0], np.ndarray):
+    elif isinstance(input_data, tuple) and isinstance(input_data[0], (np.ndarray, da.core.Array)):
+        if isinstance(input_data[0], da.core.Array):
+            data = _dask_to_numpy_memmap(input_data[0])
+        else:
+            data = input_data[0]
         if isinstance(input_data[1], Header):
-            return input_data[0], WCS(input_data[1])
+            return data, WCS(input_data[1])
         else:
             if isinstance(input_data[1], BaseHighLevelWCS):
-                return input_data
+                return data, input_data[1]
             else:
-                return input_data[0], HighLevelWCSWrapper(input_data[1])
+                return data, HighLevelWCSWrapper(input_data[1])
     elif (
         isinstance(input_data, BaseHighLevelWCS)
         and input_data.low_level_wcs.array_shape is not None
@@ -84,7 +129,7 @@ def parse_input_shape(input_shape, hdu_in=None):
         return parse_input_shape(input_shape[hdu_in])
     elif isinstance(input_shape, (PrimaryHDU, ImageHDU, CompImageHDU)):
         return input_shape.shape, WCS(input_shape.header)
-    elif isinstance(input_shape, tuple) and isinstance(input_shape[0], np.ndarray):
+    elif isinstance(input_shape, tuple) and isinstance(input_shape[0], (np.ndarray, da.core.Array)):
         if isinstance(input_shape[1], Header):
             return input_shape[0].shape, WCS(input_shape[1])
         else:
