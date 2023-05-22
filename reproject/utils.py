@@ -102,7 +102,11 @@ def parse_input_data(input_data, hdu_in=None):
     elif isinstance(input_data, BaseLowLevelWCS) and input_data.array_shape is not None:
         return input_data.array_shape, HighLevelWCSWrapper(input_data)
     elif isinstance(input_data, astropy.nddata.NDDataBase):
-        return input_data.data, input_data.wcs
+        if isinstance(input_data.data, da.core.Array):
+            data = _dask_to_numpy_memmap(input_data.data)
+        else:
+            data = input_data.data
+        return data, input_data.wcs
     else:
         raise TypeError(
             "input_data should either be an HDU object or a tuple "

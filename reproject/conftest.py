@@ -137,6 +137,8 @@ def valid_celestial_input(tmp_path, request, wcs):
         input_value = (da.from_array(array), wcs)
     elif request.param == "nddata":
         input_value = NDData(data=array, wcs=wcs)
+    elif request.param == "nddata_dask":
+        input_value = NDData(data=da.from_array(array), wcs=wcs)
     elif request.param == "wcs":
         set_wcs_array_shape(wcs, array.shape)
         input_value = wcs
@@ -158,6 +160,7 @@ COMMON_PARAMS = [
     "data_wcs_tuple",
     "dask_wcs_tuple",
     "nddata",
+    "nddata_dask",
 ]
 
 
