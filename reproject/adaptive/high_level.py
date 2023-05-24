@@ -13,6 +13,7 @@ def reproject_adaptive(
     hdu_in=0,
     return_footprint=True,
     center_jacobian=False,
+    despike_jacobian=False,
     roundtrip_coords=True,
     conserve_flux=False,
     kernel="gaussian",
@@ -82,6 +83,22 @@ def reproject_adaptive(
         efficient, and the loss of accuracy is extremely small for
         transformations that vary smoothly between pixels. Defaults to
         ``False``.
+    despike_jacobian : bool
+        Whether to despike the computed Jacobian values. In some situations
+        (e.g. an all-sky map, with a wrap point in the longitude), extremely
+        large Jacobian values may be computed which are artifacts of the
+        coordinate system definition, rather than reflecting the actual nature
+        of the coordinate transformation. This may result in a band of ``nan``
+        pixels in the output image. In these situations, if the actual
+        transformation is approximately constant in the region of these
+        artifacts, this option should be enabled. If enabled, the typical
+        magnitude (distance from the determinant) of the Jacobian matrix,
+        ``Jmag2 = sum_j sum_i (J_ij**2)``, is computed for each pixel and
+        compared to the 25th percentile of that value in the local 3x3
+        neighborhood (i.e. the third-lowest value). If it exceeds that
+        percentile value by more than 10 times, the Jacobian matrix is deemed
+        to be "spiking" and it is replaced by the average of the non-spiking
+        values in the 3x3 neighborhood.
     roundtrip_coords : bool
         Whether to verify that coordinate transformations are defined in both
         directions.
@@ -135,7 +152,7 @@ def reproject_adaptive(
               ``boundary_ignore_threshold`` argument. In that case, acts as
               ``strict``.
             * ``nearest`` --- Samples outside the input image are replaced by
-              the nearst in-bounds input pixel.
+              the nearest in-bounds input pixel.
 
     boundary_fill_value : double
         The constant value used by the ``constant`` boundary mode.
@@ -172,6 +189,7 @@ def reproject_adaptive(
         shape_out,
         return_footprint=return_footprint,
         center_jacobian=center_jacobian,
+        despike_jacobian=despike_jacobian,
         roundtrip_coords=roundtrip_coords,
         conserve_flux=conserve_flux,
         kernel=kernel,
