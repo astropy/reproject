@@ -243,6 +243,20 @@ points. This is more efficient, and the loss of accuracy is extremely small for
 transformations that vary smoothly between pixels. The default (``False``) is
 to use the faster option.
 
+In some situations (e.g. an all-sky map, with a wrap point in the longitude),
+extremely large Jacobian values may be computed which are artifacts of the
+coordinate system definition, rather than reflecting the actual nature of the
+coordinate transformation. This may result in a band of ``nan`` pixels in the
+output image. In these situations, if the actual transformation is
+approximately constant in the region of these artifacts, the
+``despike_jacobian`` option should be enabled. If enabled, the typical
+magnitude (distance from the determinant) of the Jacobian matrix, ``Jmag2 =
+sum_j sum_i (J_ij**2)``, is computed for each pixel and compared to the 25th
+percentile of that value in the local 3x3 neighborhood (i.e. the third-lowest
+value). If it exceeds that percentile value by more than 10 times, the Jacobian
+matrix is deemed to be "spiking" and it is replaced by the average of the
+non-spiking values in the 3x3 neighborhood.
+
 When, for any one output pixel, the sampling region in the input image
 straddles the boundary of the input image or lies entirely outside the input
 image, a range of boundary modes can be applied, and this is set with the

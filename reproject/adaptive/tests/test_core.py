@@ -66,6 +66,69 @@ def test_reproject_adaptive_2d(wcsapi, center_jacobian, roundtrip_coords):
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 
 
+@pytest.mark.parametrize("axis", ("x", "y"))
+@pytest.mark.parametrize("center_jacobian", (True, False))
+def test_reproject_adaptive_despike_jacobian(axis, center_jacobian):
+    if axis == "x":
+        wcs_in = WCS(naxis=2)
+        wcs_in.wcs.ctype = "RA---CAR", "DEC--CAR"
+        wcs_in.wcs.crpix = 18.5, 9.5
+        wcs_in.wcs.crval = 180, 0
+        wcs_in.wcs.cdelt = 10, 10
+        data_in = np.arange(18 * 36).reshape((18, 36))
+
+        wcs_out = WCS(naxis=2)
+        wcs_out.wcs.ctype = "RA---CAR", "DEC--CAR"
+        wcs_out.wcs.crpix = 20, 20
+        wcs_out.wcs.crval = 10, 0
+        wcs_out.wcs.cdelt = 5, 1
+    else:
+        wcs_in = WCS(naxis=2)
+        wcs_in.wcs.ctype = "DEC--CAR", "RA---CAR"
+        wcs_in.wcs.crpix = 9.5, 18.5
+        wcs_in.wcs.crval = 0, 180
+        wcs_in.wcs.cdelt = 10, 10
+        data_in = np.arange(18 * 36).reshape((36, 18))
+
+        wcs_out = WCS(naxis=2)
+        wcs_out.wcs.ctype = "DEC--CAR", "RA---CAR"
+        wcs_out.wcs.crpix = 20, 20
+        wcs_out.wcs.crval = 0, 10
+        wcs_out.wcs.cdelt = 1, 5
+
+    output = reproject_adaptive(
+        (data_in, wcs_in),
+        wcs_out,
+        (40, 40),
+        roundtrip_coords=False,
+        return_footprint=False,
+        despike_jacobian=False,
+        center_jacobian=center_jacobian,
+        x_cyclic=(axis == "x"),
+        y_cyclic=(axis == "y"),
+    )
+
+    output_despiked = reproject_adaptive(
+        (data_in, wcs_in),
+        wcs_out,
+        (40, 40),
+        roundtrip_coords=False,
+        return_footprint=False,
+        despike_jacobian=True,
+        center_jacobian=center_jacobian,
+        x_cyclic=(axis == "x"),
+        y_cyclic=(axis == "y"),
+    )
+
+    finite = np.isfinite(output)
+    # There should be a strip of nans in the un-despiked output
+    assert np.sum(finite) < output.size
+    # The outputs should match where spiking wasn't a concern
+    np.testing.assert_equal(output[finite], output_despiked[finite])
+    # The despiked output should have no nans
+    assert np.all(np.isfinite(output_despiked))
+
+
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.array_compare(single_reference=True)
 @pytest.mark.parametrize("center_jacobian", (False, True))

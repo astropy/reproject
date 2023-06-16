@@ -33,6 +33,7 @@ import numpy as np
 cimport cython
 cimport numpy as np
 from libc.math cimport atan2, ceil, cos, exp, fabs, floor, round, sin, sqrt
+from libc.stdlib cimport qsort
 
 import sys
 
@@ -171,6 +172,164 @@ cdef bint sample_array(double[:,:,:] source, double[:] dest,
     return True
 
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+cdef void calculate_jacobian(double[:, :] Ji, int center_jacobian,
+        int yi, int xi,
+        double[:, :, :] offset_source_x, double[:, :, :] offset_source_y,
+        double[:, :, :] Jx, double[:, :, :] Jy) nogil:
+    """ Utility function to calculate the Jacobian at one (yi, xi) location"""
+    if center_jacobian:
+        # Compute the Jacobian for the transformation applied to
+        # this pixel, as finite differences.
+        Ji[0,0] = -offset_source_x[yi, xi, 0] + offset_source_x[yi, xi+1, 0]
+        Ji[1,0] = -offset_source_x[yi, xi, 1] + offset_source_x[yi, xi+1, 1]
+        Ji[0,1] = -offset_source_y[yi, xi, 0] + offset_source_y[yi+1, xi, 0]
+        Ji[1,1] = -offset_source_y[yi, xi, 1] + offset_source_y[yi+1, xi, 1]
+    else:
+        # Compute the Jacobian for the transformation applied to
+        # this pixel, as a mean of the Jacobian a half-pixel
+        # forwards and backwards.
+        Ji[0,0] = (Jx[yi, xi, 0] + Jx[yi, xi+1, 0]) / 2
+        Ji[1,0] = (Jx[yi, xi, 1] + Jx[yi, xi+1, 1]) / 2
+        Ji[0,1] = (Jy[yi, xi, 0] + Jy[yi+1, xi, 0]) / 2
+        Ji[1,1] = (Jy[yi, xi, 1] + Jy[yi+1, xi, 1]) / 2
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+cdef int cmp_func(const void* a, const void* b) nogil:
+    cdef double a_v = (<double*>a)[0]
+    cdef double b_v = (<double*>b)[0]
+    if a_v < b_v:
+        return -1
+    elif a_v == b_v:
+        return 0
+    else:
+        return 1
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+cdef void sort(double[:] a) nogil:
+    qsort(&a[0], a.shape[0], a.strides[0], &cmp_func)
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+cdef void despike_jacobian(double[:, :, :, :] jacobian):
+    """Detects and fixes pixels where the Jacobian is extremely large
+
+    This can occur, e.g., for an all-sky map at the point where the longitude
+    wraps around. In such cases, the large Jacobian is an artefact of the
+    coordinates and should be eliminated.
+
+    The spike detection uses the typical magnitude (distance from determinant)
+    of the Jacobian matrix
+        Jmag2 = sum_j sum_i (J_ij**2).
+    The value of Jmag2 is calculated in the 3x3 neighborhood around each pixel,
+    and the 25th percentile value (the third lowest value) is kept. Anywhere
+        Jmag2 > Jmag2_25pct * threshold_factor
+    is marked as a spike. Threshold_factor is currently hardcoded to 10. The
+    Jacobian's components at spike locations are replaced with the mean of those
+    from nearby non-spike locations.
+
+    The average-magnitude-of-Jacobian method works okay because the
+    typical use case is for pixel to pixel mapping (resampling data
+    sets), where the overall singular value ratio is not likely to be
+    large (less than, say, 30).
+    """
+    # Compute the magnitude of the Jacobian
+    cdef double[:, :] Jmag2 = np.empty((jacobian.shape[0], jacobian.shape[1]))
+    cdef int xi, yi
+    for yi in range(jacobian.shape[0]):
+        for xi in range(jacobian.shape[1]):
+            Jmag2[yi, xi] = (
+                    jacobian[yi, xi, 0, 0]**2
+                    + jacobian[yi, xi, 0, 1]**2
+                    + jacobian[yi, xi, 1, 0]**2
+                    + jacobian[yi, xi, 1, 1]**2)
+
+    # Cycle through and look for outliers
+    cdef double percentile, thresh
+    cdef int n_contributing, ymax, xmax
+    ymax = jacobian.shape[0] - 2
+    xmax = jacobian.shape[1] - 2
+    cdef double[:] neighborhood = np.empty(9)
+    with nogil:
+        for yi in range(1, ymax + 1):
+            for xi in range(1, xmax + 1):
+                neighborhood[0:3] = Jmag2[yi-1, xi-1:xi+2]
+                neighborhood[3:6] = Jmag2[yi, xi-1:xi+2]
+                neighborhood[6:] = Jmag2[yi+1, xi-1:xi+2]
+                # Computing the percentile through this C function is *much*
+                # faster than calling np.percentile.
+                sort(neighborhood)
+                percentile = neighborhood[2]
+                thresh = 10 * percentile
+                if Jmag2[yi, xi] > thresh:
+                    # This pixel is an outlier. Replace it with an average of
+                    # the neighboring, non-outlier pixels
+                    fill_in_jacobian(
+                            jacobian, xi, xi-1, xi+1, yi, yi-1, yi+1,
+                            Jmag2, thresh)
+
+                # Check edges
+                if yi == 1 and Jmag2[0, xi] > thresh:
+                    fill_in_jacobian(
+                            jacobian, xi, xi-1, xi+1, 0, 0, 1,
+                            Jmag2, thresh)
+
+                if yi == ymax and Jmag2[ymax+1, xi] > thresh:
+                    fill_in_jacobian(
+                            jacobian, xi, xi-1, xi+1, ymax+1, ymax, ymax+1,
+                            Jmag2, thresh)
+
+                if xi == 1 and Jmag2[yi, 0] > thresh:
+                    fill_in_jacobian(
+                            jacobian, 0, 0, 1, yi, yi-1, yi+1, Jmag2, thresh)
+
+                if xi == xmax and Jmag2[yi, xmax+1] > thresh:
+                    fill_in_jacobian(
+                            jacobian, xmax+1, xmax, xmax+1, yi, yi-1, yi+1,
+                            Jmag2, thresh)
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+cdef void fill_in_jacobian(double[:, :, :, :] jacobian,
+        int xi, int xfirst, int xlast,
+        int yi, int yfirst, int ylast,
+        double[:, :] Jmag2, double thresh) nogil:
+    """ Utility function that replaces a spiking Jacobian pixel """
+    jacobian[yi, xi] = 0
+    cdef int n_contributing = 0
+    for i in range(yfirst, ylast+1):
+        for j in range(xfirst, xlast+1):
+            if i == yi and j == xi:
+                continue
+            if Jmag2[i, j] < thresh:
+                n_contributing += 1
+                jacobian[yi, xi, 0, 0] += jacobian[i, j, 0, 0]
+                jacobian[yi, xi, 0, 1] += jacobian[i, j, 0, 1]
+                jacobian[yi, xi, 1, 0] += jacobian[i, j, 1, 0]
+                jacobian[yi, xi, 1, 1] += jacobian[i, j, 1, 1]
+    jacobian[yi, xi, 0, 0] /= n_contributing
+    jacobian[yi, xi, 0, 1] /= n_contributing
+    jacobian[yi, xi, 1, 0] /= n_contributing
+    jacobian[yi, xi, 1, 1] /= n_contributing
+
+
 KERNELS = {}
 KERNELS['hann'] = 0
 KERNELS['hanning'] = KERNELS['hann']
@@ -192,9 +351,11 @@ BOUNDARY_MODES['nearest'] = 6
 def map_coordinates(double[:,:,:] source, double[:,:,:] target, Ci, int max_samples_width=-1,
                     int conserve_flux=False, int progress=False, int singularities_nan=False,
                     int x_cyclic=False, int y_cyclic=False, int out_of_range_nan=False,
-                    bint center_jacobian=False, str kernel='gaussian', double kernel_width=1.3,
+                    bint center_jacobian=False, bint despiked_jacobian=False,
+                    str kernel='gaussian', double kernel_width=1.3,
                     double sample_region_width=4, str boundary_mode="strict",
-                    double boundary_fill_value=0, double boundary_ignore_threshold=0.5):
+                    double boundary_fill_value=0, double boundary_ignore_threshold=0.5,
+                    ):
     # n.b. the source and target arrays are expected to contain three
     # dimensions---the last two are the image dimensions, while the first
     # indexes multiple images with the same coordinates. The transformation is
@@ -256,10 +417,10 @@ def map_coordinates(double[:,:,:] source, double[:,:,:] target, Ci, int max_samp
     # These source arrays store a corresponding input-image coordinate for each
     # pixel in the output image.
     cdef np.ndarray[np.float64_t, ndim=3] pixel_source = Ci(pixel_target)
-    cdef np.ndarray[np.float64_t, ndim=3] offset_source_x = None
-    cdef np.ndarray[np.float64_t, ndim=3] offset_source_y = None
-    cdef np.ndarray[np.float64_t, ndim=3] Jx = None
-    cdef np.ndarray[np.float64_t, ndim=3] Jy = None
+    cdef double[:,:,:] offset_source_x = None
+    cdef double[:,:,:] offset_source_y = None
+    cdef double[:,:,:] Jx = None
+    cdef double[:,:,:] Jy = None
 
     if center_jacobian:
         offset_source_x = Ci(offset_target_x)
@@ -294,6 +455,19 @@ def map_coordinates(double[:,:,:] source, double[:,:,:] target, Ci, int max_samp
         pixel_source = pixel_source[1:-1, 1:-1]
 
     cdef double[:,:] Ji = np.zeros((2, 2))
+    cdef double[:, :, :, :] jacobian = None
+    if despiked_jacobian:
+        # To do despiking, we need to have all the final Jacobian values
+        # computed and ready. If we're not despiking, there's no need to hold
+        # all the values in memory at once.
+        jacobian = np.empty((target.shape[1], target.shape[2], 2, 2))
+        for yi in range(target.shape[1]):
+            for xi in range(target.shape[2]):
+                calculate_jacobian(Ji, center_jacobian, yi, xi,
+                        offset_source_x, offset_source_y, Jx, Jy)
+                jacobian[yi, xi] = Ji
+        despike_jacobian(jacobian)
+
     cdef double[:,:] Ji_padded = np.zeros((2, 2))
     cdef double[:,:] J = np.zeros((2, 2))
     cdef double[:,:] U = np.zeros((2, 2))
@@ -319,21 +493,11 @@ def map_coordinates(double[:,:,:] source, double[:,:,:] target, Ci, int max_samp
         # Iterate through each pixel in the output image.
         for yi in range(target.shape[1]):
             for xi in range(target.shape[2]):
-                if center_jacobian:
-                    # Compute the Jacobian for the transformation applied to
-                    # this pixel, as finite differences.
-                    Ji[0,0] = -offset_source_x[yi, xi, 0] + offset_source_x[yi, xi+1, 0]
-                    Ji[1,0] = -offset_source_x[yi, xi, 1] + offset_source_x[yi, xi+1, 1]
-                    Ji[0,1] = -offset_source_y[yi, xi, 0] + offset_source_y[yi+1, xi, 0]
-                    Ji[1,1] = -offset_source_y[yi, xi, 1] + offset_source_y[yi+1, xi, 1]
+                if despiked_jacobian:
+                    Ji = jacobian[yi, xi]
                 else:
-                    # Compute the Jacobian for the transformation applied to
-                    # this pixel, as a mean of the Jacobian a half-pixel
-                    # forwards and backwards.
-                    Ji[0,0] = (Jx[yi, xi, 0] + Jx[yi, xi+1, 0]) / 2
-                    Ji[1,0] = (Jx[yi, xi, 1] + Jx[yi, xi+1, 1]) / 2
-                    Ji[0,1] = (Jy[yi, xi, 0] + Jy[yi+1, xi, 0]) / 2
-                    Ji[1,1] = (Jy[yi, xi, 1] + Jy[yi+1, xi, 1]) / 2
+                    calculate_jacobian(Ji, center_jacobian, yi, xi,
+                            offset_source_x, offset_source_y, Jx, Jy)
                 if isnan(Ji[0,0]) or isnan(Ji[0,1]) or isnan(Ji[1,0]) or isnan(Ji[1,1]) or isnan(pixel_source[yi,xi,0]) or isnan(pixel_source[yi,xi,1]):
                     target[:,yi,xi] = nan
                     continue

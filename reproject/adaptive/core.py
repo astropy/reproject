@@ -32,6 +32,7 @@ def _reproject_adaptive_2d(
     shape_out,
     return_footprint=True,
     center_jacobian=False,
+    despike_jacobian=False,
     roundtrip_coords=True,
     conserve_flux=False,
     kernel="Gaussian",
@@ -62,6 +63,8 @@ def _reproject_adaptive_2d(
         Whether to return the footprint in addition to the output array.
     center_jacobian : bool
         Whether to compute centered Jacobians
+    despike_jacobian : bool
+        Whether to despike the Jacobians
     roundtrip_coords : bool
         Whether to veryfiy that coordinate transformations are defined in both
         directions.
@@ -97,13 +100,6 @@ def _reproject_adaptive_2d(
     .. [1] C. E. DeForest, "On Re-sampling of Solar Images"
        Solar Physics volume 219, pages 3–23 (2004),
        https://doi.org/10.1023/B:SOLA.0000021743.24248.b0
-
-    Warnings
-    --------
-    Coordinates that lie exactly on the edge of an all-sky map may be subject
-    to numerical issues, causing a band of NaN values around the edge of the
-    final image (when reprojecting from helioprojective to heliographic).
-    See https://github.com/astropy/reproject/issues/195 for more information.
 
     Note
     ----
@@ -156,6 +152,7 @@ def _reproject_adaptive_2d(
         transformer,
         out_of_range_nan=True,
         center_jacobian=center_jacobian,
+        despiked_jacobian=despike_jacobian,
         conserve_flux=conserve_flux,
         kernel=kernel,
         kernel_width=kernel_width,
