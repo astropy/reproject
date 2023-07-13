@@ -134,16 +134,20 @@ def _reproject_dispatcher(
             if isinstance(array_in, da.core.Array):
                 _, array_in = _dask_to_numpy_memmap(array_in, tmp_dir)
 
-            return reproject_func(
-                array_in,
-                wcs_in,
-                wcs_out,
-                shape_out=shape_out,
-                array_out=array_out,
-                return_footprint=return_footprint,
-                output_footprint=output_footprint,
-                **reproject_func_kwargs,
-            )
+            try:
+                return reproject_func(
+                    array_in,
+                    wcs_in,
+                    wcs_out,
+                    shape_out=shape_out,
+                    array_out=array_out,
+                    return_footprint=return_footprint,
+                    output_footprint=output_footprint,
+                    **reproject_func_kwargs,
+                )
+            finally:
+                # Clean up reference to numpy memmap
+                array_in = None
 
         if output_footprint is None and return_footprint:
             output_footprint = np.zeros(shape_out, dtype=float)
@@ -216,6 +220,10 @@ def _reproject_dispatcher(
             new_axis=0,
             chunks=(2,) + array_out_dask.chunksize,
         )
+
+        # Ensure that there are no more references to Numpy memmaps
+        array_in = None
+        array_in_or_path = None
 
         # Truncate extra elements
         result = result[tuple([slice(None)] + [slice(s) for s in shape_out])]
