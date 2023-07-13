@@ -27,6 +27,11 @@ def _dask_to_numpy_memmap(dask_array):
     memmap array.
     """
 
+    # Sometimes compute() has to be called twice to return a Numpy array,
+    # so we need to check here if this is the case and call the first compute()
+    if isinstance(dask_array.ravel()[0].compute(), da.Array):
+        dask_array = dask_array.compute()
+
     with tempfile.TemporaryDirectory() as zarr_tmp:
         # First compute and store the dask array to zarr using whatever
         # the default scheduler is at this point
@@ -344,7 +349,10 @@ def _reproject_blocked(
 
     # NOTE: the following array is just used to set up the iteration in map_blocks
     # but isn't actually used otherwise - this is deliberate.
-    output_array_dask = da.empty(shape_out, chunks=block_size or "auto")
+    if block_size:
+        output_array_dask = da.empty(shape_out, chunks=block_size)
+    else:
+        output_array_dask = da.empty(shape_out).rechunk(block_size_limit=8 * 1024**2)
 
     result = da.map_blocks(
         reproject_single_block,
