@@ -3,7 +3,8 @@ import os
 
 from astropy.utils import deprecated_renamed_argument
 
-from ..utils import _reproject_blocked, parse_input_data, parse_output_projection
+from ..utils import parse_input_data, parse_output_projection
+from ..common import _reproject_dispatcher
 from .core import _reproject_full
 
 __all__ = ["reproject_interp"]
@@ -118,7 +119,7 @@ def reproject_interp(
 
     # if either of these are not default, it means a blocked method must be used
     if block_size is not None or parallel is not False:
-        return _reproject_blocked(
+        return _reproject_dispatcher(
             _reproject_full,
             array_in=array_in,
             wcs_in=wcs_in,
