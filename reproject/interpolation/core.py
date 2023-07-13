@@ -79,6 +79,9 @@ def _reproject_full(
     shape_out = tuple(shape_out)
     _validate_wcs(wcs_in, wcs_out, array.shape, shape_out)
 
+    if array_out is None:
+        array_out = np.empty(shape_out)
+
     if output_footprint is None:
         output_footprint = np.empty(shape_out)
 

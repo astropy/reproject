@@ -21,14 +21,14 @@ def reproject_interp(
     output_projection,
     shape_out=None,
     hdu_in=0,
-    order="bilinear",
     output_array=None,
     return_footprint=True,
     output_footprint=None,
     block_size=None,
     parallel=False,
-    roundtrip_coords=True,
     return_type=None,
+    order="bilinear",
+    roundtrip_coords=True,
 ):
     """
     Reproject data to a new projection using interpolation (this is typically
@@ -131,9 +131,9 @@ def reproject_interp(
         block_size=block_size,
         return_footprint=return_footprint,
         output_footprint=output_footprint,
-        reproject_func_kwargs={
-            "order": order,
-            "roundtrip_coords": roundtrip_coords,
-        },
+        reproject_func_kwargs=dict(
+            order=order,
+            roundtrip_coords=roundtrip_coords,
+        ),
         return_type=return_type,
     )

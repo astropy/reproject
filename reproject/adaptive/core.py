@@ -30,6 +30,8 @@ def _reproject_adaptive_2d(
     wcs_in,
     wcs_out,
     shape_out,
+    array_out=None,
+    output_footprint=None,
     return_footprint=True,
     center_jacobian=False,
     despike_jacobian=False,
@@ -130,8 +132,11 @@ def _reproject_adaptive_2d(
     if extra_dimens_in != extra_dimens_out:
         raise ValueError("Dimensions to be looped over must match exactly")
 
-    # Create output array
-    array_out = np.zeros(shape_out)
+    if array_out is None:
+        array_out = np.empty(shape_out)
+
+    if output_footprint is None:
+        output_footprint = np.empty(shape_out)
 
     if len(array_in.shape) == wcs_in.low_level_wcs.pixel_n_dim:
         # We don't need to broadcast the transformation over any extra
@@ -167,6 +172,7 @@ def _reproject_adaptive_2d(
     array_out.shape = shape_out
 
     if return_footprint:
-        return array_out, (~np.isnan(array_out)).astype(float)
+        output_footprint[:] = (~np.isnan(array_out)).astype(float)
+        return array_out, output_footprint
     else:
         return array_out

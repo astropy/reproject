@@ -22,7 +22,23 @@ def _reproject_slice(args):
     return _reproject_slice_cython(*args)
 
 
-def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, return_footprint=True):
+def _reproject_celestial(
+    array,
+    wcs_in,
+    wcs_out,
+    shape_out,
+    array_out=None,
+    output_footprint=None,
+    parallel=True,
+    return_footprint=True,
+):
+
+    if array_out is None:
+        array_out = np.empty(shape_out)
+
+    if output_footprint is None:
+        output_footprint = np.empty(shape_out)
+
     # Check the parallel flag.
     if type(parallel) != bool and type(parallel) != int:
         raise TypeError("The 'parallel' flag must be a boolean or integral value")
@@ -216,7 +232,11 @@ def _reproject_celestial(array, wcs_in, wcs_out, shape_out, parallel=True, retur
             output_weights = np.stack(output_weights)
             output_weights.shape = shape_out
 
+    # TODO: we should be able to make use of the output arrays more efficiently
+
+    array_out[:] = outputs
     if return_footprint:
-        return outputs, output_weights
+        output_footprint[:] = output_weights
+        return array_out, output_footprint
     else:
-        return outputs
+        return array_out
