@@ -107,7 +107,11 @@ def _reproject_dispatcher(
             raise ValueError(
                 f"Output array shape {array_out.shape} should match " f"shape_out={shape_out}"
             )
-        elif array_out.dtype != array_in.dtype:
+        elif (array_out.dtype.kind, array_out.dtype.itemsize) != (
+            array_in.dtype.kind,
+            array_in.dtype.itemsize,
+        ):
+            # Note that here we don't care if the endians don't match
             raise ValueError(
                 f"Output array dtype {array_out.dtype} should match "
                 f"input array dtype ({array_in.dtype})"
