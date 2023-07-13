@@ -19,7 +19,6 @@ def _reproject_celestial(
     output_footprint=None,
     return_footprint=True,
 ):
-
     if array_out is None:
         array_out = np.empty(shape_out)
 
@@ -119,6 +118,8 @@ def _reproject_celestial(
         # to loop over
         broadcasting = True
         array = array.reshape((-1, *array.shape[-wcs_in.low_level_wcs.pixel_n_dim :]))
+        array_out = array_out.reshape((-1, *shape_out[-2:]))
+        output_footprint = output_footprint.reshape((-1, *shape_out[-2:]))
     else:
         raise ValueError("Too few dimensions for input array")
 
@@ -146,6 +147,7 @@ def _reproject_celestial(
             array_new /= weights
 
         if broadcasting:
+            print(array_out.shape, array_new.shape)
             array_out[i] = array_new
             if return_footprint:
                 output_footprint[i] = weights
@@ -153,6 +155,11 @@ def _reproject_celestial(
             array_out[:] = array_new
             if return_footprint:
                 output_footprint[:] = weights
+
+    if broadcasting:
+        array_out = array_out.reshape(shape_out)
+        if return_footprint:
+            output_footprint = output_footprint.reshape(shape_out)
 
     if return_footprint:
         return array_out, output_footprint

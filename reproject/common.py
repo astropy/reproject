@@ -127,7 +127,7 @@ def _reproject_dispatcher(
                     "been specified"
                 )
 
-            if isinstance(array_in.data, da.core.Array):
+            if isinstance(array_in, da.core.Array):
                 _, array_in = _dask_to_numpy_memmap(array_in, tmp_dir)
 
             return reproject_func(
@@ -234,7 +234,10 @@ def _reproject_dispatcher(
             # to be done in parallel.
 
             if isinstance(parallel, int):
-                workers = {"num_workers": parallel}
+                if parallel > 0:
+                    workers = {"num_workers": parallel}
+                else:
+                    raise ValueError("The number of processors to use must be strictly positive")
             else:
                 workers = {}
 
