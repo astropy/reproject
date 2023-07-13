@@ -216,7 +216,9 @@ def parse_output_projection(output_projection, shape_in=None, shape_out=None, ou
                     "does not contain complete shape information"
                 )
     elif isinstance(output_projection, (BaseLowLevelWCS, BaseHighLevelWCS)):
-        if isinstance(output_projection, BaseLowLevelWCS):
+        if isinstance(output_projection, BaseLowLevelWCS) and not isinstance(
+            output_projection, BaseHighLevelWCS
+        ):
             wcs_out = HighLevelWCSWrapper(output_projection)
         else:
             wcs_out = output_projection

@@ -125,7 +125,7 @@ coordinate falls within the bounds of the input image.)
 As an example, we start off by opening a FITS file using Astropy::
 
     >>> from astropy.io import fits
-    >>> hdu = fits.open('http://data.astropy.org/galactic_center/gc_msx_e.fits')[0]    # doctest: +REMOTE_DATA
+    >>> hdu = fits.open('http://data.astropy.org/galactic_center/gc_msx_e.fits')[0]    # doctest: +REMOTE_DATA +IGNORE_OUTPUT
     Downloading http://data.astropy.org/galactic_center/gc_msx_e.fits [Done]
 
 The image is currently using a Plate Carée projection::
