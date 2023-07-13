@@ -1,3 +1,5 @@
+import os
+import uuid
 import tempfile
 from pathlib import Path
 
@@ -18,7 +20,7 @@ __all__ = [
 ]
 
 
-def _dask_to_numpy_memmap(dask_array):
+def _dask_to_numpy_memmap(dask_array, tmp_dir):
     """
     Given a dask array, write it out to disk and load it again as a Numpy
     memmap array.
@@ -28,6 +30,10 @@ def _dask_to_numpy_memmap(dask_array):
     # so we need to check here if this is the case and call the first compute()
     if isinstance(dask_array.ravel()[0].compute(), da.Array):
         dask_array = dask_array.compute()
+
+    # NOTE: here we use a new TemporaryDirectory context manager for the zarr
+    # array because we can remove the temporary directory straight away after
+    # converting the input to a Numpy memory mapped array.
 
     with tempfile.TemporaryDirectory() as zarr_tmp:
         # First compute and store the dask array to zarr using whatever
@@ -40,7 +46,7 @@ def _dask_to_numpy_memmap(dask_array):
         # Then store this in the Numpy memmap array (schedulers other than
         # synchronous don't work well when writing to a Numpy array)
 
-        memmap_path = tempfile.mktemp()
+        memmap_path = os.path.join(tmp_dir, f"{uuid.uuid4()}.npy")
 
         memmapped_array = np.memmap(
             memmap_path,
@@ -56,12 +62,7 @@ def _dask_to_numpy_memmap(dask_array):
             scheduler="synchronous",
         )
 
-    # Note that at this point the zarr directory should be removed, but
-    # the memmapped array will persist on disk. In future we may want to
-    # clean this up automatically once reproject has completed to avoid
-    # a build-up of temporary files
-
-    return memmapped_array
+    return memmap_path, memmapped_array
 
 
 def parse_input_data(input_data, hdu_in=None):
@@ -85,17 +86,13 @@ def parse_input_data(input_data, hdu_in=None):
     elif isinstance(input_data, (PrimaryHDU, ImageHDU, CompImageHDU)):
         return input_data.data, WCS(input_data.header)
     elif isinstance(input_data, tuple) and isinstance(input_data[0], (np.ndarray, da.core.Array)):
-        if isinstance(input_data[0], da.core.Array):
-            data = _dask_to_numpy_memmap(input_data[0])
-        else:
-            data = input_data[0]
         if isinstance(input_data[1], Header):
-            return data, WCS(input_data[1])
+            return input_data[0], WCS(input_data[1])
         else:
             if isinstance(input_data[1], BaseHighLevelWCS):
-                return data, input_data[1]
+                return input_data[0], input_data[1]
             else:
-                return data, HighLevelWCSWrapper(input_data[1])
+                return input_data[0], HighLevelWCSWrapper(input_data[1])
     elif (
         isinstance(input_data, BaseHighLevelWCS)
         and input_data.low_level_wcs.array_shape is not None
@@ -104,11 +101,7 @@ def parse_input_data(input_data, hdu_in=None):
     elif isinstance(input_data, BaseLowLevelWCS) and input_data.array_shape is not None:
         return input_data.array_shape, HighLevelWCSWrapper(input_data)
     elif isinstance(input_data, astropy.nddata.NDDataBase):
-        if isinstance(input_data.data, da.core.Array):
-            data = _dask_to_numpy_memmap(input_data.data)
-        else:
-            data = input_data.data
-        return data, input_data.wcs
+        return input_data.data, input_data.wcs
     else:
         raise TypeError(
             "input_data should either be an HDU object or a tuple "

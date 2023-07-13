@@ -47,24 +47,6 @@ def _validate_wcs(wcs_in, wcs_out, shape_in, shape_out):
             raise ValueError("Output WCS has a spectral component but input WCS does not")
 
 
-def _validate_array_out(array_out, array, shape_out):
-    if array_out is None:
-        return
-
-    if array_out.shape != tuple(shape_out):
-        raise ValueError(
-            "Array sizes don't match.  Output array shape "
-            "should be {}".format(str(tuple(shape_out)))
-        )
-    elif array_out.dtype != array.dtype:
-        raise ValueError(
-            "An output array of a different type than the "
-            "input array was specified, which will create an "
-            "undesired duplicate copy of the input array "
-            "in memory."
-        )
-
-
 def _reproject_full(
     array,
     wcs_in,
@@ -96,10 +78,6 @@ def _reproject_full(
     # shape_out must be exactly a tuple type
     shape_out = tuple(shape_out)
     _validate_wcs(wcs_in, wcs_out, array.shape, shape_out)
-    _validate_array_out(array_out, array, shape_out)
-
-    if array_out is None:
-        array_out = np.empty(shape_out)
 
     if output_footprint is None:
         output_footprint = np.empty(shape_out)

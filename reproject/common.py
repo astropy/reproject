@@ -1,3 +1,5 @@
+import os
+import uuid
 import tempfile
 
 import dask
@@ -5,21 +7,44 @@ import dask.array as da
 import numpy as np
 from astropy.wcs.wcsapi import BaseHighLevelWCS, SlicedLowLevelWCS
 from astropy.wcs.wcsapi.high_level_wcs_wrapper import HighLevelWCSWrapper
+from dask import delayed
 
-__all__ = ['_reproject_dispatcher']
+from .utils import _dask_to_numpy_memmap
+
+__all__ = ["_reproject_dispatcher"]
+
+
+@delayed(pure=True)
+def as_delayed_memmap_path(array, tmp_dir):
+    if isinstance(array, da.core.Array):
+        array_path, _ = _dask_to_numpy_memmap(array, tmp_dir)
+    else:
+        array_path = tempfile.mktemp()
+        array_memmapped = np.memmap(
+            array_path,
+            dtype=float,
+            shape=array.shape,
+            mode="w+",
+        )
+        array_memmapped[:] = array[:]
+
+    return array_path
 
 
 def _reproject_dispatcher(
     reproject_func,
+    *,
     array_in,
     wcs_in,
     shape_out,
     wcs_out,
-    block_size,
-    output_array=None,
+    block_size=None,
+    array_out=None,
     return_footprint=True,
     output_footprint=None,
     parallel=True,
+    reproject_func_kwargs=None,
+    return_type=None,
 ):
     """
     Main function that handles either calling the core algorithms directly or
@@ -30,27 +55,25 @@ def _reproject_dispatcher(
     reproject_func
         One the existing reproject functions implementing a reprojection algorithm
         that that will be used be used to perform reprojection
-    array_in
-        Data following the same format as expected by underlying reproject_func,
-        expected to `~numpy.ndarray` when used from _reproject_blocked()
-    wcs_in: `~astropy.wcs.WCS`
-        WCS object corresponding to array_in
+    array_in : `numpy.ndarray` or `dask.array.Array`
+        Numpy or dask input array
+    wcs_in: `~astropy.wcs.wcsapi.BaseHighLevelWCS`
+        Input data WCS
     shape_out: tuple
-        Passed to reproject_func() alongside WCS out to determine image size
+        Target shape
     wcs_out: `~astropy.wcs.WCS`
-        Output WCS image will be projected to. Normally will correspond to subset of
-        total output image when used by _reproject_blocked()
-    block_size: tuple
+        Target WCS
+    block_size: tuple, optional
         The size of blocks in terms of output array pixels that each block will handle
         reprojecting. Extending out from (0,0) coords positively, block sizes
         are clamped to output space edges when a block would extend past edge
-    output_array : None or `~numpy.ndarray`
+    array_out : `~numpy.ndarray`, optional
         An array in which to store the reprojected data.  This can be any numpy
         array including a memory map, which may be helpful when dealing with
         extremely large files.
-    return_footprint : bool
+    return_footprint : bool, optional
         Whether to return the footprint in addition to the output array.
-    output_footprint : None or `~numpy.ndarray`
+    output_footprint : `~numpy.ndarray`, optional
         An array in which to store the footprint of reprojected data.  This can be
         any numpy array including a memory map, which may be helpful when dealing with
         extremely large files.
@@ -60,100 +83,180 @@ def _reproject_dispatcher(
         the number of logical CPUs detected on the machine. If ``False``, a
         serial implementation is chosen. If the flag is a positive integer ``n``
         greater than one, a parallel implementation using ``n`` processes is chosen.
+    reproject_func_kwargs : dict, optional
+        Keyword arguments to pass through to ``reproject_func``
+    return_type : {'numpy', 'dask'}, optional
+        Whether to return numpy or dask arrays - defaults to 'numpy'.
     """
 
-    if output_array is None:
-        output_array = np.zeros(shape_out, dtype=float)
-    if output_footprint is None and return_footprint:
-        output_footprint = np.zeros(shape_out, dtype=float)
+    if return_type is None:
+        return_type = "numpy"
+    elif return_type not in ("numpy", "dask"):
+        raise ValueError("return_type should be set to 'numpy' or 'dask'")
 
-    if block_size is not None and len(block_size) < len(shape_out):
-        block_size = [-1] * (len(shape_out) - len(block_size)) + list(block_size)
+    if reproject_func_kwargs is None:
+        reproject_func_kwargs = {}
 
-    shape_in = array_in.shape
+    # We set up a global temporary directory since this will be used e.g. to
+    # store memory mapped Numpy arrays and zarr arrays.
 
-    # When in parallel mode, we want to make sure we avoid having to copy the
-    # input array to all processes for each chunk, so instead we write out
-    # the input array to a Numpy memory map and load it in inside each process
-    # as a memory-mapped array. We need to be careful how this gets passed to
-    # reproject_single_block so we pass a variable that can be either a string
-    # or the array itself (for synchronous mode).
-    if parallel:
-        array_in_or_path = tempfile.mktemp()
-        array_in_memmapped = np.memmap(
-            array_in_or_path, dtype=float, shape=array_in.shape, mode="w+"
-        )
-        array_in_memmapped[:] = array_in[:]
-    else:
-        array_in_or_path = array_in
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        if array_out is None:
+            array_out = np.zeros(shape_out, dtype=float)
+        elif array_out.shape != tuple(shape_out):
+            raise ValueError(
+                f"Output array shape {array_out.shape} should match " f"shape_out={shape_out}"
+            )
+        elif array_out.dtype != array_in.dtype:
+            raise ValueError(
+                f"Output array dtype {array_out.dtype} should match "
+                f"input array dtype ({array_in.dtype})"
+            )
 
-    def reproject_single_block(a, block_info=None):
-        if a.ndim == 0 or block_info is None or block_info == []:
-            return np.array([a, a])
-        slices = [slice(*x) for x in block_info[None]["array-location"][-wcs_out.pixel_n_dim :]]
+        # If neither parallel nor blocked reprojection are requested, we simply
+        # call the underlying core reproject function with the full arrays.
 
-        if isinstance(wcs_out, BaseHighLevelWCS):
-            low_level_wcs = SlicedLowLevelWCS(wcs_out.low_level_wcs, slices=slices)
+        if block_size is None and parallel is False:
+            # If a dask array was passed as input, we first convert this to a
+            # Numpy memory mapped array
+
+            if return_type != "numpy":
+                raise ValueError(
+                    "Output cannot be returned as dask arrays "
+                    "when parallel=False and no block size has "
+                    "been specified"
+                )
+
+            if isinstance(array_in.data, da.core.Array):
+                _, array_in = _dask_to_numpy_memmap(array_in, tmp_dir)
+
+            return reproject_func(
+                array_in,
+                wcs_in,
+                wcs_out,
+                shape_out=shape_out,
+                array_out=array_out,
+                return_footprint=return_footprint,
+                output_footprint=output_footprint,
+                **reproject_func_kwargs,
+            )
+
+        if output_footprint is None and return_footprint:
+            output_footprint = np.zeros(shape_out, dtype=float)
+
+        if block_size is not None and len(block_size) < len(shape_out):
+            block_size = [-1] * (len(shape_out) - len(block_size)) + list(block_size)
+
+        shape_in = array_in.shape
+
+        # When in parallel mode, we want to make sure we avoid having to copy the
+        # input array to all processes for each chunk, so instead we write out
+        # the input array to a Numpy memory map and load it in inside each process
+        # as a memory-mapped array. We need to be careful how this gets passed to
+        # reproject_single_block so we pass a variable that can be either a string
+        # or the array itself (for synchronous mode).
+
+        if parallel:
+            array_in_or_path = as_delayed_memmap_path(array_in, tmp_dir)
         else:
-            low_level_wcs = SlicedLowLevelWCS(wcs_out, slices=slices)
-        wcs_out_sub = HighLevelWCSWrapper(low_level_wcs)
-        if isinstance(array_in_or_path, str):
-            array_in = np.memmap(array_in_or_path, dtype=float, shape=shape_in)
+            # Here we could set array_in_or_path to array_in_path if it
+            # has been set previously, but in synchronous mode it is better to
+            # simply pass a reference to the memmap array itself to avoid having
+            # to load the memmap inside each reproject_single_block call.
+            array_in_or_path = array_in
+
+        def reproject_single_block(a, array_or_path, block_info=None):
+            if a.ndim == 0 or block_info is None or block_info == []:
+                return np.array([a, a])
+            slices = [slice(*x) for x in block_info[None]["array-location"][-wcs_out.pixel_n_dim :]]
+
+            if isinstance(wcs_out, BaseHighLevelWCS):
+                low_level_wcs = SlicedLowLevelWCS(wcs_out.low_level_wcs, slices=slices)
+            else:
+                low_level_wcs = SlicedLowLevelWCS(wcs_out, slices=slices)
+
+            wcs_out_sub = HighLevelWCSWrapper(low_level_wcs)
+
+            if isinstance(array_or_path, str):
+                array_in = np.memmap(array_or_path, dtype=float, shape=shape_in)
+            else:
+                array_in = array_or_path
+
+            if array_or_path is None:
+                raise ValueError()
+
+            array, footprint = reproject_func(
+                array_in,
+                wcs_in,
+                wcs_out_sub,
+                block_info[None]["chunk-shape"][1:],
+                array_out=np.zeros(block_info[None]["chunk-shape"][1:]),
+                **reproject_func_kwargs,
+            )
+
+            return np.array([array, footprint])
+
+        # NOTE: the following array is just used to set up the iteration in map_blocks
+        # but isn't actually used otherwise - this is deliberate.
+
+        if block_size:
+            array_out_dask = da.empty(shape_out, chunks=block_size)
         else:
-            array_in = array_in_or_path
-        array, footprint = reproject_func(
-            array_in, wcs_in, wcs_out_sub, block_info[None]["chunk-shape"][1:]
+            array_out_dask = da.empty(shape_out).rechunk(block_size_limit=8 * 1024**2)
+
+        result = da.map_blocks(
+            reproject_single_block,
+            array_out_dask,
+            array_in_or_path,
+            dtype=float,
+            new_axis=0,
+            chunks=(2,) + array_out_dask.chunksize,
         )
-        return np.array([array, footprint])
 
-    # NOTE: the following array is just used to set up the iteration in map_blocks
-    # but isn't actually used otherwise - this is deliberate.
-    if block_size:
-        output_array_dask = da.empty(shape_out, chunks=block_size)
-    else:
-        output_array_dask = da.empty(shape_out).rechunk(block_size_limit=8 * 1024**2)
+        # Truncate extra elements
+        result = result[tuple([slice(None)] + [slice(s) for s in shape_out])]
 
-    result = da.map_blocks(
-        reproject_single_block,
-        output_array_dask,
-        dtype=float,
-        new_axis=0,
-        chunks=(2,) + output_array_dask.chunksize,
-    )
+        if return_type == "dask":
+            if return_footprint:
+                return result[0], result[1]
+            else:
+                return result[0]
 
-    # Truncate extra elements
-    result = result[tuple([slice(None)] + [slice(s) for s in shape_out])]
+        # We now convert the dask arrays back to Numpy arrays
 
-    if parallel:
-        # As discussed in https://github.com/dask/dask/issues/9556, da.store
-        # will not work well in multiprocessing mode when the destination is a
-        # Numpy array. Instead, in this case we save the dask array to a zarr
-        # array on disk which can be done in parallel, and re-load it as a dask
-        # array. We can then use da.store in the next step using the
-        # 'synchronous' scheduler since that is I/O limited so does not need
-        # to be done in parallel.
-        filename = tempfile.mktemp()
-        if isinstance(parallel, int):
-            workers = {"num_workers": parallel}
+        if parallel:
+            # As discussed in https://github.com/dask/dask/issues/9556, da.store
+            # will not work well in multiprocessing mode when the destination is a
+            # Numpy array. Instead, in this case we save the dask array to a zarr
+            # array on disk which can be done in parallel, and re-load it as a dask
+            # array. We can then use da.store in the next step using the
+            # 'synchronous' scheduler since that is I/O limited so does not need
+            # to be done in parallel.
+
+            if isinstance(parallel, int):
+                workers = {"num_workers": parallel}
+            else:
+                workers = {}
+
+            zarr_path = os.path.join(tmp_dir, f"{uuid.uuid4()}.zarr")
+
+            with dask.config.set(scheduler="processes", **workers):
+                result.to_zarr(zarr_path)
+            result = da.from_zarr(zarr_path)
+
+        if return_footprint:
+            da.store(
+                [result[0], result[1]],
+                [array_out, output_footprint],
+                compute=True,
+                scheduler="synchronous",
+            )
+            return array_out, output_footprint
         else:
-            workers = {}
-        with dask.config.set(scheduler="processes", **workers):
-            result.to_zarr(filename)
-        result = da.from_zarr(filename)
-
-    if return_footprint:
-        da.store(
-            [result[0], result[1]],
-            [output_array, output_footprint],
-            compute=True,
-            scheduler="synchronous",
-        )
-        return output_array, output_footprint
-    else:
-        da.store(
-            result[0],
-            output_array,
-            compute=True,
-            scheduler="synchronous",
-        )
-        return output_array
+            da.store(
+                result[0],
+                array_out,
+                compute=True,
+                scheduler="synchronous",
+            )
+            return array_out

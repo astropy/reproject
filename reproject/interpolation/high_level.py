@@ -3,8 +3,8 @@ import os
 
 from astropy.utils import deprecated_renamed_argument
 
-from ..utils import parse_input_data, parse_output_projection
 from ..common import _reproject_dispatcher
+from ..utils import parse_input_data, parse_output_projection
 from .core import _reproject_full
 
 __all__ = ["reproject_interp"]
@@ -16,20 +16,19 @@ ORDER["biquadratic"] = 2
 ORDER["bicubic"] = 3
 
 
-@deprecated_renamed_argument("independent_celestial_slices", None, since="0.6")
 def reproject_interp(
     input_data,
     output_projection,
     shape_out=None,
     hdu_in=0,
     order="bilinear",
-    independent_celestial_slices=False,
     output_array=None,
     return_footprint=True,
     output_footprint=None,
     block_size=None,
     parallel=False,
     roundtrip_coords=True,
+    return_type=None,
 ):
     """
     Reproject data to a new projection using interpolation (this is typically
@@ -98,6 +97,8 @@ def reproject_interp(
     roundtrip_coords : bool
         Whether to verify that coordinate transformations are defined in both
         directions.
+    return_type : {'numpy', 'dask'}, optional
+        Whether to return numpy or dask arrays - defaults to 'numpy'.
 
     Returns
     -------
@@ -117,29 +118,22 @@ def reproject_interp(
     if isinstance(order, str):
         order = ORDER[order]
 
-    # if either of these are not default, it means a blocked method must be used
-    if block_size is not None or parallel is not False:
-        return _reproject_dispatcher(
-            _reproject_full,
-            array_in=array_in,
-            wcs_in=wcs_in,
-            wcs_out=wcs_out,
-            shape_out=shape_out,
-            output_array=output_array,
-            parallel=parallel,
-            block_size=block_size,
-            return_footprint=return_footprint,
-            output_footprint=output_footprint,
-        )
-    else:
-        return _reproject_full(
-            array_in,
-            wcs_in,
-            wcs_out,
-            shape_out=shape_out,
-            order=order,
-            array_out=output_array,
-            return_footprint=return_footprint,
-            roundtrip_coords=roundtrip_coords,
-            output_footprint=output_footprint,
-        )
+    # TODO: add tests that actually ensure that order and roundtrip_coords work
+
+    return _reproject_dispatcher(
+        _reproject_full,
+        array_in=array_in,
+        wcs_in=wcs_in,
+        wcs_out=wcs_out,
+        shape_out=shape_out,
+        array_out=output_array,
+        parallel=parallel,
+        block_size=block_size,
+        return_footprint=return_footprint,
+        output_footprint=output_footprint,
+        reproject_func_kwargs={
+            "order": order,
+            "roundtrip_coords": roundtrip_coords,
+        },
+        return_type=return_type,
+    )
