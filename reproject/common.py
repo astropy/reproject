@@ -224,10 +224,13 @@ def _reproject_dispatcher(
             if wcs_in.low_level_wcs.pixel_n_dim < len(shape_out):
                 chunks = (-1,) * (len(shape_out) - wcs_in.low_level_wcs.pixel_n_dim)
                 chunks += ("auto",) * wcs_in.low_level_wcs.pixel_n_dim
+                rechunk_kwargs = {"chunks": chunks}
             else:
-                chunks = None
+                rechunk_kwargs = {}
             array_out_dask = da.empty(shape_out)
-            array_out_dask = array_out_dask.rechunk(block_size_limit=8 * 1024**2, chunks=chunks)
+            array_out_dask = array_out_dask.rechunk(
+                block_size_limit=8 * 1024**2, **rechunk_kwargs
+            )
 
         result = da.map_blocks(
             reproject_single_block,
