@@ -152,9 +152,6 @@ def _reproject_dispatcher(
         if output_footprint is None and return_footprint:
             output_footprint = np.zeros(shape_out, dtype=float)
 
-        if block_size is not None and len(block_size) < len(shape_out):
-            block_size = [-1] * (len(shape_out) - len(block_size)) + list(block_size)
-
         shape_in = array_in.shape
 
         # When in parallel mode, we want to make sure we avoid having to copy the
@@ -162,9 +159,12 @@ def _reproject_dispatcher(
         # the input array to a Numpy memory map and load it in inside each process
         # as a memory-mapped array. We need to be careful how this gets passed to
         # reproject_single_block so we pass a variable that can be either a string
-        # or the array itself (for synchronous mode).
+        # or the array itself (for synchronous mode). If the input array is a dask
+        # array we should always write it out to a memmap even in synchronous mode
+        # otherwise map_blocks gets confused if it gets two dask arrays and tries
+        # to iterate over both.
 
-        if parallel:
+        if isinstance(array_in, da.core.Array) or parallel:
             array_in_or_path = as_delayed_memmap_path(array_in, tmp_dir)
         else:
             # Here we could set array_in_or_path to array_in_path if it
@@ -208,9 +208,19 @@ def _reproject_dispatcher(
         # but isn't actually used otherwise - this is deliberate.
 
         if block_size:
+            if wcs_in.low_level_wcs.pixel_n_dim < len(shape_out) and len(block_size) < len(
+                shape_out
+            ):
+                block_size = [-1] * (len(shape_out) - len(block_size)) + list(block_size)
             array_out_dask = da.empty(shape_out, chunks=block_size)
         else:
-            array_out_dask = da.empty(shape_out).rechunk(block_size_limit=8 * 1024**2)
+            if wcs_in.low_level_wcs.pixel_n_dim < len(shape_out):
+                chunks = (-1,) * (len(shape_out) - wcs_in.low_level_wcs.pixel_n_dim)
+                chunks += ("auto",) * wcs_in.low_level_wcs.pixel_n_dim
+            else:
+                chunks = None
+            array_out_dask = da.empty(shape_out)
+            array_out_dask = array_out_dask.rechunk(block_size_limit=8 * 1024**2, chunks=chunks)
 
         result = da.map_blocks(
             reproject_single_block,

@@ -2,6 +2,7 @@
 
 import itertools
 
+import dask.array as da
 import numpy as np
 import pytest
 from astropy import units as u
@@ -879,3 +880,16 @@ def test_reproject_order(block_size):
 
         with pytest.raises(AssertionError):
             assert_allclose(array_out_bilinear, array_out_biquadratic)
+
+
+def test_reproject_block_size_broadcasting():
+    # Regression test for a bug that caused the default chunk size to be
+    # inadequate when using broadcasting in parallel mode
+
+    array_in = np.ones((200, 200, 200))
+    wcs_in = WCS(naxis=2)
+    wcs_out = WCS(naxis=2)
+
+    array_out = reproject_interp(
+        (array_in, wcs_in), wcs_out, shape_out=(300, 300), parallel=1, return_footprint=False
+    )
