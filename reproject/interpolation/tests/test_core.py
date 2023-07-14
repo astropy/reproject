@@ -844,3 +844,38 @@ def test_interp_input_output_types(valid_celestial_input_data, valid_celestial_o
 
     assert_allclose(output_ref, output_test)
     assert_allclose(footprint_ref, footprint_test)
+
+
+@pytest.mark.parametrize("block_size", [None, (32, 32)])
+def test_reproject_order(block_size):
+    # Check that the order keyword argument has an effect. This is a regression
+    # test for a bug that caused the order= keyword argument to be ignored when
+    # in parallel/blocked reprojection.
+
+    with fits.open(get_pkg_data_filename("data/galactic_2d.fits", package="reproject.tests")) as pf:
+        hdu_in = pf[0]
+
+        header_out = hdu_in.header.copy()
+        header_out["CTYPE1"] = "RA---TAN"
+        header_out["CTYPE2"] = "DEC--TAN"
+        header_out["CRVAL1"] = 266.39311
+        header_out["CRVAL2"] = -28.939779
+
+        array_out_bilinear = reproject_interp(
+            hdu_in,
+            header_out,
+            return_footprint=False,
+            order="bilinear",
+            block_size=block_size,
+        )
+
+        array_out_biquadratic = reproject_interp(
+            hdu_in,
+            header_out,
+            return_footprint=False,
+            order="biquadratic",
+            block_size=block_size,
+        )
+
+        with pytest.raises(AssertionError):
+            assert_allclose(array_out_bilinear, array_out_biquadratic)
