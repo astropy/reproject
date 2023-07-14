@@ -886,10 +886,48 @@ def test_reproject_block_size_broadcasting():
     # Regression test for a bug that caused the default chunk size to be
     # inadequate when using broadcasting in parallel mode
 
-    array_in = np.ones((200, 200, 200))
+    array_in = np.ones((350, 250, 150))
     wcs_in = WCS(naxis=2)
     wcs_out = WCS(naxis=2)
 
-    array_out = reproject_interp(
-        (array_in, wcs_in), wcs_out, shape_out=(300, 300), parallel=1, return_footprint=False
+    reproject_interp(
+        (array_in, wcs_in),
+        wcs_out,
+        shape_out=(300, 300),
+        parallel=1,
+        return_footprint=False,
     )
+
+    # Specifying a block size that is missing the extra dimension should work fine:
+
+    reproject_interp(
+        (array_in, wcs_in),
+        wcs_out,
+        shape_out=(300, 300),
+        parallel=1,
+        return_footprint=False,
+        block_size=(100, 100),
+    )
+
+    # Specifying a block size with the extra dimension should work provided it matches the final output shape
+
+    reproject_interp(
+        (array_in, wcs_in),
+        wcs_out,
+        shape_out=(300, 300),
+        parallel=1,
+        return_footprint=False,
+        block_size=(350, 100, 100),
+    )
+
+    # But it should fail if we specify a block size that is smaller that the total array shape
+
+    with pytest.raises(ValueError, match="block shape for extra broadcasted dimensions"):
+        reproject_interp(
+            (array_in, wcs_in),
+            wcs_out,
+            shape_out=(300, 300),
+            parallel=1,
+            return_footprint=False,
+            block_size=(100, 100, 100),
+        )

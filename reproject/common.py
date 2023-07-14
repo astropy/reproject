@@ -19,7 +19,7 @@ def as_delayed_memmap_path(array, tmp_dir):
     if isinstance(array, da.core.Array):
         array_path, _ = _dask_to_numpy_memmap(array, tmp_dir)
     else:
-        array_path = tempfile.mktemp()
+        array_path = os.path.join(tmp_dir, f"{uuid.uuid4()}.npy")
         array_memmapped = np.memmap(
             array_path,
             dtype=float,
@@ -193,12 +193,14 @@ def _reproject_dispatcher(
             if array_or_path is None:
                 raise ValueError()
 
+            shape_out = block_info[None]["chunk-shape"][1:]
+
             array, footprint = reproject_func(
                 array_in,
                 wcs_in,
                 wcs_out_sub,
-                block_info[None]["chunk-shape"][1:],
-                array_out=np.zeros(block_info[None]["chunk-shape"][1:]),
+                shape_out=shape_out,
+                array_out=np.zeros(shape_out),
                 **reproject_func_kwargs,
             )
 
@@ -208,10 +210,15 @@ def _reproject_dispatcher(
         # but isn't actually used otherwise - this is deliberate.
 
         if block_size:
-            if wcs_in.low_level_wcs.pixel_n_dim < len(shape_out) and len(block_size) < len(
-                shape_out
-            ):
-                block_size = [-1] * (len(shape_out) - len(block_size)) + list(block_size)
+            if wcs_in.low_level_wcs.pixel_n_dim < len(shape_out):
+                if len(block_size) < len(shape_out):
+                    block_size = [-1] * (len(shape_out) - len(block_size)) + list(block_size)
+                else:
+                    for i in range(len(shape_out) - wcs_in.low_level_wcs.pixel_n_dim):
+                        if block_size[i] != -1 and block_size[i] != shape_out[i]:
+                            raise ValueError(
+                                "block shape for extra broadcasted dimensions should cover entire array along those dimensions"
+                            )
             array_out_dask = da.empty(shape_out, chunks=block_size)
         else:
             if wcs_in.low_level_wcs.pixel_n_dim < len(shape_out):
