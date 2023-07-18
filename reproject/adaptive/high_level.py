@@ -108,9 +108,8 @@ def reproject_adaptive(
         The averaging kernel to use. Allowed values are 'Hann' and 'Gaussian'.
         Case-insensitive. The Gaussian kernel produces better photometric
         accuracy and stronger anti-aliasing at the cost of some blurring (on
-        the scale of a few pixels). If not specified, the Hann kernel is used
-        by default, but this will change to the Gaussian kernel in a future
-        release.
+        the scale of a few pixels). If not specified, the Gaussain kernel is
+        used by default.
     kernel_width : double
         The width of the kernel in pixels, measuring to +/- 1 sigma for the
         Gaussian window. Does not apply to the Hann window. Reducing this width
@@ -131,8 +130,8 @@ def reproject_adaptive(
         accuracy.
     boundary_mode : str
         How to handle when the sampling region includes regions outside the
-        bounds of the input image. The default is ``ignore``, but this will
-        change to ``strict`` in a future release. Allowed values are:
+        bounds of the input image. The default is ``strict``. Allowed values
+        are:
 
             * ``strict`` --- Output pixels will be NaN if any input sample
               falls outside the input image.
