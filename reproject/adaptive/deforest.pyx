@@ -43,6 +43,7 @@ cdef double nan = np.nan
 
 cdef extern from "math.h":
     int isnan(double x) nogil
+    int isinf(double x) nogil
 
 
 @cython.boundscheck(False)
@@ -134,6 +135,12 @@ cdef double gaussian_filter(double x, double y, double width) nogil:
 @cython.cdivision(True)
 cdef double clip(double x, double vmin, double vmax, int cyclic,
         int out_of_range_nearest) nogil:
+    """Applies bounary conditions to an intended array coordinate.
+
+    Specifically, if the point is outside the array bounds, this function wraps
+    the coordinate if the boundary is periodic, or clamps to the nearest valid
+    coordinate if desired, or else returns NaN.
+    """
     if x < vmin:
         if cyclic:
             while x < vmin:
@@ -164,6 +171,8 @@ cdef bint sample_array(double[:,:,:] source, double[:] dest,
     y = clip(y, 0, source.shape[1] - 1, y_cyclic, out_of_range_nearest)
 
     if isnan(x) or isnan(y):
+        # Indicates the coordinate is outside the array's bounds and the
+        # boundary-handling mode doesn't provide an alternative coordinate.
         return False
 
     # Cython doesn't like a return type of (double[:], bint), so we put the
@@ -343,6 +352,10 @@ BOUNDARY_MODES['ignore'] = 4
 BOUNDARY_MODES['ignore_threshold'] = 5
 BOUNDARY_MODES['nearest'] = 6
 
+BAD_VAL_MODES = {}
+BAD_VAL_MODES['strict'] = 1
+BAD_VAL_MODES['constant'] = 2
+BAD_VAL_MODES['ignore'] = 3
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -355,6 +368,7 @@ def map_coordinates(double[:,:,:] source, double[:,:,:] target, Ci, int max_samp
                     str kernel='gaussian', double kernel_width=1.3,
                     double sample_region_width=4, str boundary_mode="strict",
                     double boundary_fill_value=0, double boundary_ignore_threshold=0.5,
+                    str bad_val_mode="strict", double bad_fill_value=0,
                     ):
     # n.b. the source and target arrays are expected to contain three
     # dimensions---the last two are the image dimensions, while the first
@@ -374,6 +388,13 @@ def map_coordinates(double[:,:,:] source, double[:,:,:] target, Ci, int max_samp
     except KeyError:
         raise ValueError(
                 f"boundary_mode '{boundary_mode}' not recognized") from None
+
+    cdef int bad_val_flag
+    try:
+        bad_val_flag = BAD_VAL_MODES[bad_val_mode.lower()]
+    except KeyError:
+        raise ValueError(
+                f"bad_val_mode '{bad_val_mode}' not recognized") from None
 
     cdef np.ndarray[np.float64_t, ndim=3] pixel_target
     cdef int delta
@@ -477,7 +498,7 @@ def map_coordinates(double[:,:,:] source, double[:,:,:] target, Ci, int max_samp
     cdef double[:] transformed = np.zeros((2,))
     cdef double[:] current_pixel_source = np.zeros((2,))
     cdef double[:] current_offset = np.zeros((2,))
-    cdef double weight_sum
+    cdef double[:] weight_sum = np.empty(source.shape[0])
     cdef double ignored_weight_sum
     cdef double weight
     cdef double[:] value = np.empty(source.shape[0])
@@ -488,7 +509,7 @@ def map_coordinates(double[:,:,:] source, double[:,:,:] target, Ci, int max_samp
     cdef double top, bottom, left, right
     cdef double determinant
     cdef bint has_sampled_this_row
-    cdef bint is_good_sample
+    cdef bint sample_in_bounds
     with nogil:
         # Iterate through each pixel in the output image.
         for yi in range(target.shape[1]):
@@ -572,12 +593,19 @@ def map_coordinates(double[:,:,:] source, double[:,:,:] target, Ci, int max_samp
                     if singularities_nan:
                         target[:,yi,xi] = nan
                     else:
-                        is_good_sample = sample_array(
+                        sample_in_bounds = sample_array(
                                 source, value, current_pixel_source[0],
                                 current_pixel_source[1], x_cyclic, y_cyclic,
                                 out_of_range_nearest=boundary_flag == 6)
-                        if is_good_sample:
-                            target[:,yi,xi] = value
+                        if sample_in_bounds:
+                            for i in range(target.shape[0]):
+                                if bad_val_flag != 1 and (isnan(value[i]) or isinf(value[i])):
+                                    if bad_val_flag == 2:
+                                        target[i,yi,xi] = bad_fill_value
+                                    else:
+                                        target[i,yi,xi] = nan
+                                else:
+                                    target[i,yi,xi] = value[i]
                         elif boundary_flag == 2 or boundary_flag == 3:
                             target[:,yi,xi] = boundary_fill_value
                         else:
@@ -657,7 +685,7 @@ def map_coordinates(double[:,:,:] source, double[:,:,:] target, Ci, int max_samp
                             top = bottom
 
                 target[:,yi,xi] = 0
-                weight_sum = 0
+                weight_sum[:] = 0
                 ignored_weight_sum = 0
 
                 # Iterate through that bounding box in the input image.
@@ -704,35 +732,41 @@ def map_coordinates(double[:,:,:] source, double[:,:,:] target, Ci, int max_samp
                             continue
                         has_sampled_this_row = True
 
-                        is_good_sample = sample_array(
+                        sample_in_bounds = sample_array(
                                 source, value, current_pixel_source[0],
                                 current_pixel_source[1], x_cyclic, y_cyclic,
                                 out_of_range_nearest=(boundary_flag == 6))
 
                         if ((boundary_flag == 2 or boundary_flag == 3)
-                                and not is_good_sample):
+                                and not sample_in_bounds):
                             value[:] = boundary_fill_value
-                            is_good_sample = True
+                            sample_in_bounds = True
 
-                        if is_good_sample:
+                        if sample_in_bounds:
                             for i in range(target.shape[0]):
+                                if bad_val_flag != 1 and (isnan(value[i]) or isinf(value[i])):
+                                    if bad_val_flag == 2:
+                                        value[i] = bad_fill_value
+                                    else:
+                                        # bad_val_flag is 3: 'ignore'
+                                        continue
                                 target[i,yi,xi] += weight * value[i]
-                            weight_sum += weight
+                                weight_sum[i] += weight
                         else:
                             if boundary_flag == 5:
                                 ignored_weight_sum += weight
 
-                if (boundary_flag == 5 and
-                        ignored_weight_sum / (ignored_weight_sum + weight_sum)
-                            > boundary_ignore_threshold):
-                    target[:,yi,xi] = nan
-                else:
-                    if conserve_flux:
-                        determinant = fabs(det2x2(Ji))
+                if boundary_flag == 5:
                     for i in range(target.shape[0]):
-                        target[i,yi,xi] /= weight_sum
-                        if conserve_flux:
-                            target[i,yi,xi] *= determinant
+                        if (ignored_weight_sum / (ignored_weight_sum + weight_sum[i])
+                                > boundary_ignore_threshold):
+                            target[i,yi,xi] = nan
+                if conserve_flux:
+                    determinant = fabs(det2x2(Ji))
+                for i in range(target.shape[0]):
+                    target[i,yi,xi] /= weight_sum[i]
+                    if conserve_flux:
+                        target[i,yi,xi] *= determinant
             if progress:
                 with gil:
                     sys.stdout.write("\r%d/%d done" % (yi+1, target.shape[1]))
