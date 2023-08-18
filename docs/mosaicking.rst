@@ -16,7 +16,7 @@ We describe these in the sections below.
 
 For the examples on this page we will use the `PyVO
 <https://pyvo.readthedocs.io>`_ module to retrieve tiles from the 2MASS survey
-around the M17 region::
+around the M17 region:
 
 .. doctest-requires:: pyvo
 
@@ -50,7 +50,7 @@ case you can skip straight to :ref:`coadding`.
 You can optionally provide options to try and constrain
 the solution, as we will see below. To start off, let's consider the simplest
 example, which is to call :func:`~reproject.mosaicking.find_optimal_celestial_wcs`
-with the files downloaded above, but no additional information::
+with the files downloaded above, but no additional information:
 
 .. doctest-requires:: pyvo
 
@@ -62,7 +62,7 @@ should be a list where each element is either a filename, an HDU object (e.g.
 `~astropy.io.fits.PrimaryHDU` or `~astropy.io.fits.ImageHDU`), an
 `~astropy.io.fits.HDUList` object, or a tuple of ``(array, wcs)``. In the
 example above, we have passed a list of HDUs. We can now look at the output
-WCS and shape::
+WCS and shape:
 
 .. doctest-requires:: pyvo
 
@@ -93,7 +93,7 @@ case above, the images are in equatorial coordinates, so the final WCS is also
 in equatorial coordinates. We can force the output WCS to instead be in
 Galactic coordinates by setting the ``frame=`` argument to a coordinate frame
 object such as :class:`~astropy.coordinates.Galactic` or one of the string
-shortcuts defined in astropy (e.g. ``'fk5'``, ``'galactic'``, etc.)::
+shortcuts defined in astropy (e.g. ``'fk5'``, ``'galactic'``, etc.):
 
 .. doctest-requires:: pyvo
 
@@ -171,7 +171,7 @@ Pixel resolution
 
 By default, the final mosaic will have the pixel resolution (i.e. the pixel
 scale along the pixel axes) of the highest resolution input image, but this can
-be overriden using the ``resolution=`` keyword argument::
+be overriden using the ``resolution=`` keyword argument:
 
 .. doctest-requires:: pyvo
 
@@ -186,7 +186,7 @@ Finally, you can customize the projection to use as well as the reference
 coordinate. To change the projection from the default (which is the
 gnomonic projection, or ``TAN``), you can use the ``projection=`` keyword
 argument, which should be set to a `valid three-letter FITS-WCS projection
-code <http://adsabs.harvard.edu/abs/2002A%26A...395.1061G>`_::
+code <http://adsabs.harvard.edu/abs/2002A%26A...395.1061G>`_:
 
 .. doctest-requires:: pyvo
 
@@ -195,7 +195,7 @@ code <http://adsabs.harvard.edu/abs/2002A%26A...395.1061G>`_::
 
 To customize the reference coordinate (where the projection is centered) you
 can set the ``reference=`` keyword argument to an astropy
-:class:`~astropy.coordinates.SkyCoord` object::
+:class:`~astropy.coordinates.SkyCoord` object:
 
 .. doctest-requires:: pyvo
 
@@ -213,7 +213,7 @@ Assuming that you have a set of images that you want to combine into a mosaic,
 as well as a target header or WCS and shape (which you either determined
 independently, or with :ref:`optimal-wcs`), you can make use of the
 :func:`~reproject.mosaicking.reproject_and_coadd` function to produce the
-mosaic::
+mosaic:
 
 .. doctest-requires:: pyvo
 
@@ -295,7 +295,7 @@ We can take a look at the output:
 In some cases, including the above example, each tile that was used to compute
 the mosaic has an arbitrary offset due e.g. to different observing conditions.
 The :func:`~reproject.mosaicking.reproject_and_coadd` includes an option to
-match the backgrounds (assuming a constant additive offset in each image)::
+match the backgrounds (assuming a constant additive offset in each image):
 
 .. doctest-requires:: pyvo
 
