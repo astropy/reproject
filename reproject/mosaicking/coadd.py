@@ -73,9 +73,12 @@ def reproject_and_coadd(
         `~astropy.io.fits.HDUList` instance, specifies the HDU to use.
     reproject_function : callable
         The function to use for the reprojection
-    combine_function : { 'mean', 'sum', 'median' }
+    combine_function : { 'mean', 'sum', 'median', 'first', 'last' }
         The type of function to use for combining the values into the final
-        image.
+        image. For 'first' and 'last', respectively, the reprojected images are
+        simply overlaid on top of each other. With respect to the order of the
+        input images in ``input_data``, either the first or the last image to
+        cover a region of overlap determines the output data for that region.
     match_background : bool
         Whether to match the backgrounds of the images.
     background_reference : `None` or `int`
@@ -94,8 +97,8 @@ def reproject_and_coadd(
 
     # Validate inputs
 
-    if combine_function not in ("mean", "sum", "median"):
-        raise ValueError("combine_function should be one of mean/sum/median")
+    if combine_function not in ("mean", "sum", "median", "first", "last"):
+        raise ValueError("combine_function should be one of mean/sum/median/first/last")
 
     if reproject_function is None:
         raise ValueError(
@@ -233,7 +236,23 @@ def reproject_and_coadd(
         if combine_function == "mean":
             with np.errstate(invalid="ignore"):
                 final_array /= final_footprint
-
+    elif combine_function == "first":
+        for array in arrays:
+            mask = final_footprint[array.view_in_original_array] == 0
+            final_footprint[array.view_in_original_array] = np.where(
+                mask, array.footprint, final_footprint[array.view_in_original_array]
+            )
+            final_array[array.view_in_original_array] = np.where(
+                mask, array.array, final_array[array.view_in_original_array]
+            )
+    elif combine_function == "last":
+        for array in arrays:
+            final_footprint[array.view_in_original_array] = np.where(
+                array.footprint, array.footprint, final_footprint[array.view_in_original_array]
+            )
+            final_array[array.view_in_original_array] = np.where(
+                array.footprint > 0, array.array, final_array[array.view_in_original_array]
+            )
     elif combine_function == "median":
         # Here we need to operate in chunks since we could otherwise run
         # into memory issues
