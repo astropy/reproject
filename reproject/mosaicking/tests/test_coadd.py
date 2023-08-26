@@ -41,11 +41,10 @@ class TestReprojectAndCoAdd:
 
         input_data = []
 
-        for jmin, jmax, imin, imax in views:
-            array = self.array[jmin:jmax, imin:imax].copy()
+        for view in views:
+            array = self.array[view].copy()
             wcs = self.wcs.deepcopy()
-            wcs.wcs.crpix[0] -= imin
-            wcs.wcs.crpix[1] -= jmin
+            wcs = wcs[view]
             input_data.append((array, wcs))
 
         return input_data
@@ -58,7 +57,7 @@ class TestReprojectAndCoAdd:
         views = []
         for i in range(4):
             for j in range(5):
-                views.append((je[j], je[j + 1], ie[i], ie[i + 1]))
+                views.append(np.s_[je[j] : je[j + 1], ie[i] : ie[i + 1]])
 
         return views
 
@@ -70,7 +69,7 @@ class TestReprojectAndCoAdd:
         views = []
         for i in range(4):
             for j in range(5):
-                views.append((je[j], je[j + 1] + 10, ie[i], ie[i + 1] + 10))
+                views.append(np.s_[je[j] : je[j + 1] + 10, ie[i] : ie[i + 1] + 10])
 
         return views
 
