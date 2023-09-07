@@ -73,7 +73,7 @@ def reproject_and_coadd(
         `~astropy.io.fits.HDUList` instance, specifies the HDU to use.
     reproject_function : callable
         The function to use for the reprojection
-    combine_function : { 'mean', 'sum', 'median', 'first', 'last' }
+    combine_function : { 'mean', 'sum', 'median', 'first', 'last', 'max' }
         The type of function to use for combining the values into the final
         image. For 'first' and 'last', respectively, the reprojected images are
         simply overlaid on top of each other. With respect to the order of the
@@ -97,8 +97,8 @@ def reproject_and_coadd(
 
     # Validate inputs
 
-    if combine_function not in ("mean", "sum", "median", "first", "last"):
-        raise ValueError("combine_function should be one of mean/sum/median/first/last")
+    if combine_function not in ("mean", "sum", "median", "first", "last", "max"):
+        raise ValueError("combine_function should be one of mean/sum/median/first/last/max")
 
     if reproject_function is None:
         raise ValueError(
@@ -253,6 +253,16 @@ def reproject_and_coadd(
             final_array[array.view_in_original_array] = np.where(
                 array.footprint > 0, array.array, final_array[array.view_in_original_array]
             )
+    elif combine_function == "max":
+        for array in arrays:
+            array.array[array.footprint == 0] = 0
+
+            old_vals = final_array[array.view_in_original_array]
+            new_vals = array.array * array.footprint
+
+            final_array[array.view_in_original_array] = np.maximum(old_vals, new_vals)
+            final_footprint[array.view_in_original_array] += array.footprint
+
     elif combine_function == "median":
         # Here we need to operate in chunks since we could otherwise run
         # into memory issues
