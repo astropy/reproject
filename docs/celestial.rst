@@ -173,7 +173,7 @@ integer or a string giving the order of the interpolation. Supported strings
 include:
 
 * ``'nearest-neighbor'``: zeroth order interpolation
-* ``'bilinear'``: fisst order interpolation
+* ``'bilinear'``: first order interpolation
 * ``'biquadratic'``: second order interpolation
 * ``'bicubic'``: third order interpolation
 
@@ -279,13 +279,24 @@ image, a range of boundary modes can be applied, and this is set with the
   would have been assigned to the ignored samples exceeds a set fraction of the
   total weight across the entire sampling region, set by the
   ``boundary_ignore_threshold`` argument. In that case, acts as ``strict``.
-* ``nearest`` --- Samples outside the input image are replaced by the nearst
+* ``nearest`` --- Samples outside the input image are replaced by the nearest
   in-bounds input pixel.
 
 The input image can also be marked as being cyclic or periodic in the x and/or
 y axes with the ``x_cyclic`` and ``y_cyclic`` flags. If these are set, samples
 will wrap around to the opposite side of the image, ignoring the
 ``boundary_mode`` for that axis.
+
+This implementation includes several options for handling ``nan`` and ``inf``
+values in the input data, set via the ``bad_value_mode`` argument:
+
+* ``strict`` --- Values of ``nan`` or ``inf`` in the input data are propagated
+  to every output value which samples them.
+* ``ignore`` --- When a sampled input value is ``nan`` or ``inf``, that input
+  pixel is ignored (affected neither the accumulated sum of weighted samples
+  nor the accumulated sum of weights).
+* ``constant`` --- Input values of ``nan`` and ``inf`` are replaced with a
+  constant value, set via the ``bad_fill_value`` argument.
 
 
 Algorithm Description

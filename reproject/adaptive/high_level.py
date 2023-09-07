@@ -30,6 +30,8 @@ def reproject_adaptive(
     boundary_ignore_threshold=0.5,
     x_cyclic=False,
     y_cyclic=False,
+    bad_value_mode="strict",
+    bad_fill_value=0,
 ):
     """
     Reproject a 2D array from one WCS to another using the DeForest (2004)
@@ -169,6 +171,20 @@ def reproject_adaptive(
         Indicates that the x or y axis of the input image should be treated as
         cyclic or periodic. Overrides the boundary mode for that axis, so that
         out-of-bounds samples wrap to the other side of the image.
+    bad_value_mode : str
+        How to handle values of ``nan`` and ``inf`` in the input data. The
+        default is ``strct``. Allowed values are:
+
+            * ``strict`` --- Values of ``nan`` or ``inf`` in the input data are
+              propagated to every output value which samples them.
+            * ``ignore`` --- When a sampled input value is ``nan`` or ``inf``,
+              that input pixel is ignored (affected neither the accumulated sum
+              of weighted samples nor the accumulated sum of weights).
+            * ``constant`` --- Input values of ``nan`` and ``inf`` are replaced
+              with a constant value, set via the ``bad_fill_value`` argument.
+
+    bad_fill_value : double
+        The constant value used by the ``constant`` bad-value mode.
 
     Returns
     -------
@@ -211,6 +227,8 @@ def reproject_adaptive(
             boundary_ignore_threshold=boundary_ignore_threshold,
             x_cyclic=x_cyclic,
             y_cyclic=y_cyclic,
+            bad_value_mode=bad_value_mode,
+            bad_fill_value=bad_fill_value,
         ),
         return_type=return_type,
     )
