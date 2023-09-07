@@ -288,7 +288,7 @@ will wrap around to the opposite side of the image, ignoring the
 ``boundary_mode`` for that axis.
 
 This implementation includes several options for handling ``nan`` and ``inf``
-values in the input data, set via the ``bad_val_mode`` argument:
+values in the input data, set via the ``bad_value_mode`` argument:
 
 * ``strict`` --- Values of ``nan`` or ``inf`` in the input data are propagated
   to every output value which samples them.

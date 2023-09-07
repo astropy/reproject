@@ -680,7 +680,7 @@ def test_boundary_modes(x_cyclic, y_cyclic, rotated):
 
 
 @pytest.mark.parametrize("bad_val", (np.nan, np.inf))
-def test_bad_val_modes(bad_val):
+def test_bad_value_modes(bad_val):
     bad_val_checker = np.isnan if np.isnan(bad_val) else np.isinf
     data_in = np.ones((30, 30))
     data_in[15, 15] = bad_val
@@ -701,7 +701,7 @@ def test_bad_val_modes(bad_val):
         return_footprint=False,
         boundary_mode="ignore",
         sample_region_width=3,
-        bad_val_mode="strict",
+        bad_value_mode="strict",
     )
 
     # With a sample_region_width of 3, we expect a 3x3 box of nans centered on
@@ -717,7 +717,7 @@ def test_bad_val_modes(bad_val):
         return_footprint=False,
         boundary_mode="ignore",
         sample_region_width=3,
-        bad_val_mode="constant",
+        bad_value_mode="constant",
         bad_fill_value=10,
     )
 
@@ -734,14 +734,14 @@ def test_bad_val_modes(bad_val):
         return_footprint=False,
         boundary_mode="ignore",
         sample_region_width=3,
-        bad_val_mode="ignore",
+        bad_value_mode="ignore",
     )
 
     # Now the nan should be ignored and we should only get 1s coming out
     np.testing.assert_equal(data_out, 1)
 
 
-def test_invald_bad_val_mode():
+def test_invald_bad_value_mode():
     data_in = np.ones((30, 30))
 
     wcs_in = WCS(naxis=2)
@@ -751,7 +751,7 @@ def test_invald_bad_val_mode():
 
     wcs_out = wcs_in.deepcopy()
 
-    with pytest.raises(ValueError, match="bad_val_mode 'invalid_mode' not recognized"):
+    with pytest.raises(ValueError, match="bad_value_mode 'invalid_mode' not recognized"):
         reproject_adaptive(
             (data_in, wcs_in),
             wcs_out,
@@ -759,7 +759,7 @@ def test_invald_bad_val_mode():
             return_footprint=False,
             boundary_mode="ignore",
             sample_region_width=3,
-            bad_val_mode="invalid_mode",
+            bad_value_mode="invalid_mode",
         )
 
 
@@ -845,7 +845,7 @@ def _setup_for_broadcast_test(
     boundary_mode="strict",
     kernel="gaussian",
     center_jacobian=False,
-    bad_val_mode="strict",
+    bad_value_mode="strict",
 ):
     with fits.open(get_pkg_data_filename("data/galactic_2d.fits", package="reproject.tests")) as pf:
         hdu_in = pf[0]
@@ -875,7 +875,7 @@ def _setup_for_broadcast_test(
             boundary_mode=boundary_mode,
             kernel=kernel,
             center_jacobian=center_jacobian,
-            bad_val_mode=bad_val_mode,
+            bad_value_mode=bad_value_mode,
         )
         array_ref[i] = array_out
         footprint_ref[i] = footprint_out
@@ -930,14 +930,14 @@ def _test_broadcast_reprojection_algo_specific_options(
     boundary_mode="strict",
     kernel="gaussian",
     center_jacobian=False,
-    bad_val_mode="strict",
+    bad_value_mode="strict",
 ):
     image_stack, array_ref, footprint_ref, header_in, header_out = _setup_for_broadcast_test(
         conserve_flux=conserve_flux,
         boundary_mode=boundary_mode,
         kernel=kernel,
         center_jacobian=center_jacobian,
-        bad_val_mode=bad_val_mode,
+        bad_value_mode=bad_value_mode,
     )
 
     array_broadcast, footprint_broadcast = reproject_adaptive(
@@ -948,7 +948,7 @@ def _test_broadcast_reprojection_algo_specific_options(
         boundary_mode=boundary_mode,
         kernel=kernel,
         center_jacobian=center_jacobian,
-        bad_val_mode=bad_val_mode,
+        bad_value_mode=bad_value_mode,
     )
 
     np.testing.assert_array_equal(footprint_broadcast, footprint_ref)
@@ -978,9 +978,9 @@ def test_broadcast_reprojection_center_jacobian(center_jacobian):
     _test_broadcast_reprojection_algo_specific_options(center_jacobian=center_jacobian)
 
 
-@pytest.mark.parametrize("bad_val_mode", ("strict", "ignore", "constant"))
-def test_broadcast_reprojection_bad_val_mode(bad_val_mode):
-    _test_broadcast_reprojection_algo_specific_options(bad_val_mode=bad_val_mode)
+@pytest.mark.parametrize("bad_value_mode", ("strict", "ignore", "constant"))
+def test_broadcast_reprojection_bad_value_mode(bad_value_mode):
+    _test_broadcast_reprojection_algo_specific_options(bad_value_mode=bad_value_mode)
 
 
 def test_adaptive_input_output_types(

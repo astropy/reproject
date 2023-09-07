@@ -352,10 +352,10 @@ BOUNDARY_MODES['ignore'] = 4
 BOUNDARY_MODES['ignore_threshold'] = 5
 BOUNDARY_MODES['nearest'] = 6
 
-BAD_VAL_MODES = {}
-BAD_VAL_MODES['strict'] = 1
-BAD_VAL_MODES['constant'] = 2
-BAD_VAL_MODES['ignore'] = 3
+BAD_VALUE_MODES = {}
+BAD_VALUE_MODES['strict'] = 1
+BAD_VALUE_MODES['constant'] = 2
+BAD_VALUE_MODES['ignore'] = 3
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -368,7 +368,7 @@ def map_coordinates(double[:,:,:] source, double[:,:,:] target, Ci, int max_samp
                     str kernel='gaussian', double kernel_width=1.3,
                     double sample_region_width=4, str boundary_mode="strict",
                     double boundary_fill_value=0, double boundary_ignore_threshold=0.5,
-                    str bad_val_mode="strict", double bad_fill_value=0,
+                    str bad_value_mode="strict", double bad_fill_value=0,
                     ):
     # n.b. the source and target arrays are expected to contain three
     # dimensions---the last two are the image dimensions, while the first
@@ -391,10 +391,10 @@ def map_coordinates(double[:,:,:] source, double[:,:,:] target, Ci, int max_samp
 
     cdef int bad_val_flag
     try:
-        bad_val_flag = BAD_VAL_MODES[bad_val_mode.lower()]
+        bad_val_flag = BAD_VALUE_MODES[bad_value_mode.lower()]
     except KeyError:
         raise ValueError(
-                f"bad_val_mode '{bad_val_mode}' not recognized") from None
+                f"bad_value_mode '{bad_value_mode}' not recognized") from None
 
     cdef np.ndarray[np.float64_t, ndim=3] pixel_target
     cdef int delta

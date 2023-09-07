@@ -30,7 +30,7 @@ def reproject_adaptive(
     boundary_ignore_threshold=0.5,
     x_cyclic=False,
     y_cyclic=False,
-    bad_val_mode="strict",
+    bad_value_mode="strict",
     bad_fill_value=0,
 ):
     """
@@ -171,7 +171,7 @@ def reproject_adaptive(
         Indicates that the x or y axis of the input image should be treated as
         cyclic or periodic. Overrides the boundary mode for that axis, so that
         out-of-bounds samples wrap to the other side of the image.
-    bad_val_mode : str
+    bad_value_mode : str
         How to handle values of ``nan`` and ``inf`` in the input data. The
         default is ``strct``. Allowed values are:
 
@@ -227,7 +227,7 @@ def reproject_adaptive(
             boundary_ignore_threshold=boundary_ignore_threshold,
             x_cyclic=x_cyclic,
             y_cyclic=y_cyclic,
-            bad_val_mode=bad_val_mode,
+            bad_value_mode=bad_value_mode,
             bad_fill_value=bad_fill_value,
         ),
         return_type=return_type,

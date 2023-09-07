@@ -45,7 +45,7 @@ def _reproject_adaptive_2d(
     boundary_ignore_threshold=0.5,
     x_cyclic=False,
     y_cyclic=False,
-    bad_val_mode="strict",
+    bad_value_mode="strict",
     bad_fill_value=0,
 ):
     """
@@ -89,7 +89,7 @@ def _reproject_adaptive_2d(
         Threshold for 'ignore_threshold' boundary mode, ranging from 0 to 1.
     x_cyclic, y_cyclic : bool
         Marks in input-image axis as cyclic.
-    bad_val_mode : str
+    bad_value_mode : str
         NaN and inf handling mode
     bad_fill_value : float
         Fill value for 'constant' bad value mode
@@ -173,7 +173,7 @@ def _reproject_adaptive_2d(
         boundary_ignore_threshold=boundary_ignore_threshold,
         x_cyclic=x_cyclic,
         y_cyclic=y_cyclic,
-        bad_val_mode=bad_val_mode,
+        bad_value_mode=bad_value_mode,
         bad_fill_value=bad_fill_value,
     )
 
