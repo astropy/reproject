@@ -2,6 +2,7 @@
 
 import itertools
 
+import dask.array as da
 import numpy as np
 import pytest
 from astropy import units as u
@@ -555,7 +556,6 @@ def test_reproject_roundtrip(file_format):
         raise ValueError("file_format should be fits or asdf")
 
     # Reproject to an observer on Venus
-
     target_wcs.wcs.cdelt = ([24, 24] * u.arcsec).to(u.deg)
     target_wcs.wcs.crpix = [64, 64]
     venus = get_body_heliographic_stonyhurst("venus", date)
@@ -570,6 +570,59 @@ def test_reproject_roundtrip(file_format):
     header_out["DATE-OBS"] = header_out["DATE-OBS"].replace("T", " ")
 
     return array_footprint_to_hdulist(output, footprint, header_out)
+
+
+def test_reproject_roundtrip_kwarg():
+    # Make sure that the roundtrip_coords keyword argument has an effect. This
+    # is a regression test for a bug that caused the keyword argument to be
+    # ignored when in parallel/blocked mode.
+
+    pytest.importorskip("sunpy", minversion="2.1.0")
+    from sunpy.coordinates.ephemeris import get_body_heliographic_stonyhurst
+    from sunpy.map import Map
+
+    map_aia = Map(get_pkg_data_filename("data/aia_171_level1.fits", package="reproject.tests"))
+
+    # Reproject to an observer on Venus
+    target_wcs = map_aia.wcs.deepcopy()
+    target_wcs.wcs.cdelt = ([24, 24] * u.arcsec).to(u.deg)
+    target_wcs.wcs.crpix = [64, 64]
+    venus = get_body_heliographic_stonyhurst("venus", map_aia.date)
+    target_wcs.wcs.aux.hgln_obs = venus.lon.to_value(u.deg)
+    target_wcs.wcs.aux.hglt_obs = venus.lat.to_value(u.deg)
+    target_wcs.wcs.aux.dsun_obs = venus.radius.to_value(u.m)
+
+    output_roundtrip_1 = reproject_interp(
+        map_aia, target_wcs, shape_out=(128, 128), return_footprint=False, roundtrip_coords=True
+    )
+    output_roundtrip_2 = reproject_interp(
+        map_aia,
+        target_wcs,
+        shape_out=(128, 128),
+        return_footprint=False,
+        roundtrip_coords=True,
+        block_size=(32, 32),
+    )
+
+    assert_allclose(output_roundtrip_1, output_roundtrip_2)
+
+    output_noroundtrip_1 = reproject_interp(
+        map_aia, target_wcs, shape_out=(128, 128), return_footprint=False, roundtrip_coords=False
+    )
+    output_noroundtrip_2 = reproject_interp(
+        map_aia,
+        target_wcs,
+        shape_out=(128, 128),
+        return_footprint=False,
+        roundtrip_coords=False,
+        block_size=(32, 32),
+    )
+
+    assert_allclose(output_noroundtrip_1, output_noroundtrip_2)
+
+    # The array with round-tripping should have more NaN values:
+    assert np.sum(np.isnan(output_roundtrip_1)) > 9500
+    assert np.sum(np.isnan(output_noroundtrip_1)) < 7000
 
 
 @pytest.mark.parametrize("roundtrip_coords", (False, True))
@@ -792,3 +845,89 @@ def test_interp_input_output_types(valid_celestial_input_data, valid_celestial_o
 
     assert_allclose(output_ref, output_test)
     assert_allclose(footprint_ref, footprint_test)
+
+
+@pytest.mark.parametrize("block_size", [None, (32, 32)])
+def test_reproject_order(block_size):
+    # Check that the order keyword argument has an effect. This is a regression
+    # test for a bug that caused the order= keyword argument to be ignored when
+    # in parallel/blocked reprojection.
+
+    with fits.open(get_pkg_data_filename("data/galactic_2d.fits", package="reproject.tests")) as pf:
+        hdu_in = pf[0]
+
+        header_out = hdu_in.header.copy()
+        header_out["CTYPE1"] = "RA---TAN"
+        header_out["CTYPE2"] = "DEC--TAN"
+        header_out["CRVAL1"] = 266.39311
+        header_out["CRVAL2"] = -28.939779
+
+        array_out_bilinear = reproject_interp(
+            hdu_in,
+            header_out,
+            return_footprint=False,
+            order="bilinear",
+            block_size=block_size,
+        )
+
+        array_out_biquadratic = reproject_interp(
+            hdu_in,
+            header_out,
+            return_footprint=False,
+            order="biquadratic",
+            block_size=block_size,
+        )
+
+        with pytest.raises(AssertionError):
+            assert_allclose(array_out_bilinear, array_out_biquadratic)
+
+
+def test_reproject_block_size_broadcasting():
+    # Regression test for a bug that caused the default chunk size to be
+    # inadequate when using broadcasting in parallel mode
+
+    array_in = np.ones((350, 250, 150))
+    wcs_in = WCS(naxis=2)
+    wcs_out = WCS(naxis=2)
+
+    reproject_interp(
+        (array_in, wcs_in),
+        wcs_out,
+        shape_out=(300, 300),
+        parallel=1,
+        return_footprint=False,
+    )
+
+    # Specifying a block size that is missing the extra dimension should work fine:
+
+    reproject_interp(
+        (array_in, wcs_in),
+        wcs_out,
+        shape_out=(300, 300),
+        parallel=1,
+        return_footprint=False,
+        block_size=(100, 100),
+    )
+
+    # Specifying a block size with the extra dimension should work provided it matches the final output shape
+
+    reproject_interp(
+        (array_in, wcs_in),
+        wcs_out,
+        shape_out=(300, 300),
+        parallel=1,
+        return_footprint=False,
+        block_size=(350, 100, 100),
+    )
+
+    # But it should fail if we specify a block size that is smaller that the total array shape
+
+    with pytest.raises(ValueError, match="block shape for extra broadcasted dimensions"):
+        reproject_interp(
+            (array_in, wcs_in),
+            wcs_out,
+            shape_out=(300, 300),
+            parallel=1,
+            return_footprint=False,
+            block_size=(100, 100, 100),
+        )

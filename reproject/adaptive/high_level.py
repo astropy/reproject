@@ -1,5 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
+from ..common import _reproject_dispatcher
 from ..utils import parse_input_data, parse_output_projection
 from .core import _reproject_adaptive_2d
 
@@ -11,7 +12,12 @@ def reproject_adaptive(
     output_projection,
     shape_out=None,
     hdu_in=0,
+    output_array=None,
     return_footprint=True,
+    output_footprint=None,
+    block_size=None,
+    parallel=False,
+    return_type=None,
     center_jacobian=False,
     despike_jacobian=False,
     roundtrip_coords=True,
@@ -181,22 +187,30 @@ def reproject_adaptive(
         output_projection, shape_in=array_in.shape, shape_out=shape_out
     )
 
-    return _reproject_adaptive_2d(
-        array_in,
-        wcs_in,
-        wcs_out,
-        shape_out,
+    return _reproject_dispatcher(
+        _reproject_adaptive_2d,
+        array_in=array_in,
+        wcs_in=wcs_in,
+        wcs_out=wcs_out,
+        shape_out=shape_out,
+        array_out=output_array,
+        parallel=parallel,
+        block_size=block_size,
         return_footprint=return_footprint,
-        center_jacobian=center_jacobian,
-        despike_jacobian=despike_jacobian,
-        roundtrip_coords=roundtrip_coords,
-        conserve_flux=conserve_flux,
-        kernel=kernel,
-        kernel_width=kernel_width,
-        sample_region_width=sample_region_width,
-        boundary_mode=boundary_mode,
-        boundary_fill_value=boundary_fill_value,
-        boundary_ignore_threshold=boundary_ignore_threshold,
-        x_cyclic=x_cyclic,
-        y_cyclic=y_cyclic,
+        output_footprint=output_footprint,
+        reproject_func_kwargs=dict(
+            center_jacobian=center_jacobian,
+            despike_jacobian=despike_jacobian,
+            roundtrip_coords=roundtrip_coords,
+            conserve_flux=conserve_flux,
+            kernel=kernel,
+            kernel_width=kernel_width,
+            sample_region_width=sample_region_width,
+            boundary_mode=boundary_mode,
+            boundary_fill_value=boundary_fill_value,
+            boundary_ignore_threshold=boundary_ignore_threshold,
+            x_cyclic=x_cyclic,
+            y_cyclic=y_cyclic,
+        ),
+        return_type=return_type,
     )

@@ -1,5 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
+from ..common import _reproject_dispatcher
 from ..utils import parse_input_data, parse_output_projection
 from ..wcs_utils import has_celestial
 from .core import _reproject_celestial
@@ -8,7 +9,16 @@ __all__ = ["reproject_exact"]
 
 
 def reproject_exact(
-    input_data, output_projection, shape_out=None, hdu_in=0, parallel=False, return_footprint=True
+    input_data,
+    output_projection,
+    shape_out=None,
+    hdu_in=0,
+    output_array=None,
+    return_footprint=True,
+    output_footprint=None,
+    block_size=None,
+    parallel=False,
+    return_type=None,
 ):
     """
     Reproject data to a new projection using flux-conserving spherical
@@ -72,13 +82,18 @@ def reproject_exact(
     )
 
     if has_celestial(wcs_in) and wcs_in.pixel_n_dim == 2 and wcs_in.world_n_dim == 2:
-        return _reproject_celestial(
-            array_in,
-            wcs_in,
-            wcs_out,
+        return _reproject_dispatcher(
+            _reproject_celestial,
+            array_in=array_in,
+            wcs_in=wcs_in,
+            wcs_out=wcs_out,
             shape_out=shape_out,
+            array_out=output_array,
             parallel=parallel,
+            block_size=block_size,
             return_footprint=return_footprint,
+            output_footprint=output_footprint,
+            return_type=return_type,
         )
     else:
         raise NotImplementedError(

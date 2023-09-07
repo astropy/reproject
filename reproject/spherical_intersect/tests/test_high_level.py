@@ -41,6 +41,20 @@ class TestReprojectExact:
             reproject_exact((self.array_in, self.header_in), self.header_out, parallel=-1)
         assert exc.value.args[0] == "The number of processors to use must be strictly positive"
 
+    def test_reproject_parallel_consistency(self):
+        reproject_exact((self.array_in, self.header_in), self.header_out, parallel=1)
+
+        array1, footprint1 = reproject_exact(
+            (self.array_in, self.header_in), self.header_out, parallel=False
+        )
+        array2, footprint2 = reproject_exact(
+            (self.array_in, self.header_in), self.header_out, parallel=4
+        )
+
+        np.testing.assert_allclose(array1, array2, rtol=1.0e-5)
+
+        np.testing.assert_allclose(footprint1, footprint2, rtol=3.0e-5)
+
 
 def test_identity():
     # Reproject an array and WCS to itself

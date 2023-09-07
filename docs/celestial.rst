@@ -385,12 +385,9 @@ reprojection using the spherical polygon intersection of input and output pixels
 
     >>> from reproject import reproject_exact
 
-In addition to the arguments described in :ref:`common`, an optional
-``parallel=`` option can be used to control whether to parallelize the
-reprojection, and if so how many cores to use (see
-:func:`~reproject.reproject_exact` for more details). For this algorithm, the
-footprint array returned gives the exact fractional overlap of new pixels with
-the original image (see :doc:`footprints` for more details).
+For this algorithm, the footprint array returned gives the exact fractional
+overlap of new pixels with the original image (see :doc:`footprints` for more
+details).
 
 .. warning:: The :func:`~reproject.reproject_exact` is currently known to
              have precision issues for images with resolutions <0.05". For

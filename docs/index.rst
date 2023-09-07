@@ -137,6 +137,7 @@ that you want to reproject.
    noncelestial
    footprints
    mosaicking
+   dask
 
 Reference/API
 =============
