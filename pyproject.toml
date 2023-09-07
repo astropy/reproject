@@ -11,7 +11,7 @@ build-backend = 'setuptools.build_meta'
 write_to = "reproject/version.py"
 
 [tool.cibuildwheel]
-skip = "cp36-* pp* *-musllinux* cp310-win32"
+skip = "cp36-* pp* *-musllinux* cp310-win32 cp312-*"
 test-skip = "*-macosx_arm64 *-manylinux_aarch64"
 
 [tool.isort]
