@@ -8,7 +8,7 @@ import pytest
 from astropy.io import fits
 from astropy.io.fits import Header
 from astropy.wcs import WCS
-from numpy.testing import assert_allclose
+from numpy.testing import assert_allclose, assert_equal
 
 from reproject import reproject_exact, reproject_interp
 from reproject.mosaicking.coadd import reproject_and_coadd
@@ -41,11 +41,10 @@ class TestReprojectAndCoAdd:
 
         input_data = []
 
-        for jmin, jmax, imin, imax in views:
-            array = self.array[jmin:jmax, imin:imax].copy()
+        for view in views:
+            array = self.array[view].copy()
             wcs = self.wcs.deepcopy()
-            wcs.wcs.crpix[0] -= imin
-            wcs.wcs.crpix[1] -= jmin
+            wcs = wcs[view]
             input_data.append((array, wcs))
 
         return input_data
@@ -58,7 +57,7 @@ class TestReprojectAndCoAdd:
         views = []
         for i in range(4):
             for j in range(5):
-                views.append((je[j], je[j + 1], ie[i], ie[i + 1]))
+                views.append(np.s_[je[j] : je[j + 1], ie[i] : ie[i + 1]])
 
         return views
 
@@ -70,11 +69,11 @@ class TestReprojectAndCoAdd:
         views = []
         for i in range(4):
             for j in range(5):
-                views.append((je[j], je[j + 1] + 10, ie[i], ie[i + 1] + 10))
+                views.append(np.s_[je[j] : je[j + 1] + 10, ie[i] : ie[i + 1] + 10])
 
         return views
 
-    @pytest.mark.parametrize("combine_function", ["mean", "sum"])
+    @pytest.mark.parametrize("combine_function", ["mean", "sum", "first", "last"])
     def test_coadd_no_overlap(self, combine_function, reproject_function):
         # Make sure that if all tiles are exactly non-overlapping, and
         # we use 'sum' or 'mean', we get the exact input array back.
@@ -108,6 +107,38 @@ class TestReprojectAndCoAdd:
         )
 
         assert_allclose(array, self.array, atol=ATOL)
+
+    @pytest.mark.parametrize("combine_function", ["first", "last"])
+    def test_coadd_with_overlap_first_last(self, reproject_function, combine_function):
+        views = self._overlapping_views
+        input_data = self._get_tiles(views)
+
+        # Make each of the overlapping tiles different
+        for i, (array, wcs) in enumerate(input_data):
+            input_data[i] = (np.full_like(array, i), wcs)
+
+        array, footprint = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=self.array.shape,
+            combine_function=combine_function,
+            reproject_function=reproject_function,
+        )
+
+        # Test that either the correct tile sets the output value in the overlap regions
+        test_sequence = list(enumerate(views))
+        if combine_function == "last":
+            test_sequence = test_sequence[::-1]
+        for i, view in test_sequence:
+            # Each tile in test_sequence should overwrite teh following tiles
+            # in the overlap regions. We'll use nans to mark pixels in the
+            # output array that have already been set by a preceeding tile, so
+            # we'll go through, check that each tile matches the non-nan pixels
+            # in its region, and then set that whole region to nan.
+            output_tile = array[view]
+            output_values = output_tile[np.isfinite(output_tile)]
+            assert_equal(output_values, i)
+            array[view] = np.nan
 
     def test_coadd_background_matching(self, reproject_function):
         # Test out the background matching
