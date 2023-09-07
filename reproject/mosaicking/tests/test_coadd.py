@@ -108,14 +108,17 @@ class TestReprojectAndCoAdd:
 
         assert_allclose(array, self.array, atol=ATOL)
 
-    @pytest.mark.parametrize("combine_function", ["first", "last"])
+    @pytest.mark.parametrize("combine_function", ["first", "last", "min", "max"])
     def test_coadd_with_overlap_first_last(self, reproject_function, combine_function):
         views = self._overlapping_views
         input_data = self._get_tiles(views)
 
         # Make each of the overlapping tiles different
         for i, (array, wcs) in enumerate(input_data):
-            input_data[i] = (np.full_like(array, i), wcs)
+            # We give each tile integer values that range from 0 to 19 but we
+            # deliberately don't make the first one 0 and the last one 19 so
+            # that min/max differs from first/last.
+            input_data[i] = (np.full_like(array, (i + 7) % 20), wcs)
 
         array, footprint = reproject_and_coadd(
             input_data,
@@ -127,17 +130,23 @@ class TestReprojectAndCoAdd:
 
         # Test that either the correct tile sets the output value in the overlap regions
         test_sequence = list(enumerate(views))
+
         if combine_function == "last":
             test_sequence = test_sequence[::-1]
+        elif combine_function == "min":
+            test_sequence = test_sequence[13:] + test_sequence[:13]
+        elif combine_function == "max":
+            test_sequence = (test_sequence[13:] + test_sequence[:13])[::-1]
+
         for i, view in test_sequence:
-            # Each tile in test_sequence should overwrite teh following tiles
-            # in the overlap regions. We'll use nans to mark pixels in the
-            # output array that have already been set by a preceeding tile, so
+            # Each tile in test_sequence should overwrite the following tiles
+            # in the overlap regions. We'll use NaNs to mark pixels in the
+            # output array that have already been set by a preceding tile, so
             # we'll go through, check that each tile matches the non-nan pixels
             # in its region, and then set that whole region to nan.
             output_tile = array[view]
             output_values = output_tile[np.isfinite(output_tile)]
-            assert_equal(output_values, i)
+            assert_equal(output_values, (i + 7) % 20)
             array[view] = np.nan
 
     def test_coadd_background_matching(self, reproject_function):
