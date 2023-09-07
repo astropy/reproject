@@ -134,7 +134,7 @@ def reproject_and_coadd(
         # convex in the output projection), and transforming every edge pixel,
         # which provides a lot of redundant information.
         ny, nx = array_in.shape
-        n_per_edge = 10
+        n_per_edge = 11
         xs = np.linspace(-0.5, nx - 0.5, n_per_edge)
         ys = np.linspace(-0.5, ny - 0.5, n_per_edge)
         xs = np.concatenate((xs, np.full(n_per_edge, xs[-1]), xs, np.full(n_per_edge, xs[0])))
