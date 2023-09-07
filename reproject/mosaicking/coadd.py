@@ -128,16 +128,21 @@ def reproject_and_coadd(
 
         # Since we might be reprojecting small images into a large mosaic we
         # want to make sure that for each image we reproject to an array with
-        # minimal footprint. We therefore find the pixel coordinates of corners
-        # in the initial image and transform this to pixel coordinates in the
-        # final image to figure out the final WCS and shape to reproject to for
-        # each tile. Note that in future if we are worried about significant
-        # distortions of the edges in the reprojection process we could simply
-        # add arbitrary numbers of midpoints to this list.
+        # minimal footprint. We therefore find the pixel coordinates of the
+        # edges of the initial image and transform this to pixel coordinates in
+        # the final image to figure out the final WCS and shape to reproject to
+        # for each tile. We strike a balance between transforming only the
+        # input-image corners, which is fast but can cause clipping in cases of
+        # significant distortion (when the edges of the input image become
+        # convex in the output projection), and transforming every edge pixel,
+        # which provides a lot of redundant information.
         ny, nx = array_in.shape
-        xc = np.array([-0.5, nx - 0.5, nx - 0.5, -0.5])
-        yc = np.array([-0.5, -0.5, ny - 0.5, ny - 0.5])
-        xc_out, yc_out = wcs_out.world_to_pixel(wcs_in.pixel_to_world(xc, yc))
+        n_per_edge = 11
+        xs = np.linspace(-0.5, nx - 0.5, n_per_edge)
+        ys = np.linspace(-0.5, ny - 0.5, n_per_edge)
+        xs = np.concatenate((xs, np.full(n_per_edge, xs[-1]), xs, np.full(n_per_edge, xs[0])))
+        ys = np.concatenate((np.full(n_per_edge, ys[0]), ys, np.full(n_per_edge, ys[-1]), ys))
+        xc_out, yc_out = wcs_out.world_to_pixel(wcs_in.pixel_to_world(xs, ys))
 
         # Determine the cutout parameters
 
