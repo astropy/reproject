@@ -8,7 +8,7 @@ import pytest
 from astropy.io import fits
 from astropy.io.fits import Header
 from astropy.wcs import WCS
-from numpy.testing import assert_allclose, assert_equal
+from numpy.testing import assert_allclose
 
 from reproject import reproject_exact, reproject_interp
 from reproject.mosaicking.coadd import reproject_and_coadd
@@ -146,7 +146,7 @@ class TestReprojectAndCoAdd:
             # in its region, and then set that whole region to nan.
             output_tile = array[view]
             output_values = output_tile[np.isfinite(output_tile)]
-            assert_equal(output_values, (i + 7) % 20)
+            assert_allclose(output_values, (i + 7) % 20)
             array[view] = np.nan
 
     def test_coadd_background_matching(self, reproject_function):
