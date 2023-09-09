@@ -34,7 +34,11 @@ class ReprojectedArraySubset:
     @property
     def view_in_original_array(self):
         if self.kmin is not None:
-            return (slice(self.kmin, self.kmax), slice(self.jmin, self.jmax), slice(self.imin, self.imax))
+            return (
+                slice(self.kmin, self.kmax),
+                slice(self.jmin, self.jmax),
+                slice(self.imin, self.imax),
+            )
         else:
             return (slice(self.jmin, self.jmax), slice(self.imin, self.imax))
 
@@ -92,26 +96,21 @@ class ReprojectedArraySubset:
         if jmax < jmin:
             jmax = jmin
 
-
         if self.kmin is None:
             # Extract cutout from each
 
             self_array = self.array[
-                jmin - self.jmin : jmax - self.jmin,
-                imin - self.imin : imax - self.imin,
+                jmin - self.jmin : jmax - self.jmin, imin - self.imin : imax - self.imin
             ]
             self_footprint = self.footprint[
-                jmin - self.jmin : jmax - self.jmin,
-                imin - self.imin : imax - self.imin,
+                jmin - self.jmin : jmax - self.jmin, imin - self.imin : imax - self.imin
             ]
 
             other_array = other.array[
-                jmin - other.jmin : jmax - other.jmin,
-                imin - other.imin : imax - other.imin,
+                jmin - other.jmin : jmax - other.jmin, imin - other.imin : imax - other.imin
             ]
             other_footprint = other.footprint[
-                jmin - other.jmin : jmax - other.jmin,
-                imin - other.imin : imax - other.imin,
+                jmin - other.jmin : jmax - other.jmin, imin - other.imin : imax - other.imin
             ]
 
             # Carry out operator and store result in ReprojectedArraySubset

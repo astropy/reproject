@@ -26,6 +26,7 @@ def reproject_and_coadd(
     output_footprint=None,
     block_sizes=None,
     progressbar=False,
+    blank_pixel_value=np.nan,
     **kwargs,
 ):
     """
@@ -128,6 +129,9 @@ def reproject_and_coadd(
 
     if combine_function not in ("mean", "sum", "median", "first", "last", "min", "max"):
         raise ValueError("combine_function should be one of mean/sum/median/first/last/min/max")
+    elif combine_function == "median":
+        # Note to devs: the exception shoudl be raised as early as possible
+        raise NotImplementedError("combine_function='median' is not yet implemented")
 
     if reproject_function is None:
         raise ValueError(
@@ -142,11 +146,15 @@ def reproject_and_coadd(
     wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
 
     if output_array is not None and output_array.shape != shape_out:
-        raise ValueError("If you specify an output array, it must have a shape matching "
-                         f"the output shape {shape_out}")
+        raise ValueError(
+            "If you specify an output array, it must have a shape matching "
+            f"the output shape {shape_out}"
+        )
     if output_footprint is not None and output_footprint.shape != shape_out:
-        raise ValueError("If you specify an output footprint array, it must have a shape matching "
-                         f"the output shape {shape_out}")
+        raise ValueError(
+            "If you specify an output footprint array, it must have a shape matching "
+            f"the output shape {shape_out}"
+        )
 
     if output_array is None:
         output_array = np.zeros(shape_out)
@@ -154,7 +162,6 @@ def reproject_and_coadd(
         output_footprint = np.zeros(shape_out)
 
     # Start off by reprojecting individual images to the final projection
-
     if match_background:
         arrays = []
 
@@ -189,6 +196,7 @@ def reproject_and_coadd(
             xs = np.concatenate((xs, np.full(n_per_edge, xs[-1]), xs, np.full(n_per_edge, xs[0])))
             ys = np.concatenate((np.full(n_per_edge, ys[0]), ys, np.full(n_per_edge, ys[-1]), ys))
             xc_out, yc_out = wcs_out.world_to_pixel(wcs_in.pixel_to_world(xs, ys))
+            shape_out_cel = shape_out
         elif array_in.ndim == 3:
             # for cubes, we only handle single corners now
             nz, ny, nx = array_in.shape
@@ -196,8 +204,12 @@ def reproject_and_coadd(
             yc = np.array([-0.5, -0.5, ny - 0.5, ny - 0.5])
             zc = np.array([-0.5, nz - 0.5])
             # TODO: figure out what to do here if the low_level_wcs doesn't  support subsetting
-            xc_out, yc_out = wcs_out.low_level_wcs.celestial.world_to_pixel(wcs_in.celestial.pixel_to_world(xc, yc))
-            zc_out = wcs_out.low_level_wcs.spectral.world_to_pixel(wcs_in.spectral.pixel_to_world(zc))
+            xc_out, yc_out = wcs_out.low_level_wcs.celestial.world_to_pixel(
+                wcs_in.celestial.pixel_to_world(xc, yc)
+            )
+            zc_out = wcs_out.low_level_wcs.spectral.world_to_pixel(
+                wcs_in.spectral.pixel_to_world(zc)
+            )
             shape_out_cel = shape_out[1:]
         else:
             raise ValueError(f"Wrong number of dimensions: {array_in.ndim}")
@@ -230,7 +242,7 @@ def reproject_and_coadd(
                     wcs_out.low_level_wcs, (slice(jmin, jmax), slice(imin, imax))
                 )
             shape_out_indiv = (jmax - jmin, imax - imin)
-            kmin, kmax = None, None # for reprojectedarraysubset below
+            kmin, kmax = None, None  # for reprojectedarraysubset below
         elif array_in.ndim == 3:
             kmin = max(0, int(np.floor(zc_out.min() + 0.5)))
             kmax = min(shape_out[0], int(np.ceil(zc_out.max() + 0.5)))
@@ -242,12 +254,11 @@ def reproject_and_coadd(
                 )
             shape_out_indiv = (kmax - kmin, jmax - jmin, imax - imin)
 
-
         if block_sizes is not None:
             if len(block_sizes) == len(input_data) and len(block_sizes[idata]) == len(shape_out):
-                kwargs['block_size'] = block_sizes[idata]
+                kwargs["block_size"] = block_sizes[idata]
             else:
-                kwargs['block_size'] = block_sizes
+                kwargs["block_size"] = block_sizes
 
         # TODO: optimize handling of weights by making reprojection functions
         # able to handle weights, and make the footprint become the combined
@@ -298,7 +309,6 @@ def reproject_and_coadd(
                 output_array[array.view_in_original_array] += array.array * array.footprint
                 output_footprint[array.view_in_original_array] += array.footprint
 
-
     # If requested, try and match the backgrounds.
     if match_background and len(arrays) > 1:
         offset_matrix = determine_offset_matrix(arrays)
@@ -308,64 +318,58 @@ def reproject_and_coadd(
         for array, correction in zip(arrays, corrections, strict=True):
             array.array -= correction
 
-        # At this point, the images are now ready to be co-added.
-
-        if combine_function in ("mean", "sum"):
-            for array in arrays:
-                # By default, values outside of the footprint are set to NaN
-                # but we set these to 0 here to avoid getting NaNs in the
-                # means/sums.
-                array.array[array.footprint == 0] = 0
-
     if combine_function == "min":
         output_array[...] = np.inf
     elif combine_function == "max":
         output_array[...] = -np.inf
 
     if combine_function in ("mean", "sum"):
-        for array in arrays:
-            # By default, values outside of the footprint are set to NaN
-            # but we set these to 0 here to avoid getting NaNs in the
-            # means/sums.
-            array.array[array.footprint == 0] = 0
+        if match_background:
+            # if we're not matching the background, this part has already been done
+            for array in arrays:
+                # By default, values outside of the footprint are set to NaN
+                # but we set these to 0 here to avoid getting NaNs in the
+                # means/sums.
+                array.array[array.footprint == 0] = 0
 
-            output_array[array.view_in_original_array] += array.array * array.footprint
-            output_footprint[array.view_in_original_array] += array.footprint
+        output_array[array.view_in_original_array] += array.array * array.footprint
+        output_footprint[array.view_in_original_array] += array.footprint
 
         if combine_function == "mean":
             with np.errstate(invalid="ignore"):
                 output_array /= output_footprint
-                output_array[output_footprint == 0] = 0
+                output_array[output_footprint == 0] = blank_pixel_value
 
     elif combine_function in ("first", "last", "min", "max"):
-        for array in arrays:
-            if combine_function == "first":
-                mask = (output_footprint[array.view_in_original_array] == 0) & (array.footprint > 0)
-            elif combine_function == "last":
-                mask = array.footprint > 0
-            elif combine_function == "min":
-                mask = (array.footprint > 0) & (
-                    array.array < output_array[array.view_in_original_array]
-                )
-            elif combine_function == "max":
-                mask = (array.footprint > 0) & (
-                    array.array > output_array[array.view_in_original_array]
-                )
+        if match_background:
+            for array in arrays:
+                if combine_function == "first":
+                    mask = output_footprint[array.view_in_original_array] == 0
+                elif combine_function == "last":
+                    mask = array.footprint > 0
+                elif combine_function == "min":
+                    mask = (array.footprint > 0) & (
+                        array.array < output_array[array.view_in_original_array]
+                    )
+                elif combine_function == "max":
+                    mask = (array.footprint > 0) & (
+                        array.array > output_array[array.view_in_original_array]
+                    )
 
-            output_footprint[array.view_in_original_array] = np.where(
-                mask, array.footprint, output_footprint[array.view_in_original_array]
-            )
-            output_array[array.view_in_original_array] = np.where(
-                mask, array.array, output_array[array.view_in_original_array]
-            )
+                output_footprint[array.view_in_original_array] = np.where(
+                    mask, array.footprint, output_footprint[array.view_in_original_array]
+                )
+                output_array[array.view_in_original_array] = np.where(
+                    mask, array.array, output_array[array.view_in_original_array]
+                )
 
     elif combine_function == "median":
         # Here we need to operate in chunks since we could otherwise run
         # into memory issues
 
+        # this is redundant, but left as a note-to-devs about where such an implementation belongs
         raise NotImplementedError("combine_function='median' is not yet implemented")
 
-    if combine_function in ("min", "max"):
-        output_array[output_footprint == 0] = 0.0
+    output_array[output_footprint == 0] = blank_pixel_value
 
     return output_array, output_footprint
