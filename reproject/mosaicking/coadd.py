@@ -128,7 +128,7 @@ def reproject_and_coadd(
 
     if combine_function not in ("mean", "sum", "median", "first", "last", "min", "max"):
         raise ValueError("combine_function should be one of mean/sum/median/first/last/min/max")
-    elif combine_function == 'median':
+    elif combine_function == "median":
         # Note to devs: the exception shoudl be raised as early as possible
         raise NotImplementedError("combine_function='median' is not yet implemented")
 
@@ -145,11 +145,15 @@ def reproject_and_coadd(
     wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
 
     if output_array is not None and output_array.shape != shape_out:
-        raise ValueError("If you specify an output array, it must have a shape matching "
-                         f"the output shape {shape_out}")
+        raise ValueError(
+            "If you specify an output array, it must have a shape matching "
+            f"the output shape {shape_out}"
+        )
     if output_footprint is not None and output_footprint.shape != shape_out:
-        raise ValueError("If you specify an output footprint array, it must have a shape matching "
-                         f"the output shape {shape_out}")
+        raise ValueError(
+            "If you specify an output footprint array, it must have a shape matching "
+            f"the output shape {shape_out}"
+        )
 
     if output_array is None:
         output_array = np.zeros(shape_out)
@@ -199,8 +203,12 @@ def reproject_and_coadd(
             yc = np.array([-0.5, -0.5, ny - 0.5, ny - 0.5])
             zc = np.array([-0.5, nz - 0.5])
             # TODO: figure out what to do here if the low_level_wcs doesn't  support subsetting
-            xc_out, yc_out = wcs_out.low_level_wcs.celestial.world_to_pixel(wcs_in.celestial.pixel_to_world(xc, yc))
-            zc_out = wcs_out.low_level_wcs.spectral.world_to_pixel(wcs_in.spectral.pixel_to_world(zc))
+            xc_out, yc_out = wcs_out.low_level_wcs.celestial.world_to_pixel(
+                wcs_in.celestial.pixel_to_world(xc, yc)
+            )
+            zc_out = wcs_out.low_level_wcs.spectral.world_to_pixel(
+                wcs_in.spectral.pixel_to_world(zc)
+            )
             shape_out_cel = shape_out[1:]
         else:
             raise ValueError(f"Wrong number of dimensions: {array_in.ndim}")
@@ -233,7 +241,7 @@ def reproject_and_coadd(
                     wcs_out.low_level_wcs, (slice(jmin, jmax), slice(imin, imax))
                 )
             shape_out_indiv = (jmax - jmin, imax - imin)
-            kmin, kmax = None, None # for reprojectedarraysubset below
+            kmin, kmax = None, None  # for reprojectedarraysubset below
         elif array_in.ndim == 3:
             kmin = max(0, int(np.floor(zc_out.min() + 0.5)))
             kmax = min(shape_out[0], int(np.ceil(zc_out.max() + 0.5)))
@@ -247,9 +255,9 @@ def reproject_and_coadd(
 
         if block_sizes is not None:
             if len(block_sizes) == len(input_data) and len(block_sizes[idata]) == len(shape_out):
-                kwargs['block_size'] = block_sizes[idata]
+                kwargs["block_size"] = block_sizes[idata]
             else:
-                kwargs['block_size'] = block_sizes
+                kwargs["block_size"] = block_sizes
 
         # TODO: optimize handling of weights by making reprojection functions
         # able to handle weights, and make the footprint become the combined
