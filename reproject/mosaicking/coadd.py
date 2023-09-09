@@ -323,14 +323,15 @@ def reproject_and_coadd(
         output_array[...] = -np.inf
 
     if combine_function in ("mean", "sum"):
-        for array in arrays:
-            # By default, values outside of the footprint are set to NaN
-            # but we set these to 0 here to avoid getting NaNs in the
-            # means/sums.
-            array.array[array.footprint == 0] = 0
+        if match_background:
+            for array in arrays:
+                # By default, values outside of the footprint are set to NaN
+                # but we set these to 0 here to avoid getting NaNs in the
+                # means/sums.
+                array.array[array.footprint == 0] = 0
 
-            output_array[array.view_in_original_array] += array.array * array.footprint
-            output_footprint[array.view_in_original_array] += array.footprint
+                output_array[array.view_in_original_array] += array.array * array.footprint
+                output_footprint[array.view_in_original_array] += array.footprint
 
         if combine_function == "mean":
             with np.errstate(invalid="ignore"):
