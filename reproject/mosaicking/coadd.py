@@ -128,6 +128,9 @@ def reproject_and_coadd(
 
     if combine_function not in ("mean", "sum", "median", "first", "last", "min", "max"):
         raise ValueError("combine_function should be one of mean/sum/median/first/last/min/max")
+    elif combine_function == 'median':
+        # Note to devs: the exception shoudl be raised as early as possible
+        raise NotImplementedError("combine_function='median' is not yet implemented")
 
     if reproject_function is None:
         raise ValueError(
@@ -308,15 +311,6 @@ def reproject_and_coadd(
         for array, correction in zip(arrays, corrections):
             array.array -= correction
 
-        # At this point, the images are now ready to be co-added.
-
-        if combine_function in ("mean", "sum"):
-            for array in arrays:
-                # By default, values outside of the footprint are set to NaN
-                # but we set these to 0 here to avoid getting NaNs in the
-                # means/sums.
-                array.array[array.footprint == 0] = 0
-
     if combine_function == "min":
         output_array[...] = np.inf
     elif combine_function == "max":
@@ -363,6 +357,7 @@ def reproject_and_coadd(
         # Here we need to operate in chunks since we could otherwise run
         # into memory issues
 
+        # this is redundant, but left as a note-to-devs about where such an implementation belongs
         raise NotImplementedError("combine_function='median' is not yet implemented")
 
     if combine_function in ("min", "max"):
