@@ -157,7 +157,6 @@ def reproject_and_coadd(
         output_footprint = np.zeros(shape_out)
 
     # Start off by reprojecting individual images to the final projection
-
     if match_background:
         arrays = []
 
@@ -245,7 +244,6 @@ def reproject_and_coadd(
                 )
             shape_out_indiv = (kmax - kmin, jmax - jmin, imax - imin)
 
-
         if block_sizes is not None:
             if len(block_sizes) == len(input_data) and len(block_sizes[idata]) == len(shape_out):
                 kwargs['block_size'] = block_sizes[idata]
@@ -300,7 +298,6 @@ def reproject_and_coadd(
 
                 output_array[array.view_in_original_array] += array.array * array.footprint
                 output_footprint[array.view_in_original_array] += array.footprint
-
 
     # If requested, try and match the backgrounds.
     if match_background and len(arrays) > 1:

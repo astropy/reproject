@@ -92,7 +92,6 @@ class ReprojectedArraySubset:
         if jmax < jmin:
             jmax = jmin
 
-
         if self.kmin is None:
             # Extract cutout from each
 
