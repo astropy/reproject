@@ -191,6 +191,7 @@ def reproject_and_coadd(
             xs = np.concatenate((xs, np.full(n_per_edge, xs[-1]), xs, np.full(n_per_edge, xs[0])))
             ys = np.concatenate((np.full(n_per_edge, ys[0]), ys, np.full(n_per_edge, ys[-1]), ys))
             xc_out, yc_out = wcs_out.world_to_pixel(wcs_in.pixel_to_world(xs, ys))
+            shape_out_cel = shape_out
         elif array_in.ndim == 3:
             # for cubes, we only handle single corners now
             nz, ny, nx = array_in.shape
