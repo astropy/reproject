@@ -324,6 +324,7 @@ def reproject_and_coadd(
 
     if combine_function in ("mean", "sum"):
         if match_background:
+            # if we're not matching the background, this part has already been done
             for array in arrays:
                 # By default, values outside of the footprint are set to NaN
                 # but we set these to 0 here to avoid getting NaNs in the
@@ -339,26 +340,27 @@ def reproject_and_coadd(
                 output_array[output_footprint == 0] = 0
 
     elif combine_function in ("first", "last", "min", "max"):
-        for array in arrays:
-            if combine_function == "first":
-                mask = (output_footprint[array.view_in_original_array] == 0) & (array.footprint > 0)
-            elif combine_function == "last":
-                mask = array.footprint > 0
-            elif combine_function == "min":
-                mask = (array.footprint > 0) & (
-                    array.array < output_array[array.view_in_original_array]
-                )
-            elif combine_function == "max":
-                mask = (array.footprint > 0) & (
-                    array.array > output_array[array.view_in_original_array]
-                )
+        if match_background:
+            for array in arrays:
+                if combine_function == "first":
+                    mask = output_footprint[array.view_in_original_array] == 0
+                elif combine_function == "last":
+                    mask = array.footprint > 0
+                elif combine_function == "min":
+                    mask = (array.footprint > 0) & (
+                        array.array < output_array[array.view_in_original_array]
+                    )
+                elif combine_function == "max":
+                    mask = (array.footprint > 0) & (
+                        array.array > output_array[array.view_in_original_array]
+                    )
 
-            output_footprint[array.view_in_original_array] = np.where(
-                mask, array.footprint, output_footprint[array.view_in_original_array]
-            )
-            output_array[array.view_in_original_array] = np.where(
-                mask, array.array, output_array[array.view_in_original_array]
-            )
+                output_footprint[array.view_in_original_array] = np.where(
+                    mask, array.footprint, output_footprint[array.view_in_original_array]
+                )
+                output_array[array.view_in_original_array] = np.where(
+                    mask, array.array, output_array[array.view_in_original_array]
+                )
 
     elif combine_function == "median":
         # Here we need to operate in chunks since we could otherwise run
