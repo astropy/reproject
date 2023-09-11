@@ -1,11 +1,12 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
-# Notes on dask re-write
-#
-
+import os
+import uuid
+import tempfile
 from math import ceil
 from itertools import product
 
+import dask
 import dask.array as da
 import numpy as np
 from astropy.wcs import WCS
@@ -174,7 +175,6 @@ def reproject_and_coadd(
         shape_out = tuple(
             [ceil(shape_out[i] / block_size[i]) * block_size[i] for i in range(len(shape_out))]
         )
-        print(shape_out_original, shape_out)
 
     if output_array is not None and output_array.shape != shape_out:
         raise ValueError(
@@ -334,6 +334,7 @@ def reproject_and_coadd(
                 hdu_in=hdu_in,
                 return_footprint=False,
                 return_type="dask",
+                parallel=parallel,
                 block_size=block_size,
                 **kwargs,
             )
@@ -434,22 +435,44 @@ def reproject_and_coadd(
                 "combine_function={combine_function} not yet implemented when block_size is set"
             )
 
-        print([slice(0, shape_out_original[i]) for i in range(len(shape_out_original))])
-
         result = result[
             tuple([slice(0, shape_out_original[i]) for i in range(len(shape_out_original))])
         ]
 
-        if return_type == "numpy":
-            if output_array is None:
-                return result.compute(scheduler="synchronous"), None
-            else:
-                da.store(
-                    result,
-                    output_array,
-                    compute=True,
-                    scheduler="synchronous",
-                )
-                return output_array, None
-        else:
+        if return_type == "dask":
             return result, None
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            if parallel:
+                # As discussed in https://github.com/dask/dask/issues/9556, da.store
+                # will not work well in multiprocessing mode when the destination is a
+                # Numpy array. Instead, in this case we save the dask array to a zarr
+                # array on disk which can be done in parallel, and re-load it as a dask
+                # array. We can then use da.store in the next step using the
+                # 'synchronous' scheduler since that is I/O limited so does not need
+                # to be done in parallel.
+
+                if isinstance(parallel, int):
+                    if parallel > 0:
+                        workers = {"num_workers": parallel}
+                    else:
+                        raise ValueError(
+                            "The number of processors to use must be strictly positive"
+                        )
+                else:
+                    workers = {}
+
+                zarr_path = os.path.join(tmp_dir, f"{uuid.uuid4()}.zarr")
+
+                with dask.config.set(scheduler="processes", **workers):
+                    result.to_zarr(zarr_path)
+                result = da.from_zarr(zarr_path)
+
+            da.store(
+                result,
+                output_array,
+                compute=True,
+                scheduler="synchronous",
+            )
+
+            return output_array, None
