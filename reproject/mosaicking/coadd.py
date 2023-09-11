@@ -22,6 +22,8 @@ def reproject_and_coadd(
     combine_function="mean",
     match_background=False,
     background_reference=None,
+    output_array=None,
+    output_footprint=None,
     **kwargs,
 ):
     """
@@ -85,6 +87,14 @@ def reproject_and_coadd(
         If `None`, the background matching will make it so that the average of
         the corrections for all images is zero. If an integer, this specifies
         the index of the image to use as a reference.
+    output_array : array or None
+        The final output array.  Specify this if you already have an
+        appropriately-shaped array to store the data in.  Must match shape
+        specified with ``shape_out`` or derived from the output projection.
+    output_footprint : array or None
+        The final output footprint array.  Specify this if you already have an
+        appropriately-shaped array to store the data in.  Must match shape
+        specified with ``shape_out`` or derived from the output projection.
     kwargs
         Keyword arguments to be passed to the reprojection function.
     """
@@ -92,8 +102,6 @@ def reproject_and_coadd(
     # TODO: add support for saving intermediate files to disk to avoid blowing
     # up memory usage. We could probably still have references to array
     # objects, but we'd just make sure these were memory mapped
-
-    # TODO: add support for specifying output array
 
     # Validate inputs
 
@@ -108,6 +116,17 @@ def reproject_and_coadd(
     # Parse the output projection to avoid having to do it for each
 
     wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
+
+    if output_array is not None and output_array.shape != shape_out:
+        raise ValueError(
+            "If you specify an output array, it must have a shape matching "
+            f"the output shape {shape_out}"
+        )
+    if output_footprint is not None and output_footprint.shape != shape_out:
+        raise ValueError(
+            "If you specify an output footprint array, it must have a shape matching "
+            f"the output shape {shape_out}"
+        )
 
     # Start off by reprojecting individual images to the final projection
 
@@ -223,15 +242,15 @@ def reproject_and_coadd(
 
     # At this point, the images are now ready to be co-added.
 
-    # TODO: provide control over final dtype
-
-    final_array = np.zeros(shape_out)
-    final_footprint = np.zeros(shape_out)
+    if output_array is None:
+        output_array = np.zeros(shape_out)
+    if output_footprint is None:
+        output_footprint = np.zeros(shape_out)
 
     if combine_function == "min":
-        final_array[...] = np.inf
+        output_array[...] = np.inf
     elif combine_function == "max":
-        final_array[...] = -np.inf
+        output_array[...] = -np.inf
 
     if combine_function in ("mean", "sum"):
         for array in arrays:
@@ -240,33 +259,33 @@ def reproject_and_coadd(
             # means/sums.
             array.array[array.footprint == 0] = 0
 
-            final_array[array.view_in_original_array] += array.array * array.footprint
-            final_footprint[array.view_in_original_array] += array.footprint
+            output_array[array.view_in_original_array] += array.array * array.footprint
+            output_footprint[array.view_in_original_array] += array.footprint
 
         if combine_function == "mean":
             with np.errstate(invalid="ignore"):
-                final_array /= final_footprint
+                output_array /= output_footprint
 
     elif combine_function in ("first", "last", "min", "max"):
         for array in arrays:
             if combine_function == "first":
-                mask = final_footprint[array.view_in_original_array] == 0
+                mask = output_footprint[array.view_in_original_array] == 0
             elif combine_function == "last":
                 mask = array.footprint > 0
             elif combine_function == "min":
                 mask = (array.footprint > 0) & (
-                    array.array < final_array[array.view_in_original_array]
+                    array.array < output_array[array.view_in_original_array]
                 )
             elif combine_function == "max":
                 mask = (array.footprint > 0) & (
-                    array.array > final_array[array.view_in_original_array]
+                    array.array > output_array[array.view_in_original_array]
                 )
 
-            final_footprint[array.view_in_original_array] = np.where(
-                mask, array.footprint, final_footprint[array.view_in_original_array]
+            output_footprint[array.view_in_original_array] = np.where(
+                mask, array.footprint, output_footprint[array.view_in_original_array]
             )
-            final_array[array.view_in_original_array] = np.where(
-                mask, array.array, final_array[array.view_in_original_array]
+            output_array[array.view_in_original_array] = np.where(
+                mask, array.array, output_array[array.view_in_original_array]
             )
 
     elif combine_function == "median":
@@ -276,6 +295,6 @@ def reproject_and_coadd(
         raise NotImplementedError("combine_function='median' is not yet implemented")
 
     if combine_function in ("min", "max"):
-        final_array[final_footprint == 0] = 0.0
+        output_array[output_footprint == 0] = 0.0
 
-    return final_array, final_footprint
+    return output_array, output_footprint
