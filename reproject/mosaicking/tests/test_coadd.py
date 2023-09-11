@@ -108,6 +108,31 @@ class TestReprojectAndCoAdd:
 
         assert_allclose(array, self.array, atol=ATOL)
 
+    def test_coadd_with_outputs(self, tmp_path, reproject_function):
+        # Test the options to specify output array/footprint
+
+        input_data = self._get_tiles(self._overlapping_views)
+
+        output_array = np.memmap(
+            tmp_path / "array.np", mode="w+", dtype=float, shape=self.array.shape
+        )
+        output_footprint = np.memmap(
+            tmp_path / "footprint.np", mode="w+", dtype=float, shape=self.array.shape
+        )
+
+        array, footprint = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=self.array.shape,
+            combine_function="mean",
+            reproject_function=reproject_function,
+            output_array=output_array,
+            output_footprint=output_footprint,
+        )
+
+        assert_allclose(output_array, self.array, atol=ATOL)
+        assert_allclose(output_footprint, footprint, atol=ATOL)
+
     @pytest.mark.parametrize("combine_function", ["first", "last", "min", "max"])
     def test_coadd_with_overlap_first_last(self, reproject_function, combine_function):
         views = self._overlapping_views

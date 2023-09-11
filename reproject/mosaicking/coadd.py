@@ -103,8 +103,6 @@ def reproject_and_coadd(
     # up memory usage. We could probably still have references to array
     # objects, but we'd just make sure these were memory mapped
 
-    # TODO: add support for specifying output array
-
     # Validate inputs
 
     if combine_function not in ("mean", "sum", "median", "first", "last", "min", "max"):
