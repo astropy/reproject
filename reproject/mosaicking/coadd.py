@@ -10,6 +10,7 @@ import dask
 import dask.array as da
 import numpy as np
 from astropy.wcs import WCS
+from astropy.wcs.utils import pixel_to_pixel
 from astropy.wcs.wcsapi import SlicedLowLevelWCS
 
 from ..utils import parse_input_data, parse_input_weights, parse_output_projection
@@ -226,12 +227,12 @@ def reproject_and_coadd(
             pixel_in = xs, ys
         else:
             # We use only the corners of cubes and higher dimension datasets
-            pixel_in = list(
+            pixel_in = next(
                 zip(*product([(-0.5, shape_out[::-1][i] - 0.5) for i in range(len(shape_out))]))
             )
-            pixel_in = pixel_in[0]  # FIXME
+            pixel_in = [np.array(p) for p in pixel_in]
 
-        pixel_out = wcs_out.world_to_pixel(*wcs_in.pixel_to_world(*pixel_in))
+        pixel_out = pixel_to_pixel(wcs_in, wcs_out, *pixel_in)
 
         # Determine the cutout parameters
 
@@ -242,7 +243,7 @@ def reproject_and_coadd(
         if any([np.any(np.isnan(c_out)) for c_out in pixel_out]):
             wcs_out_indiv = wcs_out
             shape_out_indiv = shape_out
-
+            slices_out = [slice(0, shape_out[i]) for i in range(len(shape_out))]
         else:
             # Determine indices - note the reverse order compared to pixel
 
@@ -274,10 +275,10 @@ def reproject_and_coadd(
 
             shape_out_indiv = tuple(shape_out_indiv)
 
-        if isinstance(wcs_out, WCS):
-            wcs_out_indiv = wcs_out[slices_out]
-        else:
-            wcs_out_indiv = SlicedLowLevelWCS(wcs_out.low_level_wcs, slices_out)
+            if isinstance(wcs_out, WCS):
+                wcs_out_indiv = wcs_out[slices_out]
+            else:
+                wcs_out_indiv = SlicedLowLevelWCS(wcs_out.low_level_wcs, slices_out)
 
         # TODO: optimize handling of weights by making reprojection functions
         # able to handle weights, and make the footprint become the combined
