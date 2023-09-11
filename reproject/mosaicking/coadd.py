@@ -468,11 +468,13 @@ def reproject_and_coadd(
                     result.to_zarr(zarr_path)
                 result = da.from_zarr(zarr_path)
 
-            da.store(
-                result,
-                output_array,
-                compute=True,
-                scheduler="synchronous",
-            )
-
-            return output_array, None
+            if output_array is None:
+                return result.compute(scheduler="synchronous"), None
+            else:
+                da.store(
+                    result,
+                    output_array,
+                    compute=True,
+                    scheduler="synchronous",
+                )
+                return output_array, None
