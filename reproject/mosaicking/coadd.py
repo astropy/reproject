@@ -90,11 +90,11 @@ def reproject_and_coadd(
     output_array : array or None
         The final output array.  Specify this if you already have an
         appropriately-shaped array to store the data in.  Must match shape
-        specified with `shape_out` or derived from the output projection.
+        specified with ``shape_out`` or derived from the output projection.
     output_footprint : array or None
         The final output footprint array.  Specify this if you already have an
         appropriately-shaped array to store the data in.  Must match shape
-        specified with `shape_out` or derived from the output projection.
+        specified with ``shape_out`` or derived from the output projection.
     kwargs
         Keyword arguments to be passed to the reprojection function.
     """
