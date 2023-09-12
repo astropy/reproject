@@ -211,7 +211,7 @@ cdef void calculate_jacobian(double[:, :] Ji, int center_jacobian,
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef int cmp_func(const void* a, const void* b) nogil:
+cdef int cmp_func(const void* a, const void* b) noexcept nogil:
     cdef double a_v = (<double*>a)[0]
     cdef double b_v = (<double*>b)[0]
     if a_v < b_v:
