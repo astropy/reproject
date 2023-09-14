@@ -63,10 +63,14 @@ def _reproject_dispatcher(
         Target shape
     wcs_out: `~astropy.wcs.WCS`
         Target WCS
-    block_size: tuple, optional
+    block_size: tuple or 'auto', optional
         The size of blocks in terms of output array pixels that each block will handle
         reprojecting. Extending out from (0,0) coords positively, block sizes
-        are clamped to output space edges when a block would extend past edge
+        are clamped to output space edges when a block would extend past edge.
+        Specifying ``'auto'`` means that reprojection will be done in blocks with
+        the block size automatically determined. If ``block_size`` is not
+        specified or set to `None`, the reprojection will not be carried out in
+        blocks.
     array_out : `~numpy.ndarray`, optional
         An array in which to store the reprojected data.  This can be any numpy
         array including a memory map, which may be helpful when dealing with
@@ -77,12 +81,12 @@ def _reproject_dispatcher(
         An array in which to store the footprint of reprojected data.  This can be
         any numpy array including a memory map, which may be helpful when dealing with
         extremely large files.
-    parallel : bool or int
-        Flag for parallel implementation. If ``True``, a parallel implementation
-        is chosen, the number of processes selected automatically to be equal to
-        the number of logical CPUs detected on the machine. If ``False``, a
-        serial implementation is chosen. If the flag is a positive integer ``n``
-        greater than one, a parallel implementation using ``n`` processes is chosen.
+    parallel : bool or int, optional
+        If `True`, the reprojection is carried out in parallel, and if a
+        positive integer, this specifies the number of processes to use.
+        The reprojection will be parallelized over output array blocks specified
+        by ``block_size`` (if the block size is not set, it will be determined
+        automatically).
     reproject_func_kwargs : dict, optional
         Keyword arguments to pass through to ``reproject_func``
     return_type : {'numpy', 'dask'}, optional

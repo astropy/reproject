@@ -71,5 +71,12 @@ repos:
     hooks:
       - id: black
 
+  - repo: https://github.com/numpy/numpydoc
+    rev: main
+    hooks:
+      - id: numpydoc-validation
+        files: ".*(high_level.*)$"
+        exclude: ".*(tests.*)$"
+
 ci:
   autofix_prs: false
