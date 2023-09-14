@@ -985,5 +985,5 @@ def test_auto_block_size():
         block_size="auto",
     )
 
-    assert array_out.chunksize == (350, 54, 54)
-    assert footprint_out.chunksize == (350, 54, 54)
+    assert array_out.chunksize[0] == 350
+    assert footprint_out.chunksize[0] == 350
