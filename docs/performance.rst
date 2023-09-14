@@ -140,6 +140,7 @@ chunks. For instance, if you pass in a (1024, 1024) array and specify that the
 shape of the output should be a (2048, 2048) array (e.g., via ``shape_out``),
 then if you set ``block_size=(256, 256)``::
 
+    >>> from reproject import reproject_interp
     >>> input_array.shape
     (1024, 1024)
     >>> array, footprint = reproject_interp((input_array, wcs_in), wcs_out,
@@ -187,7 +188,6 @@ assuming you have already constructed a dask array named ``dask_array``::
 you can pass this in as part of the first argument to one of the reprojection
 functions::
 
-    >>> from reproject import reproject_interp
     >>> array, footprint = reproject_interp((dask_array, wcs_in), wcs_out,
     ...                                     shape_out=(2048, 2048))
 
