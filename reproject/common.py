@@ -220,7 +220,7 @@ def _reproject_dispatcher(
         # NOTE: the following array is just used to set up the iteration in map_blocks
         # but isn't actually used otherwise - this is deliberate.
 
-        if block_size:
+        if block_size is not None and block_size != "auto":
             if wcs_in.low_level_wcs.pixel_n_dim < len(shape_out):
                 if len(block_size) < len(shape_out):
                     block_size = [-1] * (len(shape_out) - len(block_size)) + list(block_size)

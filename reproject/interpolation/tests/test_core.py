@@ -959,3 +959,31 @@ def test_reproject_dask_return_type():
     )
 
     assert_allclose(result_numpy, result_dask.compute(scheduler="synchronous"))
+
+
+def test_auto_block_size():
+    # Unit test to make sure that specifying block_size='auto' works
+
+    array_in = da.ones((350, 250, 150))
+    wcs_in = WCS(naxis=2)
+    wcs_out = WCS(naxis=2)
+
+    # When block size and parallel aren't specified, can't return as dask arrays
+    with pytest.raises(ValueError, match='Output cannot be returned as dask arrays'):
+        reproject_interp(
+            (array_in, wcs_in),
+            wcs_out,
+            shape_out=(300, 300),
+            return_type="dask",
+        )
+
+    array_out, footprint_out = reproject_interp(
+        (array_in, wcs_in),
+        wcs_out,
+        shape_out=(300, 300),
+        return_type="dask",
+        block_size='auto',
+    )
+
+    assert array_out.chunksize == (350, 54, 54)
+    assert footprint_out.chunksize == (350, 54, 54)
