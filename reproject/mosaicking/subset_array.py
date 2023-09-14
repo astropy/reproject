@@ -6,11 +6,9 @@ __all__ = ["ReprojectedArraySubset"]
 
 
 class ReprojectedArraySubset:
-    """
-    The aim of this class is to represent a subset of an array and
-    footprint extracted (or meant to represent extracted) versions
-    from larger arrays and footprints.
-    """
+    # The aim of this class is to represent a subset of an array and
+    # footprint extracted (or meant to represent extracted) versions
+    # from larger arrays and footprints.
 
     # NOTE: we can't use Cutout2D here because it's much more convenient
     # to work with position being the lower left corner of the cutout

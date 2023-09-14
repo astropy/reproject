@@ -969,7 +969,7 @@ def test_auto_block_size():
     wcs_out = WCS(naxis=2)
 
     # When block size and parallel aren't specified, can't return as dask arrays
-    with pytest.raises(ValueError, match='Output cannot be returned as dask arrays'):
+    with pytest.raises(ValueError, match="Output cannot be returned as dask arrays"):
         reproject_interp(
             (array_in, wcs_in),
             wcs_out,
@@ -982,7 +982,7 @@ def test_auto_block_size():
         wcs_out,
         shape_out=(300, 300),
         return_type="dask",
-        block_size='auto',
+        block_size="auto",
     )
 
     assert array_out.chunksize == (350, 54, 54)

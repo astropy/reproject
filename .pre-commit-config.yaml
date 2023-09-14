@@ -75,7 +75,7 @@ repos:
     rev: main
     hooks:
       - id: numpydoc-validation
-        files: ".*(high_level.*)$"
+        files: ".*(high_level|mosaicking).*$"
         exclude: ".*(tests.*)$"
 
 ci:
