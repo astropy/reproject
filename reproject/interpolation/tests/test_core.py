@@ -931,3 +931,31 @@ def test_reproject_block_size_broadcasting():
             return_footprint=False,
             block_size=(100, 100, 100),
         )
+
+
+def test_reproject_dask_return_type():
+    # Regression test for a bug that caused dask arrays to not be computable
+    # when using return_type='dask' when the input was a dask array.
+
+    array_in = da.ones((350, 250, 150))
+    wcs_in = WCS(naxis=2)
+    wcs_out = WCS(naxis=2)
+
+    result_numpy = reproject_interp(
+        (array_in, wcs_in),
+        wcs_out,
+        shape_out=(300, 300),
+        return_type="numpy",
+        return_footprint=False,
+    )
+
+    result_dask = reproject_interp(
+        (array_in, wcs_in),
+        wcs_out,
+        shape_out=(300, 300),
+        block_size=(100, 100),
+        return_type="dask",
+        return_footprint=False,
+    )
+
+    assert_allclose(result_numpy, result_dask.compute(scheduler="synchronous"))

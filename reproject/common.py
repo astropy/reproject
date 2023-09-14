@@ -100,7 +100,7 @@ def _reproject_dispatcher(
     # We set up a global temporary directory since this will be used e.g. to
     # store memory mapped Numpy arrays and zarr arrays.
 
-    with tempfile.TemporaryDirectory() as tmp_dir:
+    with tempfile.TemporaryDirectory() as local_tmp_dir:
         if array_out is None:
             array_out = np.zeros(shape_out, dtype=float)
         elif array_out.shape != tuple(shape_out):
@@ -132,7 +132,7 @@ def _reproject_dispatcher(
                 )
 
             if isinstance(array_in, da.core.Array):
-                _, array_in = _dask_to_numpy_memmap(array_in, tmp_dir)
+                _, array_in = _dask_to_numpy_memmap(array_in, local_tmp_dir)
 
             try:
                 return reproject_func(
@@ -165,6 +165,13 @@ def _reproject_dispatcher(
         # to iterate over both.
 
         if isinstance(array_in, da.core.Array) or parallel:
+            # If return_type=='dask',
+            if return_type == "dask":
+                # We should use a temporary directory that will persist beyond
+                # the call to the reproject function.
+                tmp_dir = tempfile.mkdtemp()
+            else:
+                tmp_dir = local_tmp_dir
             array_in_or_path = as_delayed_memmap_path(array_in, tmp_dir)
         else:
             # Here we could set array_in_or_path to array_in_path if it
@@ -273,7 +280,7 @@ def _reproject_dispatcher(
             else:
                 workers = {}
 
-            zarr_path = os.path.join(tmp_dir, f"{uuid.uuid4()}.zarr")
+            zarr_path = os.path.join(local_tmp_dir, f"{uuid.uuid4()}.zarr")
 
             with dask.config.set(scheduler="processes", **workers):
                 result.to_zarr(zarr_path)
