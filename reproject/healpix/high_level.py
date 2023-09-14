@@ -14,7 +14,7 @@ def reproject_from_healpix(
 
     Parameters
     ----------
-    input_data
+    input_data : object
         The input data to reproject. This can be:
 
             * The name of a HEALPIX FITS file
@@ -33,7 +33,7 @@ def reproject_from_healpix(
     hdu_in : int or str, optional
         If ``input_data`` is a FITS file, specifies the HDU to use.
         (the default HDU for HEALPIX data is 1, unlike with image files where
-        it is generally 0)
+        it is generally 0).
     order : int or str, optional
         The order of the interpolation (if ``mode`` is set to
         ``'interpolation'``). This can be either one of the following strings:
@@ -54,7 +54,7 @@ def reproject_from_healpix(
     Returns
     -------
     array_new : `~numpy.ndarray`
-        The reprojected array
+        The reprojected array.
     footprint : `~numpy.ndarray`
         Footprint of the input array in the output array. Values of 0 indicate
         no coverage or valid values in the input image, while values of 1
@@ -86,7 +86,7 @@ def reproject_to_healpix(
 
     Parameters
     ----------
-    input_data
+    input_data : object
         The input data to reproject. This can be:
 
             * The name of a FITS file
@@ -98,7 +98,7 @@ def reproject_to_healpix(
               `~astropy.io.fits.Header` object
 
     coord_system_out : `~astropy.coordinates.BaseCoordinateFrame` or str
-        The output coordinate system for the HEALPIX projection
+        The output coordinate system for the HEALPIX projection.
     hdu_in : int or str, optional
         If ``input_data`` is a FITS file or an `~astropy.io.fits.HDUList`
         instance, specifies the HDU to use.
@@ -114,14 +114,14 @@ def reproject_to_healpix(
         or an integer. A value of ``0`` indicates nearest neighbor
         interpolation.
     nested : bool
-        The order of the healpix_data, either nested (True) or ring (False)
+        The order of the healpix_data, either nested (`True`) or ring (`False`).
     nside : int, optional
         The resolution of the HEALPIX projection.
 
     Returns
     -------
     array_new : `~numpy.ndarray`
-        The reprojected array
+        The reprojected array.
     footprint : `~numpy.ndarray`
         Footprint of the input array in the output array. Values of 0 indicate
         no coverage or valid values in the input image, while values of 1

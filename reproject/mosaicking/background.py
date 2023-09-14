@@ -11,6 +11,16 @@ def determine_offset_matrix(arrays):
     """
     Given a list of ReprojectedArraySubset, determine the offset
     matrix between all arrays.
+
+    Parameters
+    ----------
+    arrays : list
+        The list of ReprojectedArraySubset objects to determine the offsets for.
+
+    Returns
+    -------
+    `numpy.ndarray`
+        The offset matrix.
     """
 
     N = len(arrays)
@@ -59,9 +69,9 @@ def solve_corrections_sgd(offset_matrix, eta_initial=1, eta_half_life=100, rtol=
     ----------
     offset_matrix : `~numpy.ndarray`
         The NxN matrix giving the offsets between all images (or NaN if
-        an offset could not be determined)
+        an offset could not be determined).
     eta_initial : float
-        The initial learning rate to use
+        The initial learning rate to use.
     eta_half_life : float
         The number of iterations after which the learning rate should be
         decreased by a factor $e$.
@@ -71,6 +81,11 @@ def solve_corrections_sgd(offset_matrix, eta_initial=1, eta_half_life=100, rtol=
     atol : float
         The absolute tolerance to use to determine if the corrections have
         converged.
+
+    Returns
+    -------
+    `numpy.ndarray`
+        The corrections for each frame.
     """
 
     if offset_matrix.ndim != 2 or offset_matrix.shape[0] != offset_matrix.shape[1]:

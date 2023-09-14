@@ -12,12 +12,6 @@ def reproject_adaptive(
     output_projection,
     shape_out=None,
     hdu_in=0,
-    output_array=None,
-    return_footprint=True,
-    output_footprint=None,
-    block_size=None,
-    parallel=False,
-    return_type=None,
     center_jacobian=False,
     despike_jacobian=False,
     roundtrip_coords=True,
@@ -32,6 +26,12 @@ def reproject_adaptive(
     y_cyclic=False,
     bad_value_mode="strict",
     bad_fill_value=0,
+    output_array=None,
+    output_footprint=None,
+    return_footprint=True,
+    block_size=None,
+    parallel=False,
+    return_type=None,
 ):
     """
     Reproject a 2D array from one WCS to another using the DeForest (2004)
@@ -42,7 +42,7 @@ def reproject_adaptive(
 
     Parameters
     ----------
-    input_data
+    input_data : object
         The input data to reproject. This can be:
 
             * The name of a FITS file as a `str` or a `pathlib.Path` object
@@ -73,8 +73,6 @@ def reproject_adaptive(
     hdu_in : int or str, optional
         If ``input_data`` is a FITS file or an `~astropy.io.fits.HDUList`
         instance, specifies the HDU to use.
-    return_footprint : bool
-        Whether to return the footprint in addition to the output array.
     center_jacobian : bool
         A Jacobian matrix is calculated, representing
         d(input image coordinate) / d(output image coordinate),
@@ -185,11 +183,37 @@ def reproject_adaptive(
 
     bad_fill_value : double
         The constant value used by the ``constant`` bad-value mode.
+    output_array : None or `~numpy.ndarray`
+        An array in which to store the reprojected data.  This can be any numpy
+        array including a memory map, which may be helpful when dealing with
+        extremely large files.
+    output_footprint : `~numpy.ndarray`, optional
+        An array in which to store the footprint of reprojected data.  This can be
+        any numpy array including a memory map, which may be helpful when dealing with
+        extremely large files.
+    return_footprint : bool
+        Whether to return the footprint in addition to the output array.
+    block_size : tuple or 'auto', optional
+        The size of blocks in terms of output array pixels that each block will handle
+        reprojecting. Extending out from (0,0) coords positively, block sizes
+        are clamped to output space edges when a block would extend past edge.
+        Specifying ``'auto'`` means that reprojection will be done in blocks with
+        the block size automatically determined. If ``block_size`` is not
+        specified or set to `None`, the reprojection will not be carried out in
+        blocks.
+    parallel : bool or int, optional
+        If `True`, the reprojection is carried out in parallel, and if a
+        positive integer, this specifies the number of processes to use.
+        The reprojection will be parallelized over output array blocks specified
+        by ``block_size`` (if the block size is not set, it will be determined
+        automatically).
+    return_type : {'numpy', 'dask'}, optional
+        Whether to return numpy or dask arrays - defaults to 'numpy'.
 
     Returns
     -------
     array_new : `~numpy.ndarray`
-        The reprojected array
+        The reprojected array.
     footprint : `~numpy.ndarray`
         Footprint of the input array in the output array. Values of 0 indicate
         no coverage or valid values in the input image, while values of 1

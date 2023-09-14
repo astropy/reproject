@@ -21,14 +21,14 @@ def reproject_interp(
     output_projection,
     shape_out=None,
     hdu_in=0,
+    order="bilinear",
+    roundtrip_coords=True,
     output_array=None,
-    return_footprint=True,
     output_footprint=None,
+    return_footprint=True,
     block_size=None,
     parallel=False,
     return_type=None,
-    order="bilinear",
-    roundtrip_coords=True,
 ):
     """
     Reproject data to a new projection using interpolation (this is typically
@@ -36,7 +36,7 @@ def reproject_interp(
 
     Parameters
     ----------
-    input_data
+    input_data : object
         The input data to reproject. This can be:
 
             * The name of a FITS file as a `str` or a `pathlib.Path` object
@@ -78,32 +78,40 @@ def reproject_interp(
 
         or an integer. A value of ``0`` indicates nearest neighbor
         interpolation.
+    roundtrip_coords : bool
+        Whether to verify that coordinate transformations are defined in both
+        directions.
     output_array : None or `~numpy.ndarray`
         An array in which to store the reprojected data.  This can be any numpy
         array including a memory map, which may be helpful when dealing with
         extremely large files.
+    output_footprint : `~numpy.ndarray`, optional
+        An array in which to store the footprint of reprojected data.  This can be
+        any numpy array including a memory map, which may be helpful when dealing with
+        extremely large files.
     return_footprint : bool
         Whether to return the footprint in addition to the output array.
-    block_size : None or tuple of (int, int)
-        If not none, a blocked projection will be performed where the output space is
-        reprojected to one block at a time, this is useful for memory limited scenarios
-        such as dealing with very large arrays or high resolution output spaces.
-    parallel : bool or int
-        Flag for parallel implementation. If ``True``, a parallel implementation
-        is chosen, the number of processes selected automatically to be equal to
-        the number of logical CPUs detected on the machine. If ``False``, a
-        serial implementation is chosen. If the flag is a positive integer ``n``
-        greater than one, a parallel implementation using ``n`` processes is chosen.
-    roundtrip_coords : bool
-        Whether to verify that coordinate transformations are defined in both
-        directions.
+    block_size : tuple or 'auto', optional
+        The size of blocks in terms of output array pixels that each block will handle
+        reprojecting. Extending out from (0,0) coords positively, block sizes
+        are clamped to output space edges when a block would extend past edge.
+        Specifying ``'auto'`` means that reprojection will be done in blocks with
+        the block size automatically determined. If ``block_size`` is not
+        specified or set to `None`, the reprojection will not be carried out in
+        blocks.
+    parallel : bool or int, optional
+        If `True`, the reprojection is carried out in parallel, and if a
+        positive integer, this specifies the number of processes to use.
+        The reprojection will be parallelized over output array blocks specified
+        by ``block_size`` (if the block size is not set, it will be determined
+        automatically).
     return_type : {'numpy', 'dask'}, optional
         Whether to return numpy or dask arrays - defaults to 'numpy'.
 
     Returns
     -------
     array_new : `~numpy.ndarray`
-        The reprojected array
+        The reprojected array.
     footprint : `~numpy.ndarray`
         Footprint of the input array in the output array. Values of 0 indicate
         no coverage or valid values in the input image, while values of 1

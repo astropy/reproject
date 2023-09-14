@@ -30,3 +30,13 @@ length_sort_sections = ["future", "stdlib"]
 [tool.black]
 line-length = 100
 target-version = ['py38']
+
+[tool.numpydoc_validation]
+checks = [
+    "all",   # report on all checks, except the below
+    "EX01",
+    "SA01",
+    "SS06",
+    "ES01",
+    "GL08",
+]

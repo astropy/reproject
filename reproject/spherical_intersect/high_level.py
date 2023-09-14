@@ -14,8 +14,8 @@ def reproject_exact(
     shape_out=None,
     hdu_in=0,
     output_array=None,
-    return_footprint=True,
     output_footprint=None,
+    return_footprint=True,
     block_size=None,
     parallel=False,
     return_type=None,
@@ -26,7 +26,7 @@ def reproject_exact(
 
     Parameters
     ----------
-    input_data
+    input_data : object
         The input data to reproject. This can be:
 
             * The name of a FITS file as a `str` or a `pathlib.Path` object
@@ -57,19 +57,37 @@ def reproject_exact(
     hdu_in : int or str, optional
         If ``input_data`` is a FITS file or an `~astropy.io.fits.HDUList`
         instance, specifies the HDU to use.
-    parallel : bool or int
-        Flag for parallel implementation. If ``True``, a parallel implementation
-        is chosen, the number of processes selected automatically to be equal to
-        the number of logical CPUs detected on the machine. If ``False``, a
-        serial implementation is chosen. If the flag is a positive integer ``n``
-        greater than one, a parallel implementation using ``n`` processes is chosen.
+    output_array : None or `~numpy.ndarray`
+        An array in which to store the reprojected data.  This can be any numpy
+        array including a memory map, which may be helpful when dealing with
+        extremely large files.
+    output_footprint : `~numpy.ndarray`, optional
+        An array in which to store the footprint of reprojected data.  This can be
+        any numpy array including a memory map, which may be helpful when dealing with
+        extremely large files.
     return_footprint : bool
         Whether to return the footprint in addition to the output array.
+    block_size : tuple or 'auto', optional
+        The size of blocks in terms of output array pixels that each block will handle
+        reprojecting. Extending out from (0,0) coords positively, block sizes
+        are clamped to output space edges when a block would extend past edge.
+        Specifying ``'auto'`` means that reprojection will be done in blocks with
+        the block size automatically determined. If ``block_size`` is not
+        specified or set to `None`, the reprojection will not be carried out in
+        blocks.
+    parallel : bool or int, optional
+        If `True`, the reprojection is carried out in parallel, and if a
+        positive integer, this specifies the number of processes to use.
+        The reprojection will be parallelized over output array blocks specified
+        by ``block_size`` (if the block size is not set, it will be determined
+        automatically).
+    return_type : {'numpy', 'dask'}, optional
+        Whether to return numpy or dask arrays - defaults to 'numpy'.
 
     Returns
     -------
     array_new : `~numpy.ndarray`
-        The reprojected array
+        The reprojected array.
     footprint : `~numpy.ndarray`
         Footprint of the input array in the output array. Values of 0 indicate
         no coverage or valid values in the input image, while values of 1

@@ -17,8 +17,8 @@ def reproject_and_coadd(
     shape_out=None,
     input_weights=None,
     hdu_in=None,
-    reproject_function=None,
     hdu_weights=None,
+    reproject_function=None,
     combine_function="mean",
     match_background=False,
     background_reference=None,
@@ -74,7 +74,7 @@ def reproject_and_coadd(
         If one or more items in ``input_weights`` is a FITS file or an
         `~astropy.io.fits.HDUList` instance, specifies the HDU to use.
     reproject_function : callable
-        The function to use for the reprojection
+        The function to use for the reprojection.
     combine_function : { 'mean', 'sum', 'median', 'first', 'last', 'min', 'max' }
         The type of function to use for combining the values into the final
         image. For 'first' and 'last', respectively, the reprojected images are
@@ -95,8 +95,17 @@ def reproject_and_coadd(
         The final output footprint array.  Specify this if you already have an
         appropriately-shaped array to store the data in.  Must match shape
         specified with ``shape_out`` or derived from the output projection.
-    kwargs
+    **kwargs
         Keyword arguments to be passed to the reprojection function.
+
+    Returns
+    -------
+    array : `~numpy.ndarray`
+        The co-added array.
+    footprint : `~numpy.ndarray`
+        Footprint of the co-added array. Values of 0 indicate no coverage or
+        valid values in the input image, while values of 1 indicate valid
+        values.
     """
 
     # TODO: add support for saving intermediate files to disk to avoid blowing
