@@ -17,14 +17,17 @@ jobs:
         - macos: py38-test-oldestdeps
         - macos: py39-test
         - macos: py310-test
+        - macos: py311-test
         - linux: py38-test-oldestdeps
         - linux: py38-test
         - linux: py39-test
         - linux: py310-test
+        - linux: py311-test
         - linux: py311-test-devdeps
         - windows: py38-test-oldestdeps
         - windows: py39-test
         - windows: py310-test
+        - windows: py311-test
       libraries: |
         apt:
           - libopenblas-dev
