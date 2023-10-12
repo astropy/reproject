@@ -69,14 +69,16 @@ def healpix_to_image(
     hp = HEALPix(nside=nside, order="nested" if nested else "ring")
 
     if order == 1:
-        data = hp.interpolate_bilinear_lonlat(lon_in, lat_in, healpix_data)
+        with np.errstate(invalid="ignore"):
+            data = hp.interpolate_bilinear_lonlat(lon_in, lat_in, healpix_data)
+        footprint = (~np.isnan(data)).astype(float)
     elif order == 0:
-        ipix = hp.lonlat_to_healpix(lon_in, lat_in)
+        with np.errstate(invalid="ignore"):
+            ipix = hp.lonlat_to_healpix(lon_in, lat_in)
         data = healpix_data[ipix]
+        footprint = (ipix != -1).astype(float)
     else:
         raise ValueError("Only nearest-neighbor and bilinear interpolation are supported")
-
-    footprint = np.ones(data.shape, bool)
 
     return data, footprint
 

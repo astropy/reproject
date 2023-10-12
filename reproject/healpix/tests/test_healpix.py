@@ -12,18 +12,19 @@ from astropy_healpix import nside_to_npix
 from ...interpolation.tests.test_core import as_high_level_wcs
 from ...tests.test_high_level import ALL_DTYPES
 from ..high_level import reproject_from_healpix, reproject_to_healpix
+from ..utils import parse_coord_system
 
 DATA = os.path.join(os.path.dirname(__file__), "data")
 
 
-def get_reference_header(oversample=2, nside=1):
+def get_reference_header(overscan=1, oversample=2, nside=1):
     reference_header = fits.Header()
     reference_header.update(
         {
             "CDELT1": -180.0 / (oversample * 4 * nside),
             "CDELT2": 180.0 / (oversample * 4 * nside),
-            "CRPIX1": oversample * 4 * nside,
-            "CRPIX2": oversample * 2 * nside,
+            "CRPIX1": overscan * oversample * 4 * nside,
+            "CRPIX2": overscan * oversample * 2 * nside,
             "CRVAL1": 180.0,
             "CRVAL2": 0.0,
             "CTYPE1": "RA---CAR",
@@ -31,12 +32,58 @@ def get_reference_header(oversample=2, nside=1):
             "CUNIT1": "deg",
             "CUNIT2": "deg",
             "NAXIS": 2,
-            "NAXIS1": oversample * 8 * nside,
-            "NAXIS2": oversample * 4 * nside,
+            "NAXIS1": overscan * oversample * 8 * nside,
+            "NAXIS2": overscan * oversample * 4 * nside,
         }
     )
 
     return reference_header
+
+
+@pytest.mark.parametrize(
+    "nside,nested,healpix_system,image_system,dtype,order",
+    itertools.product(
+        [1, 2, 4, 8, 16, 32, 64],
+        [True, False],
+        "C",
+        "C",
+        ALL_DTYPES,
+        ["bilinear", "nearest-neighbor"],
+    ),
+)
+def test_reproject_healpix_to_image_footprint(
+    nside, nested, healpix_system, image_system, dtype, order
+):
+    """Test that HEALPix->WCS conversion correctly flags pixels that do not
+    have valid WCS coordinates."""
+
+    npix = nside_to_npix(nside)
+    healpix_data = np.random.uniform(size=npix).astype(dtype)
+
+    reference_header = get_reference_header(overscan=2, oversample=2, nside=nside)
+
+    wcs_out = WCS(reference_header)
+    shape_out = reference_header["NAXIS2"], reference_header["NAXIS1"]
+
+    image_data, footprint = reproject_from_healpix(
+        (healpix_data, healpix_system),
+        wcs_out,
+        shape_out=shape_out,
+        order=order,
+        nested=nested,
+    )
+
+    if order == "bilinear":
+        expected_footprint = ~np.isnan(image_data)
+    else:
+        coord_system_in = parse_coord_system(healpix_system)
+        yinds, xinds = np.indices(shape_out)
+        world_in = wcs_out.pixel_to_world(xinds, yinds).transform_to(coord_system_in)
+        world_in_unitsph = world_in.represent_as("unitspherical")
+        lon_in, lat_in = world_in_unitsph.lon, world_in_unitsph.lat
+        expected_footprint = ~(np.isnan(lon_in) | np.isnan(lat_in))
+
+    np.testing.assert_array_equal(footprint, expected_footprint)
 
 
 @pytest.mark.parametrize(
