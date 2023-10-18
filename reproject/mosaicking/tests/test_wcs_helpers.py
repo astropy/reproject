@@ -225,7 +225,7 @@ class TestOptimalAPE14WCS(TestOptimalFITSWCS):
     identity_expected_crpix = 20.630112, 15.649142
     frame_projection_expected_crpix = 25.381691, 23.668728
     frame_projection_expected_shape = 46, 50
-    auto_rotate_expected_crpix = 20.520875, 15.503349
+    auto_rotate_expected_crpix = 20.513458, 15.513241
     multiple_size_expected_crpix = 27.279739, 17.29016
 
 

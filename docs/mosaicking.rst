@@ -162,7 +162,7 @@ Note that this requires `Shapely <https://shapely.readthedocs.io/en/stable/manua
     LATPOLE =    -0.72166403860488 / [deg] Native latitude of celestial pole
     ...
     >>> shape_out
-    (1800, 2202)
+    (1800, 2201)
 
 As expected, the optimal shape is smaller than was returned previously.
 
