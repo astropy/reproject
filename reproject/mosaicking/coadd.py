@@ -50,12 +50,14 @@ def reproject_and_coadd(
             * An `~astropy.nddata.NDData` object from which the ``.data`` and
               ``.wcs`` attributes will be used as the input data.
 
-    output_projection : `~astropy.wcs.WCS` or `~astropy.io.fits.Header`
-        The output projection, which can be either a `~astropy.wcs.WCS`
-        or a `~astropy.io.fits.Header` instance.
+    output_projection : `~astropy.wcs.wcsapi.BaseLowLevelWCS` or `~astropy.wcs.wcsapi.BaseHighLevelWCS` or `~astropy.io.fits.Header`
+        The output projection, which can be either a
+        `~astropy.wcs.wcsapi.BaseLowLevelWCS`,
+        `~astropy.wcs.wcsapi.BaseHighLevelWCS`, or a `~astropy.io.fits.Header`
+        instance.
     shape_out : tuple, optional
-        If ``output_projection`` is a `~astropy.wcs.WCS` instance, the
-        shape of the output data should be specified separately.
+        If ``output_projection`` is a WCS instance, the shape of the output
+        data should be specified separately.
     input_weights : iterable
         If specified, this should be an iterable with the same length as
         ``input_data``, where each item is one of:
