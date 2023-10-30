@@ -138,3 +138,45 @@ def test_reproject_invalid_order():
             os.path.join(DATA, "bayestar.fits.gz"), reference_header, order="bicubic"
         )
     assert exc.value.args[0] == "Only nearest-neighbor and bilinear interpolation are supported"
+
+
+def test_reproject_to_healpix_input_types(valid_celestial_input_data):
+    array_ref, wcs_in_ref, input_value, kwargs_in = valid_celestial_input_data
+
+    # Compute reference
+
+    healpix_data_ref, footprint_ref = reproject_to_healpix((array_ref, wcs_in_ref), "C", nside=64)
+
+    # Compute test
+
+    healpix_data_test, footprint_test = reproject_to_healpix(
+        input_value, "C", nside=64, **kwargs_in
+    )
+
+    # Make sure there are some valid values
+
+    assert np.sum(~np.isnan(healpix_data_ref)) == 3
+
+    np.testing.assert_allclose(healpix_data_ref, healpix_data_test)
+    np.testing.assert_allclose(footprint_ref, footprint_test)
+
+
+def test_reproject_from_healpix_output_types(valid_celestial_output_projections):
+    wcs_out_ref, shape_ref, output_value, kwargs_out = valid_celestial_output_projections
+
+    array_input = np.random.random(12 * 64**2)
+
+    # Compute reference
+
+    output_ref, footprint_ref = reproject_from_healpix(
+        (array_input, "C"), wcs_out_ref, nested=True, shape_out=shape_ref
+    )
+
+    # Compute test
+
+    output_test, footprint_test = reproject_from_healpix(
+        (array_input, "C"), output_value, nested=True, **kwargs_out
+    )
+
+    np.testing.assert_allclose(output_ref, output_test)
+    np.testing.assert_allclose(footprint_ref, footprint_test)
