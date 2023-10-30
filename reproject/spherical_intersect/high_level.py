@@ -48,12 +48,14 @@ def reproject_exact(
         coordinate information. The coordinate transformation will be computed
         once and then each image will be reprojected, offering a speedup over
         reprojecting each image individually.
-    output_projection : `~astropy.wcs.WCS` or `~astropy.io.fits.Header`
-        The output projection, which can be either a `~astropy.wcs.WCS`
-        or a `~astropy.io.fits.Header` instance.
+    output_projection : `~astropy.wcs.wcsapi.BaseLowLevelWCS` or `~astropy.wcs.wcsapi.BaseHighLevelWCS` or `~astropy.io.fits.Header`
+        The output projection, which can be either a
+        `~astropy.wcs.wcsapi.BaseLowLevelWCS`,
+        `~astropy.wcs.wcsapi.BaseHighLevelWCS`, or a `~astropy.io.fits.Header`
+        instance.
     shape_out : tuple, optional
-        If ``output_projection`` is a `~astropy.wcs.WCS` instance, the
-        shape of the output data should be specified separately.
+        If ``output_projection`` is a WCS instance, the shape of the output
+        data should be specified separately.
     hdu_in : int or str, optional
         If ``input_data`` is a FITS file or an `~astropy.io.fits.HDUList`
         instance, specifies the HDU to use.
