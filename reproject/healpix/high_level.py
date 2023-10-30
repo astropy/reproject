@@ -24,12 +24,14 @@ def reproject_from_healpix(
               second element is a `~astropy.coordinates.BaseCoordinateFrame`
               instance or a string alias for a coordinate frame.
 
-    output_projection : `~astropy.wcs.WCS` or `~astropy.io.fits.Header`
-        The output projection, which can be either a `~astropy.wcs.WCS`
-        or a `~astropy.io.fits.Header` instance.
+    output_projection : `~astropy.wcs.wcsapi.BaseLowLevelWCS` or `~astropy.wcs.wcsapi.BaseHighLevelWCS` or `~astropy.io.fits.Header`
+         The output projection, which can be either a
+         `~astropy.wcs.wcsapi.BaseLowLevelWCS`,
+         `~astropy.wcs.wcsapi.BaseHighLevelWCS`, or a `~astropy.io.fits.Header`
+         instance.
     shape_out : tuple, optional
-        If ``output_projection`` is a `~astropy.wcs.WCS` instance, the
-        shape of the output data should be specified separately.
+        If ``output_projection`` is a WCS instance, the shape of the output
+        data should be specified separately.
     hdu_in : int or str, optional
         If ``input_data`` is a FITS file, specifies the HDU to use.
         (the default HDU for HEALPIX data is 1, unlike with image files where
@@ -89,13 +91,18 @@ def reproject_to_healpix(
     input_data : object
         The input data to reproject. This can be:
 
-            * The name of a FITS file
+            * The name of a FITS file as a `str` or a `pathlib.Path` object
             * An `~astropy.io.fits.HDUList` object
-            * An image HDU object such as a `~astropy.io.fits.PrimaryHDU` or
-              `~astropy.io.fits.ImageHDU` instance
+            * An image HDU object such as a `~astropy.io.fits.PrimaryHDU`,
+              `~astropy.io.fits.ImageHDU`, or `~astropy.io.fits.CompImageHDU`
+              instance
             * A tuple where the first element is a `~numpy.ndarray` and the
-              second element is either a `~astropy.wcs.WCS` or a
+              second element is either a
+              `~astropy.wcs.wcsapi.BaseLowLevelWCS`,
+              `~astropy.wcs.wcsapi.BaseHighLevelWCS`, or a
               `~astropy.io.fits.Header` object
+            * An `~astropy.nddata.NDData` object from which the ``.data`` and
+              ``.wcs`` attributes will be used as the input data.
 
     coord_system_out : `~astropy.coordinates.BaseCoordinateFrame` or str
         The output coordinate system for the HEALPIX projection.
