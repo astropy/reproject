@@ -78,5 +78,10 @@ repos:
         files: ".*(high_level|mosaicking).*$"
         exclude: ".*(tests.*)$"
 
+  - repo: https://github.com/scientific-python/cookie
+    rev: 2023.11.17
+    hooks:
+      - id: sp-repo-review
+
 ci:
   autofix_prs: false
