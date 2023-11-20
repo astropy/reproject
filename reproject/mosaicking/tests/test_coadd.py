@@ -236,11 +236,11 @@ class TestReprojectAndCoAdd:
         np.testing.assert_allclose(array, array_matched)
         np.testing.assert_allclose(footprint, footprint_matched)
 
-    @pytest.mark.parametrize("combine_function", ["first", "last", "min", "max", "sum"])
+    @pytest.mark.parametrize("combine_function", ["first", "last", "min", "max", "sum", "mean"])
     @pytest.mark.parametrize("match_background", [True, False])
     def test_footprint_correct(self, reproject_function, combine_function, match_background):
         # Test that the output array is zero outside the returned footprint
-        # We're running this test over a somewhat large grid of paramters, so
+        # We're running this test over a somewhat large grid of parameters, so
         # cut down the array size to avoid increasing the total test runtime
         # too much.
         slice = np.s_[::3, ::3]

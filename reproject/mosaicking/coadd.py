@@ -276,6 +276,7 @@ def reproject_and_coadd(
         if combine_function == "mean":
             with np.errstate(invalid="ignore"):
                 output_array /= output_footprint
+                output_array[output_footprint == 0] = 0
 
     elif combine_function in ("first", "last", "min", "max"):
         for array in arrays:
