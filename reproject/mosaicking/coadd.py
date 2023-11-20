@@ -243,7 +243,7 @@ def reproject_and_coadd(
         arrays.append(array)
 
     # If requested, try and match the backgrounds.
-    if match_background:
+    if match_background and len(arrays) > 1:
         offset_matrix = determine_offset_matrix(arrays)
         corrections = solve_corrections_sgd(offset_matrix)
         if background_reference:

@@ -210,6 +210,32 @@ class TestReprojectAndCoAdd:
 
         assert_allclose(array - np.mean(array), self.array - np.mean(self.array), atol=ATOL)
 
+    def test_coadd_background_matching_one_array(self, reproject_function):
+        # Test that background matching doesn't affect the output when there's
+        # only one input image.
+
+        input_data = [(self.array, self.wcs)]
+
+        array_matched, footprint_matched = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=self.array.shape,
+            combine_function="mean",
+            reproject_function=reproject_function,
+            match_background=True,
+        )
+
+        array, footprint = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=self.array.shape,
+            combine_function="mean",
+            reproject_function=reproject_function,
+            match_background=False,
+        )
+        np.testing.assert_allclose(array, array_matched)
+        np.testing.assert_allclose(footprint, footprint_matched)
+
     def test_coadd_background_matching_with_nan(self, reproject_function):
         # Test out the background matching when NaN values are present. We do
         # this by using three arrays with the same footprint but with different
