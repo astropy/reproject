@@ -280,7 +280,7 @@ def reproject_and_coadd(
     elif combine_function in ("first", "last", "min", "max"):
         for array in arrays:
             if combine_function == "first":
-                mask = output_footprint[array.view_in_original_array] == 0
+                mask = (output_footprint[array.view_in_original_array] == 0) & (array.footprint > 0)
             elif combine_function == "last":
                 mask = array.footprint > 0
             elif combine_function == "min":
