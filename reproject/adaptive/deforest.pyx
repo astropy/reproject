@@ -1,4 +1,5 @@
-#cython: boundscheck=False, wraparound=False, nonecheck=False, cdivision=True
+#cython: boundscheck=False, wraparound=False, nonecheck=False, cdivision=True, language_level=3str
+#distutils: define_macros=NPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION
 
 # Cython implementation of the image resampling method described in "On
 # resampling of Solar Images", C.E. DeForest, Solar Physics 2004
@@ -71,17 +72,6 @@ cdef void svd2x2_decompose(double[:,:] M, double[:,:] U, double[:] s, double[:,:
     V[0,1] = sin(theta)
     V[1,0] = -sin(theta)
     V[1,1] = cos(theta)
-
-
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.nonecheck(False)
-@cython.cdivision(True)
-cdef void mul2x2(double[:,:] A, double[:,:] B, double[:,:] C) nogil:
-    C[0,0] = A[0,0] * B[0,0] + A[0,1] * B[1,0]
-    C[0,1] = A[0,0] * B[0,1] + A[0,1] * B[1,1]
-    C[1,0] = A[1,0] * B[0,0] + A[1,1] * B[1,0]
-    C[1,1] = A[1,0] * B[0,1] + A[1,1] * B[1,1]
 
 
 @cython.boundscheck(False)
@@ -507,7 +497,7 @@ def map_coordinates(double[:,:,:] source, double[:,:,:] target, Ci, int max_samp
     cdef double[:] P3 = np.empty((2,))
     cdef double[:] P4 = np.empty((2,))
     cdef double top, bottom, left, right
-    cdef double determinant
+    cdef double determinant = 0
     cdef bint has_sampled_this_row
     cdef bint sample_in_bounds
     with nogil:
