@@ -37,6 +37,7 @@ from libc.stdlib cimport qsort
 
 import sys
 
+np.import_array()
 
 cdef double pi = np.pi
 cdef double nan = np.nan
