@@ -448,7 +448,7 @@ Multiple images with the same coordinates
 If you have multiple images with the exact same coordinate system (e.g. a raw
 image and a corresponding processed image) and want to reproject both to the
 same output frame, it is faster to compute the coordinate mapping between input
-and output pixels only once and re-use this mapping for each reprojection. This
+and output pixels only once and reuse this mapping for each reprojection. This
 is supported by passing multiple input images as an additional dimension in the
 input data array. When the input array contains more dimensions than the input
 WCS describes, the extra leading dimensions are taken to represent separate

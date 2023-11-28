@@ -8,7 +8,6 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
 from astropy.wcs.utils import pixel_to_pixel
-from astropy.wcs.wcsapi.high_level_api import BaseHighLevelWCS
 
 __all__ = ["has_celestial", "pixel_to_pixel_with_roundtrip"]
 

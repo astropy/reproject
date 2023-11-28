@@ -5,7 +5,6 @@ import pytest
 from astropy import units as u
 from astropy.coordinates import FK5, Galactic, SkyCoord
 from astropy.io import fits
-from astropy.nddata import NDData
 from astropy.wcs import WCS
 from astropy.wcs.wcsapi import BaseHighLevelWCS, BaseLowLevelWCS, HighLevelWCSWrapper
 from numpy.testing import assert_allclose, assert_equal
@@ -324,7 +323,6 @@ def test_solar_wcs():
     pytest.importorskip("sunpy", minversion="2.1.0")
 
     # Make sure the WCS <-> frame functions are registered
-    import sunpy.coordinates
 
     wcs_ref = WCS(fits.Header.fromstring(SOLAR_HEADER, sep="\n"))
 

@@ -76,7 +76,7 @@ processes to use.
 Output dask arrays
 ------------------
 
-By default, the reprojection functions will do the computation immmediately and
+By default, the reprojection functions will do the computation immediately and
 return Numpy arrays for the reprojected array and optionally the footprint (this
 is regardless of whether dask or Numpy arrays were passed in, or any of the
 parallelization options above). However, by setting ``return_type='dask'``, you
