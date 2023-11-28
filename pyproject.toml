@@ -176,6 +176,18 @@ ignore = [
     "PC140", # ignore using `mypy` in pre-commit
     "PC180", # ignore using `prettier` in pre-commit
     "PC901", # ignore using custom update message (we have many of the default ones in our history already)
+    "PC170", # ignore using pygrep
+    "PY005", # ignore having a tests/ folder
 ]
 
 [tool.ruff]
+
+[tool.ruff.lint]
+extend-select = [
+  "B",  # flake8-bugbear
+  "I",  # isort
+  "UP",  # pyupgrade
+]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"docs/conf.py" = ["F405"]  # Sphinx injects variables into namespace

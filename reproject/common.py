@@ -1,6 +1,6 @@
 import os
-import uuid
 import tempfile
+import uuid
 
 import dask
 import dask.array as da

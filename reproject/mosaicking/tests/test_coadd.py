@@ -179,7 +179,7 @@ class TestReprojectAndCoAdd:
 
         input_data = self._get_tiles(self._overlapping_views)
 
-        for array, wcs in input_data:
+        for array, _ in input_data:
             array += random.uniform(-3, 3)
 
         # First check that without background matching the arrays don't match

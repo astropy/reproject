@@ -61,7 +61,7 @@ Currently, this package implements :ref:`interpolation<interpolation>`,
 
           However, the :ref:`adaptive resampling<adaptive>` algorithm provides
           an option to conserve flux by appropriately rescaling each output
-          pixel. With this option, an image in flux units need not be coverted
+          pixel. With this option, an image in flux units need not be converted
           to surface brightness.
 
 .. _common:

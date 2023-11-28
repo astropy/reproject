@@ -1,7 +1,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
-import os
 import itertools
+import os
 
 import numpy as np
 import pytest
