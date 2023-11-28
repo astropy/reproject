@@ -177,3 +177,6 @@ ignore = [
     "PC180", # ignore using `prettier` in pre-commit
     "PC901", # ignore using custom update message (we have many of the default ones in our history already)
 ]
+
+[tool.ruff]
+
