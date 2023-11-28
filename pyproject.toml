@@ -168,3 +168,12 @@ checks = [
     "ES01",
     "GL08",
 ]
+
+[tool.repo-review]
+ignore = [
+    "MY",    # ignore MyPy setting checks
+    "PC111", # ignore using `blacken-docs` in pre-commit
+    "PC140", # ignore using `mypy` in pre-commit
+    "PC180", # ignore using `prettier` in pre-commit
+    "PC901", # ignore using custom update message (we have many of the default ones in our history already)
+]
