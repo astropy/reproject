@@ -1,4 +1,5 @@
-#cython: boundscheck=False, wraparound=False, nonecheck=False, cdivision=True
+#cython: boundscheck=False, wraparound=False, nonecheck=False, cdivision=True, language_level=3str
+#distutils: define_macros=NPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION
 
 # Cython implementation of the image resampling method described in "On
 # resampling of Solar Images", C.E. DeForest, Solar Physics 2004
@@ -50,7 +51,7 @@ cdef extern from "math.h":
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void svd2x2_decompose(double[:,:] M, double[:,:] U, double[:] s, double[:,:] V) nogil:
+cdef void svd2x2_decompose(double[:,:] M, double[:,:] U, double[:] s, double[:,:] V) noexcept nogil:
     cdef double E = (M[0,0] + M[1,1]) / 2
     cdef double F = (M[0,0] - M[1,1]) / 2
     cdef double G = (M[1,0] + M[0,1]) / 2
@@ -77,18 +78,7 @@ cdef void svd2x2_decompose(double[:,:] M, double[:,:] U, double[:] s, double[:,:
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void mul2x2(double[:,:] A, double[:,:] B, double[:,:] C) nogil:
-    C[0,0] = A[0,0] * B[0,0] + A[0,1] * B[1,0]
-    C[0,1] = A[0,0] * B[0,1] + A[0,1] * B[1,1]
-    C[1,0] = A[1,0] * B[0,0] + A[1,1] * B[1,0]
-    C[1,1] = A[1,0] * B[0,1] + A[1,1] * B[1,1]
-
-
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.nonecheck(False)
-@cython.cdivision(True)
-cdef double det2x2(double[:,:] M) nogil:
+cdef double det2x2(double[:,:] M) noexcept nogil:
     return M[0,0]*M[1,1] - M[0,1]*M[1,0]
 
 
@@ -96,7 +86,7 @@ cdef double det2x2(double[:,:] M) nogil:
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void svd2x2_compose(double[:,:] U, double[:] s, double[:,:] V, double[:,:] M) nogil:
+cdef void svd2x2_compose(double[:,:] U, double[:] s, double[:,:] V, double[:,:] M) noexcept nogil:
     cdef double tmp00, tmp01, tmp10, tmp11
     tmp00 = U[0,0] * s[0]
     tmp01 = U[0,1] * s[1]
@@ -113,7 +103,7 @@ cdef void svd2x2_compose(double[:,:] U, double[:] s, double[:,:] V, double[:,:] 
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef double hanning_filter(double x, double y) nogil:
+cdef double hanning_filter(double x, double y) noexcept nogil:
     x = fabs(x)
     y = fabs(y)
     if x >= 1 or y >= 1:
@@ -125,7 +115,7 @@ cdef double hanning_filter(double x, double y) nogil:
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef double gaussian_filter(double x, double y, double width) nogil:
+cdef double gaussian_filter(double x, double y, double width) noexcept nogil:
     return exp(-(x*x+y*y) / (width*width) * 2)
 
 
@@ -134,7 +124,7 @@ cdef double gaussian_filter(double x, double y, double width) nogil:
 @cython.nonecheck(False)
 @cython.cdivision(True)
 cdef double clip(double x, double vmin, double vmax, int cyclic,
-        int out_of_range_nearest) nogil:
+        int out_of_range_nearest) noexcept nogil:
     """Applies bounary conditions to an intended array coordinate.
 
     Specifically, if the point is outside the array bounds, this function wraps
@@ -166,7 +156,7 @@ cdef double clip(double x, double vmin, double vmax, int cyclic,
 @cython.cdivision(True)
 cdef bint sample_array(double[:,:,:] source, double[:] dest,
         double x, double y, int x_cyclic, int y_cyclic,
-        bint out_of_range_nearest) nogil:
+        bint out_of_range_nearest) noexcept nogil:
     x = clip(x, 0, source.shape[2] - 1, x_cyclic, out_of_range_nearest)
     y = clip(y, 0, source.shape[1] - 1, y_cyclic, out_of_range_nearest)
 
@@ -188,7 +178,7 @@ cdef bint sample_array(double[:,:,:] source, double[:] dest,
 cdef void calculate_jacobian(double[:, :] Ji, int center_jacobian,
         int yi, int xi,
         double[:, :, :] offset_source_x, double[:, :, :] offset_source_y,
-        double[:, :, :] Jx, double[:, :, :] Jy) nogil:
+        double[:, :, :] Jx, double[:, :, :] Jy) noexcept nogil:
     """ Utility function to calculate the Jacobian at one (yi, xi) location"""
     if center_jacobian:
         # Compute the Jacobian for the transformation applied to
@@ -226,7 +216,7 @@ cdef int cmp_func(const void* a, const void* b) noexcept nogil:
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void sort(double[:] a) nogil:
+cdef void sort(double[:] a) noexcept nogil:
     qsort(&a[0], a.shape[0], a.strides[0], &cmp_func)
 
 
@@ -319,7 +309,7 @@ cdef void despike_jacobian(double[:, :, :, :] jacobian):
 cdef void fill_in_jacobian(double[:, :, :, :] jacobian,
         int xi, int xfirst, int xlast,
         int yi, int yfirst, int ylast,
-        double[:, :] Jmag2, double thresh) nogil:
+        double[:, :] Jmag2, double thresh) noexcept nogil:
     """ Utility function that replaces a spiking Jacobian pixel """
     jacobian[yi, xi] = 0
     cdef int n_contributing = 0
@@ -507,7 +497,7 @@ def map_coordinates(double[:,:,:] source, double[:,:,:] target, Ci, int max_samp
     cdef double[:] P3 = np.empty((2,))
     cdef double[:] P4 = np.empty((2,))
     cdef double top, bottom, left, right
-    cdef double determinant
+    cdef double determinant = 0
     cdef bint has_sampled_this_row
     cdef bint sample_in_bounds
     with nogil:
