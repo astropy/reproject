@@ -29,10 +29,9 @@ content-type = "text/x-rst"
 all = ["shapely"]
 test = [
     "pytest-astropy",
-    "shapely>=2.0.2", # 2.0.2 fixed a bug that causes changes in test results
 ]
 testall = [
-    "shapely",
+    "shapely>=2.0.2",  # 2.0.2 fixed a bug that causes changes in test results
     # Once a release of reproject is done for Python 3.12,
     # can remove python_version specifier here
     'sunpy[map]>=2.1;python_version<"3.12" and platform_machine!="i686"',
