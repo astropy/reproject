@@ -1,9 +1,8 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
 import datetime
-import os
 import sys
-from importlib import import_module, metadata
+from importlib import metadata
 
 try:
     from sphinx_astropy.conf.v1 import *  # noqa
@@ -30,7 +29,7 @@ rst_epilog += """
 
 # -- Project information ------------------------------------------------------
 
-package_info = metadata.metadata('reproject')
+package_info = metadata.metadata("reproject")
 
 # This does not *have* to match the package name, but typically does
 project = package_info["Name"]
@@ -42,9 +41,9 @@ copyright = "{}, {}".format(datetime.datetime.now().year, package_info["Author"]
 # built documents.
 
 # The short X.Y version.
-version = package_info['Version'].split("-", 1)[0]
+version = package_info["Version"].split("-", 1)[0]
 # The full version, including alpha/beta/rc tags.
-release = package_info['Version']
+release = package_info["Version"]
 
 
 # -- Options for HTML output ---------------------------------------------------
