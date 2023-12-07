@@ -19,7 +19,7 @@ You can install *reproject* with `pip <http://www.pip-installer.org/en/latest/>`
 
 or with `conda <https://continuum.io/>`_::
 
-    conda install -c astropy reproject
+    conda install -c conda-forge reproject
 
 More detailed installation instructions can be found in :ref:`installation`.
 
@@ -137,7 +137,7 @@ that you want to reproject.
    noncelestial
    footprints
    mosaicking
-   dask
+   performance
 
 Reference/API
 =============

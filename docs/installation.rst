@@ -7,7 +7,7 @@ Installing reproject
 Requirements
 ============
 
-This package has the following hard run time dependencies:
+This package has the following dependencies:
 
 * `Python <http://www.python.org/>`__ 3.8 or later
 
@@ -19,20 +19,15 @@ This package has the following hard run time dependencies:
 
 * `astropy-healpix <https://astropy-healpix.readthedocs.io>`_ 0.6 or later for HEALPIX image reprojection
 
+* `dask <https://www.dask.org/>`_ 2021.8 or later
+
+* `zarr <https://zarr.readthedocs.io/en/stable/>`_
+
+* `fsspec <https://filesystem-spec.readthedocs.io/en/latest/>`_
+
 and the following optional dependencies:
 
 * `shapely <https://toblerity.org/shapely/project.html>`_ 1.6 or later for some of the mosaicking functionality
-
-and to run the tests, you will also need:
-
-* `Matplotlib <http://matplotlib.org/>`__
-
-* `pytest-arraydiff <https://github.com/astrofrog/pytest-fits>`__
-
-* `pytest-astropy <https://github.com/astropy/pytest-astropy>`__
-
-* `pytest-doctestplus <https://github.com/astropy/pytest-doctestplus>`__
-
 
 Installation
 ============
@@ -40,14 +35,14 @@ Installation
 Using pip
 ---------
 
-To install *reproject* with `pip <http://www.pip-installer.org/en/latest/>`_,
-simply run:
+To install *reproject* with `pip <https://pip.pypa.io/en/stable/>`_,
+run::
 
     pip install reproject
 
 Using conda
 -----------
 
-To install *reproject* with `anaconda <https://continuum.io/>`_, simply run::
+To install *reproject* with `conda <https://docs.conda.io/en/latest/>`_, run::
 
     conda install -c conda-forge reproject
