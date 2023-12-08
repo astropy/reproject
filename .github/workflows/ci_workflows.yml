@@ -55,7 +55,7 @@ jobs:
       anaconda_package: reproject
       anaconda_keep_n_latest: 10
       env: |
-        CIBW_BEFORE_BUILD: '${{ ((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request') && 'pip install --pre --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple setuptools setuptools_scm numpy>=0.0dev0 extension-helpers') || '' }}'
+        CIBW_BEFORE_BUILD: '${{ ((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request') && 'pip install --pre --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple setuptools setuptools_scm numpy>=0.0dev0 extension-helpers cython') || '' }}'
         CIBW_BUILD_FRONTEND: '${{ ((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request') && 'pip; args: --no-build-isolation') || 'build' }}'
 
     secrets:
