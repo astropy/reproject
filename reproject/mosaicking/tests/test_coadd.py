@@ -236,6 +236,39 @@ class TestReprojectAndCoAdd:
         np.testing.assert_allclose(array, array_matched)
         np.testing.assert_allclose(footprint, footprint_matched)
 
+    @pytest.mark.parametrize("combine_function", ["first", "last", "min", "max", "sum", "mean"])
+    @pytest.mark.parametrize("match_background", [True, False])
+    def test_footprint_correct(self, reproject_function, combine_function, match_background):
+        # Test that the output array is zero outside the returned footprint
+        # We're running this test over a somewhat large grid of parameters, so
+        # cut down the array size to avoid increasing the total test runtime
+        # too much.
+        slice = np.s_[::3, ::3]
+        wcs1 = self.wcs[slice]
+        wcs2 = self.wcs.deepcopy()
+        # Add a 45-degree rotation
+        wcs2.wcs.pc = np.array([[0.5, -0.5], [0.5, 0.5]])
+
+        wcs_out = wcs1.deepcopy()
+        # Expand the output WCS to go beyond the input images
+        wcs_out.wcs.cdelt = 2 * wcs1.wcs.cdelt[0], 2 * wcs1.wcs.cdelt[1]
+
+        # Ensure the input data is fully non-zero, so we can tell where data
+        # got projected to in the output image.
+        array1 = np.full_like(self.array[slice], 2)
+        array2 = array1 + 5
+
+        array, footprint = reproject_and_coadd(
+            [(array1, wcs1), (array2, wcs2)],
+            wcs_out,
+            shape_out=self.array.shape,
+            combine_function=combine_function,
+            reproject_function=reproject_function,
+            match_background=match_background,
+        )
+
+        assert np.all((array != 0) == (footprint > 0))
+
     def test_coadd_background_matching_with_nan(self, reproject_function):
         # Test out the background matching when NaN values are present. We do
         # this by using three arrays with the same footprint but with different
