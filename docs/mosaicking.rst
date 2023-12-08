@@ -171,7 +171,7 @@ Pixel resolution
 
 By default, the final mosaic will have the pixel resolution (i.e. the pixel
 scale along the pixel axes) of the highest resolution input image, but this can
-be overriden using the ``resolution=`` keyword argument:
+be overridden using the ``resolution=`` keyword argument:
 
 .. doctest-requires:: pyvo
 

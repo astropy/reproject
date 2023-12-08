@@ -11,21 +11,6 @@ repos:
       - id: trailing-whitespace
         exclude: ".*(data.*|extern.*|licenses.*|.*.fits)$"
 
-  - repo: https://github.com/pycqa/isort
-    rev: 5.12.0
-    hooks:
-      - id: isort
-        name: isort (python)
-        args:
-          - "--filter-files"
-
-  - repo: https://github.com/asottile/pyupgrade
-    rev: v3.15.0
-    hooks:
-      - id: pyupgrade
-        args: ["--py38-plus"]
-        exclude: ".*(extern.*|_parsetab.py|_lextab.py)$"
-
   # We list the warnings/errors to check for here rather than in setup.cfg because
   # we don't want these options to apply whenever anyone calls flake8 from the
   # command-line or their code editor - in this case all warnings/errors should be
@@ -66,7 +51,7 @@ repos:
           ]
         exclude: ".*(data.*|extern.*|cextern)$"
 
-  - repo: https://github.com/psf/black
+  - repo: https://github.com/psf/black-pre-commit-mirror
     rev: 23.11.0
     hooks:
       - id: black
@@ -77,6 +62,25 @@ repos:
       - id: numpydoc-validation
         files: ".*(high_level|mosaicking).*$"
         exclude: ".*(tests.*)$"
+
+  - repo: https://github.com/scientific-python/cookie
+    rev: 2023.11.17
+    hooks:
+      - id: sp-repo-review
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.2.6
+    hooks:
+      - id: codespell
+        args: ["--write-changes"]
+        additional_dependencies:
+          - tomli
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: "v0.1.5"
+    hooks:
+      - id: ruff
+        args: ["--fix", "--show-fixes"]
 
 ci:
   autofix_prs: false

@@ -2,8 +2,6 @@ import dask.array as da
 import numpy as np
 import pytest
 from astropy.io import fits
-from astropy.nddata import NDData
-from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
 
 from reproject.conftest import set_wcs_array_shape

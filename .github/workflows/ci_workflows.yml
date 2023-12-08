@@ -3,6 +3,7 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -14,20 +15,16 @@ jobs:
     uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@v1
     with:
       envs: |
-        - macos: py38-test-oldestdeps
-        - macos: py39-test
+        - macos: py39-test-oldestdeps
         - macos: py310-test
         - macos: py311-test
         - macos: py312-test
-        - linux: py38-test-oldestdeps
-        - linux: py38-test
-        - linux: py39-test
+        - linux: py39-test-oldestdeps
         - linux: py310-test
         - linux: py311-test
         - linux: py312-test
         - linux: py312-test-devdeps
-        - windows: py38-test-oldestdeps
-        - windows: py39-test
+        - windows: py39-test-oldestdeps
         - windows: py310-test
         - windows: py311-test
         - windows: py312-test

@@ -9,7 +9,7 @@ Requirements
 
 This package has the following hard run time dependencies:
 
-* `Python <http://www.python.org/>`__ 3.8 or later
+* `Python <http://www.python.org/>`__ 3.9 or later
 
 * `Numpy <http://www.numpy.org/>`__ 1.20 or later
 

@@ -37,6 +37,7 @@ def _reproject_celestial(
             "issues with images that have resolutions below ~0.05 "
             "arcsec, so the results may not be accurate.",
             UserWarning,
+            stacklevel=2,
         )
 
     # Convert input array to float values. If this comes from a FITS, it might have

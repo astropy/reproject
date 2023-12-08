@@ -350,7 +350,7 @@ def test_reproject_adaptive_flux_conservation():
     shears_x = np.linspace(-0.7, 0.7, 3)
     shears_y = np.linspace(-0.2, 0.2, 3)
 
-    for rot, scale_x, scale_y, trans_x, trans_y, shear_x, shear_y in product(
+    for rot, scale_x, scale_y, _, _, shear_x, shear_y in product(
         rotations, scales_x, scales_y, translations_x, translations_y, shears_x, shears_y
     ):
         wcs_out.wcs.cdelt = scale_x, scale_y

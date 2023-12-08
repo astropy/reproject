@@ -1,6 +1,6 @@
 import os
-import uuid
 import tempfile
+import uuid
 from pathlib import Path
 
 import astropy.nddata
@@ -204,7 +204,7 @@ def parse_output_projection(output_projection, shape_in=None, shape_out=None, ou
                 raise ValueError(
                     "Need to specify shape since output header "
                     "does not contain complete shape information"
-                )
+                ) from None
     elif isinstance(output_projection, (BaseLowLevelWCS, BaseHighLevelWCS)):
         if isinstance(output_projection, BaseLowLevelWCS) and not isinstance(
             output_projection, BaseHighLevelWCS

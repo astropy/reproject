@@ -126,7 +126,7 @@ cdef double gaussian_filter(double x, double y, double width) noexcept nogil:
 @cython.cdivision(True)
 cdef double clip(double x, double vmin, double vmax, int cyclic,
         int out_of_range_nearest) noexcept nogil:
-    """Applies bounary conditions to an intended array coordinate.
+    """Applies boundary conditions to an intended array coordinate.
 
     Specifically, if the point is outside the array bounds, this function wraps
     the coordinate if the boundary is periodic, or clamps to the nearest valid

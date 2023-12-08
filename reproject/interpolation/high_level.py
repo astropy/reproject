@@ -1,7 +1,5 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
-import os
 
-from astropy.utils import deprecated_renamed_argument
 
 from ..common import _reproject_dispatcher
 from ..utils import parse_input_data, parse_output_projection

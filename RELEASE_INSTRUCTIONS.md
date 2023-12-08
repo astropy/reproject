@@ -2,7 +2,7 @@ Making a New Reproject Release
 ==============================
 
 A new release of reproject is almost fully automated.
-As a mantainer it should be nice and simple to do, especially if all merged PRs
+As a maintainer it should be nice and simple to do, especially if all merged PRs
 have nice titles and are correctly labelled.
 
 Here is the process to follow to make a new release:
