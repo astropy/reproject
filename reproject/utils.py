@@ -38,7 +38,10 @@ def _dask_to_numpy_memmap(dask_array, tmp_dir):
     with tempfile.TemporaryDirectory() as zarr_tmp:
         # First compute and store the dask array to zarr using whatever
         # the default scheduler is at this point
-        dask_array.to_zarr(zarr_tmp)
+        try:
+            dask_array.to_zarr(zarr_tmp)
+        except ValueError:
+            dask_array.rechunk().to_zarr(zarr_tmp)
 
         # Load the array back to dask
         zarr_array = da.from_zarr(zarr_tmp)
