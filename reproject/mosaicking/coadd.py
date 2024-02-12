@@ -24,6 +24,7 @@ def reproject_and_coadd(
     background_reference=None,
     output_array=None,
     output_footprint=None,
+    blank_pixel_value=np.nan,
     **kwargs,
 ):
     """
@@ -276,7 +277,7 @@ def reproject_and_coadd(
         if combine_function == "mean":
             with np.errstate(invalid="ignore"):
                 output_array /= output_footprint
-                output_array[output_footprint == 0] = 0
+                output_array[output_footprint == 0] = blank_pixel_value
 
     elif combine_function in ("first", "last", "min", "max"):
         for array in arrays:
@@ -306,7 +307,6 @@ def reproject_and_coadd(
 
         raise NotImplementedError("combine_function='median' is not yet implemented")
 
-    if combine_function in ("min", "max"):
-        output_array[output_footprint == 0] = 0.0
+    output_array[output_footprint == 0] = blank_pixel_value
 
     return output_array, output_footprint
