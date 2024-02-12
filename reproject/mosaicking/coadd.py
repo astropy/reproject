@@ -331,8 +331,8 @@ def reproject_and_coadd(
                 # means/sums.
                 array.array[array.footprint == 0] = 0
 
-                output_array[array.view_in_original_array] += array.array * array.footprint
-                output_footprint[array.view_in_original_array] += array.footprint
+        output_array[array.view_in_original_array] += array.array * array.footprint
+        output_footprint[array.view_in_original_array] += array.footprint
 
         if combine_function == "mean":
             with np.errstate(invalid="ignore"):
