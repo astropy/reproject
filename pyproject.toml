@@ -139,7 +139,7 @@ write_to = "reproject/version.py"
 
 [tool.cibuildwheel]
 skip = "cp36-* pp* *-musllinux*"
-test-skip = "*-macosx_arm64 *-manylinux_aarch64"
+test-skip = "*-manylinux_aarch64"
 
 [tool.isort]
 profile = "black"
