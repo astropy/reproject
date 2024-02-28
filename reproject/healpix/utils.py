@@ -33,7 +33,7 @@ def parse_input_healpix_data(input_data, field=0, hdu_in=None, nested=None):
     Parse input HEALPIX data to return a Numpy array and coordinate frame object.
     """
 
-    if isinstance(input_data, (TableHDU, BinTableHDU)):
+    if isinstance(input_data, TableHDU | BinTableHDU):
         data = input_data.data
         header = input_data.header
         coordinate_system_in = parse_coord_system(header["COORDSYS"])

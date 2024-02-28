@@ -107,7 +107,7 @@ def find_optimal_celestial_wcs(
         iterable = False
     elif isiterable(input_data):
         if len(input_data) == 2 and isinstance(
-            input_data[1], (BaseLowLevelWCS, BaseHighLevelWCS, Header)
+            input_data[1], BaseLowLevelWCS | BaseHighLevelWCS | Header
         ):
             # Since 2-element tuples are valid single inputs we need to check for this
             iterable = False
@@ -245,7 +245,7 @@ def find_optimal_celestial_wcs(
         # rectangle
         from shapely.geometry import MultiPoint
 
-        mp = MultiPoint(list(zip(xp, yp)))
+        mp = MultiPoint(list(zip(xp, yp, strict=True)))
 
         # The following returns a list of rectangle vertices - in fact there
         # are 5 coordinates because shapely represents it as a closed polygon

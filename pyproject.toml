@@ -180,9 +180,7 @@ ignore = [
 ]
 
 [tool.ruff]
-
-[tool.ruff.lint]
-extend-select = [
+lint.select = [
   "B",  # flake8-bugbear
   "I",  # isort
   "UP",  # pyupgrade
