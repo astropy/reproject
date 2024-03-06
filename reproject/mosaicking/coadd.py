@@ -346,7 +346,7 @@ def reproject_and_coadd(
             # Pad the array so that it covers the whole output area
             array = da.pad(
                 array,
-                [(sl.start, shape_out[i] - sl.stop) for sl in slices_out],
+                [(sl.start, shape_out[i] - sl.stop) for i, sl in enumerate(slices_out)],
                 constant_values=np.nan,
             )
 
