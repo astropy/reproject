@@ -70,7 +70,7 @@ def parse_input_data(input_data, hdu_in=None):
     Parse input data to return a Numpy array and WCS object.
     """
 
-    if isinstance(input_data, (str, Path)):
+    if isinstance(input_data, str | Path):
         with fits.open(input_data) as hdul:
             return parse_input_data(hdul, hdu_in=hdu_in)
     elif isinstance(input_data, HDUList):
@@ -83,9 +83,9 @@ def parse_input_data(input_data, hdu_in=None):
             else:
                 hdu_in = 0
         return parse_input_data(input_data[hdu_in])
-    elif isinstance(input_data, (PrimaryHDU, ImageHDU, CompImageHDU)):
+    elif isinstance(input_data, PrimaryHDU | ImageHDU | CompImageHDU):
         return input_data.data, WCS(input_data.header)
-    elif isinstance(input_data, tuple) and isinstance(input_data[0], (np.ndarray, da.core.Array)):
+    elif isinstance(input_data, tuple) and isinstance(input_data[0], np.ndarray | da.core.Array):
         if isinstance(input_data[1], Header):
             return input_data[0], WCS(input_data[1])
         else:
@@ -114,7 +114,7 @@ def parse_input_shape(input_shape, hdu_in=None):
     Parse input shape information to return an array shape tuple and WCS object.
     """
 
-    if isinstance(input_shape, (str, Path)):
+    if isinstance(input_shape, str | Path):
         return parse_input_shape(fits.open(input_shape), hdu_in=hdu_in)
     elif isinstance(input_shape, HDUList):
         if hdu_in is None:
@@ -126,9 +126,9 @@ def parse_input_shape(input_shape, hdu_in=None):
             else:
                 hdu_in = 0
         return parse_input_shape(input_shape[hdu_in])
-    elif isinstance(input_shape, (PrimaryHDU, ImageHDU, CompImageHDU)):
+    elif isinstance(input_shape, PrimaryHDU | ImageHDU | CompImageHDU):
         return input_shape.shape, WCS(input_shape.header)
-    elif isinstance(input_shape, tuple) and isinstance(input_shape[0], (np.ndarray, da.core.Array)):
+    elif isinstance(input_shape, tuple) and isinstance(input_shape[0], np.ndarray | da.core.Array):
         if isinstance(input_shape[1], Header):
             return input_shape[0].shape, WCS(input_shape[1])
         else:
@@ -177,7 +177,7 @@ def parse_input_weights(input_weights, hdu_weights=None):
             else:
                 hdu_weights = 0
         return parse_input_data(input_weights[hdu_weights])[0]
-    elif isinstance(input_weights, (PrimaryHDU, ImageHDU, CompImageHDU)):
+    elif isinstance(input_weights, PrimaryHDU | ImageHDU | CompImageHDU):
         return input_weights.data
     elif isinstance(input_weights, np.ndarray):
         return input_weights
@@ -205,7 +205,7 @@ def parse_output_projection(output_projection, shape_in=None, shape_out=None, ou
                     "Need to specify shape since output header "
                     "does not contain complete shape information"
                 ) from None
-    elif isinstance(output_projection, (BaseLowLevelWCS, BaseHighLevelWCS)):
+    elif isinstance(output_projection, BaseLowLevelWCS | BaseHighLevelWCS):
         if isinstance(output_projection, BaseLowLevelWCS) and not isinstance(
             output_projection, BaseHighLevelWCS
         ):

@@ -8,12 +8,12 @@ authors = [
 license = {text = "BSD 3-Clause"}
 description = "Reproject astronomical images"
 urls = {Homepage = "https://reproject.readthedocs.io"}
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
-    "numpy>=1.20",
+    "numpy>=1.23",
     "astropy>=5.0",
     "astropy-healpix>=0.6",
-    "scipy>=1.5",
+    "scipy>=1.9",
     "dask[array]>=2021.8",
     "cloudpickle",
     "zarr",
@@ -139,7 +139,7 @@ write_to = "reproject/version.py"
 
 [tool.cibuildwheel]
 skip = "cp36-* pp* *-musllinux*"
-test-skip = "*-macosx_arm64 *-manylinux_aarch64"
+test-skip = "*-manylinux_aarch64"
 
 [tool.isort]
 profile = "black"
@@ -180,9 +180,7 @@ ignore = [
 ]
 
 [tool.ruff]
-
-[tool.ruff.lint]
-extend-select = [
+lint.select = [
   "B",  # flake8-bugbear
   "I",  # isort
   "UP",  # pyupgrade

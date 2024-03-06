@@ -248,7 +248,7 @@ def reproject_and_coadd(
         corrections = solve_corrections_sgd(offset_matrix)
         if background_reference:
             corrections -= corrections[background_reference]
-        for array, correction in zip(arrays, corrections):
+        for array, correction in zip(arrays, corrections, strict=True):
             array.array -= correction
 
     # At this point, the images are now ready to be co-added.

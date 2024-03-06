@@ -386,7 +386,7 @@ def test_coadd_solar_map():
     wcs_out = WCS(Header.fromstring(HEADER_SOLAR_OUT, sep="\n"))
     scales = [1 / 6, 1, 1 / 6]
 
-    input_data = tuple((a.data * scale, a.wcs) for (a, scale) in zip(maps, scales))
+    input_data = tuple((a.data * scale, a.wcs) for (a, scale) in zip(maps, scales, strict=True))
 
     array, footprint = reproject_and_coadd(
         input_data,
