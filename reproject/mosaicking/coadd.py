@@ -1,10 +1,10 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
 import os
-import uuid
 import tempfile
-from math import ceil
+import uuid
 from itertools import product
+from math import ceil
 
 import dask
 import dask.array as da
@@ -228,7 +228,10 @@ def reproject_and_coadd(
         else:
             # We use only the corners of cubes and higher dimension datasets
             pixel_in = next(
-                zip(*product([(-0.5, shape_out[::-1][i] - 0.5) for i in range(len(shape_out))]))
+                zip(
+                    *product([(-0.5, shape_out[::-1][i] - 0.5) for i in range(len(shape_out))]),
+                    strict=False,
+                )
             )
             pixel_in = [np.array(p) for p in pixel_in]
 
@@ -389,7 +392,9 @@ def reproject_and_coadd(
         elif combine_function in ("first", "last", "min", "max"):
             for array in arrays:
                 if combine_function == "first":
-                    mask = (output_footprint[array.view_in_original_array] == 0) & (array.footprint > 0)
+                    mask = (output_footprint[array.view_in_original_array] == 0) & (
+                        array.footprint > 0
+                    )
                 elif combine_function == "last":
                     mask = array.footprint > 0
                 elif combine_function == "min":
@@ -405,7 +410,8 @@ def reproject_and_coadd(
                     mask, array.footprint, output_footprint[array.view_in_original_array]
                 )
                 output_array[array.view_in_original_array] = np.where(
-                    mask, array.array, output_array[array.view_in_original_array]                )
+                    mask, array.array, output_array[array.view_in_original_array]
+                )
 
         elif combine_function == "median":
             # Here we need to operate in chunks since we could otherwise run
