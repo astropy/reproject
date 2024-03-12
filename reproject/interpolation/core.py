@@ -36,10 +36,8 @@ def _validate_wcs(wcs_in, wcs_out, shape_in, shape_out):
         if wcs_in.wcs.spec >= 0 and wcs_out.wcs.spec >= 0:
             if wcs_in.wcs.ctype[wcs_in.wcs.spec] != wcs_out.wcs.ctype[wcs_out.wcs.spec]:
                 raise ValueError(
-                    "The input ({}) and output ({}) spectral "
-                    "coordinate types are not equivalent.".format(
-                        wcs_in.wcs.ctype[wcs_in.wcs.spec], wcs_out.wcs.ctype[wcs_out.wcs.spec]
-                    )
+                    f"The input ({wcs_in.wcs.ctype[wcs_in.wcs.spec]}) and output ({wcs_out.wcs.ctype[wcs_out.wcs.spec]}) spectral "
+                    "coordinate types are not equivalent."
                 )
         elif wcs_in.wcs.spec >= 0:
             raise ValueError("Input WCS has a spectral component but output WCS does not")
