@@ -270,7 +270,9 @@ def test_dask_schedulers(reproject_function, scheduler):
 
     array1 = reproject_function(hdu1, hdu2.header, return_footprint=False)
 
-    array2 = reproject_function(hdu1, hdu2.header, return_footprint=False, return_type="dask", block_size=(100, 100))
+    array2 = reproject_function(
+        hdu1, hdu2.header, return_footprint=False, return_type="dask", block_size=(100, 100)
+    )
     array2 = array2.compute(scheduler=scheduler)
 
     np.testing.assert_allclose(array1, array2, equal_nan=True)
