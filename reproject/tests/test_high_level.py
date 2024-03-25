@@ -253,3 +253,24 @@ def test_dimensions_checks(reproject_function):
 
     with pytest.raises(ValueError, match="Dimensions to be looped over must match exactly"):
         array_out, footprint = reproject_function((array_in, w_in), w_out, shape_out=[3, 3, 4, 5])
+
+
+@pytest.mark.remote_data
+@pytest.mark.filterwarnings("ignore::astropy.wcs.wcs.FITSFixedWarning")
+@pytest.mark.parametrize(
+    "reproject_function", [reproject_interp, reproject_adaptive, reproject_exact]
+)
+@pytest.mark.parametrize("scheduler", ("synchronous", "processes", "threads"))
+def test_dask_schedulers(reproject_function, scheduler):
+
+    # Regression test for issues with the multi-threaded scheduler
+
+    hdu1 = fits.open(get_pkg_data_filename("galactic_center/gc_2mass_k.fits"))[0]
+    hdu2 = fits.open(get_pkg_data_filename("galactic_center/gc_msx_e.fits"))[0]
+
+    array1 = reproject_function(hdu1, hdu2.header, return_footprint=False)
+
+    array2 = reproject_function(hdu1, hdu2.header, return_footprint=False, return_type="dask", block_size=(100, 100))
+    array2 = array2.compute(scheduler=scheduler)
+
+    np.testing.assert_allclose(array1, array2, equal_nan=True)
