@@ -52,12 +52,12 @@ repos:
         exclude: ".*(data.*|extern.*|cextern)$"
 
   - repo: https://github.com/psf/black-pre-commit-mirror
-    rev: 24.2.0
+    rev: 24.3.0
     hooks:
       - id: black
 
   - repo: https://github.com/numpy/numpydoc
-    rev: v1.6.0
+    rev: v1.7.0rc0
     hooks:
       - id: numpydoc-validation
         files: ".*(high_level|mosaicking).*$"
@@ -77,7 +77,7 @@ repos:
           - tomli
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: "v0.3.2"
+    rev: "v0.3.4"
     hooks:
       - id: ruff
         args: ["--fix", "--show-fixes"]
