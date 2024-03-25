@@ -187,12 +187,16 @@ def _reproject_dispatcher(
         def reproject_single_block(a, array_or_path, block_info=None):
             if a.ndim == 0 or block_info is None or block_info == []:
                 return np.array([a, a])
-            slices = [slice(*x) for x in block_info[None]["array-location"][-wcs_out.pixel_n_dim :]]
+
+            wcs_in_cp = wcs_in.deepcopy()
+            wcs_out_cp = wcs_out.deepcopy()
+
+            slices = [slice(*x) for x in block_info[None]["array-location"][-wcs_out_cp.pixel_n_dim :]]
 
             if isinstance(wcs_out, BaseHighLevelWCS):
-                low_level_wcs = SlicedLowLevelWCS(wcs_out.low_level_wcs, slices=slices)
+                low_level_wcs = SlicedLowLevelWCS(wcs_out_cp.low_level_wcs, slices=slices)
             else:
-                low_level_wcs = SlicedLowLevelWCS(wcs_out, slices=slices)
+                low_level_wcs = SlicedLowLevelWCS(wcs_out_cp, slices=slices)
 
             wcs_out_sub = HighLevelWCSWrapper(low_level_wcs)
 
@@ -208,7 +212,7 @@ def _reproject_dispatcher(
 
             array, footprint = reproject_func(
                 array_in,
-                wcs_in,
+                wcs_in_cp,
                 wcs_out_sub,
                 shape_out=shape_out,
                 array_out=np.zeros(shape_out),
