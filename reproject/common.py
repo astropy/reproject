@@ -16,6 +16,7 @@ __all__ = ["_reproject_dispatcher"]
 
 @delayed(pure=True)
 def as_delayed_memmap_path(array, tmp_dir):
+    tmp_dir = tempfile.mkdtemp()  # FIXME
     if isinstance(array, da.core.Array):
         array_path, _ = _dask_to_numpy_memmap(array, tmp_dir)
     else:
