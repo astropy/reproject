@@ -49,7 +49,7 @@ docs = [
 requires = ["setuptools",
             "setuptools_scm",
             "extension-helpers==1.*",
-            "numpy>=1.25",
+            "numpy>=2.0.0rc1",
             "cython>=3.0,<3.1"]
 build-backend = 'setuptools.build_meta'
 
