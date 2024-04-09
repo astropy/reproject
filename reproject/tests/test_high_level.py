@@ -1,9 +1,12 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
 import itertools
+import os
+from copy import deepcopy
 
 import numpy as np
 import pytest
+from astropy import units as u
 from astropy.io import fits
 from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
@@ -11,6 +14,8 @@ from astropy.wcs import WCS
 from .. import reproject_adaptive, reproject_exact, reproject_interp
 
 # TODO: add reference comparisons
+
+DATA = os.path.join(os.path.dirname(__file__), "data")
 
 ALL_MODES = (
     "nearest-neighbor",
@@ -261,17 +266,39 @@ def test_dimensions_checks(reproject_function):
     "reproject_function", [reproject_interp, reproject_adaptive, reproject_exact]
 )
 @pytest.mark.parametrize("scheduler", ("synchronous", "processes", "threads"))
-def test_dask_schedulers(reproject_function, scheduler):
-
+# @pytest.mark.parametrize("wcs_type", ("astropy.wcs", "gwcs"))
+@pytest.mark.parametrize("wcs_type", ("gwcs",))
+def test_dask_schedulers(reproject_function, scheduler, wcs_type):
     # Regression test for issues with the multi-threaded scheduler
 
-    hdu1 = fits.open(get_pkg_data_filename("galactic_center/gc_2mass_k.fits"))[0]
-    hdu2 = fits.open(get_pkg_data_filename("galactic_center/gc_msx_e.fits"))[0]
+    if wcs_type == "astropy.wcs":
+        input_data = fits.open(get_pkg_data_filename("galactic_center/gc_2mass_k.fits"))[0]
+        hdu_out = fits.open(get_pkg_data_filename("galactic_center/gc_msx_e.fits"))[0]
+        wcs_out = WCS(hdu_out.header)
+        shape_out = hdu_out.data.shape
+    elif wcs_type == "gwcs":
+        asdf = pytest.importorskip("asdf")
+        aia = asdf.open(os.path.join(DATA, "aia_171_level1.asdf"))
+        input_data = (aia["data"][...], aia["wcs"])
+        wcs_out = deepcopy(aia["wcs"])
+        wcs_out.forward_transform.offset_0 = -60.3123 * u.pix
+        wcs_out.forward_transform.offset_1 = -61.9422 * u.pix
+        shape_out = aia["data"].shape
 
-    array1 = reproject_function(hdu1, hdu2.header, return_footprint=False)
+    array1 = reproject_function(
+        input_data,
+        wcs_out,
+        shape_out=shape_out,
+        return_footprint=False,
+    )
 
     array2 = reproject_function(
-        hdu1, hdu2.header, return_footprint=False, return_type="dask", block_size=(100, 100)
+        input_data,
+        wcs_out,
+        shape_out=shape_out,
+        return_footprint=False,
+        return_type="dask",
+        block_size=(100, 100),
     )
     array2 = array2.compute(scheduler=scheduler)
 

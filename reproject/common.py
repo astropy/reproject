@@ -1,6 +1,7 @@
 import os
 import tempfile
 import uuid
+from copy import deepcopy
 
 import dask
 import dask.array as da
@@ -193,12 +194,12 @@ def _reproject_dispatcher(
             # https://github.com/astropy/astropy/issues/16245
             # To work around these issues, we make sure we do a deep copy of
             # the WCS object in here when using FITS WCS. This is a very fast
-            # operation (<0.1ms) so should not be a concern in terms of
-            # performance. However we don't deep copy *all* WCSes because
-            # the APE-14 API does not mandate the existence of the .deepcopy()
-            # method, and because it should not be necessary for all WCSes.
-            wcs_in_cp = wcs_in.deepcopy() if isinstance(wcs_in, WCS) else wcs_in
-            wcs_out_cp = wcs_out.deepcopy() if isinstance(wcs_out, WCS) else wcs_out
+            # operation (<1ms) so should not be a concern in terms of
+            # performance. For safety, we do this for all WCS objects even if
+            # they are not FITS WCS.
+
+            wcs_in_cp = deepcopy(wcs_in)
+            wcs_out_cp = deepcopy(wcs_out)
 
             slices = [
                 slice(*x) for x in block_info[None]["array-location"][-wcs_out_cp.pixel_n_dim :]
