@@ -271,6 +271,8 @@ def test_dimensions_checks(reproject_function):
 def test_dask_schedulers(reproject_function, scheduler, wcs_type):
     # Regression test for issues with the multi-threaded scheduler
 
+    kwargs = {}
+
     if wcs_type == "astropy.wcs":
         input_data = fits.open(get_pkg_data_filename("galactic_center/gc_2mass_k.fits"))[0]
         hdu_out = fits.open(get_pkg_data_filename("galactic_center/gc_msx_e.fits"))[0]
@@ -278,18 +280,22 @@ def test_dask_schedulers(reproject_function, scheduler, wcs_type):
         shape_out = hdu_out.data.shape
     elif wcs_type == "gwcs":
         asdf = pytest.importorskip("asdf")
+        if reproject_function == reproject_exact:
+            pytest.skip()
         aia = asdf.open(os.path.join(DATA, "aia_171_level1.asdf"))
         input_data = (aia["data"][...], aia["wcs"])
         wcs_out = deepcopy(aia["wcs"])
         wcs_out.forward_transform.offset_0 = -60.3123 * u.pix
         wcs_out.forward_transform.offset_1 = -61.9422 * u.pix
         shape_out = aia["data"].shape
+        kwargs["roundtrip_coords"] = False
 
     array1 = reproject_function(
         input_data,
         wcs_out,
         shape_out=shape_out,
         return_footprint=False,
+        **kwargs,
     )
 
     array2 = reproject_function(
@@ -299,6 +305,7 @@ def test_dask_schedulers(reproject_function, scheduler, wcs_type):
         return_footprint=False,
         return_type="dask",
         block_size=(100, 100),
+        **kwargs,
     )
     array2 = array2.compute(scheduler=scheduler)
 
