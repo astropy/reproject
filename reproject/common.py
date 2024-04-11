@@ -5,6 +5,7 @@ import uuid
 import dask
 import dask.array as da
 import numpy as np
+from astropy.wcs import WCS
 from astropy.wcs.wcsapi import BaseHighLevelWCS, SlicedLowLevelWCS
 from astropy.wcs.wcsapi.high_level_wcs_wrapper import HighLevelWCSWrapper
 from dask import delayed
@@ -187,12 +188,26 @@ def _reproject_dispatcher(
         def reproject_single_block(a, array_or_path, block_info=None):
             if a.ndim == 0 or block_info is None or block_info == []:
                 return np.array([a, a])
-            slices = [slice(*x) for x in block_info[None]["array-location"][-wcs_out.pixel_n_dim :]]
+
+            # The WCS class from astropy is not thread-safe, see e.g.
+            # https://github.com/astropy/astropy/issues/16244
+            # https://github.com/astropy/astropy/issues/16245
+            # To work around these issues, we make sure we do a deep copy of
+            # the WCS object in here when using FITS WCS. This is a very fast
+            # operation (<0.1ms) so should not be a concern in terms of
+            # performance. We only need to do this for FITS WCS.
+
+            wcs_in_cp = wcs_in.deepcopy() if isinstance(wcs_in, WCS) else wcs_in
+            wcs_out_cp = wcs_out.deepcopy() if isinstance(wcs_out, WCS) else wcs_out
+
+            slices = [
+                slice(*x) for x in block_info[None]["array-location"][-wcs_out_cp.pixel_n_dim :]
+            ]
 
             if isinstance(wcs_out, BaseHighLevelWCS):
-                low_level_wcs = SlicedLowLevelWCS(wcs_out.low_level_wcs, slices=slices)
+                low_level_wcs = SlicedLowLevelWCS(wcs_out_cp.low_level_wcs, slices=slices)
             else:
-                low_level_wcs = SlicedLowLevelWCS(wcs_out, slices=slices)
+                low_level_wcs = SlicedLowLevelWCS(wcs_out_cp, slices=slices)
 
             wcs_out_sub = HighLevelWCSWrapper(low_level_wcs)
 
@@ -208,7 +223,7 @@ def _reproject_dispatcher(
 
             array, footprint = reproject_func(
                 array_in,
-                wcs_in,
+                wcs_in_cp,
                 wcs_out_sub,
                 shape_out=shape_out,
                 array_out=np.zeros(shape_out),
