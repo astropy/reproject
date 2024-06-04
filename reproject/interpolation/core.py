@@ -125,6 +125,7 @@ def _reproject_full(
             cval=np.nan,
             mode="constant",
             output=array_out_loopable[i].ravel(),
+            max_chunk_size=256 * 1024**2,
         )
 
     # n.b. We write the reprojected data into array_out_loopable, but array_out
