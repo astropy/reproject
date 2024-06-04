@@ -159,18 +159,14 @@ def _reproject_dispatcher(
 
         shape_in = array_in.shape
 
-        # When in parallel mode, we want to make sure we avoid having to copy the
-        # input array to all processes for each chunk, so instead we write out
-        # the input array to a Numpy memory map and load it in inside each process
-        # as a memory-mapped array. We need to be careful how this gets passed to
-        # reproject_single_block so we pass a variable that can be either a string
-        # or the array itself (for synchronous mode). If the input array is a dask
-        # array we should always write it out to a memmap even in synchronous mode
-        # otherwise map_blocks gets confused if it gets two dask arrays and tries
-        # to iterate over both.
+        # As we use the synchronous or threads scheduler, we don't need to worry about
+        # the data getting copied, so if the data is already a Numpy array (including
+        # a memory-mapped array) then we don't need to do anything special. However,
+        # if the input array is a dask array, we should convert it to a Numpy
+        # memory-mapped array so that it can be used by the various reprojection
+        # functions (which don't internally work with dask arrays).
 
-        if isinstance(array_in, da.core.Array) or parallel:
-            # If return_type=='dask',
+        if isinstance(array_in, da.core.Array):
             if return_type == "dask":
                 # We should use a temporary directory that will persist beyond
                 # the call to the reproject function.
@@ -179,10 +175,11 @@ def _reproject_dispatcher(
                 tmp_dir = local_tmp_dir
             array_in_or_path = as_delayed_memmap_path(array_in, tmp_dir)
         else:
-            # Here we could set array_in_or_path to array_in_path if it
-            # has been set previously, but in synchronous mode it is better to
-            # simply pass a reference to the memmap array itself to avoid having
-            # to load the memmap inside each reproject_single_block call.
+            # Here we could set array_in_or_path to array_in_path if it has
+            # been set previously, but in synchronous and threaded mode it is
+            # better to simply pass a reference to the memmap array itself to
+            # avoid having to load the memmap inside each
+            # reproject_single_block call.
             array_in_or_path = array_in
 
         def reproject_single_block(a, array_or_path, block_info=None):
@@ -282,24 +279,24 @@ def _reproject_dispatcher(
 
         if parallel:
             # As discussed in https://github.com/dask/dask/issues/9556, da.store
-            # will not work well in multiprocessing mode when the destination is a
+            # will not work well in parallel mode when the destination is a
             # Numpy array. Instead, in this case we save the dask array to a zarr
             # array on disk which can be done in parallel, and re-load it as a dask
             # array. We can then use da.store in the next step using the
             # 'synchronous' scheduler since that is I/O limited so does not need
             # to be done in parallel.
 
-            if isinstance(parallel, int):
+            if isinstance(parallel, bool):
+                workers = {}
+            else:
                 if parallel > 0:
                     workers = {"num_workers": parallel}
                 else:
                     raise ValueError("The number of processors to use must be strictly positive")
-            else:
-                workers = {}
 
             zarr_path = os.path.join(local_tmp_dir, f"{uuid.uuid4()}.zarr")
 
-            with dask.config.set(scheduler="processes", **workers):
+            with dask.config.set(scheduler="threads", **workers):
                 result.to_zarr(zarr_path)
             result = da.from_zarr(zarr_path)
 
