@@ -148,7 +148,6 @@ def _reproject_celestial(
             array_new /= weights
 
         if broadcasting:
-            print(array_out.shape, array_new.shape)
             array_out[i] = array_new
             if return_footprint:
                 output_footprint[i] = weights

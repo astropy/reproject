@@ -36,7 +36,4 @@ def test_custom_map_coordinates():
         mode="constant",
     )
 
-    for i in range(coords.shape[1]):
-        print(coords[:, i], expected[i], result[i])
-
     assert_allclose(result, expected)
