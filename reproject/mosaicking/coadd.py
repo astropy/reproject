@@ -11,6 +11,10 @@ from .subset_array import ReprojectedArraySubset
 __all__ = ["reproject_and_coadd"]
 
 
+def _noop(iterable):
+    return iterable
+
+
 def reproject_and_coadd(
     input_data,
     output_projection,
@@ -25,7 +29,7 @@ def reproject_and_coadd(
     output_array=None,
     output_footprint=None,
     block_sizes=None,
-    progressbar=False,
+    progress_bar=None,
     blank_pixel_value=np.nan,
     **kwargs,
 ):
@@ -80,7 +84,7 @@ def reproject_and_coadd(
         `~astropy.io.fits.HDUList` instance, specifies the HDU to use.
     reproject_function : callable
         The function to use for the reprojection.
-    combine_function : { 'mean', 'sum', 'median', 'first', 'last', 'min', 'max' }
+    combine_function : { 'mean', 'sum', 'first', 'last', 'min', 'max' }
         The type of function to use for combining the values into the final
         image. For 'first' and 'last', respectively, the reprojected images are
         simply overlaid on top of each other. With respect to the order of the
@@ -103,12 +107,15 @@ def reproject_and_coadd(
         specified with `shape_out` or derived from the output projection.
     block_sizes : list of tuples or None
         The block size to use for each dataset.  Could also be a single tuple
-        if you want the sample block size for all data sets
-    progressbar : False
-        If specified, use this as a progressbar to track loop iterations over
+        if you want the sample block size for all data sets.
+    progress_bar : callable, optional
+        If specified, use this as a progress_bar to track loop iterations over
         data sets.
+    blank_pixel_value : float, optional
+        Value to use for areas of the resulting mosaic that do not have input
+        data.
 
-    kwargs
+    **kwargs
         Keyword arguments to be passed to the reprojection function.
 
     Returns
@@ -127,19 +134,16 @@ def reproject_and_coadd(
 
     # Validate inputs
 
-    if combine_function not in ("mean", "sum", "median", "first", "last", "min", "max"):
-        raise ValueError("combine_function should be one of mean/sum/median/first/last/min/max")
-    elif combine_function == "median":
-        # Note to devs: the exception shoudl be raised as early as possible
-        raise NotImplementedError("combine_function='median' is not yet implemented")
+    if combine_function not in ("mean", "sum", "first", "last", "min", "max"):
+        raise ValueError("combine_function should be one of mean/sum/first/last/min/max")
 
     if reproject_function is None:
         raise ValueError(
             "reprojection function should be specified with the reproject_function argument"
         )
 
-    if not progressbar:
-        progressbar = lambda x: x
+    if progress_bar is None:
+        progress_bar = _noop
 
     # Parse the output projection to avoid having to do it for each
 
@@ -165,7 +169,7 @@ def reproject_and_coadd(
     if match_background:
         arrays = []
 
-    for idata in progressbar(range(len(input_data))):
+    for idata in progress_bar(range(len(input_data))):
         # We need to pre-parse the data here since we need to figure out how to
         # optimize/minimize the size of each output tile (see below).
         array_in, wcs_in = parse_input_data(input_data[idata], hdu_in=hdu_in)
@@ -362,13 +366,6 @@ def reproject_and_coadd(
                 output_array[array.view_in_original_array] = np.where(
                     mask, array.array, output_array[array.view_in_original_array]
                 )
-
-    elif combine_function == "median":
-        # Here we need to operate in chunks since we could otherwise run
-        # into memory issues
-
-        # this is redundant, but left as a note-to-devs about where such an implementation belongs
-        raise NotImplementedError("combine_function='median' is not yet implemented")
 
     output_array[output_footprint == 0] = blank_pixel_value
 
