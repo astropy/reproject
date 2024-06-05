@@ -15,35 +15,36 @@ class ReprojectedArraySubset:
     # rather than the center, which is not well defined for even-sized
     # cutouts.
 
-    def __init__(self, array, footprint, imin, imax, jmin, jmax):
+    def __init__(self, array, footprint, bounds):
         self.array = array
         self.footprint = footprint
-        self.imin = imin
-        self.imax = imax
-        self.jmin = jmin
-        self.jmax = jmax
+        self.bounds = bounds
 
     def __repr__(self):
-        return f"<ReprojectedArraySubset at [{self.jmin}:{self.jmax},{self.imin}:{self.imax}]>"
+        bounds_str = "[" + ",".join(f"{imin}:{imax}" for (imin, imax) in self.bounds) + "]"
+        return f"<ReprojectedArraySubset at {bounds_str}>"
 
     @property
     def view_in_original_array(self):
-        return (slice(self.jmin, self.jmax), slice(self.imin, self.imax))
+        return tuple([slice(imin, imax) for (imin, imax) in self.bounds])
 
     @property
     def shape(self):
-        return (self.jmax - self.jmin, self.imax - self.imin)
+        return tuple((imax - imin) for (imin, imax) in self.bounds)
 
     def overlaps(self, other):
         # Note that the use of <= or >= instead of < and > is due to
         # the fact that the max values are exclusive (so +1 above the
         # last value).
-        return not (
-            self.imax <= other.imin
-            or other.imax <= self.imin
-            or self.jmax <= other.jmin
-            or other.jmax <= self.jmin
-        )
+        if len(self.bounds) != len(other.bounds):
+            raise ValueError(
+                f"Mismatch in number of dimensions, expected "
+                f"{len(self.bounds)} dimensions and got {len(other.bounds)}"
+            )
+        for (imin, imax), (imin_other, imax_other) in zip(self.bounds, other.bounds, strict=False):
+            if imax <= imin_other or imax_other <= imin:
+                return False
+        return True
 
     def __add__(self, other):
         return self._operation(other, operator.add)
@@ -58,42 +59,39 @@ class ReprojectedArraySubset:
         return self._operation(other, operator.truediv)
 
     def _operation(self, other, op):
+        if len(self.bounds) != len(other.bounds):
+            raise ValueError(
+                f"Mismatch in number of dimensions, expected "
+                f"{len(self.bounds)} dimensions and got {len(other.bounds)}"
+            )
+
         # Determine cutout parameters for overlap region
 
-        imin = max(self.imin, other.imin)
-        imax = min(self.imax, other.imax)
-        jmin = max(self.jmin, other.jmin)
-        jmax = min(self.jmax, other.jmax)
+        overlap_bounds = []
+        self_slices = []
+        other_slices = []
+        for (imin, imax), (imin_other, imax_other) in zip(self.bounds, other.bounds, strict=False):
+            imin_overlap = max(imin, imin_other)
+            imax_overlap = min(imax, imax_other)
+            if imax_overlap < imin_overlap:
+                imax_overlap = imin_overlap
+            overlap_bounds.append((imin_overlap, imax_overlap))
+            self_slices.append(slice(imin_overlap - imin, imax_overlap - imin))
+            other_slices.append(slice(imin_overlap - imin_other, imax_overlap - imin_other))
 
-        if imax < imin:
-            imax = imin
+        self_slices = tuple(self_slices)
 
-        if jmax < jmin:
-            jmax = jmin
+        self_array = self.array[self_slices]
+        self_footprint = self.footprint[self_slices]
 
-        # Extract cutout from each
+        other_slices = tuple(other_slices)
 
-        self_array = self.array[
-            jmin - self.jmin : jmax - self.jmin,
-            imin - self.imin : imax - self.imin,
-        ]
-        self_footprint = self.footprint[
-            jmin - self.jmin : jmax - self.jmin,
-            imin - self.imin : imax - self.imin,
-        ]
-
-        other_array = other.array[
-            jmin - other.jmin : jmax - other.jmin,
-            imin - other.imin : imax - other.imin,
-        ]
-        other_footprint = other.footprint[
-            jmin - other.jmin : jmax - other.jmin,
-            imin - other.imin : imax - other.imin,
-        ]
+        other_array = other.array[other_slices]
+        other_footprint = other.footprint[other_slices]
 
         # Carry out operator and store result in ReprojectedArraySubset
 
         array = op(self_array, other_array)
         footprint = (self_footprint > 0) & (other_footprint > 0)
 
-        return ReprojectedArraySubset(array, footprint, imin, imax, jmin, jmax)
+        return ReprojectedArraySubset(array, footprint, overlap_bounds)

@@ -1,6 +1,6 @@
 import numpy as np
 
-__all__ = ["map_coordinates"]
+__all__ = ["map_coordinates", "sample_array_edges"]
 
 
 def map_coordinates(image, coords, **kwargs):
@@ -35,3 +35,22 @@ def map_coordinates(image, coords, **kwargs):
     values[reset] = kwargs.get("cval", 0.0)
 
     return values
+
+
+def sample_array_edges(shape, *, n_samples):
+    # Given an N-dimensional array shape, sample each edge of the array using
+    # the requested number of samples (which will include vertices). To do this
+    # we iterate through the dimensions and for each one we sample the points
+    # in that dimension and iterate over the combination of other vertices.
+    # Returns an array with dimensions (N, n_samples)
+    all_positions = []
+    ndim = len(shape)
+    shape = np.array(shape)
+    for idim in range(ndim):
+        for vertex in range(2**ndim):
+            positions = -0.5 + shape * ((vertex & (2 ** np.arange(ndim))) > 0).astype(int)
+            positions = np.broadcast_to(positions, (n_samples, ndim)).copy()
+            positions[:, idim] = np.linspace(-0.5, shape[idim] - 0.5, n_samples)
+            all_positions.append(positions)
+    positions = np.unique(np.vstack(all_positions), axis=0).T
+    return positions
