@@ -80,7 +80,6 @@ class TestReprojectAndCoAdd:
 
         input_data = self._get_tiles(self._nonoverlapping_views)
 
-        input_data = [(self.array, self.wcs)]
         array, footprint = reproject_and_coadd(
             input_data,
             self.wcs,
