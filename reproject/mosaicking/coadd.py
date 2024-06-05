@@ -2,6 +2,7 @@
 
 import numpy as np
 from astropy.wcs import WCS
+from astropy.wcs.utils import pixel_to_pixel
 from astropy.wcs.wcsapi import SlicedLowLevelWCS
 
 from ..array_utils import sample_array_edges
@@ -200,7 +201,7 @@ def reproject_and_coadd(
         # which provides a lot of redundant information.
 
         edges = sample_array_edges(array_in.shape, n_samples=11)[::-1]
-        edges_out = wcs_out.world_to_pixel(wcs_in.pixel_to_world(*edges))[::-1]
+        edges_out = pixel_to_pixel(wcs_in, wcs_out, *edges)[::-1]
 
         # Determine the cutout parameters
 
@@ -312,7 +313,6 @@ def reproject_and_coadd(
         if combine_function == "mean":
             with np.errstate(invalid="ignore"):
                 output_array /= output_footprint
-                output_array[output_footprint == 0] = blank_pixel_value
 
     elif combine_function in ("first", "last", "min", "max"):
         if combine_function == "min":
