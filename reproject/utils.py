@@ -73,6 +73,10 @@ def hdu_to_vanilla_memmap(hdu):
     Given an HDU object, return a regular Numpy memmap rather than a Numpy
     array backed by a memmapped buffer as returned by astropy.
     """
+
+    if hdu.fileinfo() is None:
+        return hdu.data
+
     return np.memmap(
         hdu.fileinfo()["file"].name,
         mode="r",

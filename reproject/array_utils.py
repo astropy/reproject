@@ -83,6 +83,13 @@ def iterate_chunks(shape, *, max_chunk_size):
             break
 
 
+def at_least_float32(array):
+    if array.dtype.kind == "f" and array.dtype.itemsize >= 4:
+        return array
+    else:
+        return array.astype(np.float32)
+
+
 def map_coordinates(image, coords, max_chunk_size=None, output=None, **kwargs):
     # In the built-in scipy map_coordinates, the values are defined at the
     # center of the pixels. This means that map_coordinates does not
@@ -115,7 +122,9 @@ def map_coordinates(image, coords, max_chunk_size=None, output=None, **kwargs):
         )
 
     if image.dtype.isnative:
-        values = scipy_map_coordinates(image, coords, prefilter=False, output=output, **kwargs)
+        values = scipy_map_coordinates(
+            at_least_float32(image), coords, prefilter=False, output=output, **kwargs
+        )
 
     else:
         if output is None:
@@ -146,7 +155,9 @@ def map_coordinates(image, coords, max_chunk_size=None, output=None, **kwargs):
             for idim, slc in enumerate(chunk):
                 coords_subset[idim, :] -= slc.start
 
-            output[include] = scipy_map_coordinates(image[chunk], coords_subset, **kwargs)
+            output[include] = scipy_map_coordinates(
+                at_least_float32(image[chunk]), coords_subset, **kwargs
+            )
 
     reset = np.zeros(coords.shape[1], dtype=bool)
 
