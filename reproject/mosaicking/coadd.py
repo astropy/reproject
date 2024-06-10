@@ -1,11 +1,15 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
+import os
+import tempfile
+import time
+import uuid
 
 import numpy as np
 from astropy.wcs import WCS
 from astropy.wcs.utils import pixel_to_pixel
 from astropy.wcs.wcsapi import SlicedLowLevelWCS
 
-from ..array_utils import sample_array_edges
+from ..array_utils import iterate_chunks, sample_array_edges
 from ..utils import parse_input_data, parse_input_weights, parse_output_projection
 from .background import determine_offset_matrix, solve_corrections_sgd
 from .subset_array import ReprojectedArraySubset
@@ -234,7 +238,7 @@ def reproject_and_coadd(
         else:
             wcs_out_indiv = SlicedLowLevelWCS(wcs_out.low_level_wcs, slice_out)
 
-        shape_out_indiv = [imax - imin for (imin, imax) in bounds]
+        shape_out_indiv = tuple([imax - imin for (imin, imax) in bounds])
 
         if block_sizes is not None:
             if len(block_sizes) == len(input_data) and len(block_sizes[idata]) == len(shape_out):
@@ -246,22 +250,50 @@ def reproject_and_coadd(
         # able to handle weights, and make the footprint become the combined
         # footprint + weight map
 
-        array, footprint = reproject_function(
-            (array_in, wcs_in),
-            output_projection=wcs_out_indiv,
-            shape_out=shape_out_indiv,
-            hdu_in=hdu_in,
-            **kwargs,
-        )
+        with tempfile.TemporaryDirectory() as local_tmp_dir:
 
-        if weights_in is not None:
-            weights, _ = reproject_function(
-                (weights_in, wcs_in),
+            array = np.memmap(
+                os.path.join(local_tmp_dir, f"{uuid.uuid4()}.np"),
+                shape=shape_out_indiv,
+                mode="w+",
+                dtype=array_in.dtype,
+            )
+
+            footprint = np.memmap(
+                os.path.join(local_tmp_dir, f"{uuid.uuid4()}.np"),
+                shape=shape_out_indiv,
+                mode="w+",
+                dtype=float,
+            )
+
+            array, footprint = reproject_function(
+                (array_in, wcs_in),
                 output_projection=wcs_out_indiv,
                 shape_out=shape_out_indiv,
                 hdu_in=hdu_in,
+                output_array=array,
+                output_footprint=footprint,
                 **kwargs,
             )
+
+            if weights_in is not None:
+
+                weights = np.memmap(
+                    os.path.join(local_tmp_dir, f"{uuid.uuid4()}.np"),
+                    shape=shape_out_indiv,
+                    mode="w+",
+                    dtype=float,
+                )
+
+                weights = reproject_function(
+                    (weights_in, wcs_in),
+                    output_projection=wcs_out_indiv,
+                    shape_out=shape_out_indiv,
+                    hdu_in=hdu_in,
+                    output_array=weights,
+                    return_footprint=False,
+                    **kwargs,
+                )
 
         # For the purposes of mosaicking, we mask out NaN values from the array
         # and set the footprint to 0 at these locations.
@@ -284,8 +316,13 @@ def reproject_and_coadd(
             # but we set these to 0 here to avoid getting NaNs in the
             # means/sums.
             array.array[array.footprint == 0] = 0
-            output_array[array.view_in_original_array] += array.array * array.footprint
             output_footprint[array.view_in_original_array] += array.footprint
+            # We now need to do output[view] += array * footprint but to avoid
+            # the temporary array allocation from array * footprint we modify
+            # array inplace, which we can do as the array will be discarded at
+            # the end of the loop.
+            array.array *= array.footprint
+            output_array[array.view_in_original_array] += array.array
         else:
             arrays.append(array)
 
@@ -341,6 +378,9 @@ def reproject_and_coadd(
                 mask, array.array, output_array[array.view_in_original_array]
             )
 
-    output_array[output_footprint == 0] = blank_pixel_value
+    # We need to avoid potentially large memory allocation from output == 0 so
+    # we operate in chunks.
+    for chunk in iterate_chunks(output_array.shape, max_chunk_size=256 * 1024**2):
+        output_array[chunk][output_footprint[chunk] == 0] = blank_pixel_value
 
     return output_array, output_footprint

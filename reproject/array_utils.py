@@ -27,7 +27,6 @@ def find_chunk_shape(shape, max_chunk_size=None):
     max_repeat_remaining = max_chunk_size
 
     for size in shape[::-1]:
-
         if max_repeat_remaining > size:
             block_shape.append(size)
             max_repeat_remaining = max_repeat_remaining // size
@@ -38,7 +37,7 @@ def find_chunk_shape(shape, max_chunk_size=None):
     return tuple(block_shape[::-1])
 
 
-def iterate_chunks(shape, max_chunk_size):
+def iterate_chunks(shape, *, max_chunk_size):
     """
     Given a data shape and a chunk shape (or maximum chunk size), iteratively
     return slice objects that can be used to slice the array.
@@ -62,7 +61,6 @@ def iterate_chunks(shape, max_chunk_size):
     shape = list(shape)
 
     while start_index <= shape:
-
         end_index = [min(start_index[i] + chunk_shape[i], shape[i]) for i in range(ndim)]
 
         slices = tuple([slice(start_index[i], end_index[i]) for i in range(ndim)])
@@ -86,7 +84,6 @@ def iterate_chunks(shape, max_chunk_size):
 
 
 def map_coordinates(image, coords, max_chunk_size=None, output=None, **kwargs):
-
     # In the built-in scipy map_coordinates, the values are defined at the
     # center of the pixels. This means that map_coordinates does not
     # correctly treat pixels that are in the outer half of the outer pixels.
@@ -118,18 +115,15 @@ def map_coordinates(image, coords, max_chunk_size=None, output=None, **kwargs):
         )
 
     if image.dtype.isnative:
-
         values = scipy_map_coordinates(image, coords, prefilter=False, output=output, **kwargs)
 
     else:
-
         if output is None:
             output = np.repeat(np.nan, coords.shape[1])
 
         values = output
 
-        for chunk in iterate_chunks(image.shape, max_chunk_size):
-
+        for chunk in iterate_chunks(image.shape, max_chunk_size=max_chunk_size):
             include = np.ones(coords.shape[1], dtype=bool)
 
             for idim, slc in enumerate(chunk):
