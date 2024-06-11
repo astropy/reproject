@@ -180,7 +180,7 @@ def reproject_and_coadd(
     if not on_the_fly:
         arrays = []
 
-    with tempfile.TemporaryDirectory() as local_tmp_dir:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as local_tmp_dir:
 
         for idata in progress_bar(range(len(input_data))):
             # We need to pre-parse the data here since we need to figure out how to
@@ -254,15 +254,19 @@ def reproject_and_coadd(
             # able to handle weights, and make the footprint become the combined
             # footprint + weight map
 
+            array_path = os.path.join(local_tmp_dir, f"array_{uuid.uuid4()}.np")
+
             array = np.memmap(
-                os.path.join(local_tmp_dir, f"{uuid.uuid4()}.np"),
+                array_path,
                 shape=shape_out_indiv,
                 mode="w+",
                 dtype=array_in.dtype,
             )
 
+            footprint_path = os.path.join(local_tmp_dir, f"footprint_{uuid.uuid4()}.np")
+
             footprint = np.memmap(
-                os.path.join(local_tmp_dir, f"{uuid.uuid4()}.np"),
+                footprint_path,
                 shape=shape_out_indiv,
                 mode="w+",
                 dtype=float,
@@ -280,8 +284,10 @@ def reproject_and_coadd(
 
             if weights_in is not None:
 
+                weights_path = os.path.join(local_tmp_dir, f"weights_{uuid.uuid4()}.np")
+
                 weights = np.memmap(
-                    os.path.join(local_tmp_dir, f"{uuid.uuid4()}.np"),
+                    weights_path,
                     shape=shape_out_indiv,
                     mode="w+",
                     dtype=float,
@@ -307,6 +313,11 @@ def reproject_and_coadd(
             if weights_in is not None:
                 weights[reset] = 0.0
                 footprint *= weights
+                weights = None
+                try:
+                    os.remove(weights_path)
+                except PermissionError:
+                    pass
 
             array = ReprojectedArraySubset(array, footprint, bounds)
 
@@ -325,6 +336,13 @@ def reproject_and_coadd(
                 # the end of the loop.
                 array.array *= array.footprint
                 output_array[array.view_in_original_array] += array.array
+                array = None
+                footprint = None
+                try:
+                    os.remove(array_path)
+                    os.remove(footprint_path)
+                except PermissionError:
+                    pass
             else:
                 arrays.append(array)
 
@@ -379,6 +397,14 @@ def reproject_and_coadd(
                 output_array[array.view_in_original_array] = np.where(
                     mask, array.array, output_array[array.view_in_original_array]
                 )
+
+        # Avoid keeping any references to the memory-mapped arrays
+        if array is not None:
+            array.array = None
+            array.footprint = None
+        array = None
+        footprint = None
+        arrays = []
 
     # We need to avoid potentially large memory allocation from output == 0 so
     # we operate in chunks.
