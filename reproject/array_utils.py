@@ -121,11 +121,11 @@ def map_coordinates(image, coords, max_chunk_size=None, output=None, **kwargs):
             original_shape[i] - 1
         )
 
-    if image.dtype.isnative:
-        values = scipy_map_coordinates(
-            at_least_float32(image), coords, prefilter=False, output=output, **kwargs
-        )
-
+    # If the data type is native and we are not doing spline interpolation,
+    # then scipy_map_coordinates deals properly with memory maps, so we can use
+    # it without chunking. Otherwise, we need to iterate over data chunks.
+    if image.dtype.isnative and kwargs["order"] <= 1:
+        values = scipy_map_coordinates(at_least_float32(image), coords, output=output, **kwargs)
     else:
         if output is None:
             output = np.repeat(np.nan, coords.shape[1])
