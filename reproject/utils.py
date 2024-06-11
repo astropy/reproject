@@ -74,13 +74,19 @@ def hdu_to_vanilla_memmap(hdu):
     array backed by a memmapped buffer as returned by astropy.
     """
 
-    if hdu.fileinfo() is None:
+    if (
+        "BSCALE" in hdu.header
+        or "BZERO" in hdu.header
+        or hdu.fileinfo() is None
+        or hdu._data_replaced
+        or hdu.fileinfo()["file"].compression is not None
+    ):
         return hdu.data
 
     return np.memmap(
         hdu.fileinfo()["file"].name,
         mode="r",
-        dtype=hdu.data.dtype,
+        dtype=hdu.data.dtype.newbyteorder(">"),
         shape=hdu.data.shape,
         offset=hdu.fileinfo()["datLoc"],
     )
