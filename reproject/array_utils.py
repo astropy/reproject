@@ -146,7 +146,7 @@ def map_coordinates(image, coords, max_chunk_size=None, output=None, **kwargs):
             # Adjust chunks to add padding
             for idim, slc in enumerate(chunk):
                 start = max(0, slc.start - 10)
-                stop = min(original_shape[i], slc.stop + 10)
+                stop = min(original_shape[idim], slc.stop + 10)
                 chunk[idim] = slice(start, stop)
 
             chunk = tuple(chunk)
