@@ -68,7 +68,7 @@ def _dask_to_numpy_memmap(dask_array, tmp_dir):
     return memmap_path, memmapped_array
 
 
-def hdu_to_vanilla_memmap(hdu):
+def hdu_to_numpy_memmap(hdu):
     """
     Given an HDU object, return a regular Numpy memmap rather than a Numpy
     array backed by a memmapped buffer as returned by astropy.
@@ -111,7 +111,7 @@ def parse_input_data(input_data, hdu_in=None):
                 hdu_in = 0
         return parse_input_data(input_data[hdu_in])
     elif isinstance(input_data, PrimaryHDU | ImageHDU | CompImageHDU):
-        return hdu_to_vanilla_memmap(input_data), WCS(input_data.header)
+        return hdu_to_numpy_memmap(input_data), WCS(input_data.header)
     elif isinstance(input_data, tuple) and isinstance(input_data[0], np.ndarray | da.core.Array):
         if isinstance(input_data[1], Header):
             return input_data[0], WCS(input_data[1])

@@ -7,7 +7,7 @@ from astropy.wcs import WCS
 from reproject.conftest import set_wcs_array_shape
 from reproject.tests.helpers import assert_wcs_allclose
 from reproject.utils import (
-    hdu_to_vanilla_memmap,
+    hdu_to_numpy_memmap,
     parse_input_data,
     parse_input_shape,
     parse_output_projection,
@@ -144,6 +144,6 @@ class TestHDUToMemmap:
         hdu = fits.CompImageHDU(data=np.random.random((128, 128)))
         hdu.writeto(tmp_path / "test.fits")
 
-        mmap = hdu_to_vanilla_memmap(hdu)
+        mmap = hdu_to_numpy_memmap(hdu)
 
         np.testing.assert_allclose(hdu.data, mmap)
