@@ -1,7 +1,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 import os
+import sys
 import tempfile
-import time
 import uuid
 
 import numpy as np
@@ -15,6 +15,9 @@ from .background import determine_offset_matrix, solve_corrections_sgd
 from .subset_array import ReprojectedArraySubset
 
 __all__ = ["reproject_and_coadd"]
+
+
+IS_WIN = sys.platform == "win32"
 
 
 def _noop(iterable):
@@ -37,6 +40,7 @@ def reproject_and_coadd(
     block_sizes=None,
     progress_bar=None,
     blank_pixel_value=0,
+    intermediate_memmap=False,
     **kwargs,
 ):
     """
@@ -118,6 +122,9 @@ def reproject_and_coadd(
     blank_pixel_value : float, optional
         Value to use for areas of the resulting mosaic that do not have input
         data.
+    intermediate_memmap : bool, optional
+        If `True`, use `numpy.memmap` to store intermediate output arrays for
+        reprojected data.
 
     **kwargs
         Keyword arguments to be passed to the reprojection function.
@@ -180,7 +187,7 @@ def reproject_and_coadd(
     if not on_the_fly:
         arrays = []
 
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as local_tmp_dir:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=IS_WIN) as local_tmp_dir:
 
         for idata in progress_bar(range(len(input_data))):
             # We need to pre-parse the data here since we need to figure out how to
@@ -254,23 +261,29 @@ def reproject_and_coadd(
             # able to handle weights, and make the footprint become the combined
             # footprint + weight map
 
-            array_path = os.path.join(local_tmp_dir, f"array_{uuid.uuid4()}.np")
+            if intermediate_memmap:
 
-            array = np.memmap(
-                array_path,
-                shape=shape_out_indiv,
-                mode="w+",
-                dtype=array_in.dtype,
-            )
+                array_path = os.path.join(local_tmp_dir, f"array_{uuid.uuid4()}.np")
 
-            footprint_path = os.path.join(local_tmp_dir, f"footprint_{uuid.uuid4()}.np")
+                array = np.memmap(
+                    array_path,
+                    shape=shape_out_indiv,
+                    mode="w+",
+                    dtype=array_in.dtype,
+                )
 
-            footprint = np.memmap(
-                footprint_path,
-                shape=shape_out_indiv,
-                mode="w+",
-                dtype=float,
-            )
+                footprint_path = os.path.join(local_tmp_dir, f"footprint_{uuid.uuid4()}.np")
+
+                footprint = np.memmap(
+                    footprint_path,
+                    shape=shape_out_indiv,
+                    mode="w+",
+                    dtype=float,
+                )
+
+            else:
+
+                array = footprint = None
 
             array, footprint = reproject_function(
                 (array_in, wcs_in),
@@ -284,14 +297,20 @@ def reproject_and_coadd(
 
             if weights_in is not None:
 
-                weights_path = os.path.join(local_tmp_dir, f"weights_{uuid.uuid4()}.np")
+                if intermediate_memmap:
 
-                weights = np.memmap(
-                    weights_path,
-                    shape=shape_out_indiv,
-                    mode="w+",
-                    dtype=float,
-                )
+                    weights_path = os.path.join(local_tmp_dir, f"weights_{uuid.uuid4()}.np")
+
+                    weights = np.memmap(
+                        weights_path,
+                        shape=shape_out_indiv,
+                        mode="w+",
+                        dtype=float,
+                    )
+
+                else:
+
+                    weights = None
 
                 weights = reproject_function(
                     (weights_in, wcs_in),
@@ -313,11 +332,14 @@ def reproject_and_coadd(
             if weights_in is not None:
                 weights[reset] = 0.0
                 footprint *= weights
-                weights = None
-                try:
-                    os.remove(weights_path)
-                except PermissionError:
-                    pass
+
+                if intermediate_memmap:
+                    # Remove the reference to the memmap before trying to remove the file itself
+                    weights = None
+                    try:
+                        os.remove(weights_path)
+                    except PermissionError:
+                        pass
 
             array = ReprojectedArraySubset(array, footprint, bounds)
 
@@ -336,13 +358,18 @@ def reproject_and_coadd(
                 # the end of the loop.
                 array.array *= array.footprint
                 output_array[array.view_in_original_array] += array.array
-                array = None
-                footprint = None
-                try:
-                    os.remove(array_path)
-                    os.remove(footprint_path)
-                except PermissionError:
-                    pass
+
+                if intermediate_memmap:
+                    # Remove the references to the memmaps themesleves before
+                    # trying to remove the files thermselves.
+                    array = None
+                    footprint = None
+                    try:
+                        os.remove(array_path)
+                        os.remove(footprint_path)
+                    except PermissionError:
+                        pass
+
             else:
                 arrays.append(array)
 
@@ -363,7 +390,6 @@ def reproject_and_coadd(
                     # but we set these to 0 here to avoid getting NaNs in the
                     # means/sums.
                     array.array[array.footprint == 0] = 0
-
                     output_array[array.view_in_original_array] += array.array * array.footprint
                     output_footprint[array.view_in_original_array] += array.footprint
 
@@ -398,13 +424,12 @@ def reproject_and_coadd(
                     mask, array.array, output_array[array.view_in_original_array]
                 )
 
-        # Avoid keeping any references to the memory-mapped arrays
-        if array is not None:
-            array.array = None
-            array.footprint = None
-        array = None
-        footprint = None
-        arrays = []
+        # Avoid keeping any references to the memory-mapped arrays so that the
+        # files get cleaned up once we exit the context manager.
+        if intermediate_memmap:
+            array = None
+            footprint = None
+            arrays = []
 
     # We need to avoid potentially large memory allocation from output == 0 so
     # we operate in chunks.

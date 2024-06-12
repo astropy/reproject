@@ -24,6 +24,11 @@ def reproject_function(request):
     return request.param
 
 
+@pytest.fixture(params=[False, True])
+def intermediate_memmap(request):
+    return request.param
+
+
 class TestReprojectAndCoAdd:
     def setup_method(self, method):
         self.wcs = WCS(naxis=2)
@@ -74,7 +79,7 @@ class TestReprojectAndCoAdd:
         return views
 
     @pytest.mark.parametrize("combine_function", ["mean", "sum", "first", "last"])
-    def test_coadd_no_overlap(self, combine_function, reproject_function):
+    def test_coadd_no_overlap(self, combine_function, reproject_function, intermediate_memmap):
         # Make sure that if all tiles are exactly non-overlapping, and
         # we use 'sum' or 'mean', we get the exact input array back.
 
@@ -91,7 +96,7 @@ class TestReprojectAndCoAdd:
         assert_allclose(array, self.array, atol=ATOL)
         assert_allclose(footprint, 1, atol=ATOL)
 
-    def test_coadd_with_overlap(self, reproject_function):
+    def test_coadd_with_overlap(self, reproject_function, intermediate_memmap):
         # Here we make the input tiles overlapping. We can only check the
         # mean, not the sum.
 
@@ -107,7 +112,7 @@ class TestReprojectAndCoAdd:
 
         assert_allclose(array, self.array, atol=ATOL)
 
-    def test_coadd_with_outputs(self, tmp_path, reproject_function):
+    def test_coadd_with_outputs(self, tmp_path, reproject_function, intermediate_memmap):
         # Test the options to specify output array/footprint
 
         input_data = self._get_tiles(self._overlapping_views)
@@ -173,7 +178,7 @@ class TestReprojectAndCoAdd:
             assert_allclose(output_values, (i + 7) % 20)
             array[view] = np.nan
 
-    def test_coadd_background_matching(self, reproject_function):
+    def test_coadd_background_matching(self, reproject_function, intermediate_memmap):
         # Test out the background matching
 
         input_data = self._get_tiles(self._overlapping_views)
@@ -209,7 +214,7 @@ class TestReprojectAndCoAdd:
 
         assert_allclose(array - np.mean(array), self.array - np.mean(self.array), atol=ATOL)
 
-    def test_coadd_background_matching_one_array(self, reproject_function):
+    def test_coadd_background_matching_one_array(self, reproject_function, intermediate_memmap):
         # Test that background matching doesn't affect the output when there's
         # only one input image.
 
@@ -268,7 +273,7 @@ class TestReprojectAndCoAdd:
 
         assert np.all((array != 0) == (footprint > 0))
 
-    def test_coadd_background_matching_with_nan(self, reproject_function):
+    def test_coadd_background_matching_with_nan(self, reproject_function, intermediate_memmap):
         # Test out the background matching when NaN values are present. We do
         # this by using three arrays with the same footprint but with different
         # parts masked.
@@ -300,7 +305,7 @@ class TestReprojectAndCoAdd:
 
     @pytest.mark.filterwarnings("ignore:unclosed file:ResourceWarning")
     @pytest.mark.parametrize("mode", ["arrays", "filenames", "hdus"])
-    def test_coadd_with_weights(self, tmpdir, reproject_function, mode):
+    def test_coadd_with_weights(self, tmpdir, reproject_function, mode, intermediate_memmap):
         # Make sure that things work properly when specifying weights
 
         array1 = self.array + 1
