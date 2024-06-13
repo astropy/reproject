@@ -98,12 +98,12 @@ def reproject_and_coadd(
     output_array : array or None
         The final output array.  Specify this if you already have an
         appropriately-shaped array to store the data in.  Must match shape
-        specified with `shape_out` or derived from the output
+        specified with ``shape_out`` or derived from the output
         projection.
     output_footprint : array or None
         The final output footprint array.  Specify this if you already have an
         appropriately-shaped array to store the data in.  Must match shape
-        specified with `shape_out` or derived from the output projection.
+        specified with ``shape_out`` or derived from the output projection.
     block_sizes : list of tuples or None
         The block size to use for each dataset.  Could also be a single tuple
         if you want the sample block size for all data sets.
@@ -212,7 +212,7 @@ def reproject_and_coadd(
 
         skip_data = False
         if np.any(np.isnan(edges_out)):
-            bounds = list(zip([0] * ndim_out, shape_out))
+            bounds = list(zip([0] * ndim_out, shape_out, strict=False))
         else:
             bounds = []
             for idim in range(ndim_out):
