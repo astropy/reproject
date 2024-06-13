@@ -1,15 +1,23 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
+import os
+import sys
+import tempfile
+import uuid
 
 import numpy as np
 from astropy.wcs import WCS
+from astropy.wcs.utils import pixel_to_pixel
 from astropy.wcs.wcsapi import SlicedLowLevelWCS
 
-from ..array_utils import sample_array_edges
+from ..array_utils import iterate_chunks, sample_array_edges
 from ..utils import parse_input_data, parse_input_weights, parse_output_projection
 from .background import determine_offset_matrix, solve_corrections_sgd
 from .subset_array import ReprojectedArraySubset
 
 __all__ = ["reproject_and_coadd"]
+
+
+IS_WIN = sys.platform == "win32"
 
 
 def _noop(iterable):
@@ -32,6 +40,7 @@ def reproject_and_coadd(
     block_sizes=None,
     progress_bar=None,
     blank_pixel_value=0,
+    intermediate_memmap=False,
     **kwargs,
 ):
     """
@@ -113,6 +122,9 @@ def reproject_and_coadd(
     blank_pixel_value : float, optional
         Value to use for areas of the resulting mosaic that do not have input
         data.
+    intermediate_memmap : bool, optional
+        If `True`, use `numpy.memmap` to store intermediate output arrays for
+        reprojected data.
 
     **kwargs
         Keyword arguments to be passed to the reprojection function.
@@ -175,172 +187,253 @@ def reproject_and_coadd(
     if not on_the_fly:
         arrays = []
 
-    for idata in progress_bar(range(len(input_data))):
-        # We need to pre-parse the data here since we need to figure out how to
-        # optimize/minimize the size of each output tile (see below).
-        array_in, wcs_in = parse_input_data(input_data[idata], hdu_in=hdu_in)
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=IS_WIN) as local_tmp_dir:
 
-        # We also get the weights map, if specified
-        if input_weights is None:
-            weights_in = None
-        else:
-            weights_in = parse_input_weights(input_weights[idata], hdu_weights=hdu_weights)
-            if np.any(np.isnan(weights_in)):
-                weights_in = np.nan_to_num(weights_in)
+        for idata in progress_bar(range(len(input_data))):
+            # We need to pre-parse the data here since we need to figure out how to
+            # optimize/minimize the size of each output tile (see below).
+            array_in, wcs_in = parse_input_data(input_data[idata], hdu_in=hdu_in)
 
-        # Since we might be reprojecting small images into a large mosaic we
-        # want to make sure that for each image we reproject to an array with
-        # minimal footprint. We therefore find the pixel coordinates of the
-        # edges of the initial image and transform this to pixel coordinates in
-        # the final image to figure out the final WCS and shape to reproject to
-        # for each tile. We strike a balance between transforming only the
-        # input-image corners, which is fast but can cause clipping in cases of
-        # significant distortion (when the edges of the input image become
-        # convex in the output projection), and transforming every edge pixel,
-        # which provides a lot of redundant information.
-
-        edges = sample_array_edges(array_in.shape, n_samples=11)[::-1]
-        edges_out = wcs_out.world_to_pixel(wcs_in.pixel_to_world(*edges))[::-1]
-
-        # Determine the cutout parameters
-
-        # In some cases, images might not have valid coordinates in the corners,
-        # such as all-sky images or full solar disk views. In this case we skip
-        # this step and just use the full output WCS for reprojection.
-
-        ndim_out = len(shape_out)
-
-        skip_data = False
-        if np.any(np.isnan(edges_out)):
-            bounds = list(zip([0] * ndim_out, shape_out, strict=False))
-        else:
-            bounds = []
-            for idim in range(ndim_out):
-                imin = max(0, int(np.floor(edges_out[idim].min() + 0.5)))
-                imax = min(shape_out[idim], int(np.ceil(edges_out[idim].max() + 0.5)))
-                bounds.append((imin, imax))
-                if imax < imin:
-                    skip_data = True
-                    break
-
-        if skip_data:
-            continue
-
-        slice_out = tuple([slice(imin, imax) for (imin, imax) in bounds])
-
-        if isinstance(wcs_out, WCS):
-            wcs_out_indiv = wcs_out[slice_out]
-        else:
-            wcs_out_indiv = SlicedLowLevelWCS(wcs_out.low_level_wcs, slice_out)
-
-        shape_out_indiv = [imax - imin for (imin, imax) in bounds]
-
-        if block_sizes is not None:
-            if len(block_sizes) == len(input_data) and len(block_sizes[idata]) == len(shape_out):
-                kwargs["block_size"] = block_sizes[idata]
+            # We also get the weights map, if specified
+            if input_weights is None:
+                weights_in = None
             else:
-                kwargs["block_size"] = block_sizes
+                weights_in = parse_input_weights(input_weights[idata], hdu_weights=hdu_weights)
+                if np.any(np.isnan(weights_in)):
+                    weights_in = np.nan_to_num(weights_in)
 
-        # TODO: optimize handling of weights by making reprojection functions
-        # able to handle weights, and make the footprint become the combined
-        # footprint + weight map
+            # Since we might be reprojecting small images into a large mosaic we
+            # want to make sure that for each image we reproject to an array with
+            # minimal footprint. We therefore find the pixel coordinates of the
+            # edges of the initial image and transform this to pixel coordinates in
+            # the final image to figure out the final WCS and shape to reproject to
+            # for each tile. We strike a balance between transforming only the
+            # input-image corners, which is fast but can cause clipping in cases of
+            # significant distortion (when the edges of the input image become
+            # convex in the output projection), and transforming every edge pixel,
+            # which provides a lot of redundant information.
 
-        array, footprint = reproject_function(
-            (array_in, wcs_in),
-            output_projection=wcs_out_indiv,
-            shape_out=shape_out_indiv,
-            hdu_in=hdu_in,
-            **kwargs,
-        )
+            edges = sample_array_edges(array_in.shape, n_samples=11)[::-1]
+            edges_out = pixel_to_pixel(wcs_in, wcs_out, *edges)[::-1]
 
-        if weights_in is not None:
-            weights, _ = reproject_function(
-                (weights_in, wcs_in),
+            # Determine the cutout parameters
+
+            # In some cases, images might not have valid coordinates in the corners,
+            # such as all-sky images or full solar disk views. In this case we skip
+            # this step and just use the full output WCS for reprojection.
+
+            ndim_out = len(shape_out)
+
+            skip_data = False
+            if np.any(np.isnan(edges_out)):
+                bounds = list(zip([0] * ndim_out, shape_out, strict=False))
+            else:
+                bounds = []
+                for idim in range(ndim_out):
+                    imin = max(0, int(np.floor(edges_out[idim].min() + 0.5)))
+                    imax = min(shape_out[idim], int(np.ceil(edges_out[idim].max() + 0.5)))
+                    bounds.append((imin, imax))
+                    if imax < imin:
+                        skip_data = True
+                        break
+
+            if skip_data:
+                continue
+
+            slice_out = tuple([slice(imin, imax) for (imin, imax) in bounds])
+
+            if isinstance(wcs_out, WCS):
+                wcs_out_indiv = wcs_out[slice_out]
+            else:
+                wcs_out_indiv = SlicedLowLevelWCS(wcs_out.low_level_wcs, slice_out)
+
+            shape_out_indiv = tuple([imax - imin for (imin, imax) in bounds])
+
+            if block_sizes is not None:
+                if len(block_sizes) == len(input_data) and len(block_sizes[idata]) == len(
+                    shape_out
+                ):
+                    kwargs["block_size"] = block_sizes[idata]
+                else:
+                    kwargs["block_size"] = block_sizes
+
+            # TODO: optimize handling of weights by making reprojection functions
+            # able to handle weights, and make the footprint become the combined
+            # footprint + weight map
+
+            if intermediate_memmap:
+
+                array_path = os.path.join(local_tmp_dir, f"array_{uuid.uuid4()}.np")
+
+                array = np.memmap(
+                    array_path,
+                    shape=shape_out_indiv,
+                    mode="w+",
+                    dtype=array_in.dtype,
+                )
+
+                footprint_path = os.path.join(local_tmp_dir, f"footprint_{uuid.uuid4()}.np")
+
+                footprint = np.memmap(
+                    footprint_path,
+                    shape=shape_out_indiv,
+                    mode="w+",
+                    dtype=float,
+                )
+
+            else:
+
+                array = footprint = None
+
+            array, footprint = reproject_function(
+                (array_in, wcs_in),
                 output_projection=wcs_out_indiv,
                 shape_out=shape_out_indiv,
                 hdu_in=hdu_in,
+                output_array=array,
+                output_footprint=footprint,
                 **kwargs,
             )
 
-        # For the purposes of mosaicking, we mask out NaN values from the array
-        # and set the footprint to 0 at these locations.
-        reset = np.isnan(array)
-        array[reset] = 0.0
-        footprint[reset] = 0.0
+            if weights_in is not None:
 
-        # Combine weights and footprint
-        if weights_in is not None:
-            weights[reset] = 0.0
-            footprint *= weights
+                if intermediate_memmap:
 
-        array = ReprojectedArraySubset(array, footprint, bounds)
+                    weights_path = os.path.join(local_tmp_dir, f"weights_{uuid.uuid4()}.np")
 
-        # TODO: make sure we gracefully handle the case where the
-        # output image is empty (due e.g. to no overlap).
+                    weights = np.memmap(
+                        weights_path,
+                        shape=shape_out_indiv,
+                        mode="w+",
+                        dtype=float,
+                    )
 
-        if on_the_fly:
-            # By default, values outside of the footprint are set to NaN
-            # but we set these to 0 here to avoid getting NaNs in the
-            # means/sums.
-            array.array[array.footprint == 0] = 0
-            output_array[array.view_in_original_array] += array.array * array.footprint
-            output_footprint[array.view_in_original_array] += array.footprint
-        else:
-            arrays.append(array)
+                else:
 
-    # If requested, try and match the backgrounds.
-    if match_background and len(arrays) > 1:
-        offset_matrix = determine_offset_matrix(arrays)
-        corrections = solve_corrections_sgd(offset_matrix)
-        if background_reference:
-            corrections -= corrections[background_reference]
-        for array, correction in zip(arrays, corrections, strict=True):
-            array.array -= correction
+                    weights = None
 
-    if combine_function in ("mean", "sum"):
-        if match_background:
-            # if we're not matching the background, this part has already been done
-            for array in arrays:
+                weights = reproject_function(
+                    (weights_in, wcs_in),
+                    output_projection=wcs_out_indiv,
+                    shape_out=shape_out_indiv,
+                    hdu_in=hdu_in,
+                    output_array=weights,
+                    return_footprint=False,
+                    **kwargs,
+                )
+
+            # For the purposes of mosaicking, we mask out NaN values from the array
+            # and set the footprint to 0 at these locations.
+            reset = np.isnan(array)
+            array[reset] = 0.0
+            footprint[reset] = 0.0
+
+            # Combine weights and footprint
+            if weights_in is not None:
+                weights[reset] = 0.0
+                footprint *= weights
+
+                if intermediate_memmap:
+                    # Remove the reference to the memmap before trying to remove the file itself
+                    weights = None
+                    try:
+                        os.remove(weights_path)
+                    except PermissionError:
+                        pass
+
+            array = ReprojectedArraySubset(array, footprint, bounds)
+
+            # TODO: make sure we gracefully handle the case where the
+            # output image is empty (due e.g. to no overlap).
+
+            if on_the_fly:
                 # By default, values outside of the footprint are set to NaN
                 # but we set these to 0 here to avoid getting NaNs in the
                 # means/sums.
                 array.array[array.footprint == 0] = 0
-
-                output_array[array.view_in_original_array] += array.array * array.footprint
                 output_footprint[array.view_in_original_array] += array.footprint
+                # We now need to do output[view] += array * footprint but to avoid
+                # the temporary array allocation from array * footprint we modify
+                # array inplace, which we can do as the array will be discarded at
+                # the end of the loop.
+                array.array *= array.footprint
+                output_array[array.view_in_original_array] += array.array
 
-        if combine_function == "mean":
-            with np.errstate(invalid="ignore"):
-                output_array /= output_footprint
-                output_array[output_footprint == 0] = blank_pixel_value
+                if intermediate_memmap:
+                    # Remove the references to the memmaps themesleves before
+                    # trying to remove the files thermselves.
+                    array = None
+                    footprint = None
+                    try:
+                        os.remove(array_path)
+                        os.remove(footprint_path)
+                    except PermissionError:
+                        pass
 
-    elif combine_function in ("first", "last", "min", "max"):
-        if combine_function == "min":
-            output_array[...] = np.inf
-        elif combine_function == "max":
-            output_array[...] = -np.inf
+            else:
+                arrays.append(array)
 
-        for array in arrays:
-            if combine_function == "first":
-                mask = output_footprint[array.view_in_original_array] == 0
-            elif combine_function == "last":
-                mask = array.footprint > 0
-            elif combine_function == "min":
-                mask = (array.footprint > 0) & (
-                    array.array < output_array[array.view_in_original_array]
-                )
+        # If requested, try and match the backgrounds.
+        if match_background and len(arrays) > 1:
+            offset_matrix = determine_offset_matrix(arrays)
+            corrections = solve_corrections_sgd(offset_matrix)
+            if background_reference:
+                corrections -= corrections[background_reference]
+            for array, correction in zip(arrays, corrections, strict=True):
+                array.array -= correction
+
+        if combine_function in ("mean", "sum"):
+            if match_background:
+                # if we're not matching the background, this part has already been done
+                for array in arrays:
+                    # By default, values outside of the footprint are set to NaN
+                    # but we set these to 0 here to avoid getting NaNs in the
+                    # means/sums.
+                    array.array[array.footprint == 0] = 0
+                    output_array[array.view_in_original_array] += array.array * array.footprint
+                    output_footprint[array.view_in_original_array] += array.footprint
+
+            if combine_function == "mean":
+                with np.errstate(invalid="ignore"):
+                    output_array /= output_footprint
+
+        elif combine_function in ("first", "last", "min", "max"):
+            if combine_function == "min":
+                output_array[...] = np.inf
             elif combine_function == "max":
-                mask = (array.footprint > 0) & (
-                    array.array > output_array[array.view_in_original_array]
+                output_array[...] = -np.inf
+
+            for array in arrays:
+                if combine_function == "first":
+                    mask = output_footprint[array.view_in_original_array] == 0
+                elif combine_function == "last":
+                    mask = array.footprint > 0
+                elif combine_function == "min":
+                    mask = (array.footprint > 0) & (
+                        array.array < output_array[array.view_in_original_array]
+                    )
+                elif combine_function == "max":
+                    mask = (array.footprint > 0) & (
+                        array.array > output_array[array.view_in_original_array]
+                    )
+
+                output_footprint[array.view_in_original_array] = np.where(
+                    mask, array.footprint, output_footprint[array.view_in_original_array]
+                )
+                output_array[array.view_in_original_array] = np.where(
+                    mask, array.array, output_array[array.view_in_original_array]
                 )
 
-            output_footprint[array.view_in_original_array] = np.where(
-                mask, array.footprint, output_footprint[array.view_in_original_array]
-            )
-            output_array[array.view_in_original_array] = np.where(
-                mask, array.array, output_array[array.view_in_original_array]
-            )
+        # Avoid keeping any references to the memory-mapped arrays so that the
+        # files get cleaned up once we exit the context manager.
+        if intermediate_memmap:
+            array = None
+            footprint = None
+            arrays = []
 
-    output_array[output_footprint == 0] = blank_pixel_value
+    # We need to avoid potentially large memory allocation from output == 0 so
+    # we operate in chunks.
+    for chunk in iterate_chunks(output_array.shape, max_chunk_size=256 * 1024**2):
+        output_array[chunk][output_footprint[chunk] == 0] = blank_pixel_value
 
     return output_array, output_footprint

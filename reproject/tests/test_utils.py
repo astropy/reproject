@@ -6,7 +6,12 @@ from astropy.wcs import WCS
 
 from reproject.conftest import set_wcs_array_shape
 from reproject.tests.helpers import assert_wcs_allclose
-from reproject.utils import parse_input_data, parse_input_shape, parse_output_projection
+from reproject.utils import (
+    hdu_to_numpy_memmap,
+    parse_input_data,
+    parse_input_shape,
+    parse_output_projection,
+)
 from reproject.wcs_utils import has_celestial
 
 
@@ -130,3 +135,15 @@ def test_has_celestial():
 
     wwh2 = HighLevelWCSWrapper(SlicedLowLevelWCS(ww, [slice(0, 1), slice(0, 1)]))
     assert has_celestial(wwh2)
+
+
+class TestHDUToMemmap:
+
+    def test_compressed(self, tmp_path):
+
+        hdu = fits.CompImageHDU(data=np.random.random((128, 128)))
+        hdu.writeto(tmp_path / "test.fits")
+
+        mmap = hdu_to_numpy_memmap(hdu)
+
+        np.testing.assert_allclose(hdu.data, mmap)

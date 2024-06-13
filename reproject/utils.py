@@ -68,6 +68,30 @@ def _dask_to_numpy_memmap(dask_array, tmp_dir):
     return memmap_path, memmapped_array
 
 
+def hdu_to_numpy_memmap(hdu):
+    """
+    Given an HDU object, return a regular Numpy memmap rather than a Numpy
+    array backed by a memmapped buffer as returned by astropy.
+    """
+
+    if (
+        "BSCALE" in hdu.header
+        or "BZERO" in hdu.header
+        or hdu.fileinfo() is None
+        or hdu._data_replaced
+        or hdu.fileinfo()["file"].compression is not None
+    ):
+        return hdu.data
+
+    return np.memmap(
+        hdu.fileinfo()["file"].name,
+        mode="r",
+        dtype=hdu.data.dtype.newbyteorder(">"),
+        shape=hdu.data.shape,
+        offset=hdu.fileinfo()["datLoc"],
+    )
+
+
 def parse_input_data(input_data, hdu_in=None):
     """
     Parse input data to return a Numpy array and WCS object.
@@ -87,7 +111,7 @@ def parse_input_data(input_data, hdu_in=None):
                 hdu_in = 0
         return parse_input_data(input_data[hdu_in])
     elif isinstance(input_data, PrimaryHDU | ImageHDU | CompImageHDU):
-        return input_data.data, WCS(input_data.header)
+        return hdu_to_numpy_memmap(input_data), WCS(input_data.header)
     elif isinstance(input_data, tuple) and isinstance(input_data[0], np.ndarray | da.core.Array):
         if isinstance(input_data[1], Header):
             return input_data[0], WCS(input_data[1])

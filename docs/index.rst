@@ -138,6 +138,7 @@ that you want to reproject.
    footprints
    mosaicking
    performance
+   performance_mosaicking
 
 Reference/API
 =============

@@ -71,8 +71,7 @@ def _reproject_full(
     the same coordinate information. The transformation is computed once and
     "broadcast" across those images.
     """
-    # Make sure image is floating point
-    array = np.asarray(array, dtype=float)
+
     # shape_out must be exactly a tuple type
     shape_out = tuple(shape_out)
     _validate_wcs(wcs_in, wcs_out, array.shape, shape_out)
@@ -126,6 +125,7 @@ def _reproject_full(
             cval=np.nan,
             mode="constant",
             output=array_out_loopable[i].ravel(),
+            max_chunk_size=256 * 1024**2,
         )
 
     # n.b. We write the reprojected data into array_out_loopable, but array_out
