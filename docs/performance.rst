@@ -1,6 +1,6 @@
-**********************
-Optimizing performance
-**********************
+****************************************************
+Optimizing performance for single-image reprojection
+****************************************************
 
 Disabling coordinate transformation round-tripping
 ==================================================
@@ -150,31 +150,18 @@ the reprojection will be done in 64 separate output chunks. Note however that
 this does not break up the input array into chunks since in the general case any
 input pixel may contribute to any output pixel.
 
-Multi-process reprojection
-==========================
+.. _multithreading:
+
+Multi-threaded reprojection
+===========================
 
 By default, the iteration over the output chunks is done in a single
 process/thread, but you may specify ``parallel=True`` to process these in
-parallel. If you do this, reproject will use multiple processes (rather than
-threads) to parallelize the computation (this is because the core reprojection
-algorithms we use are not currently thread-safe). If you specify
-``parallel=True``, then ``block_size`` will be automatically set to a sensible
-default, but you can also set ``block_size`` manually for more control. Note
-that you can also set ``parallel=`` to an integer to indicate the number of
-processes to use.
-
-By default, in parallel mode, the entire input array will be written to a
-temporary file that is then memory-mapped - this is to avoid loading the whole
-input array into memory in each process. If you are specifying a WCS with fewer
-dimensions than the data to be reprojected, as described in :ref:`broadcasting`,
-you can set the block size to be such that the block size along the dimensions
-being reprojected cover the whole image, while the other dimensions can be
-smaller. For example, if you are reprojecting a spectral cube with dimensions
-(500, 2048, 2048) where 500 is the number of spectral channels and (2048, 2048)
-is the celestial plane, then if you are reprojecting just the celestial part of
-the WCS you can specify a block size of (N, 2048, 2048) and this will enable a
-separate reprojection mode where the input array is not written to disk but
-where the reprojection is done in truly independent chunks with size (N, 2048, 2048).
+parallel. If you do this, reproject will use multiple threads to parallelize the
+computation. If you specify ``parallel=True``, then ``block_size`` will be
+automatically set to a sensible default, but you can also set ``block_size``
+manually for more control. Note that you can also set ``parallel=`` to an
+integer to indicate the number of threads to use.
 
 Input dask arrays
 =================
@@ -197,7 +184,13 @@ Therefore, for now, when a dask array is passed as input, it is computed using
 the current default scheduler and converted to a Numpy memory-mapped array. This
 is done efficiently in terms of memory and never results in the whole dataset
 being loaded into memory at any given time. However, this does require
-sufficient space on disk to store the array.
+sufficient space on disk to store the array. If your default system temporary
+directory does not have sufficient space, you can set the ``TMPDIR`` environment
+variable to point at another directory:
+
+    >>> import os
+    >>> os.environ['TMPDIR'] = '/home/lancelot/tmp'
+
 
 Output dask arrays
 ==================
@@ -216,11 +209,6 @@ can make the functions delay any computation and return dask arrays::
 
 You can then compute the array or a section of the array yourself whenever you need, or use the
 result in further dask expressions.
-
-.. warning:: The reprojection does not currently work reliably when using multiple threads, so
-             it is important to make sure you use a dask scheduler that is not multi-threaded.
-             At the time of writing, the default dask scheduler is ``threads``, so the scheduler
-             needs to be explicitly set to a different one.
 
 Using dask.distributed
 ======================
