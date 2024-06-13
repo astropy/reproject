@@ -12,7 +12,7 @@ requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.23",
     "astropy>=5.0",
-    "astropy-healpix>=0.6",
+    "astropy-healpix>=1.0",
     "scipy>=1.9",
     "dask[array]>=2021.8",
     "cloudpickle",
