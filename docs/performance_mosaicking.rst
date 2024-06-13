@@ -16,8 +16,8 @@ For example:
     >>> output_footprint = np.memmap(filename='footprint.np', mode='w+',
     ...                              shape=shape_out, dtype='float32')
     >>> reproject_and_coadd(...,
-                            output_array=output_array,
-                            output_footprint=output_footprint)
+    ...                     output_array=output_array,
+    ...                     output_footprint=output_footprint)
 
 Using memory-mapped intermediate arrays
 =======================================
@@ -28,8 +28,10 @@ may not fit in memory. In this case, you can use the ``intermediate_memmap``
 option to indicate that all intermediate arrays in the mosaicking process should
 use memory-mapped arrays rather than in-memory arrays:
 
+.. doctest-skip::
+
     >>> reproject_and_coadd(...,
-                            intermediate_memmap=True)
+    ...                     intermediate_memmap=True)
 
 Combined with the above option to specify the output array and footprint for the
 final mosaic, it is possible to make sure that no large arrays are ever loaded
