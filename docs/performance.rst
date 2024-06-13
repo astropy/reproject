@@ -79,7 +79,7 @@ Multiple images with the same coordinates
 If you have multiple images with the exact same coordinate system (e.g. a raw
 image and a corresponding processed image) and want to reproject both to the
 same output frame, it is faster to compute the coordinate mapping between input
-and output pixels only once and re-use this mapping for each reprojection. This
+and output pixels only once and reuse this mapping for each reprojection. This
 is supported by passing multiple input images as an additional dimension in the
 input data array. When the input array contains more dimensions than the input
 WCS describes, the extra leading dimensions are taken to represent separate
@@ -202,7 +202,7 @@ sufficient space on disk to store the array.
 Output dask arrays
 ==================
 
-By default, the reprojection functions will do the computation immmediately and
+By default, the reprojection functions will do the computation immediately and
 return Numpy arrays for the reprojected array and optionally the footprint (this
 is regardless of whether dask or Numpy arrays were passed in, or any of the
 parallelization options above). However, by setting ``return_type='dask'``, you

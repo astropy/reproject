@@ -212,7 +212,7 @@ def reproject_and_coadd(
 
         skip_data = False
         if np.any(np.isnan(edges_out)):
-            bounds = list(zip([0] * ndim_out, shape_out))
+            bounds = list(zip([0] * ndim_out, shape_out, strict=False))
         else:
             bounds = []
             for idim in range(ndim_out):
