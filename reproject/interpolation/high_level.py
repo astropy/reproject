@@ -99,12 +99,13 @@ def reproject_interp(
         the block size automatically determined. If ``block_size`` is not
         specified or set to `None`, the reprojection will not be carried out in
         blocks.
-    parallel : bool or int, optional
+    parallel : bool or int or str, optional
         If `True`, the reprojection is carried out in parallel, and if a
-        positive integer, this specifies the number of processes to use.
+        positive integer, this specifies the number of threads to use.
         The reprojection will be parallelized over output array blocks specified
         by ``block_size`` (if the block size is not set, it will be determined
-        automatically).
+        automatically). To use the currently active dask scheduler (e.g.
+        dask.distributed), set this to ``'current-scheduler'``.
     return_type : {'numpy', 'dask'}, optional
         Whether to return numpy or dask arrays - defaults to 'numpy'.
 

@@ -82,12 +82,13 @@ def _reproject_dispatcher(
         An array in which to store the footprint of reprojected data.  This can be
         any numpy array including a memory map, which may be helpful when dealing with
         extremely large files.
-    parallel : bool or int, optional
+    parallel : bool or int or str, optional
         If `True`, the reprojection is carried out in parallel, and if a
-        positive integer, this specifies the number of processes to use.
+        positive integer, this specifies the number of threads to use.
         The reprojection will be parallelized over output array blocks specified
         by ``block_size`` (if the block size is not set, it will be determined
-        automatically).
+        automatically). To use the currently active dask scheduler (e.g.
+        dask.distributed), set this to ``'current-scheduler'``.
     reproject_func_kwargs : dict, optional
         Keyword arguments to pass through to ``reproject_func``
     return_type : {'numpy', 'dask'}, optional
@@ -293,18 +294,26 @@ def _reproject_dispatcher(
             # 'synchronous' scheduler since that is I/O limited so does not need
             # to be done in parallel.
 
-            if isinstance(parallel, bool):
-                workers = {}
-            else:
-                if parallel > 0:
-                    workers = {"num_workers": parallel}
-                else:
-                    raise ValueError("The number of processors to use must be strictly positive")
-
             zarr_path = os.path.join(local_tmp_dir, f"{uuid.uuid4()}.zarr")
 
-            with dask.config.set(scheduler="threads", **workers):
+            if parallel == "current-scheduler":
+                # Just use whatever is the current active scheduler, which can
+                # be used for e.g. dask.distributed
                 result.to_zarr(zarr_path)
+            else:
+                if isinstance(parallel, bool):
+                    workers = {}
+                else:
+                    if parallel > 0:
+                        workers = {"num_workers": parallel}
+                    else:
+                        raise ValueError(
+                            "The number of processors to use must be strictly positive"
+                        )
+
+                with dask.config.set(scheduler="threads", **workers):
+                    result.to_zarr(zarr_path)
+
             result = da.from_zarr(zarr_path)
 
         if return_footprint:
