@@ -100,7 +100,7 @@ def memory_efficient_access(array, chunk):
             mode="r",
             dtype=array.dtype,
             shape=array.shape,
-            offset=array.offset
+            offset=array.offset,
         )
         return array_tmp[chunk]
     else:
