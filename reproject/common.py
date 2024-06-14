@@ -216,9 +216,9 @@ def _reproject_dispatcher(
             wcs_out_sub = HighLevelWCSWrapper(low_level_wcs)
 
             if isinstance(array_or_path, tuple):
-                array_in = np.memmap(array_or_path[0], **array_or_path[1], mode="r")
+                array_in = np.memmap(array_or_path[0], **array_or_path[1])
             elif isinstance(array_or_path, str):
-                array_in = np.memmap(array_or_path, dtype=float, shape=shape_in, mode="r")
+                array_in = np.memmap(array_or_path, dtype=float, shape=shape_in)
             else:
                 array_in = array_or_path
 
