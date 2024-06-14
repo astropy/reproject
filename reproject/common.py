@@ -82,12 +82,13 @@ def _reproject_dispatcher(
         An array in which to store the footprint of reprojected data.  This can be
         any numpy array including a memory map, which may be helpful when dealing with
         extremely large files.
-    parallel : bool or int, optional
+    parallel : bool or int or str, optional
         If `True`, the reprojection is carried out in parallel, and if a
-        positive integer, this specifies the number of processes to use.
+        positive integer, this specifies the number of threads to use.
         The reprojection will be parallelized over output array blocks specified
         by ``block_size`` (if the block size is not set, it will be determined
-        automatically).
+        automatically). To use the currently active dask scheduler (e.g.
+        dask.distributed), set this to ``'current-scheduler'``.
     reproject_func_kwargs : dict, optional
         Keyword arguments to pass through to ``reproject_func``
     return_type : {'numpy', 'dask'}, optional
@@ -166,7 +167,13 @@ def _reproject_dispatcher(
         # memory-mapped array so that it can be used by the various reprojection
         # functions (which don't internally work with dask arrays).
 
-        if isinstance(array_in, da.core.Array):
+        if isinstance(array_in, np.memmap) and array_in.flags.c_contiguous:
+            array_in_or_path = array_in.filename, {
+                "dtype": array_in.dtype,
+                "shape": array_in.shape,
+                "offset": array_in.offset,
+            }
+        elif isinstance(array_in, da.core.Array) or return_type == "dask":
             if return_type == "dask":
                 # We should use a temporary directory that will persist beyond
                 # the call to the reproject function.
@@ -208,13 +215,15 @@ def _reproject_dispatcher(
 
             wcs_out_sub = HighLevelWCSWrapper(low_level_wcs)
 
-            if isinstance(array_or_path, str):
+            if isinstance(array_or_path, tuple):
+                array_in = np.memmap(array_or_path[0], **array_or_path[1])
+            elif isinstance(array_or_path, str):
                 array_in = np.memmap(array_or_path, dtype=float, shape=shape_in)
             else:
                 array_in = array_or_path
 
             if array_or_path is None:
-                raise ValueError()
+                raise RuntimeError("array_or_path is not set")
 
             shape_out = block_info[None]["chunk-shape"][1:]
 
@@ -286,18 +295,26 @@ def _reproject_dispatcher(
             # 'synchronous' scheduler since that is I/O limited so does not need
             # to be done in parallel.
 
-            if isinstance(parallel, bool):
-                workers = {}
-            else:
-                if parallel > 0:
-                    workers = {"num_workers": parallel}
-                else:
-                    raise ValueError("The number of processors to use must be strictly positive")
-
             zarr_path = os.path.join(local_tmp_dir, f"{uuid.uuid4()}.zarr")
 
-            with dask.config.set(scheduler="threads", **workers):
+            if parallel == "current-scheduler":
+                # Just use whatever is the current active scheduler, which can
+                # be used for e.g. dask.distributed
                 result.to_zarr(zarr_path)
+            else:
+                if isinstance(parallel, bool):
+                    workers = {}
+                else:
+                    if parallel > 0:
+                        workers = {"num_workers": parallel}
+                    else:
+                        raise ValueError(
+                            "The number of processors to use must be strictly positive"
+                        )
+
+                with dask.config.set(scheduler="threads", **workers):
+                    result.to_zarr(zarr_path)
+
             result = da.from_zarr(zarr_path)
 
         if return_footprint:

@@ -75,8 +75,8 @@ def hdu_to_numpy_memmap(hdu):
     """
 
     if (
-        "BSCALE" in hdu.header
-        or "BZERO" in hdu.header
+        hdu.header.get("BSCALE", 1) != 1
+        or hdu.header.get("BZERO", 0) != 0
         or hdu.fileinfo() is None
         or hdu._data_replaced
         or hdu.fileinfo()["file"].compression is not None
