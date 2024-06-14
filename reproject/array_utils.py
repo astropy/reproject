@@ -94,12 +94,13 @@ def memory_efficient_access(array, chunk):
     # If we access a number of chunks from a memory-mapped array, memory usage
     # will increase and could crash e.g. dask.distributed workers. We therefore
     # use a temporary memmap to load the data.
-    if isinstance(array, np.memmap):
+    if isinstance(array, np.memmap) and array.flags.c_contiguous:
         array_tmp = np.memmap(
             array.filename,
             mode="r",
             dtype=array.dtype,
             shape=array.shape,
+            offset=array.offset
         )
         return array_tmp[chunk]
     else:
