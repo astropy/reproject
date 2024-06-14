@@ -217,6 +217,4 @@ The `dask.distributed <https://distributed.dask.org/en/stable/>`_ package makes 
 possible to use distributed schedulers for dask. In order to compute
 reprojections with dask.distributed, you should make use of the
 ``return_type='dask'`` option mentioned above so that you can compute the dask
-array once the distributed scheduler has been set up. As mentioned in `Output
-dask arrays`_, you should make sure that you limit any cluster to have one
-thread per process or the results may be unreliable.
+array once the distributed scheduler has been set up.
