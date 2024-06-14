@@ -50,3 +50,12 @@ Similarly to single-image reprojection (see :ref:`multithreading`), it is possib
 to make use of multi-threading during the mosaicking process by setting the
 ``parallel=`` option to True or to an integer value to indicate the number of
 threads to use.
+
+Using dask.distributed
+======================
+
+The `dask.distributed <https://distributed.dask.org/en/stable/>`_ package makes
+it possible to use distributed schedulers for dask. In order to do mosaicking
+with dask.distributed, set up the client and then call
+:func:`~reproject.mosaicking.reproject_and_coadd` with the
+``parallel='current-scheduler'`` option.

@@ -215,6 +215,7 @@ Using dask.distributed
 
 The `dask.distributed <https://distributed.dask.org/en/stable/>`_ package makes it
 possible to use distributed schedulers for dask. In order to compute
-reprojections with dask.distributed, you should make use of the
+reprojections with dask.distributed, set up the client and then call the reprojection
+functions with ``parallel='current-scheduler'``. Alternatively, you can make use of the
 ``return_type='dask'`` option mentioned above so that you can compute the dask
 array once the distributed scheduler has been set up.
