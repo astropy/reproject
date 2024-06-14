@@ -171,7 +171,7 @@ def _reproject_dispatcher(
             array_in_or_path = array_in.filename, {
                 "dtype": array_in.dtype,
                 "shape": array_in.shape,
-                "offset": array_in.offset
+                "offset": array_in.offset,
             }
         elif isinstance(array_in, da.core.Array) or return_type == "dask":
             if return_type == "dask":
