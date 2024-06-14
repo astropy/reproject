@@ -166,20 +166,19 @@ def _reproject_dispatcher(
         # memory-mapped array so that it can be used by the various reprojection
         # functions (which don't internally work with dask arrays).
 
-        if isinstance(array_in, da.core.Array) or return_type == "dask":
-            if isinstance(array_in, np.memmap):
-                array_in_or_path = array_in.filename, {
-                    "dtype": array_in.dtype,
-                    "shape": array_in.shape,
-                }
+        if isinstance(array_in, np.memmap):
+            array_in_or_path = array_in.filename, {
+                "dtype": array_in.dtype,
+                "shape": array_in.shape,
+            }
+        elif isinstance(array_in, da.core.Array) or return_type == "dask":
+            if return_type == "dask":
+                # We should use a temporary directory that will persist beyond
+                # the call to the reproject function.
+                tmp_dir = tempfile.mkdtemp()
             else:
-                if return_type == "dask":
-                    # We should use a temporary directory that will persist beyond
-                    # the call to the reproject function.
-                    tmp_dir = tempfile.mkdtemp()
-                else:
-                    tmp_dir = local_tmp_dir
-                array_in_or_path = as_delayed_memmap_path(array_in, tmp_dir)
+                tmp_dir = local_tmp_dir
+            array_in_or_path = as_delayed_memmap_path(array_in, tmp_dir)
         else:
             # Here we could set array_in_or_path to array_in_path if it has
             # been set previously, but in synchronous and threaded mode it is
@@ -215,9 +214,9 @@ def _reproject_dispatcher(
             wcs_out_sub = HighLevelWCSWrapper(low_level_wcs)
 
             if isinstance(array_or_path, tuple):
-                array_in = np.memmap(array_or_path[0], **array_or_path[1])
+                array_in = np.memmap(array_or_path[0], **array_or_path[1], mode="r")
             elif isinstance(array_or_path, str):
-                array_in = np.memmap(array_or_path, dtype=float, shape=shape_in)
+                array_in = np.memmap(array_or_path, dtype=float, shape=shape_in, mode="r")
             else:
                 array_in = array_or_path
 
