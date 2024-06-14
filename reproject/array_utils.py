@@ -90,6 +90,22 @@ def at_least_float32(array):
         return array.astype(np.float32)
 
 
+def memory_efficient_access(array, chunk):
+    # If we access a number of chunks from a memory-mapped array, memory usage
+    # will increase and could crash e.g. dask.distributed workers. We therefore
+    # use a temporary memmap to load the data.
+    if isinstance(array, np.memmap):
+        array_tmp = np.memmap(
+            array.filename,
+            mode="r",
+            dtype=array.dtype,
+            shape=array.shape,
+        )
+        return array_tmp[chunk]
+    else:
+        return array[chunk]
+
+
 def map_coordinates(image, coords, max_chunk_size=None, output=None, **kwargs):
     # In the built-in scipy map_coordinates, the values are defined at the
     # center of the pixels. This means that map_coordinates does not
@@ -132,9 +148,17 @@ def map_coordinates(image, coords, max_chunk_size=None, output=None, **kwargs):
 
         values = output
 
+        include = np.ones(coords.shape[1], dtype=bool)
+
+        if kwargs["order"] <= 1:
+            padding = 1
+        else:
+            padding = 10
+
         for chunk in iterate_chunks(image.shape, max_chunk_size=max_chunk_size):
             include = np.ones(coords.shape[1], dtype=bool)
 
+            include[...] = True
             for idim, slc in enumerate(chunk):
                 include[(coords[idim] < slc.start) | (coords[idim] >= slc.stop)] = False
 
@@ -155,8 +179,10 @@ def map_coordinates(image, coords, max_chunk_size=None, output=None, **kwargs):
             for idim, slc in enumerate(chunk):
                 coords_subset[idim, :] -= slc.start
 
+            image_subset = memory_efficient_access(image, chunk)
+
             output[include] = scipy_map_coordinates(
-                at_least_float32(image[chunk]), coords_subset, **kwargs
+                at_least_float32(image_subset), coords_subset, **kwargs
             )
 
     reset = np.zeros(coords.shape[1], dtype=bool)
