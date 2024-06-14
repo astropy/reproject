@@ -167,10 +167,11 @@ def _reproject_dispatcher(
         # memory-mapped array so that it can be used by the various reprojection
         # functions (which don't internally work with dask arrays).
 
-        if isinstance(array_in, np.memmap):
+        if isinstance(array_in, np.memmap) and array_in.flags.c_contiguous:
             array_in_or_path = array_in.filename, {
                 "dtype": array_in.dtype,
                 "shape": array_in.shape,
+                "offset": array_in.offset
             }
         elif isinstance(array_in, da.core.Array) or return_type == "dask":
             if return_type == "dask":
