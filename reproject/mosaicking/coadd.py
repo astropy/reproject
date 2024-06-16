@@ -3,6 +3,7 @@ import os
 import sys
 import tempfile
 import uuid
+from logging import getLogger
 
 import numpy as np
 from astropy.wcs import WCS
@@ -143,6 +144,10 @@ def reproject_and_coadd(
     # up memory usage. We could probably still have references to array
     # objects, but we'd just make sure these were memory mapped
 
+    print(__name__)
+
+    logger = getLogger(__name__)
+
     # Validate inputs
 
     if combine_function not in ("mean", "sum", "first", "last", "min", "max"):
@@ -176,11 +181,16 @@ def reproject_and_coadd(
             f"the output shape {shape_out}"
         )
 
+    logger.info(f'Output mosaic will have shape {shape_out}')
+
     # Define 'on-the-fly' mode: in the case where we don't need to match
     # the backgrounds and we are combining with 'mean' or 'sum', we don't
     # have to keep track of the intermediate arrays and can just modify
     # the output array on-the-fly
     on_the_fly = not match_background and combine_function in ("mean", "sum")
+
+    on_the_fly_prefix = 'Using' if on_the_fly else 'Not using'
+    logger.info(f'{on_the_fly_prefix} on-the-fly mode for adding individual reprojected images to output array')
 
     # Start off by reprojecting individual images to the final projection
 
@@ -190,6 +200,9 @@ def reproject_and_coadd(
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=IS_WIN) as local_tmp_dir:
 
         for idata in progress_bar(range(len(input_data))):
+
+            logger.info(f'Processing input data {idata + 1} of {len(input_data)}')
+
             # We need to pre-parse the data here since we need to figure out how to
             # optimize/minimize the size of each output tile (see below).
             array_in, wcs_in = parse_input_data(input_data[idata], hdu_in=hdu_in)
@@ -238,6 +251,7 @@ def reproject_and_coadd(
                         break
 
             if skip_data:
+                logger.info('Skipping reprojection as no predicted overlap with final mosaic header')
                 continue
 
             slice_out = tuple([slice(imin, imax) for (imin, imax) in bounds])
@@ -265,6 +279,8 @@ def reproject_and_coadd(
 
                 array_path = os.path.join(local_tmp_dir, f"array_{uuid.uuid4()}.np")
 
+                logger.info(f'Creating memory-mapped array with shape {shape_out_indiv} at {array_path}')
+
                 array = np.memmap(
                     array_path,
                     shape=shape_out_indiv,
@@ -273,6 +289,8 @@ def reproject_and_coadd(
                 )
 
                 footprint_path = os.path.join(local_tmp_dir, f"footprint_{uuid.uuid4()}.np")
+
+                logger.info(f'Creating memory-mapped footprint with shape {shape_out_indiv} at {footprint_path}')
 
                 footprint = np.memmap(
                     footprint_path,
@@ -284,6 +302,8 @@ def reproject_and_coadd(
             else:
 
                 array = footprint = None
+
+            logger.info(f'Calling {reproject_function} with shape_out={shape_out_indiv}')
 
             array, footprint = reproject_function(
                 (array_in, wcs_in),
@@ -301,6 +321,8 @@ def reproject_and_coadd(
 
                     weights_path = os.path.join(local_tmp_dir, f"weights_{uuid.uuid4()}.np")
 
+                    logger.info(f'Creating memory-mapped weights with shape {shape_out_indiv} at {weights_path}')
+
                     weights = np.memmap(
                         weights_path,
                         shape=shape_out_indiv,
@@ -311,6 +333,8 @@ def reproject_and_coadd(
                 else:
 
                     weights = None
+
+                logger.info(f'Calling {reproject_function} with shape_out={shape_out_indiv} for weights')
 
                 weights = reproject_function(
                     (weights_in, wcs_in),
@@ -335,6 +359,7 @@ def reproject_and_coadd(
 
                 if intermediate_memmap:
                     # Remove the reference to the memmap before trying to remove the file itself
+                    logger.info(f'Removing memory-mapped weight array')
                     weights = None
                     try:
                         os.remove(weights_path)
@@ -347,6 +372,7 @@ def reproject_and_coadd(
             # output image is empty (due e.g. to no overlap).
 
             if on_the_fly:
+                logger.info(f'Adding reprojected array to final array')
                 # By default, values outside of the footprint are set to NaN
                 # but we set these to 0 here to avoid getting NaNs in the
                 # means/sums.
@@ -362,6 +388,7 @@ def reproject_and_coadd(
                 if intermediate_memmap:
                     # Remove the references to the memmaps themesleves before
                     # trying to remove the files thermselves.
+                    logger.info(f'Removing memory-mapped array and footprint arrays')
                     array = None
                     footprint = None
                     try:
@@ -371,10 +398,12 @@ def reproject_and_coadd(
                         pass
 
             else:
+                logger.info(f'Adding reprojected array to list to combine later')
                 arrays.append(array)
 
         # If requested, try and match the backgrounds.
         if match_background and len(arrays) > 1:
+            logger.info(f'Match backgrounds')
             offset_matrix = determine_offset_matrix(arrays)
             corrections = solve_corrections_sgd(offset_matrix)
             if background_reference:
@@ -384,6 +413,7 @@ def reproject_and_coadd(
 
         if combine_function in ("mean", "sum"):
             if match_background:
+                logger.info(f'Combining reprojected arrays with function {combine_function}')
                 # if we're not matching the background, this part has already been done
                 for array in arrays:
                     # By default, values outside of the footprint are set to NaN
@@ -394,10 +424,12 @@ def reproject_and_coadd(
                     output_footprint[array.view_in_original_array] += array.footprint
 
             if combine_function == "mean":
+                logger.info(f'Handle normalization of output array')
                 with np.errstate(invalid="ignore"):
                     output_array /= output_footprint
 
         elif combine_function in ("first", "last", "min", "max"):
+            logger.info(f'Combining reprojected arrays with function {combine_function}')
             if combine_function == "min":
                 output_array[...] = np.inf
             elif combine_function == "max":
@@ -433,6 +465,7 @@ def reproject_and_coadd(
 
     # We need to avoid potentially large memory allocation from output == 0 so
     # we operate in chunks.
+    logger.info(f'Resetting invalid pixels to {blank_pixel_value}')
     for chunk in iterate_chunks(output_array.shape, max_chunk_size=256 * 1024**2):
         output_array[chunk][output_footprint[chunk] == 0] = blank_pixel_value
 
