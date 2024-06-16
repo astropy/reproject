@@ -1,3 +1,4 @@
+import logging
 import os
 import tempfile
 import uuid
@@ -17,8 +18,11 @@ __all__ = ["_reproject_dispatcher"]
 
 @delayed(pure=True)
 def as_delayed_memmap_path(array, tmp_dir):
+    logger = logging.getLogger(__name__)
     if isinstance(array, da.core.Array):
+        logger.info("Writing input dask array to Numpy memory-mapped array")
         array_path, _ = _dask_to_numpy_memmap(array, tmp_dir)
+        logger.info(f"Numpy memory-mapped array is now at {array_path}")
     else:
         array_path = os.path.join(tmp_dir, f"{uuid.uuid4()}.npy")
         array_memmapped = np.memmap(
@@ -95,6 +99,8 @@ def _reproject_dispatcher(
         Whether to return numpy or dask arrays - defaults to 'numpy'.
     """
 
+    logger = logging.getLogger(__name__)
+
     if return_type is None:
         return_type = "numpy"
     elif return_type not in ("numpy", "dask"):
@@ -138,7 +144,11 @@ def _reproject_dispatcher(
                 )
 
             if isinstance(array_in, da.core.Array):
+                logger.info("Writing input dask array to Numpy memory-mapped array")
                 _, array_in = _dask_to_numpy_memmap(array_in, local_tmp_dir)
+                logger.info(f"Numpy memory-mapped array is now at {array_path}")
+
+            logger.info(f"Calling {reproject_func.__name__} in non-dask mode")
 
             try:
                 return reproject_func(
@@ -262,6 +272,8 @@ def _reproject_dispatcher(
             array_out_dask = da.empty(shape_out)
             array_out_dask = array_out_dask.rechunk(block_size_limit=64 * 1024**2, **rechunk_kwargs)
 
+        logger.info(f"Setting out output dask array with map_blocks")
+
         result = da.map_blocks(
             reproject_single_block,
             array_out_dask,
@@ -297,6 +309,8 @@ def _reproject_dispatcher(
 
             zarr_path = os.path.join(local_tmp_dir, f"{uuid.uuid4()}.zarr")
 
+            logger.info(f"Computing output array directly to zarr array at {zarr_path}")
+
             if parallel == "current-scheduler":
                 # Just use whatever is the current active scheduler, which can
                 # be used for e.g. dask.distributed
@@ -316,6 +330,8 @@ def _reproject_dispatcher(
                     result.to_zarr(zarr_path)
 
             result = da.from_zarr(zarr_path)
+
+        logger.info(f"Copying output zarr array into output Numpy arrays")
 
         if return_footprint:
             da.store(
