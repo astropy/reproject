@@ -16,11 +16,27 @@ from .utils import _dask_to_numpy_memmap
 __all__ = ["_reproject_dispatcher"]
 
 
+class _ArrayContainer:
+    # When we set up as_delayed_memmap_path, if we pass a dask array to it,
+    # dask will actually compute the array before we get to the code inside
+    # as_delayed_memmap_path, so as a workaround we wrap any array we
+    # pass in using _ArrayContainer to make sure dask doesn't try and be smart.
+    def __init__(self, array):
+        self._array = array
+
+
 @delayed(pure=True)
 def as_delayed_memmap_path(array, tmp_dir):
+
+    # Extract array from _ArrayContainer
+    if isinstance(array, _ArrayContainer):
+        array = array._array
+    else:
+        raise TypeError("Expected _ArrayContainer in as_delayed_memmap_path")
+
     logger = logging.getLogger(__name__)
     if isinstance(array, da.core.Array):
-        logger.info("Writing input dask array to Numpy memory-mapped array")
+        logger.info("Computing input dask array to Numpy memory-mapped array")
         array_path, _ = _dask_to_numpy_memmap(array, tmp_dir)
         logger.info(f"Numpy memory-mapped array is now at {array_path}")
     else:
@@ -190,7 +206,7 @@ def _reproject_dispatcher(
                 tmp_dir = tempfile.mkdtemp()
             else:
                 tmp_dir = local_tmp_dir
-            array_in_or_path = as_delayed_memmap_path(array_in, tmp_dir)
+            array_in_or_path = as_delayed_memmap_path(_ArrayContainer(array_in), tmp_dir)
         else:
             # Here we could set array_in_or_path to array_in_path if it has
             # been set previously, but in synchronous and threaded mode it is
