@@ -160,8 +160,8 @@ def _reproject_dispatcher(
                 )
 
             if isinstance(array_in, da.core.Array):
-                logger.info("Writing input dask array to Numpy memory-mapped array")
-                _, array_in = _dask_to_numpy_memmap(array_in, local_tmp_dir)
+                logger.info("Computing input dask array to Numpy memory-mapped array")
+                array_path, array_in = _dask_to_numpy_memmap(array_in, local_tmp_dir)
                 logger.info(f"Numpy memory-mapped array is now at {array_path}")
 
             logger.info(f"Calling {reproject_func.__name__} in non-dask mode")
