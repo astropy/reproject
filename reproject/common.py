@@ -200,7 +200,13 @@ def _reproject_dispatcher(
             array_in_or_path = array_in
 
         def reproject_single_block(a, array_or_path, block_info=None):
-            if a.ndim == 0 or block_info is None or block_info == []:
+
+            if (
+                a.ndim == 0
+                or block_info is None
+                or block_info == []
+                or (isinstance(block_info, np.ndarray) and block_info.tolist() == [])
+            ):
                 return np.array([a, a])
 
             # The WCS class from astropy is not thread-safe, see e.g.
