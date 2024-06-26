@@ -294,7 +294,7 @@ def _reproject_dispatcher(
             array_out_dask = da.empty(shape_out)
             array_out_dask = array_out_dask.rechunk(block_size_limit=64 * 1024**2, **rechunk_kwargs)
 
-        logger.info(f"Setting out output dask array with map_blocks")
+        logger.info(f"Setting up output dask array with map_blocks")
 
         result = da.map_blocks(
             reproject_single_block,
