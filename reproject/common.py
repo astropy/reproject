@@ -1,3 +1,4 @@
+import logging
 import os
 import tempfile
 import uuid
@@ -15,10 +16,29 @@ from .utils import _dask_to_numpy_memmap
 __all__ = ["_reproject_dispatcher"]
 
 
+class _ArrayContainer:
+    # When we set up as_delayed_memmap_path, if we pass a dask array to it,
+    # dask will actually compute the array before we get to the code inside
+    # as_delayed_memmap_path, so as a workaround we wrap any array we
+    # pass in using _ArrayContainer to make sure dask doesn't try and be smart.
+    def __init__(self, array):
+        self._array = array
+
+
 @delayed(pure=True)
 def as_delayed_memmap_path(array, tmp_dir):
+
+    # Extract array from _ArrayContainer
+    if isinstance(array, _ArrayContainer):
+        array = array._array
+    else:
+        raise TypeError("Expected _ArrayContainer in as_delayed_memmap_path")
+
+    logger = logging.getLogger(__name__)
     if isinstance(array, da.core.Array):
+        logger.info("Computing input dask array to Numpy memory-mapped array")
         array_path, _ = _dask_to_numpy_memmap(array, tmp_dir)
+        logger.info(f"Numpy memory-mapped array is now at {array_path}")
     else:
         array_path = os.path.join(tmp_dir, f"{uuid.uuid4()}.npy")
         array_memmapped = np.memmap(
@@ -95,6 +115,8 @@ def _reproject_dispatcher(
         Whether to return numpy or dask arrays - defaults to 'numpy'.
     """
 
+    logger = logging.getLogger(__name__)
+
     if return_type is None:
         return_type = "numpy"
     elif return_type not in ("numpy", "dask"):
@@ -138,7 +160,11 @@ def _reproject_dispatcher(
                 )
 
             if isinstance(array_in, da.core.Array):
-                _, array_in = _dask_to_numpy_memmap(array_in, local_tmp_dir)
+                logger.info("Computing input dask array to Numpy memory-mapped array")
+                array_path, array_in = _dask_to_numpy_memmap(array_in, local_tmp_dir)
+                logger.info(f"Numpy memory-mapped array is now at {array_path}")
+
+            logger.info(f"Calling {reproject_func.__name__} in non-dask mode")
 
             try:
                 return reproject_func(
@@ -180,7 +206,7 @@ def _reproject_dispatcher(
                 tmp_dir = tempfile.mkdtemp()
             else:
                 tmp_dir = local_tmp_dir
-            array_in_or_path = as_delayed_memmap_path(array_in, tmp_dir)
+            array_in_or_path = as_delayed_memmap_path(_ArrayContainer(array_in), tmp_dir)
         else:
             # Here we could set array_in_or_path to array_in_path if it has
             # been set previously, but in synchronous and threaded mode it is
@@ -190,7 +216,13 @@ def _reproject_dispatcher(
             array_in_or_path = array_in
 
         def reproject_single_block(a, array_or_path, block_info=None):
-            if a.ndim == 0 or block_info is None or block_info == []:
+
+            if (
+                a.ndim == 0
+                or block_info is None
+                or block_info == []
+                or (isinstance(block_info, np.ndarray) and block_info.tolist() == [])
+            ):
                 return np.array([a, a])
 
             # The WCS class from astropy is not thread-safe, see e.g.
@@ -262,6 +294,8 @@ def _reproject_dispatcher(
             array_out_dask = da.empty(shape_out)
             array_out_dask = array_out_dask.rechunk(block_size_limit=64 * 1024**2, **rechunk_kwargs)
 
+        logger.info(f"Setting up output dask array with map_blocks")
+
         result = da.map_blocks(
             reproject_single_block,
             array_out_dask,
@@ -297,6 +331,8 @@ def _reproject_dispatcher(
 
             zarr_path = os.path.join(local_tmp_dir, f"{uuid.uuid4()}.zarr")
 
+            logger.info(f"Computing output array directly to zarr array at {zarr_path}")
+
             if parallel == "current-scheduler":
                 # Just use whatever is the current active scheduler, which can
                 # be used for e.g. dask.distributed
@@ -316,6 +352,8 @@ def _reproject_dispatcher(
                     result.to_zarr(zarr_path)
 
             result = da.from_zarr(zarr_path)
+
+        logger.info(f"Copying output zarr array into output Numpy arrays")
 
         if return_footprint:
             da.store(
