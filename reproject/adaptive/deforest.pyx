@@ -155,7 +155,7 @@ cdef double clip(double x, double vmin, double vmax, int cyclic,
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef bint sample_array(double[:,:,:] source, double[:] dest,
+cdef bint sample_array(const double[:,:,:] source, double[:] dest,
         double x, double y, int x_cyclic, int y_cyclic,
         bint out_of_range_nearest) noexcept nogil:
     x = clip(x, 0, source.shape[2] - 1, x_cyclic, out_of_range_nearest)
@@ -352,7 +352,7 @@ BAD_VALUE_MODES['ignore'] = 3
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-def map_coordinates(double[:,:,:] source, double[:,:,:] target, Ci, int max_samples_width=-1,
+def map_coordinates(const double[:,:,:] source, double[:,:,:] target, Ci, int max_samples_width=-1,
                     int conserve_flux=False, int progress=False, int singularities_nan=False,
                     int x_cyclic=False, int y_cyclic=False, int out_of_range_nan=False,
                     bint center_jacobian=False, bint despiked_jacobian=False,

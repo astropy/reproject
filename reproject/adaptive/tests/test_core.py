@@ -1006,3 +1006,16 @@ def test_adaptive_input_output_types(
 
     assert_allclose(output_ref, output_test)
     assert_allclose(footprint_ref, footprint_test)
+
+
+def test_readonly_array():
+    wcs1 = WCS(naxis=2)
+    wcs2 = WCS(naxis=2)
+    wcs2.wcs.crpix = [2, 2]
+
+    array = np.random.random((128, 128))
+    array.flags.writeable = False
+
+    # This should work
+    reproject_adaptive((array, wcs1), wcs2, shape_out=(128, 128))
+
