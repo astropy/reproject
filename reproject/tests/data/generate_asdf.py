@@ -1,5 +1,8 @@
 from collections.abc import Iterable
 
+import gwcs.coordinate_frames as cf
+from gwcs import WCS
+
 import astropy.modeling.models as m
 import astropy.units as u
 from astropy.modeling import CompoundModel, Model
@@ -43,7 +46,7 @@ def generate_celestial_transform(
     This function has not been tested with more complex projections. Ensure
     that your lon_pole is correct for your projection.
     """
-    projection = projection if projection is None else m.Pix2Sky_TAN()
+    projection = m.Pix2Sky_TAN() if projection is None else None
     spatial_unit = None
     if hasattr(crval[0], "unit"):
         spatial_unit = crval[0].unit
