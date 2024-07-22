@@ -1018,4 +1018,3 @@ def test_readonly_array():
 
     # This should work
     reproject_adaptive((array, wcs1), wcs2, shape_out=(128, 128))
-
