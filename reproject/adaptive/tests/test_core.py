@@ -819,8 +819,8 @@ def test_reproject_adaptive_roundtrip(file_format):
     # With sunpy 6.0.0 and later, additional keyword arguments are written out
     # so we remove these as they are not important for the comparison with the
     # reference files.
-    header_out.pop('DATE-AVG', None)
-    header_out.pop('MJD-AVG', None)
+    header_out.pop("DATE-AVG", None)
+    header_out.pop("MJD-AVG", None)
 
     return array_footprint_to_hdulist(output, footprint, header_out)
 
@@ -846,8 +846,8 @@ def test_reproject_adaptive_uncentered_jacobian():
     # With sunpy 6.0.0 and later, additional keyword arguments are written out
     # so we remove these as they are not important for the comparison with the
     # reference files.
-    header_out.pop('DATE-AVG', None)
-    header_out.pop('MJD-AVG', None)
+    header_out.pop("DATE-AVG", None)
+    header_out.pop("MJD-AVG", None)
 
     return array_footprint_to_hdulist(output, footprint, header_out)
 
