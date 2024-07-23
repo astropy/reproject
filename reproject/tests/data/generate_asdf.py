@@ -88,7 +88,7 @@ def generate_asdf(input_file="aia_171_level1.fits", output_file="aia_171_level1.
         crpix=aia_map.reference_pixel,
         cdelt=aia_map.scale,
         pc=aia_map.rotation_matrix * u.pix,
-        crval=aia_map.wcs.wcs.crval * spatial_unit,
+        crval=aia_map.wcs.wcs.crval * u.deg,
     )
 
     input_frame = cf.Frame2D()
