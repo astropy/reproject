@@ -569,6 +569,12 @@ def test_reproject_roundtrip(file_format):
 
     header_out["DATE-OBS"] = header_out["DATE-OBS"].replace("T", " ")
 
+    # With sunpy 6.0.0 and later, additional keyword arguments are written out
+    # so we remove these as they are not important for the comparison with the
+    # reference files.
+    header_out.pop("DATE-AVG", None)
+    header_out.pop("MJD-AVG", None)
+
     return array_footprint_to_hdulist(output, footprint, header_out)
 
 
