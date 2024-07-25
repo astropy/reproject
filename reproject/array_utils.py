@@ -107,7 +107,7 @@ def memory_efficient_access(array, chunk):
         return array[chunk]
 
 
-def map_coordinates(image, coords, max_chunk_size=None, output=None, **kwargs):
+def map_coordinates(image, coords, max_chunk_size=None, output=None, optimize_memory=False, **kwargs):
     # In the built-in scipy map_coordinates, the values are defined at the
     # center of the pixels. This means that map_coordinates does not
     # correctly treat pixels that are in the outer half of the outer pixels.
@@ -121,6 +121,11 @@ def map_coordinates(image, coords, max_chunk_size=None, output=None, **kwargs):
     # memory-mapped FITS files that might be larger than memory. Therefore, for
     # big-endian arrays, we operate in chunks with a size smaller or equal to
     # max_chunk_size.
+
+    # The optimize_memory option isn't used right not by the rest of reproject
+    # but it is a mode where if we are in a memory-constrained environment, we
+    # re-create memmaps for individual chunks to avoid caching the whole array.
+    # We need to decide how to expose this to users.
 
     # TODO: check how this should behave on a big-endian system.
 
@@ -179,7 +184,10 @@ def map_coordinates(image, coords, max_chunk_size=None, output=None, **kwargs):
             for idim, slc in enumerate(chunk):
                 coords_subset[idim, :] -= slc.start
 
-            image_subset = memory_efficient_access(image, chunk)
+            if optimize_memory:
+                image_subset = memory_efficient_access(image, chunk)
+            else:
+                image_subset = image[chunk]
 
             output[include] = scipy_map_coordinates(
                 at_least_float32(image_subset), coords_subset, **kwargs
