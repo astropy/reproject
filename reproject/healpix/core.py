@@ -2,6 +2,8 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy_healpix import HEALPix, npix_to_nside
 
+from reproject.array_utils import map_coordinates
+
 __all__ = ["healpix_to_image", "image_to_healpix"]
 
 ORDER = {}
@@ -121,7 +123,6 @@ def image_to_healpix(data, wcs_in, coord_system_out, nside, order="bilinear", ne
         no coverage or valid values in the input image, while values of 1
         indicate valid values.
     """
-    from scipy.ndimage import map_coordinates
 
     hp = HEALPix(nside=nside, order="nested" if nested else "ring")
 
@@ -134,13 +135,19 @@ def image_to_healpix(data, wcs_in, coord_system_out, nside, order="bilinear", ne
     world_out = SkyCoord(lon_out, lat_out, frame=coord_system_out)
 
     # Look up pixels in input WCS
-    yinds, xinds = wcs_in.world_to_pixel(world_out)
+    xinds, yinds = wcs_in.world_to_pixel(world_out)
 
     # Interpolate
 
     if isinstance(order, str):
         order = ORDER[order]
 
-    healpix_data = map_coordinates(data, [xinds, yinds], order=order, mode="constant", cval=np.nan)
+    healpix_data = map_coordinates(
+        data,
+        np.array([yinds, xinds]),
+        order=order,
+        mode="constant",
+        cval=np.nan,
+    )
 
     return healpix_data, (~np.isnan(healpix_data)).astype(float)

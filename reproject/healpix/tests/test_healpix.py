@@ -180,3 +180,31 @@ def test_reproject_from_healpix_output_types(valid_celestial_output_projections)
 
     np.testing.assert_allclose(output_ref, output_test)
     np.testing.assert_allclose(footprint_ref, footprint_test)
+
+
+def test_reproject_to_healpix_exact_allsky():
+
+    # Regression test for a bug that caused artifacts in the final image if the
+    # WCS covered the whole sky - this was due to using scipy's map_coordinates
+    # one instead of our built-in one which deals properly with the pixels
+    # around the rim.
+
+    shape_out = (160, 320)
+    wcs = WCS(naxis=2)
+    wcs.wcs.crpix = [(shape_out[1] + 1) / 2, (shape_out[0] + 1) / 2]
+    wcs.wcs.cdelt = np.array([-360.0 / shape_out[1], 180.0 / shape_out[0]])
+    wcs.wcs.crval = [0, 0]
+    wcs.wcs.ctype = ["RA---CAR", "DEC--CAR"]
+
+    array = np.ones(shape_out)
+
+    healpix_array, footprint = reproject_to_healpix(
+        (array, wcs),
+        coord_system_out="galactic",
+        nside=64,
+        nested=False,
+        order="bilinear",
+    )
+
+    assert np.all(footprint > 0)
+    assert not np.any(np.isnan(healpix_array))
