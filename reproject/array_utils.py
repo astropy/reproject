@@ -107,7 +107,9 @@ def memory_efficient_access(array, chunk):
         return array[chunk]
 
 
-def map_coordinates(image, coords, max_chunk_size=None, output=None, optimize_memory=False, **kwargs):
+def map_coordinates(
+    image, coords, max_chunk_size=None, output=None, optimize_memory=False, **kwargs
+):
     # In the built-in scipy map_coordinates, the values are defined at the
     # center of the pixels. This means that map_coordinates does not
     # correctly treat pixels that are in the outer half of the outer pixels.
