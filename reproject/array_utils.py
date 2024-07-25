@@ -141,7 +141,7 @@ def map_coordinates(image, coords, max_chunk_size=None, output=None, **kwargs):
     # If the data type is native and we are not doing spline interpolation,
     # then scipy_map_coordinates deals properly with memory maps, so we can use
     # it without chunking. Otherwise, we need to iterate over data chunks.
-    if image.dtype.isnative and kwargs["order"] <= 1:
+    if image.dtype.isnative and "order" in kwargs and kwargs["order"] <= 1:
         values = scipy_map_coordinates(at_least_float32(image), coords, output=output, **kwargs)
     else:
         if output is None:
@@ -151,13 +151,12 @@ def map_coordinates(image, coords, max_chunk_size=None, output=None, **kwargs):
 
         include = np.ones(coords.shape[1], dtype=bool)
 
-        if kwargs["order"] <= 1:
+        if "order" in kwargs and kwargs["order"] <= 1:
             padding = 1
         else:
             padding = 10
 
         for chunk in iterate_chunks(image.shape, max_chunk_size=max_chunk_size):
-            include = np.ones(coords.shape[1], dtype=bool)
 
             include[...] = True
             for idim, slc in enumerate(chunk):
