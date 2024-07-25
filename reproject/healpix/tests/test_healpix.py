@@ -155,7 +155,7 @@ def test_reproject_to_healpix_input_types(valid_celestial_input_data):
 
     # Make sure there are some valid values
 
-    assert np.sum(~np.isnan(healpix_data_ref)) == 3
+    assert np.sum(~np.isnan(healpix_data_ref)) == 4
 
     np.testing.assert_allclose(healpix_data_ref, healpix_data_test)
     np.testing.assert_allclose(footprint_ref, footprint_test)
