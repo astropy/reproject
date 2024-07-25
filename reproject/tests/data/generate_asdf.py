@@ -1,11 +1,10 @@
 from collections.abc import Iterable
 
-import gwcs.coordinate_frames as cf
-from gwcs import WCS
-
 import astropy.modeling.models as m
 import astropy.units as u
+import gwcs.coordinate_frames as cf
 from astropy.modeling import CompoundModel, Model
+from gwcs import WCS
 from numpy.typing import ArrayLike
 
 
