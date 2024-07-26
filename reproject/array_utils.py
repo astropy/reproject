@@ -90,7 +90,26 @@ def at_least_float32(array):
         return array.astype(np.float32)
 
 
-def map_coordinates(image, coords, max_chunk_size=None, output=None, **kwargs):
+def memory_efficient_access(array, chunk):
+    # If we access a number of chunks from a memory-mapped array, memory usage
+    # will increase and could crash e.g. dask.distributed workers. We therefore
+    # use a temporary memmap to load the data.
+    if isinstance(array, np.memmap) and array.flags.c_contiguous:
+        array_tmp = np.memmap(
+            array.filename,
+            mode="r",
+            dtype=array.dtype,
+            shape=array.shape,
+            offset=array.offset,
+        )
+        return array_tmp[chunk]
+    else:
+        return array[chunk]
+
+
+def map_coordinates(
+    image, coords, max_chunk_size=None, output=None, optimize_memory=False, **kwargs
+):
     # In the built-in scipy map_coordinates, the values are defined at the
     # center of the pixels. This means that map_coordinates does not
     # correctly treat pixels that are in the outer half of the outer pixels.
@@ -104,6 +123,11 @@ def map_coordinates(image, coords, max_chunk_size=None, output=None, **kwargs):
     # memory-mapped FITS files that might be larger than memory. Therefore, for
     # big-endian arrays, we operate in chunks with a size smaller or equal to
     # max_chunk_size.
+
+    # The optimize_memory option isn't used right not by the rest of reproject
+    # but it is a mode where if we are in a memory-constrained environment, we
+    # re-create memmaps for individual chunks to avoid caching the whole array.
+    # We need to decide how to expose this to users.
 
     # TODO: check how this should behave on a big-endian system.
 
@@ -124,7 +148,7 @@ def map_coordinates(image, coords, max_chunk_size=None, output=None, **kwargs):
     # If the data type is native and we are not doing spline interpolation,
     # then scipy_map_coordinates deals properly with memory maps, so we can use
     # it without chunking. Otherwise, we need to iterate over data chunks.
-    if image.dtype.isnative and kwargs["order"] <= 1:
+    if image.dtype.isnative and "order" in kwargs and kwargs["order"] <= 1:
         values = scipy_map_coordinates(at_least_float32(image), coords, output=output, **kwargs)
     else:
         if output is None:
@@ -132,9 +156,16 @@ def map_coordinates(image, coords, max_chunk_size=None, output=None, **kwargs):
 
         values = output
 
-        for chunk in iterate_chunks(image.shape, max_chunk_size=max_chunk_size):
-            include = np.ones(coords.shape[1], dtype=bool)
+        include = np.ones(coords.shape[1], dtype=bool)
 
+        if "order" in kwargs and kwargs["order"] <= 1:
+            padding = 1
+        else:
+            padding = 10
+
+        for chunk in iterate_chunks(image.shape, max_chunk_size=max_chunk_size):
+
+            include[...] = True
             for idim, slc in enumerate(chunk):
                 include[(coords[idim] < slc.start) | (coords[idim] >= slc.stop)] = False
 
@@ -155,8 +186,13 @@ def map_coordinates(image, coords, max_chunk_size=None, output=None, **kwargs):
             for idim, slc in enumerate(chunk):
                 coords_subset[idim, :] -= slc.start
 
+            if optimize_memory:
+                image_subset = memory_efficient_access(image, chunk)
+            else:
+                image_subset = image[chunk]
+
             output[include] = scipy_map_coordinates(
-                at_least_float32(image[chunk]), coords_subset, **kwargs
+                at_least_float32(image_subset), coords_subset, **kwargs
             )
 
     reset = np.zeros(coords.shape[1], dtype=bool)
