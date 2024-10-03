@@ -14,10 +14,6 @@ history:
     software: !core/software-1.0.0 {name: asdf-astropy, version: 0.6.1}
   - !core/extension_metadata-1.0.0
     extension_class: asdf.extension._manifest.ManifestExtension
-    extension_uri: asdf://astropy.org/astropy/extensions/units-1.0.0
-    software: !core/software-1.0.0 {name: asdf-astropy, version: 0.6.1}
-  - !core/extension_metadata-1.0.0
-    extension_class: asdf.extension._manifest.ManifestExtension
     extension_uri: asdf://asdf-format.org/astronomy/gwcs/extensions/gwcs-1.2.0
     manifest_software: !core/software-1.0.0 {name: asdf_wcs_schemas, version: 0.4.0}
     software: !core/software-1.0.0 {name: gwcs, version: 0.21.0}
@@ -25,6 +21,10 @@ history:
     extension_class: asdf.extension._manifest.ManifestExtension
     extension_uri: asdf://asdf-format.org/transform/extensions/transform-1.5.0
     manifest_software: !core/software-1.0.0 {name: asdf_transform_schemas, version: 0.5.0}
+    software: !core/software-1.0.0 {name: asdf-astropy, version: 0.6.1}
+  - !core/extension_metadata-1.0.0
+    extension_class: asdf.extension._manifest.ManifestExtension
+    extension_uri: asdf://astropy.org/astropy/extensions/units-1.0.0
     software: !core/software-1.0.0 {name: asdf-astropy, version: 0.6.1}
   - !core/extension_metadata-1.0.0
     extension_class: asdf.extension._manifest.ManifestExtension

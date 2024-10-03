@@ -15,8 +15,6 @@ from numpy.testing import assert_allclose
 from ...tests.helpers import array_footprint_to_hdulist
 from ..high_level import reproject_adaptive
 
-DATA = os.path.join(os.path.dirname(__file__), "..", "..", "tests", "data")
-
 
 def as_high_level_wcs(wcs):
     return HighLevelWCSWrapper(SlicedLowLevelWCS(wcs, Ellipsis))
@@ -763,50 +761,14 @@ def test_invald_bad_value_mode():
         )
 
 
-def prepare_test_data(file_format):
-    pytest.importorskip("sunpy", minversion="2.1.0")
-    from sunpy.coordinates.ephemeris import get_body_heliographic_stonyhurst
-    from sunpy.map import Map
-
-    if file_format == "fits":
-        map_aia = Map(os.path.join(DATA, "aia_171_level1.fits"))
-        data = map_aia.data
-        wcs = map_aia.wcs
-        date = map_aia.date
-        target_wcs = wcs.deepcopy()
-    elif file_format == "asdf":
-        pytest.importorskip("astropy", minversion="4.0")
-        pytest.importorskip("gwcs", minversion="0.12")
-        asdf = pytest.importorskip("asdf")
-        aia = asdf.open(os.path.join(DATA, "aia_171_level1.asdf"))
-        data = aia["data"][...]
-        wcs = aia["wcs"]
-        date = wcs.output_frame.reference_frame.obstime
-        target_wcs = Map(os.path.join(DATA, "aia_171_level1.fits")).wcs.deepcopy()
-    else:
-        raise ValueError("file_format should be fits or asdf")
-
-    # Reproject to an observer on Venus
-
-    target_wcs.wcs.cdelt = ([24, 24] * u.arcsec).to(u.deg)
-    target_wcs.wcs.crpix = [64, 64]
-    venus = get_body_heliographic_stonyhurst("venus", date)
-    target_wcs.wcs.aux.hgln_obs = venus.lon.to_value(u.deg)
-    target_wcs.wcs.aux.hglt_obs = venus.lat.to_value(u.deg)
-    target_wcs.wcs.aux.dsun_obs = venus.radius.to_value(u.m)
-
-    return data, wcs, target_wcs
-
-
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.array_compare(single_reference=True)
-@pytest.mark.parametrize("file_format", ["fits", "asdf"])
-def test_reproject_adaptive_roundtrip(file_format):
+def test_reproject_adaptive_roundtrip(aia_test_data):
     # Test the reprojection with solar data, which ensures that the masking of
     # pixels based on round-tripping works correctly. Using asdf is not just
     # about testing a different format but making sure that GWCS works.
 
-    data, wcs, target_wcs = prepare_test_data(file_format)
+    data, wcs, target_wcs = aia_test_data
 
     output, footprint = reproject_adaptive(
         (data, wcs), target_wcs, (128, 128), center_jacobian=True, kernel="hann"
@@ -826,14 +788,14 @@ def test_reproject_adaptive_roundtrip(file_format):
 
 
 @pytest.mark.filterwarnings("ignore::FutureWarning")
-@pytest.mark.array_compare()
-def test_reproject_adaptive_uncentered_jacobian():
+@pytest.mark.array_compare(single_reference=True)
+def test_reproject_adaptive_uncentered_jacobian(aia_test_data):
     # Explicitly test the uncentered-Jacobian path for a non-affine transform.
     # For this case, output pixels change by 6% at most, and usually much less.
     # (Though more nan pixels are present, as the uncentered calculation draws
     # in values from a bit further away.)
 
-    data, wcs, target_wcs = prepare_test_data("fits")
+    data, wcs, target_wcs = aia_test_data
 
     output, footprint = reproject_adaptive(
         (data, wcs), target_wcs, (128, 128), center_jacobian=False, kernel="hann"

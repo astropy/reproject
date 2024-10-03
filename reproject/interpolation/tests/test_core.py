@@ -521,47 +521,15 @@ def test_reproject_with_output_array(roundtrip_coords):
 
 
 @pytest.mark.array_compare(single_reference=True)
-@pytest.mark.parametrize("file_format", ["fits", "asdf"])
 @pytest.mark.remote_data
-def test_reproject_roundtrip(file_format):
+def test_reproject_roundtrip(aia_test_data):
     # Test the reprojection with solar data, which ensures that the masking of
     # pixels based on round-tripping works correctly. Using asdf is not just
     # about testing a different format but making sure that GWCS works.
 
-    # The observer handling changed in 2.1.
-    pytest.importorskip("sunpy", minversion="2.1.0")
-    from sunpy.coordinates.ephemeris import get_body_heliographic_stonyhurst
-    from sunpy.map import Map
+    pytest.importorskip("sunpy", minversion="6.0.1")
 
-    if file_format == "fits":
-        map_aia = Map(get_pkg_data_filename("data/aia_171_level1.fits", package="reproject.tests"))
-        data = map_aia.data
-        wcs = map_aia.wcs
-        date = map_aia.date
-        target_wcs = wcs.deepcopy()
-    elif file_format == "asdf":
-        pytest.importorskip("astropy", minversion="4.0")
-        pytest.importorskip("gwcs", minversion="0.12")
-        asdf = pytest.importorskip("asdf")
-        aia = asdf.open(
-            get_pkg_data_filename("data/aia_171_level1.asdf", package="reproject.tests")
-        )
-        data = aia["data"][...]
-        wcs = aia["wcs"]
-        date = wcs.output_frame.reference_frame.obstime
-        target_wcs = Map(
-            get_pkg_data_filename("data/aia_171_level1.fits", package="reproject.tests")
-        ).wcs.deepcopy()
-    else:
-        raise ValueError("file_format should be fits or asdf")
-
-    # Reproject to an observer on Venus
-    target_wcs.wcs.cdelt = ([24, 24] * u.arcsec).to(u.deg)
-    target_wcs.wcs.crpix = [64, 64]
-    venus = get_body_heliographic_stonyhurst("venus", date)
-    target_wcs.wcs.aux.hgln_obs = venus.lon.to_value(u.deg)
-    target_wcs.wcs.aux.hglt_obs = venus.lat.to_value(u.deg)
-    target_wcs.wcs.aux.dsun_obs = venus.radius.to_value(u.m)
+    data, wcs, target_wcs = aia_test_data
 
     output, footprint = reproject_interp((data, wcs), target_wcs, (128, 128))
 
@@ -578,31 +546,20 @@ def test_reproject_roundtrip(file_format):
     return array_footprint_to_hdulist(output, footprint, header_out)
 
 
-def test_reproject_roundtrip_kwarg():
+def test_reproject_roundtrip_kwarg(aia_test_data):
     # Make sure that the roundtrip_coords keyword argument has an effect. This
     # is a regression test for a bug that caused the keyword argument to be
     # ignored when in parallel/blocked mode.
 
-    pytest.importorskip("sunpy", minversion="2.1.0")
-    from sunpy.coordinates.ephemeris import get_body_heliographic_stonyhurst
-    from sunpy.map import Map
+    pytest.importorskip("sunpy", minversion="6.0.1")
 
-    map_aia = Map(get_pkg_data_filename("data/aia_171_level1.fits", package="reproject.tests"))
-
-    # Reproject to an observer on Venus
-    target_wcs = map_aia.wcs.deepcopy()
-    target_wcs.wcs.cdelt = ([24, 24] * u.arcsec).to(u.deg)
-    target_wcs.wcs.crpix = [64, 64]
-    venus = get_body_heliographic_stonyhurst("venus", map_aia.date)
-    target_wcs.wcs.aux.hgln_obs = venus.lon.to_value(u.deg)
-    target_wcs.wcs.aux.hglt_obs = venus.lat.to_value(u.deg)
-    target_wcs.wcs.aux.dsun_obs = venus.radius.to_value(u.m)
+    data, wcs, target_wcs = aia_test_data
 
     output_roundtrip_1 = reproject_interp(
-        map_aia, target_wcs, shape_out=(128, 128), return_footprint=False, roundtrip_coords=True
+        (data, wcs), target_wcs, shape_out=(128, 128), return_footprint=False, roundtrip_coords=True
     )
     output_roundtrip_2 = reproject_interp(
-        map_aia,
+        (data, wcs),
         target_wcs,
         shape_out=(128, 128),
         return_footprint=False,
@@ -613,10 +570,14 @@ def test_reproject_roundtrip_kwarg():
     assert_allclose(output_roundtrip_1, output_roundtrip_2)
 
     output_noroundtrip_1 = reproject_interp(
-        map_aia, target_wcs, shape_out=(128, 128), return_footprint=False, roundtrip_coords=False
+        (data, wcs),
+        target_wcs,
+        shape_out=(128, 128),
+        return_footprint=False,
+        roundtrip_coords=False,
     )
     output_noroundtrip_2 = reproject_interp(
-        map_aia,
+        (data, wcs),
         target_wcs,
         shape_out=(128, 128),
         return_footprint=False,
