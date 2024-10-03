@@ -320,7 +320,7 @@ def test_solar_wcs():
     # Regression test for issues that occurred when trying to find
     # the optimal WCS for a set of solar WCSes
 
-    pytest.importorskip("sunpy", minversion="2.1.0")
+    pytest.importorskip("sunpy", minversion="6.0.1")
 
     # Make sure the WCS <-> frame functions are registered
 

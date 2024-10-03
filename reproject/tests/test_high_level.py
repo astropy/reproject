@@ -279,7 +279,7 @@ def test_dask_schedulers(reproject_function, scheduler, wcs_type):
         wcs_out = WCS(hdu_out.header)
         shape_out = hdu_out.data.shape
     elif wcs_type == "gwcs":
-        pytest.importorskip("sunpy", minversion="2.1.0")
+        pytest.importorskip("sunpy", minversion="6.0.1")
         asdf = pytest.importorskip("asdf")
         if reproject_function == reproject_exact:
             pytest.skip()

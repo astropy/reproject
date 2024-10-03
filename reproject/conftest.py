@@ -8,6 +8,7 @@ import os
 import dask.array as da
 import numpy as np
 import pytest
+from astropy import units as u
 from astropy.io import fits
 from astropy.nddata import NDData
 from astropy.wcs import WCS
@@ -219,3 +220,42 @@ def valid_celestial_output_projections(request, simple_celestial_wcs):
         output_value = wcs
 
     return wcs, shape, output_value, kwargs
+
+
+DATA = os.path.join(os.path.dirname(__file__), "tests", "data")
+
+
+@pytest.fixture(params=["fits", "asdf"])
+def aia_test_data(request):
+
+    from sunpy.coordinates.ephemeris import get_body_heliographic_stonyhurst
+    from sunpy.map import Map
+
+    if request.param == "fits":
+        map_aia = Map(os.path.join(DATA, "aia_171_level1.fits"))
+        data = map_aia.data
+        wcs = map_aia.wcs
+        date = map_aia.reference_date
+        target_wcs = wcs.deepcopy()
+    elif request.param == "asdf":
+        pytest.importorskip("astropy", minversion="4.0")
+        pytest.importorskip("gwcs", minversion="0.12")
+        asdf = pytest.importorskip("asdf")
+        aia = asdf.open(os.path.join(DATA, "aia_171_level1.asdf"))
+        data = aia["data"][...]
+        wcs = aia["wcs"]
+        date = wcs.output_frame.reference_frame.obstime
+        target_wcs = Map(os.path.join(DATA, "aia_171_level1.fits")).wcs.deepcopy()
+    else:
+        raise ValueError("file_format should be fits or asdf")
+
+    # Reproject to an observer on Venus
+
+    target_wcs.wcs.cdelt = ([24, 24] * u.arcsec).to(u.deg)
+    target_wcs.wcs.crpix = [64, 64]
+    venus = get_body_heliographic_stonyhurst("venus", date)
+    target_wcs.wcs.aux.hgln_obs = venus.lon.to_value(u.deg)
+    target_wcs.wcs.aux.hglt_obs = venus.lat.to_value(u.deg)
+    target_wcs.wcs.aux.dsun_obs = venus.radius.to_value(u.m)
+
+    return data, wcs, target_wcs

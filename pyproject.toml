@@ -32,7 +32,7 @@ test = [
 ]
 testall = [
     "shapely>=2.0.2",  # 2.0.2 fixed a bug that causes changes in test results
-    "sunpy[map]>=2.1",
+    "sunpy[map]>=6.0.1",
     "asdf",
     "gwcs",
     "pyvo",
@@ -92,6 +92,9 @@ filterwarnings = [
     "ignore:'xdrlib' is deprecated and slated for removal in Python 3.13",
     # This is a pyvo issue with Python 3.11
     "ignore:'cgi' is deprecated and slated for removal in Python 3.13",
+    # Issue with zarr and dask mismatch
+    "ignore:ignoring keyword argument 'read_only'"
+
 ]
 
 [tool.coverage.run]
