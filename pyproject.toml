@@ -92,6 +92,9 @@ filterwarnings = [
     "ignore:'xdrlib' is deprecated and slated for removal in Python 3.13",
     # This is a pyvo issue with Python 3.11
     "ignore:'cgi' is deprecated and slated for removal in Python 3.13",
+    # Issue with zarr and dask mismatch
+    "ignore:ignoring keyword argument 'read_only'"
+
 ]
 
 [tool.coverage.run]
