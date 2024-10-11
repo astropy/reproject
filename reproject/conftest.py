@@ -228,6 +228,8 @@ DATA = os.path.join(os.path.dirname(__file__), "tests", "data")
 @pytest.fixture(params=["fits", "asdf"])
 def aia_test_data(request):
 
+    pytest.importorskip("sunpy", minversion="6.0.1")
+
     from sunpy.coordinates.ephemeris import get_body_heliographic_stonyhurst
     from sunpy.map import Map
 
