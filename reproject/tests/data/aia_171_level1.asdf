@@ -14,6 +14,11 @@ history:
     software: !core/software-1.0.0 {name: asdf-astropy, version: 0.6.1}
   - !core/extension_metadata-1.0.0
     extension_class: asdf.extension._manifest.ManifestExtension
+    extension_uri: asdf://asdf-format.org/astronomy/gwcs/extensions/gwcs-1.2.0
+    manifest_software: !core/software-1.0.0 {name: asdf_wcs_schemas, version: 0.4.0}
+    software: !core/software-1.0.0 {name: gwcs, version: 0.21.0}
+  - !core/extension_metadata-1.0.0
+    extension_class: asdf.extension._manifest.ManifestExtension
     extension_uri: asdf://asdf-format.org/transform/extensions/transform-1.5.0
     manifest_software: !core/software-1.0.0 {name: asdf_transform_schemas, version: 0.5.0}
     software: !core/software-1.0.0 {name: asdf-astropy, version: 0.6.1}
@@ -23,13 +28,8 @@ history:
     software: !core/software-1.0.0 {name: asdf-astropy, version: 0.6.1}
   - !core/extension_metadata-1.0.0
     extension_class: asdf.extension._manifest.ManifestExtension
-    extension_uri: asdf://asdf-format.org/astronomy/gwcs/extensions/gwcs-1.2.0
-    manifest_software: !core/software-1.0.0 {name: asdf_wcs_schemas, version: 0.4.0}
-    software: !core/software-1.0.0 {name: gwcs, version: 0.21.0}
-  - !core/extension_metadata-1.0.0
-    extension_class: asdf.extension._manifest.ManifestExtension
-    extension_uri: asdf://sunpy.org/extensions/sunpy-1.1.0
-    software: !core/software-1.0.0 {name: sunpy, version: 5.1.5}
+    extension_uri: asdf://sunpy.org/extensions/sunpy-1.1.1
+    software: !core/software-1.0.0 {name: sunpy, version: 6.0.2}
   - !core/extension_metadata-1.0.0
     extension_class: asdf.extension._manifest.ManifestExtension
     extension_uri: asdf://asdf-format.org/astronomy/coordinates/extensions/coordinates-1.1.0
@@ -332,21 +332,21 @@ wcs: !<tag:stsci.edu:gwcs/wcs-1.2.0>
             data: !<tag:astropy.org:astropy/coordinates/representation-1.1.0>
               components:
                 distance: !unit/quantity-1.1.0 {datatype: float64, unit: !unit/unit-1.0.0 m,
-                  value: 147724815127.9968}
+                  value: 147724815127.99683}
                 lat: !<tag:astropy.org:astropy/coordinates/latitude-1.1.0> {datatype: float64,
-                  unit: !unit/unit-1.0.0 deg, value: -6.821923074710445}
+                  unit: !unit/unit-1.0.0 deg, value: -6.821923074710443}
                 lon: !<tag:astropy.org:astropy/coordinates/longitude-1.1.0>
                   datatype: float64
                   unit: !unit/unit-1.0.0 deg
-                  value: 359.98690027534224
+                  value: 359.9868885126059
                   wrap_angle: !<tag:astropy.org:astropy/coordinates/angle-1.1.0> {
                     datatype: float64, unit: !unit/unit-1.0.0 deg, value: 360.0}
               type: SphericalRepresentation
             frame_attributes:
-              obstime: !time/time-1.1.0 2011-02-15T00:00:00.340
+              obstime: !time/time-1.1.0 2011-02-15T00:00:01.340
               rsun: !unit/quantity-1.1.0 {datatype: float64, unit: !unit/unit-1.0.0 km,
                 value: 696000.0}
-          obstime: !time/time-1.1.0 2011-02-15T00:00:00.340
+          obstime: !time/time-1.1.0 2011-02-15T00:00:01.340
           rsun: !unit/quantity-1.1.0 {datatype: float64, unit: !unit/unit-1.0.0 km,
             value: 696000.0}
       unit: [!unit/unit-1.0.0 arcsec, !unit/unit-1.0.0 arcsec]
