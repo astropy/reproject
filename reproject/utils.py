@@ -92,7 +92,7 @@ def hdu_to_numpy_memmap(hdu):
     )
 
 
-def parse_input_data(input_data, hdu_in=None):
+def parse_input_data(input_data, hdu_in=None, source_hdul=None):
     """
     Parse input data to return a Numpy array and WCS object.
     """
@@ -109,9 +109,9 @@ def parse_input_data(input_data, hdu_in=None):
                 )
             else:
                 hdu_in = 0
-        return parse_input_data(input_data[hdu_in])
+        return parse_input_data(input_data[hdu_in], source_hdul=input_data)
     elif isinstance(input_data, PrimaryHDU | ImageHDU | CompImageHDU):
-        return hdu_to_numpy_memmap(input_data), WCS(input_data.header)
+        return (hdu_to_numpy_memmap(input_data), WCS(input_data.header, fobj=source_hdul))
     elif isinstance(input_data, tuple) and isinstance(input_data[0], np.ndarray | da.core.Array):
         if isinstance(input_data[1], Header):
             return input_data[0], WCS(input_data[1])
