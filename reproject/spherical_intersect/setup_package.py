@@ -25,8 +25,8 @@ def get_extensions():
     else:
         define_macros = []
 
-    define_macros.append(('CYTHON_LIMITED_API', '0x030800f0'))
-    define_macros.append(('Py_LIMITED_API', '0x030800f0'))
+    define_macros.append(('CYTHON_LIMITED_API', '0x030C0000'))
+    define_macros.append(('Py_LIMITED_API', '0x030C0000'))
 
     extension = Extension(
         name="reproject.spherical_intersect._overlap",

@@ -3,19 +3,21 @@ import os
 import numpy as np
 from setuptools import Extension
 
+ADAPTIVE_SUBPKG = os.path.dirname(__file__)
+
 
 def get_extensions():
     libraries = []
 
     sources = []
-    sources.append(os.path.join(REPROJECT_ROOT, "deforest.pyx"))
+    sources.append(os.path.join(ADAPTIVE_SUBPKG, "deforest.pyx"))
 
     include_dirs = [np.get_include()]
 
     define_macros = []
 
-    define_macros.append(("CYTHON_LIMITED_API", "0x030800f0"))
-    define_macros.append(("Py_LIMITED_API", "0x030800f0"))
+    define_macros.append(("CYTHON_LIMITED_API", "0x030C0000"))
+    define_macros.append(("Py_LIMITED_API", "0x030C0000"))
 
     extension = Extension(
         name="reproject.adaptive.deforest",
