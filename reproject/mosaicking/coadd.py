@@ -211,7 +211,7 @@ def reproject_and_coadd(
             if input_weights is None:
                 weights_in = None
             else:
-                weights_in = parse_input_weights(input_weights[idata], hdu_weights=hdu_weights)
+                weights_in, weights_wcs = parse_input_weights(input_weights[idata], hdu_weights=hdu_weights, return_wcs=True)
                 if np.any(np.isnan(weights_in)):
                     weights_in = np.nan_to_num(weights_in)
 
@@ -347,7 +347,7 @@ def reproject_and_coadd(
                 )
 
                 weights = reproject_function(
-                    (weights_in, wcs_in),
+                    (weights_in, weights_wcs),
                     output_projection=wcs_out_indiv,
                     shape_out=shape_out_indiv,
                     hdu_in=hdu_in,
