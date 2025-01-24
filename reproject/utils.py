@@ -192,10 +192,12 @@ def parse_input_shape(input_shape, hdu_in=None):
         )
 
 
-def parse_input_weights(input_weights, hdu_weights=None):
+def parse_input_weights(input_weights, hdu_weights=None, return_wcs=False):
     """
     Parse input weights to return a Numpy array.
     """
+    if return_wcs:
+        return parse_input_data(input_weights, hdu_in=hdu_weights)
 
     if isinstance(input_weights, str):
         return parse_input_data(fits.open(input_weights), hdu_in=hdu_weights)[0]
