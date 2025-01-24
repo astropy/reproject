@@ -355,10 +355,12 @@ def reproject_and_coadd(
                     return_footprint=False,
                     **kwargs,
                 )
+                reset = np.isnan(array) | np.isnan(weights)
+            else:
+                reset = np.isnan(array)
 
             # For the purposes of mosaicking, we mask out NaN values from the array
             # and set the footprint to 0 at these locations.
-            reset = np.isnan(array) | np.isnan(weights)
             array[reset] = 0.0
             footprint[reset] = 0.0
 
