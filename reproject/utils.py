@@ -212,7 +212,9 @@ def parse_input_weights(input_weights, hdu_weights=None, return_wcs=False):
         return parse_input_data(input_weights[hdu_weights])[slc]
     elif isinstance(input_weights, PrimaryHDU | ImageHDU | CompImageHDU):
         if return_wcs:
-            return input_weights.data, WCS(input_weights.header)
+            ww = WCS(input_weights.header)
+            ww = ww if ww.has_celestial else None
+            return input_weights.data, ww
         else:
             return input_weights.data
     elif isinstance(input_weights, np.ndarray):
