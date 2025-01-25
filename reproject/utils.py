@@ -196,11 +196,10 @@ def parse_input_weights(input_weights, hdu_weights=None, return_wcs=False):
     """
     Parse input weights to return a Numpy array.
     """
-    if return_wcs:
-        return parse_input_data(input_weights, hdu_in=hdu_weights)
+    slc = slice(None) if return_wcs else 0
 
     if isinstance(input_weights, str):
-        return parse_input_data(fits.open(input_weights), hdu_in=hdu_weights)[0]
+        return parse_input_data(fits.open(input_weights), hdu_in=hdu_weights)[slc]
     elif isinstance(input_weights, HDUList):
         if hdu_weights is None:
             if len(input_weights) > 1:
@@ -210,11 +209,17 @@ def parse_input_weights(input_weights, hdu_weights=None, return_wcs=False):
                 )
             else:
                 hdu_weights = 0
-        return parse_input_data(input_weights[hdu_weights])[0]
+        return parse_input_data(input_weights[hdu_weights])[slc]
     elif isinstance(input_weights, PrimaryHDU | ImageHDU | CompImageHDU):
-        return input_weights.data
+        if return_wcs:
+            return input_weights.data, WCS(input_weights.header)
+        else:
+            return input_weights.data
     elif isinstance(input_weights, np.ndarray):
-        return input_weights
+        if return_wcs:
+            return input_weights, None
+        else:
+            return input_weights
     else:
         raise TypeError("input_weights should either be an HDU object or a Numpy array")
 
