@@ -304,7 +304,7 @@ class TestReprojectAndCoAdd:
         assert_allclose(array - np.mean(array), self.array - np.mean(self.array), atol=ATOL)
 
     @pytest.mark.filterwarnings("ignore:unclosed file:ResourceWarning")
-    @pytest.mark.parametrize("mode", ["arrays", "filenames", "hdus"])
+    @pytest.mark.parametrize("mode", ["arrays", "filenames", "hdus", "hdulist"])
     def test_coadd_with_weights(self, tmpdir, reproject_function, mode, intermediate_memmap):
         # Make sure that things work properly when specifying weights
 
@@ -327,6 +327,10 @@ class TestReprojectAndCoAdd:
         elif mode == "hdus":
             hdu1 = fits.ImageHDU(weight1)
             hdu2 = fits.ImageHDU(weight2)
+            input_weights = [hdu1, hdu2]
+        elif mode == "hdulist":
+            hdu1 = fits.HDUList([fits.ImageHDU(weight1, header=self.wcs.to_header())])
+            hdu2 = fits.HDUList([fits.ImageHDU(weight2, header=self.wcs.to_header())])
             input_weights = [hdu1, hdu2]
 
         array, footprint = reproject_and_coadd(
