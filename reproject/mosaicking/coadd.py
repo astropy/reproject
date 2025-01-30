@@ -25,10 +25,9 @@ def _noop(iterable):
     return iterable
 
 
-def byteordermatch(arr1, arr2):
-    """
-    Match arr1's dtype to arr2
-    """
+def _byteordermatch(arr1, arr2):
+
+    # Match arr1's dtype to arr2
 
     odt = arr2.dtype
     idt = arr1.dtype
@@ -42,10 +41,9 @@ def byteordermatch(arr1, arr2):
         else:
             from dask.utils import M
 
-            # arr1 = arr1.map_blocks(np.ndarray.byteswap, True).map_blocks(np.ndarray.newbyteorder, "S")
             try:
                 arr1 = arr1.map_blocks(M.byteswap, False).map_blocks(M.newbyteorder, "S")
-            except:
+            except Exception:
 
                 def newbyteorder(arr, order):
                     return arr.view(arr.dtype.newbyteorder(order))
@@ -236,7 +234,7 @@ def reproject_and_coadd(
             # We need to pre-parse the data here since we need to figure out how to
             # optimize/minimize the size of each output tile (see below).
             array_in, wcs_in = parse_input_data(input_data[idata], hdu_in=hdu_in)
-            array_in = byteordermatch(array_in, output_array)
+            array_in = _byteordermatch(array_in, output_array)
 
             # We also get the weights map, if specified
             if input_weights is None:
