@@ -32,22 +32,24 @@ def byteordermatch(arr1, arr2):
 
     odt = arr2.dtype
     idt = arr1.dtype
-    bo_resolver = {'=': '<' if sys.byteorder == 'little' else '>', '<': '<', '>': '>'}
+    bo_resolver = {"=": "<" if sys.byteorder == "little" else ">", "<": "<", ">": ">"}
     obo = bo_resolver[odt.byteorder]
     ibo = bo_resolver[idt.byteorder]
 
     if ibo != obo:
-        if hasattr(arr1, 'byteswap'):
+        if hasattr(arr1, "byteswap"):
             arr1 = arr1.byteswap(inplace=True).view(arr2.dtype)
         else:
             from dask.utils import M
 
-            #arr1 = arr1.map_blocks(np.ndarray.byteswap, True).map_blocks(np.ndarray.newbyteorder, "S")
+            # arr1 = arr1.map_blocks(np.ndarray.byteswap, True).map_blocks(np.ndarray.newbyteorder, "S")
             try:
                 arr1 = arr1.map_blocks(M.byteswap, False).map_blocks(M.newbyteorder, "S")
             except:
+
                 def newbyteorder(arr, order):
                     return arr.view(arr.dtype.newbyteorder(order))
+
                 arr1 = arr1.map_blocks(M.byteswap, False).map_blocks(newbyteorder, "S")
 
     return arr1
@@ -199,7 +201,6 @@ def reproject_and_coadd(
             f"the output shape {shape_out}"
         )
 
-
     if output_footprint is None:
         output_footprint = np.zeros(shape_out)
     elif output_footprint.shape != shape_out:
@@ -241,7 +242,9 @@ def reproject_and_coadd(
             if input_weights is None:
                 weights_in = None
             else:
-                weights_in, weights_wcs = parse_input_weights(input_weights[idata], hdu_weights=hdu_weights, return_wcs=True)
+                weights_in, weights_wcs = parse_input_weights(
+                    input_weights[idata], hdu_weights=hdu_weights, return_wcs=True
+                )
                 if weights_wcs is None or not weights_wcs.has_celestial:
                     # if weights are passed as an array
                     weights_wcs = wcs_in
