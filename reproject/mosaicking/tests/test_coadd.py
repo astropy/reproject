@@ -347,7 +347,6 @@ class TestReprojectAndCoAdd:
 
         assert_allclose(array, expected, atol=ATOL)
 
-
     @pytest.mark.filterwarnings("ignore:unclosed file:ResourceWarning")
     def test_coadd_with_weights_with_wcs(self, tmpdir, reproject_function, intermediate_memmap):
         # Make sure that things work properly when specifying weights that have offset WCS
@@ -378,13 +377,21 @@ class TestReprojectAndCoAdd:
             match_background=False,
         )
 
-        weights1_reprojected = reproject_function(hdu1, self.wcs, shape_out=self.array.shape, return_footprint=False)
-        weights2_reprojected = reproject_function(hdu2, self.wcs, shape_out=self.array.shape, return_footprint=False)
-        array1_reprojected = reproject_function(input_data[0], self.wcs, shape_out=self.array.shape, return_footprint=False)
-        array2_reprojected = reproject_function(input_data[1], self.wcs, shape_out=self.array.shape, return_footprint=False)
-        expected = ((array1_reprojected * weights1_reprojected +
-                     array2_reprojected * weights2_reprojected) /
-                    (weights1_reprojected + weights2_reprojected))
+        weights1_reprojected = reproject_function(
+            hdu1, self.wcs, shape_out=self.array.shape, return_footprint=False
+        )
+        weights2_reprojected = reproject_function(
+            hdu2, self.wcs, shape_out=self.array.shape, return_footprint=False
+        )
+        array1_reprojected = reproject_function(
+            input_data[0], self.wcs, shape_out=self.array.shape, return_footprint=False
+        )
+        array2_reprojected = reproject_function(
+            input_data[1], self.wcs, shape_out=self.array.shape, return_footprint=False
+        )
+        expected = (
+            array1_reprojected * weights1_reprojected + array2_reprojected * weights2_reprojected
+        ) / (weights1_reprojected + weights2_reprojected)
 
         assert_allclose(array, expected, atol=ATOL)
 
