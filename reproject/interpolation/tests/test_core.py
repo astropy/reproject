@@ -956,7 +956,7 @@ def test_auto_block_size():
     assert footprint_out.chunksize[0] == 350
 
 
-@pytest.mark.parametrize('itemsize', (4, 8))
+@pytest.mark.parametrize("itemsize", (4, 8))
 def test_bigendian_dask(itemsize):
 
     # Regression test for an endianness issue that occurred when the input was
