@@ -31,6 +31,11 @@ def _dask_to_numpy_memmap(dask_array, tmp_dir):
     if isinstance(dask_array.ravel()[0].compute(), da.Array):
         dask_array = dask_array.compute()
 
+    # Cast the dask array to regular float for two reasons - first, zarr 3.0.0
+    # and later doesn't support big-endian arrays, and also we need to anyway
+    # make a native float memory mapped array below.
+    dask_array = dask_array.astype(float, copy=False)
+
     # NOTE: here we use a new TemporaryDirectory context manager for the zarr
     # array because we can remove the temporary directory straight away after
     # converting the input to a Numpy memory mapped array.
@@ -53,7 +58,7 @@ def _dask_to_numpy_memmap(dask_array, tmp_dir):
 
         memmapped_array = np.memmap(
             memmap_path,
-            dtype=zarr_array.dtype,
+            dtype=float,
             shape=zarr_array.shape,
             mode="w+",
         )
