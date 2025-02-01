@@ -16,7 +16,7 @@ dependencies = [
     "scipy>=1.9",
     "dask[array]>=2021.8",
     "cloudpickle",
-    "zarr",
+    "zarr<3",
     "fsspec",
 ]
 dynamic = ["version"]
