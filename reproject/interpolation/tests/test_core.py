@@ -956,13 +956,14 @@ def test_auto_block_size():
     assert footprint_out.chunksize[0] == 350
 
 
-def test_bigendian_dask():
+@pytest.mark.parametrize('itemsize', (4, 8))
+def test_bigendian_dask(itemsize):
 
     # Regression test for an endianness issue that occurred when the input was
     # passed in as (dask_array, wcs) and the dask array was big endian.
 
-    array_in_le = da.ones((350, 250, 150), dtype=">f8")
-    array_in_be = da.ones((350, 250, 150), dtype="<f8")
+    array_in_le = da.ones((350, 250, 150), dtype=f">f{itemsize}")
+    array_in_be = da.ones((350, 250, 150), dtype=f"<f{itemsize}")
     wcs_in = WCS(naxis=2)
     wcs_out = WCS(naxis=2)
 
