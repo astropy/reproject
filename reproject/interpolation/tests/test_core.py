@@ -954,3 +954,30 @@ def test_auto_block_size():
 
     assert array_out.chunksize[0] == 350
     assert footprint_out.chunksize[0] == 350
+
+
+def test_bigendian_dask():
+
+    # Regression test for an endianness issue that occurred when the input was
+    # passed in as (dask_array, wcs) and the dask array was big endian.
+
+    array_in_le = da.ones((350, 250, 150), dtype=">f8")
+    array_in_be = da.ones((350, 250, 150), dtype="<f8")
+    wcs_in = WCS(naxis=2)
+    wcs_out = WCS(naxis=2)
+
+    array_out_be, _ = reproject_interp(
+        (array_in_be, wcs_in),
+        wcs_out,
+        shape_out=(300, 300),
+        block_size=(100, 100),
+    )
+
+    array_out_le, _ = reproject_interp(
+        (array_in_le, wcs_in),
+        wcs_out,
+        shape_out=(300, 300),
+        block_size=(100, 100),
+    )
+
+    assert_allclose(array_out_be, array_out_le)

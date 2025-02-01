@@ -53,7 +53,7 @@ def _dask_to_numpy_memmap(dask_array, tmp_dir):
 
         memmapped_array = np.memmap(
             memmap_path,
-            dtype=zarr_array.dtype,
+            dtype=float,
             shape=zarr_array.shape,
             mode="w+",
         )
