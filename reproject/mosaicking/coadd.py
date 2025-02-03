@@ -212,9 +212,9 @@ def reproject_and_coadd(
                 weights_in = None
             else:
                 weights_in, weights_wcs = parse_input_weights(
-                    input_weights[idata], hdu_weights=hdu_weights, return_wcs=True
+                    input_weights[idata], hdu_weights=hdu_weights
                 )
-                if weights_wcs is None or not weights_wcs.has_celestial:
+                if weights_wcs is None:
                     # if weights are passed as an array
                     weights_wcs = wcs_in
                 if np.any(np.isnan(weights_in)):
