@@ -14,6 +14,7 @@ from ..array_utils import iterate_chunks, sample_array_edges
 from ..utils import parse_input_data, parse_input_weights, parse_output_projection
 from .background import determine_offset_matrix, solve_corrections_sgd
 from .subset_array import ReprojectedArraySubset
+from ..interpolation.core import _validate_wcs
 
 __all__ = ["reproject_and_coadd"]
 
@@ -217,6 +218,12 @@ def reproject_and_coadd(
                 if weights_wcs is None:
                     # if weights are passed as an array
                     weights_wcs = wcs_in
+                else:
+                    try:
+                        _validate_wcs(weights_wcs, wcs_in, weights_in.shape, shape_out)
+                    except ValueError:
+                        # WCS is not valid (most likely, it is blank?)
+                        weights_wcs = wcs_in
                 if np.any(np.isnan(weights_in)):
                     weights_in = np.nan_to_num(weights_in)
 
