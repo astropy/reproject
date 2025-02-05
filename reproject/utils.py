@@ -210,7 +210,7 @@ def parse_input_weights(input_weights, hdu_weights=None):
                 hdu_weights = 0
         return parse_input_data(input_weights[hdu_weights])
     elif isinstance(input_weights, PrimaryHDU | ImageHDU | CompImageHDU):
-        if 'CTYPE1' in input_weights.header:
+        if "CTYPE1" in input_weights.header:
             # all valid WCSes have CTYPE1 specified, at least
             ww = WCS(input_weights.header)
         else:
