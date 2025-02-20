@@ -2,6 +2,7 @@ import dask.array as da
 import numpy as np
 import pytest
 from astropy.io import fits
+from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
 
 from reproject.conftest import set_wcs_array_shape
@@ -39,6 +40,12 @@ def test_parse_input_data_missing_hdu_in():
 
     with pytest.raises(ValueError, match="More than one HDU"):
         parse_input_data(hdulist)
+
+
+def test_parse_input_data_distortion_map():
+    # Verify that the file can be successfully loaded and parsed
+    fname = get_pkg_data_filename("data/image_with_distortion_map.fits", package="reproject.tests")
+    parse_input_data(fname, hdu_in=0)
 
 
 @pytest.mark.filterwarnings("ignore:unclosed file:ResourceWarning")
