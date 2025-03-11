@@ -300,7 +300,7 @@ def _reproject_dispatcher(
             reproject_single_block,
             array_out_dask,
             array_in_or_path,
-            dtype=float,
+            dtype="<f8",
             new_axis=0,
             chunks=(2,) + array_out_dask.chunksize,
         )
