@@ -74,8 +74,8 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-        - uses: uraimo/run-on-arch-action@v3.0.0
-          name: Run tests
+      - uses: uraimo/run-on-arch-action@v3.0.0
+        name: Run tests
         id: build
         with:
           arch: ${{ matrix.arch }}
