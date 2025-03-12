@@ -21,13 +21,17 @@ jobs:
         - macos: py310-test-oldestdeps
         - macos: py311-test
         - macos: py312-test
+        - macos: py313-test
         - linux: py310-test-oldestdeps
         - linux: py311-test
         - linux: py312-test
+          runs-on: ubuntu-24.04-arm
+        - linux: py313-test
         - linux: py312-test-devdeps
         - windows: py310-test-oldestdeps
         - windows: py311-test
         - windows: py312-test
+        - windows: py313-test
       libraries: |
         apt:
           - libopenblas-dev
@@ -41,7 +45,8 @@ jobs:
       test_command: pytest -p no:warnings --pyargs reproject
       targets: |
         - cp*-manylinux_x86_64
-        - cp*-manylinux_aarch64
+        - target: cp*-manylinux_aarch64
+          runs-on: ubuntu-24.04-arm
         - cp*-macosx_x86_64
         - cp*-macosx_arm64
         - cp*-win_amd64
