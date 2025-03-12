@@ -96,7 +96,6 @@ jobs:
                                   python3-scipy \
                                   python3-dask \
                                   python3-cloudpickle \
-                                  python3-zarr \
                                   python3-fsspec \
 
           run: |
