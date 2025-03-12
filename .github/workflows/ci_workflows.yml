@@ -66,8 +66,8 @@ jobs:
       matrix:
         include:
           - arch: s390x
-          # - arch: ppc64le
-          # - arch: armv7
+          - arch: ppc64le
+          - arch: armv7
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
@@ -79,7 +79,7 @@ jobs:
         id: build
         with:
           arch: ${{ matrix.arch }}
-          distro: ubuntu_latest
+          distro: ubuntu_rolling
 
           shell: /bin/bash
 
