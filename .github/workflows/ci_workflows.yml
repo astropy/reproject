@@ -107,6 +107,7 @@ jobs:
           run: |
             uname -a
             echo "LONG_BIT="$(getconf LONG_BIT)
+            /usr/bin/powerpc64le-linux-gnu-gcc test.c
             python3 -m venv --system-site-packages tests
             source tests/bin/activate
             # # cython and pyerfa versions in ubuntu repos are too old currently
