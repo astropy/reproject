@@ -99,6 +99,7 @@ jobs:
                                   python3-fsspec \
                                   python3-venv \
                                   python3-numcodecs \
+                                  python3-zarr \
                                   git
 
           run: |
