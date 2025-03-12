@@ -85,19 +85,13 @@ jobs:
 
           install: |
             apt-get update -q -y
-            apt-get install -q -y --no-install-recommends \
-                                  python3 \
-                                  python3-setuptools-scm \
-                                  cython3 \
-                                  python3-extension-helpers \
-                                  python3-numpy \
-                                  python3-astropy \
-                                  python3-astropy-healpix \
-                                  python3-scipy \
-                                  python3-dask \
-                                  python3-cloudpickle \
-                                  python3-fsspec \
-                                  python3-venv
+            apt-get install -q -y --no-install-recommends python3
+            apt-get install -q -y --no-install-recommends cython3
+            apt-get install -q -y --no-install-recommends python3-venv python3-setuptools-scm
+            apt-get install -q -y --no-install-recommends python3-extension-helpers python3-numpy
+            apt-get install -q -y --no-install-recommends python3-astropy python3-scipy
+            apt-get install -q -y --no-install-recommends python3-astropy-healpix
+            apt-get install -q -y --no-install-recommends python3-dask python3-cloudpickle python3-fsspec
 
           run: |
             uname -a
@@ -110,4 +104,3 @@ jobs:
             ASTROPY_USE_SYSTEM_ALL=1 pip3 install -v --no-build-isolation -e .[test]
             pip3 list
             python3 -m pytest -m "not hypothesis"
-
