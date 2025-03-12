@@ -97,6 +97,7 @@ jobs:
                                   python3-dask \
                                   python3-cloudpickle \
                                   python3-fsspec \
+                                  python3-venv
 
           run: |
             uname -a
