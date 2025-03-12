@@ -102,17 +102,14 @@ jobs:
                                   python3-numcodecs \
                                   python3-zarr \
                                   git \
-                                  gcc-powerpc64le-linux-gnu
+                                  build-essential
 
           run: |
             uname -a
             echo "LONG_BIT="$(getconf LONG_BIT)
-            /usr/bin/powerpc64le-linux-gnu-gcc test.c
             python3 -m venv --system-site-packages tests
             source tests/bin/activate
-            # # cython and pyerfa versions in ubuntu repos are too old currently
-            # pip install -U cython
-            # pip install -U --no-build-isolation pyerfa
-            ASTROPY_USE_SYSTEM_ALL=1 pip3 install -v --no-build-isolation .[test]
+            pip3 install -v --no-build-isolation .[test]
             pip3 list
+            cd
             python3 -m pytest --pyargs reproject -m "not hypothesis"
