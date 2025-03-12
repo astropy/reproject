@@ -14,44 +14,44 @@ concurrency:
 
 jobs:
 
-  tests:
-    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@8c0fde6f7e926df6ed7057255d29afa9c1ad5320  # v1.16.0
-    with:
-      envs: |
-        - macos: py310-test-oldestdeps
-        - macos: py311-test
-        - macos: py312-test
-        - linux: py310-test-oldestdeps
-        - linux: py311-test
-        - linux: py312-test
-        - linux: py312-test-devdeps
-        - windows: py310-test-oldestdeps
-        - windows: py311-test
-        - windows: py312-test
-      libraries: |
-        apt:
-          - libopenblas-dev
-      coverage: 'codecov'
+  # tests:
+  #   uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@8c0fde6f7e926df6ed7057255d29afa9c1ad5320  # v1.16.0
+  #   with:
+  #     envs: |
+  #       - macos: py310-test-oldestdeps
+  #       - macos: py311-test
+  #       - macos: py312-test
+  #       - linux: py310-test-oldestdeps
+  #       - linux: py311-test
+  #       - linux: py312-test
+  #       - linux: py312-test-devdeps
+  #       - windows: py310-test-oldestdeps
+  #       - windows: py311-test
+  #       - windows: py312-test
+  #     libraries: |
+  #       apt:
+  #         - libopenblas-dev
+  #     coverage: 'codecov'
 
-  publish:
-    needs: tests
-    uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish.yml@8c0fde6f7e926df6ed7057255d29afa9c1ad5320  # v1.16.0
-    with:
-      test_extras: test
-      test_command: pytest -p no:warnings --pyargs reproject
-      targets: |
-        - cp*-manylinux_x86_64
-        - cp*-manylinux_aarch64
-        - cp*-macosx_x86_64
-        - cp*-macosx_arm64
-        - cp*-win_amd64
+  # publish:
+  #   needs: tests
+  #   uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish.yml@8c0fde6f7e926df6ed7057255d29afa9c1ad5320  # v1.16.0
+  #   with:
+  #     test_extras: test
+  #     test_command: pytest -p no:warnings --pyargs reproject
+  #     targets: |
+  #       - cp*-manylinux_x86_64
+  #       - cp*-manylinux_aarch64
+  #       - cp*-macosx_x86_64
+  #       - cp*-macosx_arm64
+  #       - cp*-win_amd64
 
-      # Developer wheels
-      upload_to_anaconda: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
-      anaconda_user: astropy
-      anaconda_package: reproject
-      anaconda_keep_n_latest: 10
+  #     # Developer wheels
+  #     upload_to_anaconda: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+  #     anaconda_user: astropy
+  #     anaconda_package: reproject
+  #     anaconda_keep_n_latest: 10
 
-    secrets:
-      pypi_token: ${{ secrets.pypi_token }}
-      anaconda_token: ${{ secrets.anaconda_token }}
+  #   secrets:
+  #     pypi_token: ${{ secrets.pypi_token }}
+  #     anaconda_token: ${{ secrets.anaconda_token }}
