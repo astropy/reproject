@@ -14,49 +14,102 @@ concurrency:
 
 jobs:
 
-  tests:
-    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@8c0fde6f7e926df6ed7057255d29afa9c1ad5320  # v1.16.0
-    with:
-      envs: |
-        - macos: py310-test-oldestdeps
-        - macos: py311-test
-        - macos: py312-test
-        - macos: py313-test
-        - linux: py310-test-oldestdeps
-        - linux: py311-test
-        - linux: py312-test
-          runs-on: ubuntu-24.04-arm
-        - linux: py313-test
-        - linux: py312-test-devdeps
-        - windows: py310-test-oldestdeps
-        - windows: py311-test
-        - windows: py312-test
-        - windows: py313-test
-      libraries: |
-        apt:
-          - libopenblas-dev
-      coverage: 'codecov'
+  # tests:
+  #   uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@8c0fde6f7e926df6ed7057255d29afa9c1ad5320  # v1.16.0
+  #   with:
+  #     envs: |
+  #       - macos: py310-test-oldestdeps
+  #       - macos: py311-test
+  #       - macos: py312-test
+  #       - linux: py310-test-oldestdeps
+  #       - linux: py311-test
+  #       - linux: py312-test
+  #       - linux: py312-test-devdeps
+  #       - windows: py310-test-oldestdeps
+  #       - windows: py311-test
+  #       - windows: py312-test
+  #     libraries: |
+  #       apt:
+  #         - libopenblas-dev
+  #     coverage: 'codecov'
 
-  publish:
-    needs: tests
-    uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish.yml@8c0fde6f7e926df6ed7057255d29afa9c1ad5320  # v1.16.0
-    with:
-      test_extras: test
-      test_command: pytest -p no:warnings --pyargs reproject
-      targets: |
-        - cp*-manylinux_x86_64
-        - target: cp*-manylinux_aarch64
-          runs-on: ubuntu-24.04-arm
-        - cp*-macosx_x86_64
-        - cp*-macosx_arm64
-        - cp*-win_amd64
+  # publish:
+  #   needs: tests
+  #   uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish.yml@8c0fde6f7e926df6ed7057255d29afa9c1ad5320  # v1.16.0
+  #   with:
+  #     test_extras: test
+  #     test_command: pytest -p no:warnings --pyargs reproject
+  #     targets: |
+  #       - cp*-manylinux_x86_64
+  #       - cp*-manylinux_aarch64
+  #       - cp*-macosx_x86_64
+  #       - cp*-macosx_arm64
+  #       - cp*-win_amd64
 
-      # Developer wheels
-      upload_to_anaconda: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
-      anaconda_user: astropy
-      anaconda_package: reproject
-      anaconda_keep_n_latest: 10
+  #     # Developer wheels
+  #     upload_to_anaconda: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+  #     anaconda_user: astropy
+  #     anaconda_package: reproject
+  #     anaconda_keep_n_latest: 10
 
-    secrets:
-      pypi_token: ${{ secrets.pypi_token }}
-      anaconda_token: ${{ secrets.anaconda_token }}
+  #   secrets:
+  #     pypi_token: ${{ secrets.pypi_token }}
+  #     anaconda_token: ${{ secrets.anaconda_token }}
+
+  tests_more_architectures:
+
+    runs-on: ubuntu-latest
+    name: Python 3.12
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: s390x
+          # - arch: ppc64le
+          # - arch: armv7
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: uraimo/run-on-arch-action@v3.0.0
+        name: Run tests
+        id: build
+        with:
+          arch: ${{ matrix.arch }}
+          distro: ubuntu_rolling
+
+          shell: /bin/bash
+
+          install: |
+            apt-get update -q -y
+            apt-get install -q -y --no-install-recommends \
+                                  python3 \
+                                  python3-dev \
+                                  python3-setuptools-scm \
+                                  cython3 \
+                                  python3-extension-helpers \
+                                  python3-numpy \
+                                  python3-astropy \
+                                  python3-astropy-healpix \
+                                  python3-scipy \
+                                  python3-dask \
+                                  python3-cloudpickle \
+                                  python3-fsspec \
+                                  python3-venv \
+                                  python3-numcodecs \
+                                  python3-zarr \
+                                  git \
+                                  build-essential
+
+          run: |
+            uname -a
+            echo "LONG_BIT="$(getconf LONG_BIT)
+            python3 -m venv --system-site-packages tests
+            source tests/bin/activate
+            pip3 install -v --no-build-isolation .[test]
+            pip3 list
+            cd
+            python3 -m pytest --pyargs reproject -m "not hypothesis"
