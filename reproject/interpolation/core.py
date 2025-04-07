@@ -114,7 +114,7 @@ def _reproject_full(
         pixel_in = pixel_to_pixel(wcs_out, wcs_in, *pixel_out[::-1])[::-1]
     pixel_in = np.array(pixel_in)
 
-    # Loop over the broadcasted dimensions in our array, re-using the same
+    # Loop over the broadcasted dimensions in our array, reusing the same
     # computed transformation each time
     for i in range(len(array)):
         # Interpolate array on to the pixels coordinates in pixel_in
