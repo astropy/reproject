@@ -75,6 +75,7 @@ repos:
         args: ["--write-changes"]
         additional_dependencies:
           - tomli
+        exclude: '.*\.(asdf)$'
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: "v0.11.4"
