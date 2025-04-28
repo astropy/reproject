@@ -4,7 +4,6 @@ import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord, frame_transform_graph
 from astropy.io.fits import Header
-from astropy.utils import isiterable
 from astropy.wcs import WCS
 from astropy.wcs.utils import (
     celestial_frame_to_wcs,
@@ -103,9 +102,9 @@ def find_optimal_celestial_wcs(
     # input data.
 
     if isinstance(input_data, str):
-        # Handle this explicitly as isiterable(str) is True
+        # Handle this explicitly as str is iterable too
         iterable = False
-    elif isiterable(input_data):
+    elif np.iterable(input_data):
         if len(input_data) == 2 and isinstance(
             input_data[1], BaseLowLevelWCS | BaseHighLevelWCS | Header
         ):
