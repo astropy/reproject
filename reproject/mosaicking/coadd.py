@@ -11,6 +11,7 @@ from astropy.wcs.utils import pixel_to_pixel
 from astropy.wcs.wcsapi import SlicedLowLevelWCS
 
 from ..array_utils import iterate_chunks, sample_array_edges
+from ..interpolation.core import _validate_wcs
 from ..utils import parse_input_data, parse_input_weights, parse_output_projection
 from .background import determine_offset_matrix, solve_corrections_sgd
 from .subset_array import ReprojectedArraySubset
@@ -211,7 +212,18 @@ def reproject_and_coadd(
             if input_weights is None:
                 weights_in = None
             else:
-                weights_in = parse_input_weights(input_weights[idata], hdu_weights=hdu_weights)
+                weights_in, weights_wcs = parse_input_weights(
+                    input_weights[idata], hdu_weights=hdu_weights
+                )
+                if weights_wcs is None:
+                    # if weights are passed as an array
+                    weights_wcs = wcs_in
+                else:
+                    try:
+                        _validate_wcs(weights_wcs, wcs_in, weights_in.shape, shape_out)
+                    except ValueError:
+                        # WCS is not valid (most likely, it is blank?)
+                        weights_wcs = wcs_in
                 if np.any(np.isnan(weights_in)):
                     weights_in = np.nan_to_num(weights_in)
 
@@ -347,7 +359,7 @@ def reproject_and_coadd(
                 )
 
                 weights = reproject_function(
-                    (weights_in, wcs_in),
+                    (weights_in, weights_wcs),
                     output_projection=wcs_out_indiv,
                     shape_out=shape_out_indiv,
                     hdu_in=hdu_in,
@@ -355,10 +367,12 @@ def reproject_and_coadd(
                     return_footprint=False,
                     **kwargs,
                 )
+                reset = np.isnan(array) | np.isnan(weights)
+            else:
+                reset = np.isnan(array)
 
             # For the purposes of mosaicking, we mask out NaN values from the array
             # and set the footprint to 0 at these locations.
-            reset = np.isnan(array)
             array[reset] = 0.0
             footprint[reset] = 0.0
 
