@@ -258,7 +258,7 @@ def reproject_and_coadd(
                     imin = max(0, int(np.floor(edges_out[idim].min() + 0.5)))
                     imax = min(shape_out[idim], int(np.ceil(edges_out[idim].max() + 0.5)))
                     bounds.append((imin, imax))
-                    if imax < imin:
+                    if imax <= imin:
                         skip_data = True
                         break
 
