@@ -8,7 +8,7 @@ authors = [
 license = {text = "BSD 3-Clause"}
 description = "Reproject astronomical images"
 urls = {Homepage = "https://reproject.readthedocs.io"}
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.23",
     "astropy>=5.0",
