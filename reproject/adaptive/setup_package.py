@@ -16,8 +16,8 @@ def get_extensions():
 
     define_macros = []
 
-    define_macros.append(("CYTHON_LIMITED_API", "0x030C0000"))
-    define_macros.append(("Py_LIMITED_API", "0x030C0000"))
+    define_macros.append(("CYTHON_LIMITED_API", "0x030A0000"))
+    define_macros.append(("Py_LIMITED_API", "0x030A0000"))
 
     extension = Extension(
         name="reproject.adaptive.deforest",
