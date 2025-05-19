@@ -8,7 +8,7 @@ authors = [
 license = {text = "BSD 3-Clause"}
 description = "Reproject astronomical images"
 urls = {Homepage = "https://reproject.readthedocs.io"}
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.23",
     "astropy>=5.0",
@@ -47,8 +47,8 @@ docs = [
 requires = ["setuptools",
             "setuptools_scm",
             "extension-helpers==1.*",
-            "numpy>=2.0.0rc1",
-            "cython>=3.0,<3.1"]
+            "numpy>=2",
+            "cython>=3.1"]
 build-backend = 'setuptools.build_meta'
 
 [tool.setuptools]
