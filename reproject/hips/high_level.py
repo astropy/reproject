@@ -19,6 +19,7 @@ def reproject_to_hips(
     hdu_in=0,
     tile_size=512,
     progress_bar=None,
+    **kwargs,
 ):
     """
     Reproject data from a standard projection to a set of Hierarchical Progressive
@@ -62,6 +63,11 @@ def reproject_to_hips(
 
     **kwargs
         Keyword arguments to be passed to the reprojection function.
+
+    Returns
+    -------
+    None
+        This function does not return a value.
     """
 
     array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
