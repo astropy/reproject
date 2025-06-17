@@ -14,10 +14,11 @@ __all__ = ["image_to_hips"]
 
 
 VALID_COORD_SYSTEM = {
-    'equatorial': ICRS(),
-    'galactic': Galactic(),
-    'ecliptic': BarycentricTrueEcliptic(),
+    "equatorial": ICRS(),
+    "galactic": Galactic(),
+    "ecliptic": BarycentricTrueEcliptic(),
 }
+
 
 def image_to_hips(
     array_in,
@@ -111,7 +112,9 @@ def image_to_hips(
         array_out[np.isnan(array_out)] = 0.0
         if np.all(footprint == 0):
             continue
-        fits.writeto(tile_filename(level=level, index=index, output_directory=output_directory), array_out)
+        fits.writeto(
+            tile_filename(level=level, index=index, output_directory=output_directory), array_out
+        )
         generated_indices.append(index)
 
     indices = np.array(generated_indices)
@@ -133,11 +136,13 @@ def image_to_hips(
             for subindex in range(4):
 
                 current_index = 4 * index + subindex
-                subtile_filename = tile_filename(level=ilevel+1, index=current_index, output_directory=output_directory)
+                subtile_filename = tile_filename(
+                    level=ilevel + 1, index=current_index, output_directory=output_directory
+                )
 
                 if os.path.exists(subtile_filename):
 
-                    data = fits.getdata(subtile_filename)[::2,::2]
+                    data = fits.getdata(subtile_filename)[::2, ::2]
 
                     if subindex == 0:
                         array[256:, :256] = data
@@ -148,29 +153,33 @@ def image_to_hips(
                     elif subindex == 3:
                         array[:256, 256:] = data
 
-            fits.writeto(tile_filename(level=ilevel, index=index, output_directory=output_directory), array, header)
+            fits.writeto(
+                tile_filename(level=ilevel, index=index, output_directory=output_directory),
+                array,
+                header,
+            )
 
     # Generate properties file
 
     cen_icrs = cen_world.icrs
 
     properties = {
-        'creator_did': f'ivo://reproject/{str(uuid.uuid4())}',
-        'obs_title': 'Placeholder title',
-        'dataproduct_type': 'image',
-        'hips_version': '1.4',
-        'hips_release_date': datetime.now().isoformat(),
-        'hips_status': 'public master clonableOnce',
-        'hips_tile_format': 'fits',
-        'hips_tile_width': tile_size,
-        'hips_order': level,
-        'hips_frame': coord_system_out,
-        'hips_builder': 'astropy/reproject',
-        'hips_initial_ra': cen_icrs.ra.deg,
-        'hips_initial_dec': cen_icrs.dec.deg,
-        'hips_initial_fov': radius.deg,
+        "creator_did": f"ivo://reproject/{str(uuid.uuid4())}",
+        "obs_title": "Placeholder title",
+        "dataproduct_type": "image",
+        "hips_version": "1.4",
+        "hips_release_date": datetime.now().isoformat(),
+        "hips_status": "public master clonableOnce",
+        "hips_tile_format": "fits",
+        "hips_tile_width": tile_size,
+        "hips_order": level,
+        "hips_frame": coord_system_out,
+        "hips_builder": "astropy/reproject",
+        "hips_initial_ra": cen_icrs.ra.deg,
+        "hips_initial_dec": cen_icrs.dec.deg,
+        "hips_initial_fov": radius.deg,
     }
 
-    with open(os.path.join(output_directory, 'properties'), 'w') as f:
+    with open(os.path.join(output_directory, "properties"), "w") as f:
         for key, value in properties.items():
-            f.write(f'{key:20s} = {value}\n')
+            f.write(f"{key:20s} = {value}\n")

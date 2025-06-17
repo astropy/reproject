@@ -55,7 +55,10 @@ def _rounded_index(index):
 
 def tile_filename(*, level, index, output_directory):
     return os.path.join(
-        output_directory, f"Norder{level}", f"Dir{_rounded_index(index)}", f"Npix{index}.fits",
+        output_directory,
+        f"Norder{level}",
+        f"Dir{_rounded_index(index)}",
+        f"Npix{index}.fits",
     )
 
 
@@ -63,6 +66,8 @@ def make_tile_folders(*, level, indices, output_directory):
 
     rounded_indices = np.unique(_rounded_index(indices))
     for index in rounded_indices:
-        dirname = os.path.dirname(tile_filename(level=level, index=index, output_directory=output_directory))
+        dirname = os.path.dirname(
+            tile_filename(level=level, index=index, output_directory=output_directory)
+        )
         if not os.path.exists(dirname):
             os.makedirs(dirname)
