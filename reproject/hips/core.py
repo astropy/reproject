@@ -414,11 +414,11 @@ def determine_healpix_level(wcs_in, tile_size):
     """
 
     # Get the pixel scale from the input WCS
-    pixel_scale = wcs_in.proj_plane_pixel_area()
+    pixel_scale = wcs_in.proj_plane_pixel_area()**0.5
 
     from astropy_healpix import pixel_resolution_to_nside, nside_to_level
 
-    target_nside = pixel_resolution_to_nside(pixel_scale**0.5 * tile_size)
+    target_nside = pixel_resolution_to_nside(pixel_scale * tile_size)
     target_level = nside_to_level(target_nside)
 
     return target_level
