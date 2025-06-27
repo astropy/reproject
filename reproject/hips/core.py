@@ -61,6 +61,7 @@ def image_to_hips(
     output_id=None,
     level=None,
     progress_bar=None,
+    overwrite=False,
     **kwargs,
 ):
     """
@@ -121,7 +122,7 @@ def image_to_hips(
         logger.info(f"Automatically set the HEALPIX level to {level} with pixel size {pixel_size}")
 
     # Create output directory (and error if it already exists)
-    os.makedirs(output_directory, exist_ok=False)
+    os.makedirs(output_directory, exist_ok=overwrite)
 
     # Determine center of image and radius to furthest corner, to determine
     # which HiPS tiles need to be generated
