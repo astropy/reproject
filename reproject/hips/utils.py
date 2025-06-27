@@ -19,8 +19,6 @@ def tile_header(*, level, index, frame, tile_size):
     nside = level_to_nside(level)
     hp = HEALPix(nside=nside, order="nested", frame=frame)
 
-    print(level, index, nside)
-
     tile_wcs = celestial_frame_to_wcs(frame, projection="HPX")
 
     # Determine tile resolution
@@ -53,12 +51,12 @@ def _rounded_index(index):
     return 10000 * (index // 10000)
 
 
-def tile_filename(*, level, index, output_directory):
+def tile_filename(*, level, index, output_directory, extension):
     return os.path.join(
         output_directory,
         f"Norder{level}",
         f"Dir{_rounded_index(index)}",
-        f"Npix{index}.fits",
+        f"Npix{index}.{extension}",
     )
 
 
@@ -67,7 +65,7 @@ def make_tile_folders(*, level, indices, output_directory):
     rounded_indices = np.unique(_rounded_index(indices))
     for index in rounded_indices:
         dirname = os.path.dirname(
-            tile_filename(level=level, index=index, output_directory=output_directory)
+            tile_filename(level=level, index=index, output_directory=output_directory, extension="")
         )
         if not os.path.exists(dirname):
             os.makedirs(dirname)

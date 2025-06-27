@@ -41,6 +41,7 @@ def reproject_exact(
               `~astropy.io.fits.Header` object
             * An `~astropy.nddata.NDData` object from which the ``.data`` and
               ``.wcs`` attributes will be used as the input data.
+            * The name of a PNG or JPEG file
 
         If the data array contains more dimensions than are described by the
         input header or WCS, the extra dimensions (assumed to be the first

@@ -1,4 +1,6 @@
-from ..utils import parse_input_data
+from pathlib import Path
+
+from ..utils import is_jpeg, is_png, parse_input_data
 from ..wcs_utils import has_celestial
 from .core import image_to_hips
 
@@ -42,6 +44,7 @@ def reproject_to_hips(
               `~astropy.io.fits.Header` object
             * An `~astropy.nddata.NDData` object from which the ``.data`` and
               ``.wcs`` attributes will be used as the input data.
+            * The name of a PNG or JPEG file
 
     coord_system_out : {'equatorial', 'galactic', 'ecliptic' }
         The target coordinate system for the HEALPIX projection
@@ -70,6 +73,14 @@ def reproject_to_hips(
         This function does not return a value.
     """
 
+    tile_format = "fits"
+
+    if isinstance(input_data, str | Path):
+        if is_png(input_data):
+            tile_format = "png"
+        elif is_jpeg(input_data):
+            tile_format = "jpeg"
+
     array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
 
     if (
@@ -85,6 +96,7 @@ def reproject_to_hips(
             reproject_function=reproject_function,
             output_directory=output_directory,
             tile_size=tile_size,
+            tile_format=tile_format,
             progress_bar=progress_bar,
         )
     else:

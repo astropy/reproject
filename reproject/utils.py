@@ -106,7 +106,7 @@ def parse_input_data(input_data, hdu_in=None, source_hdul=None):
 
     if isinstance(input_data, str | Path):
         if is_png(input_data) or is_jpeg(input_data):
-            data = np.array(Image.open(input_data)).transpose(2, 0, 1)
+            data = np.array(Image.open(input_data)).transpose(2, 0, 1)[:, ::-1]
             wcs = AVM.from_image(input_data).to_wcs()
             return data, wcs
         else:
@@ -312,8 +312,10 @@ def as_rgb_images(data, footprint=None):
                 raise ValueError("Data should have shape (3, ny, nx)")
 
     rgb_images = []
-    rgb_images.append(Image.fromarray(image.astype(np.uint8).transpose(1, 2, 0)))
+    rgb_images.append(Image.fromarray(data.astype(np.uint8).transpose(1, 2, 0)[::-1]))
     if footprint is not None:
-        rgb_images.append(Image.fromarray((255 * footprint).astype(np.uint8).transpose(1, 2, 0)))
+        rgb_images.append(
+            Image.fromarray((255 * footprint).astype(np.uint8).transpose(1, 2, 0)[::-1])
+        )
 
     return tuple(rgb_images)
