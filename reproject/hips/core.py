@@ -10,10 +10,10 @@ from astropy.nddata import block_reduce
 from astropy_healpix import HEALPix, level_to_nside
 from PIL import Image
 
-from ..utils import as_rgb_images
+from ..utils import as_rgb_images, as_transparent_rgb
 from .utils import make_tile_folders, tile_filename, tile_header
 
-__all__ = ["image_to_hips"]
+__all__ = ["image_to_hips", "coadd_hips"]
 
 INDEX_HTML = """
 <!DOCTYPE html>
@@ -146,7 +146,8 @@ def image_to_hips(
     for index in progress_bar(indices):
         header = tile_header(level=level, index=index, frame=frame, tile_size=tile_size)
         array_out, footprint = reproject_function((array_in, wcs_in), header, **kwargs)
-        array_out[np.isnan(array_out)] = 0.0
+        if tile_format != 'png':
+            array_out[np.isnan(array_out)] = 0.0
         if np.all(footprint == 0):
             continue
         if tile_format == "fits":
@@ -160,7 +161,10 @@ def image_to_hips(
                 array_out,
             )
         else:
-            image = as_rgb_images(array_out)[0]
+            if tile_format == 'png':
+                image = as_transparent_rgb(array_out, footprint=footprint)
+            else:
+                image = as_rgb_images(array_out)[0]
             image.save(
                 tile_filename(
                     level=level,
@@ -188,8 +192,10 @@ def image_to_hips(
 
             if tile_format == "fits":
                 array = np.zeros((tile_size, tile_size))
+            elif tile_format == "png":
+                array = np.zeros((tile_size, tile_size, 4), dtype=np.uint8)
             else:
-                array = np.zeros((tile_size, tile_size, 3))
+                array = np.zeros((tile_size, tile_size, 3), dtype=np.uint8)
 
             for subindex in range(4):
 
@@ -231,7 +237,10 @@ def image_to_hips(
                     header,
                 )
             else:
-                image = as_rgb_images(array.transpose(2, 0, 1))[0]
+                if tile_format == 'png':
+                    image = Image.fromarray(array[::-1], mode='RGBA')
+                else:
+                    image = as_rgb_images(array.transpose(2, 0, 1))[0]
                 image.save(
                     tile_filename(
                         level=ilevel,
@@ -271,3 +280,50 @@ def image_to_hips(
 
     with open(os.path.join(output_directory, "index.html"), "w") as f:
         f.write(INDEX_HTML)
+
+
+def load_properties(directory):
+    properties = {}
+    with open(os.path.join(directory, 'properties')) as f:
+        for line in f:
+            key, value = line.split('=')
+            properties[key.strip()] = value.strip()
+    return properties
+
+
+def coadd_hips(input_directories, output_directory):
+    """
+    Given multiple HiPS directories, combine these into a single HiPS
+
+    The coordinate frame and tile format of the different input directories
+    should match.
+
+    In cases of overlap, the last image in the order of input_directories is used.
+
+    Parameters
+    ----------
+    input_directories : iterable
+        Iterable of HiPS directory names
+    output_directory : str
+        The path to the output directory
+    """
+
+    all_properties = [load_properties(directory) for directory in input_directories]
+
+    tile_formats = [p['tile_format'] for p in all_properties]
+    hips_frame = [p['hips_frame'] for p in all_properties]
+    hips_order = [p['hips_order'] for p in all_properties]
+
+    if len(set(tile_formats)) > 1:
+        raise ValueError("tile_format values do not match: {tile_formats}")
+
+    if len(set(hips_frame)) > 1:
+        raise ValueError("tile_format values do not match: {hips_frame}")
+
+    reference_properties = all_properties[0]
+    reference_properties['hips_order'] = max(hips_order)
+
+    # Create output directory (and error if it already exists)
+    os.makedirs(output_directory, exist_ok=False)
+
+    raise NotImplementedError()

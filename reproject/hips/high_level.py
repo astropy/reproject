@@ -2,9 +2,9 @@ from pathlib import Path
 
 from ..utils import is_jpeg, is_png, parse_input_data
 from ..wcs_utils import has_celestial
-from .core import image_to_hips
+from .core import image_to_hips, coadd_hips
 
-__all__ = ["reproject_from_hips", "reproject_to_hips"]
+__all__ = ["reproject_from_hips", "reproject_to_hips", "coadd_hips"]
 
 
 def reproject_from_hips():
@@ -103,7 +103,3 @@ def reproject_to_hips(
         raise NotImplementedError(
             "Only data with a 2-d celestial WCS can be reprojected to HiPS tiles"
         )
-
-
-def coadd_hips():
-    raise NotImplementedError()

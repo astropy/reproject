@@ -19,6 +19,8 @@ __all__ = [
     "parse_input_shape",
     "parse_input_weights",
     "parse_output_projection",
+    "as_transparent_rgb",
+    "as_rgb_images"
 ]
 
 
@@ -319,3 +321,23 @@ def as_rgb_images(data, footprint=None):
         )
 
     return tuple(rgb_images)
+
+
+def as_transparent_rgb(data, footprint=None):
+
+    for image in [data, footprint]:
+        if image is not None:
+            if image.ndim != 3:
+                raise ValueError("Data needs to be three-dimensional to return RGB image")
+            if image.shape[0] != 3:
+                raise ValueError("Data should have shape (3, ny, nx)")
+
+    array = np.zeros((4,) + data.shape[1:], dtype=np.uint8)
+
+    footprint[np.isnan(data)] = 0
+    data = np.nan_to_num(data)
+
+    array[:3] = data
+    array[3] = 255 * (footprint > 0).max(axis=0)
+
+    return Image.fromarray(array.transpose(1, 2, 0)[::-1], mode="RGBA")
