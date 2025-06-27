@@ -8,13 +8,14 @@ import numpy as np
 from astropy.coordinates import ICRS, BarycentricTrueEcliptic, Galactic
 from astropy.io import fits
 from astropy.nddata import block_reduce
-from astropy_healpix import HEALPix, level_to_nside
+from astropy_healpix import HEALPix, level_to_nside, nside_to_level
 from PIL import Image
+from astropy import units as u
 
 from ..utils import as_rgb_images, as_transparent_rgb
 from .utils import make_tile_folders, tile_filename, tile_header
 
-__all__ = ["image_to_hips", "coadd_hips"]
+__all__ = ["image_to_hips", "coadd_hips", "determine_healpix_level"]
 
 INDEX_HTML = """
 <!DOCTYPE html>
@@ -53,11 +54,11 @@ def image_to_hips(
     wcs_in,
     coord_system_out,
     *,
-    level,
     reproject_function,
     output_directory,
     tile_size,
     tile_format,
+    level=None,
     progress_bar=None,
     **kwargs,
 ):
@@ -72,8 +73,9 @@ def image_to_hips(
         The WCS of the input array
     coord_system_out : {'equatorial', 'galactic', 'ecliptic' }
         The target coordinate system for the HEALPIX projection
-    level : int
-        The number of levels of FITS tiles.
+    level : int, optional
+        The number of levels of FITS tiles. If not provided, will be determined
+        automatically.
     reproject_function : callable
         The function to use for the reprojection.
     output_directory : str
@@ -105,6 +107,9 @@ def image_to_hips(
 
     if progress_bar is None:
         progress_bar = lambda x: x
+
+    if level is None:
+        level = determine_healpix_level(wcs_in)
 
     # Create output directory (and error if it already exists)
     os.makedirs(output_directory, exist_ok=False)
@@ -329,7 +334,7 @@ def coadd_hips(input_directories, output_directory):
         tile_format = tile_formats[0]
 
     if len(set(hips_frame)) > 1:
-        raise ValueError(f"tile_format values do not match: {hips_frame}")
+        raise ValueError("tile_format values do not match: {hips_frame}")
 
     reference_properties = all_properties[0]
     reference_properties["hips_order"] = max(hips_order)
@@ -356,6 +361,8 @@ def coadd_hips(input_directories, output_directory):
                         image2 = Image.open(target_filepath).convert("RGBA")
                         result = Image.alpha_composite(image1, image2)
                         result.save(target_filepath)
+                    elif tile_format == "jpeg":
+                        raise NotImplementedError("Convert jpg to png to allow for blending/coadding")
                     else:
                         raise NotImplementedError()
                 else:
@@ -364,3 +371,48 @@ def coadd_hips(input_directories, output_directory):
     save_properties(output_directory, reference_properties)
 
     save_index(output_directory)
+
+
+def determine_healpix_level(wcs_in, max_level=25):
+    """
+    Determine the appropriate HEALPix level by matching the HEALPix pixel size
+    to the input image pixel size.
+
+    Parameters
+    ----------
+    wcs_in : `~astropy.wcs.WCS`
+        The WCS of the input array
+    max_level : int, optional
+        The maximum level to consider. Default is 25, corresponding to 6 mas.
+        Can be overridden, but included as as hint to users that images could
+        get really huge at this level, as it contains 10^16 pixels over the sky
+
+    Returns
+    -------
+    level : int
+        The recommended HEALPix level
+    """
+
+    # Get the pixel scale from the input WCS in degrees
+    # We use the geometric mean of the pixel scales in both dimensions
+    pixel_scale = wcs_in.proj_plane_pixel_area()
+
+    # HEALPix pixel area is 4π/(12*nside²) steradians
+    # nside = 2^level
+    # Approximate pixel "size" (side length) is sqrt(area) ≈ sqrt(4π/(12*nside²))
+    # We want this to approximately match our input pixel size
+
+    # Solve for nside: sqrt(4π/(12*nside²)) ≈ mean_pixel_scale_rad
+    # nside² ≈ 4π/(12 * mean_pixel_scale_rad²)
+    # nside ≈ sqrt(4π/(12 * mean_pixel_scale_rad²))
+
+    target_nside = np.sqrt(4 * np.pi * u.sr / (12 * pixel_scale.to(u.sr)))
+
+    # Convert nside to level
+    # nside = 2^level, so level = log2(nside)
+    target_level = nside_to_level(int(np.round(target_nside)))
+
+    # Ensure level is within reasonable bounds
+    target_level = max(0, min(target_level, max_level))
+
+    return target_level
