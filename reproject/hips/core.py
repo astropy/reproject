@@ -61,7 +61,6 @@ def image_to_hips(
     output_id=None,
     level=None,
     progress_bar=None,
-    overwrite=False,
     **kwargs,
 ):
     """
@@ -123,7 +122,7 @@ def image_to_hips(
         logger.info(f"Automatically set the HEALPIX level to {level} with tile size {tile_angular_size} and pixel size {pixel_size}")
 
     # Create output directory (and error if it already exists)
-    os.makedirs(output_directory, exist_ok=overwrite)
+    os.makedirs(output_directory, exist_ok=False)
 
     # Determine center of image and radius to furthest corner, to determine
     # which HiPS tiles need to be generated
@@ -321,7 +320,7 @@ def load_properties(directory):
     return properties
 
 
-def coadd_hips(input_directories, output_directory, overwrite=False):
+def coadd_hips(input_directories, output_directory):
     """
     Given multiple HiPS directories, combine these into a single HiPS
 
@@ -336,12 +335,6 @@ def coadd_hips(input_directories, output_directory, overwrite=False):
         Iterable of HiPS directory names
     output_directory : str
         The path to the output directory
-    overwrite : bool, optional
-        If True, overwrite the output directory if it already exists. Default is
-        False.  Overwriting follows the Aladin hipsgen behavior, such that if the
-        output directory already exists and contains images, the images there will
-        be used as the starting point for coadding (i.e., new images will be put
-        on top of them).
     """
 
     all_properties = [load_properties(directory) for directory in input_directories]
@@ -362,7 +355,7 @@ def coadd_hips(input_directories, output_directory, overwrite=False):
     reference_properties["hips_order"] = max(hips_order)
 
     # Create output directory (and error if it already exists)
-    os.makedirs(output_directory, exist_ok=overwrite)
+    os.makedirs(output_directory, exist_ok=False)
 
     for directory in input_directories:
 
