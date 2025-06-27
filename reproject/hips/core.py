@@ -8,7 +8,7 @@ import numpy as np
 from astropy.coordinates import ICRS, BarycentricTrueEcliptic, Galactic
 from astropy.io import fits
 from astropy.nddata import block_reduce
-from astropy_healpix import HEALPix, level_to_nside, nside_to_level
+from astropy_healpix import HEALPix, level_to_nside
 from PIL import Image
 from astropy import units as u
 
@@ -117,6 +117,8 @@ def image_to_hips(
 
     if level is None:
         level = determine_healpix_level(wcs_in)
+        pixel_size = (4 * np.pi * u.sr / (12 * (2**level)**2)).to(u.arcsec**2)**0.5
+        logger.info(f"Automatically set the HEALPIX level to {level} with pixel size {pixel_size}")
 
     # Create output directory (and error if it already exists)
     os.makedirs(output_directory, exist_ok=False)
@@ -428,7 +430,7 @@ def determine_healpix_level(wcs_in, max_level=25):
 
     # Convert nside to level
     # nside = 2^level, so level = log2(nside)
-    target_level = nside_to_level(int(np.round(target_nside)))
+    target_level = int(np.ceil(np.log2(target_nside)))
 
     # Ensure level is within reasonable bounds
     target_level = max(0, min(target_level, max_level))
