@@ -324,12 +324,12 @@ def coadd_hips(input_directories, output_directory):
     hips_order = [p["hips_order"] for p in all_properties]
 
     if len(set(tile_formats)) > 1:
-        raise ValueError("tile_format values do not match: {tile_formats}")
+        raise ValueError(f"tile_format values do not match: {tile_formats}")
     else:
         tile_format = tile_formats[0]
 
     if len(set(hips_frame)) > 1:
-        raise ValueError("tile_format values do not match: {hips_frame}")
+        raise ValueError(f"tile_format values do not match: {hips_frame}")
 
     reference_properties = all_properties[0]
     reference_properties["hips_order"] = max(hips_order)
