@@ -58,6 +58,7 @@ def image_to_hips(
     output_directory,
     tile_size,
     tile_format,
+    output_id=None,
     level=None,
     progress_bar=None,
     **kwargs,
@@ -78,6 +79,12 @@ def image_to_hips(
         automatically.
     reproject_function : callable
         The function to use for the reprojection.
+    output_id : str, optional
+        A unique identifier for the output. If not provided, will be generated
+        from the output directory.  This string is the index name in HIPS
+        aggregators and generally follows the form 'host/P/name', with host
+        being the hosting data source (e.g., CDS) and name being a short descriptive
+        name
     output_directory : str
         The name of the output directory.
     tile_size : int, optional
@@ -260,8 +267,13 @@ def image_to_hips(
 
     cen_icrs = cen_world.icrs
 
+    if output_id is None:
+        creator_did = f"ivo://reproject/P/{str(uuid.uuid4())}"
+    else:
+        creator_did = f"ivo://{output_id}"
+
     properties = {
-        "creator_did": f"ivo://reproject/P/{str(uuid.uuid4())}",
+        "creator_did": creator_did,
         "obs_title": os.path.dirname(output_directory),
         "dataproduct_type": "image",
         "hips_version": "1.4",
