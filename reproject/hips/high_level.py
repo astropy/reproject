@@ -2,7 +2,7 @@ from pathlib import Path
 
 from ..utils import is_jpeg, is_png, parse_input_data
 from ..wcs_utils import has_celestial
-from .core import image_to_hips, coadd_hips
+from .core import coadd_hips, image_to_hips
 
 __all__ = ["reproject_from_hips", "reproject_to_hips", "coadd_hips"]
 

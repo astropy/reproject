@@ -20,7 +20,7 @@ __all__ = [
     "parse_input_weights",
     "parse_output_projection",
     "as_transparent_rgb",
-    "as_rgb_images"
+    "as_rgb_images",
 ]
 
 

@@ -146,7 +146,7 @@ def image_to_hips(
     for index in progress_bar(indices):
         header = tile_header(level=level, index=index, frame=frame, tile_size=tile_size)
         array_out, footprint = reproject_function((array_in, wcs_in), header, **kwargs)
-        if tile_format != 'png':
+        if tile_format != "png":
             array_out[np.isnan(array_out)] = 0.0
         if np.all(footprint == 0):
             continue
@@ -161,7 +161,7 @@ def image_to_hips(
                 array_out,
             )
         else:
-            if tile_format == 'png':
+            if tile_format == "png":
                 image = as_transparent_rgb(array_out, footprint=footprint)
             else:
                 image = as_rgb_images(array_out)[0]
@@ -237,8 +237,8 @@ def image_to_hips(
                     header,
                 )
             else:
-                if tile_format == 'png':
-                    image = Image.fromarray(array[::-1], mode='RGBA')
+                if tile_format == "png":
+                    image = Image.fromarray(array[::-1], mode="RGBA")
                 else:
                     image = as_rgb_images(array.transpose(2, 0, 1))[0]
                 image.save(
@@ -284,9 +284,9 @@ def image_to_hips(
 
 def load_properties(directory):
     properties = {}
-    with open(os.path.join(directory, 'properties')) as f:
+    with open(os.path.join(directory, "properties")) as f:
         for line in f:
-            key, value = line.split('=')
+            key, value = line.split("=")
             properties[key.strip()] = value.strip()
     return properties
 
@@ -310,9 +310,9 @@ def coadd_hips(input_directories, output_directory):
 
     all_properties = [load_properties(directory) for directory in input_directories]
 
-    tile_formats = [p['tile_format'] for p in all_properties]
-    hips_frame = [p['hips_frame'] for p in all_properties]
-    hips_order = [p['hips_order'] for p in all_properties]
+    tile_formats = [p["tile_format"] for p in all_properties]
+    hips_frame = [p["hips_frame"] for p in all_properties]
+    hips_order = [p["hips_order"] for p in all_properties]
 
     if len(set(tile_formats)) > 1:
         raise ValueError("tile_format values do not match: {tile_formats}")
@@ -321,7 +321,7 @@ def coadd_hips(input_directories, output_directory):
         raise ValueError("tile_format values do not match: {hips_frame}")
 
     reference_properties = all_properties[0]
-    reference_properties['hips_order'] = max(hips_order)
+    reference_properties["hips_order"] = max(hips_order)
 
     # Create output directory (and error if it already exists)
     os.makedirs(output_directory, exist_ok=False)
