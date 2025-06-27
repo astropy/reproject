@@ -21,6 +21,7 @@ def reproject_to_hips(
     hdu_in=0,
     tile_size=512,
     progress_bar=None,
+    threaded=False,
     **kwargs,
 ):
     """
@@ -98,6 +99,7 @@ def reproject_to_hips(
             tile_size=tile_size,
             tile_format=tile_format,
             progress_bar=progress_bar,
+            threaded=threaded,
         )
     else:
         raise NotImplementedError(

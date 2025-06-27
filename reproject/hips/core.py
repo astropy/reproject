@@ -61,6 +61,7 @@ def image_to_hips(
     output_id=None,
     level=None,
     progress_bar=None,
+    threaded=False,
     **kwargs,
 ):
     """
@@ -158,14 +159,13 @@ def image_to_hips(
     make_tile_folders(level=level, indices=indices, output_directory=output_directory)
 
     # Iterate over the tiles and generate them
-    generated_indices = []
-    for index in progress_bar(indices):
+    def process(index):
         header = tile_header(level=level, index=index, frame=frame, tile_size=tile_size)
-        array_out, footprint = reproject_function((array_in, wcs_in), header, **kwargs)
+        array_out, footprint = reproject_function((array_in, wcs_in.deepcopy()), header, **kwargs)
         if tile_format != "png":
             array_out[np.isnan(array_out)] = 0.0
         if np.all(footprint == 0):
-            continue
+            return None
         if tile_format == "fits":
             fits.writeto(
                 tile_filename(
@@ -190,7 +190,19 @@ def image_to_hips(
                 )
             )
 
-        generated_indices.append(index)
+        return index
+
+    from tqdm.contrib.concurrent import thread_map
+
+    if threaded:
+        generated_indices = thread_map(process, indices, max_workers=10)
+        generated_indices = [index for index in generated_indices if index is not None]
+    else:
+        generated_indices = []
+        for index in progress_bar(indices):
+            result = process(index)
+            if result is not None:
+                generated_indices.append(result)
 
     indices = np.array(generated_indices)
 
