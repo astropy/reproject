@@ -102,6 +102,9 @@ def image_to_hips(
     if tile_format not in VALID_TILE_FORMATS:
         raise ValueError("tile_format should be one of " + "/".join(VALID_TILE_FORMATS))
 
+    if progress_bar is None:
+        progress_bar = lambda x: x
+
     # Create output directory (and error if it already exists)
     os.makedirs(output_directory, exist_ok=False)
 
