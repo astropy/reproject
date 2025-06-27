@@ -117,9 +117,10 @@ def image_to_hips(
         progress_bar = lambda x: x
 
     if level is None:
-        level = determine_healpix_level(wcs_in)
+        level = determine_healpix_level(wcs_in, tile_size)
         pixel_size = (4 * np.pi * u.sr / (12 * (2**level)**2)).to(u.arcsec**2)**0.5
-        logger.info(f"Automatically set the HEALPIX level to {level} with pixel size {pixel_size}")
+        tile_angular_size = pixel_size * tile_size
+        logger.info(f"Automatically set the HEALPIX level to {level} with tile size {tile_angular_size} and pixel size {pixel_size}")
 
     # Create output directory (and error if it already exists)
     os.makedirs(output_directory, exist_ok=overwrite)
@@ -394,7 +395,7 @@ def coadd_hips(input_directories, output_directory, overwrite=False):
     save_index(output_directory)
 
 
-def determine_healpix_level(wcs_in, max_level=25):
+def determine_healpix_level(wcs_in, tile_size):
     """
     Determine the appropriate HEALPix level by matching the HEALPix pixel size
     to the input image pixel size.
@@ -403,10 +404,8 @@ def determine_healpix_level(wcs_in, max_level=25):
     ----------
     wcs_in : `~astropy.wcs.WCS`
         The WCS of the input array
-    max_level : int, optional
-        The maximum level to consider. Default is 25, corresponding to 6 mas.
-        Can be overridden, but included as as hint to users that images could
-        get really huge at this level, as it contains 10^16 pixels over the sky
+    tile_size : int
+        The size of the tile in pixels
 
     Returns
     -------
@@ -414,26 +413,12 @@ def determine_healpix_level(wcs_in, max_level=25):
         The recommended HEALPix level
     """
 
-    # Get the pixel scale from the input WCS in degrees
-    # We use the geometric mean of the pixel scales in both dimensions
+    # Get the pixel scale from the input WCS
     pixel_scale = wcs_in.proj_plane_pixel_area()
 
-    # HEALPix pixel area is 4π/(12*nside²) steradians
-    # nside = 2^level
-    # Approximate pixel "size" (side length) is sqrt(area) ≈ sqrt(4π/(12*nside²))
-    # We want this to approximately match our input pixel size
+    from astropy_healpix import pixel_resolution_to_nside, nside_to_level
 
-    # Solve for nside: sqrt(4π/(12*nside²)) ≈ mean_pixel_scale_rad
-    # nside² ≈ 4π/(12 * mean_pixel_scale_rad²)
-    # nside ≈ sqrt(4π/(12 * mean_pixel_scale_rad²))
-
-    target_nside = np.sqrt(4 * np.pi * u.sr / (12 * pixel_scale.to(u.sr)))
-
-    # Convert nside to level
-    # nside = 2^level, so level = log2(nside)
-    target_level = int(np.ceil(np.log2(target_nside)))
-
-    # Ensure level is within reasonable bounds
-    target_level = max(0, min(target_level, max_level))
+    target_nside = pixel_resolution_to_nside(pixel_scale**0.5 * tile_size)
+    target_level = nside_to_level(target_nside)
 
     return target_level
