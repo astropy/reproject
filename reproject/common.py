@@ -11,7 +11,7 @@ from astropy.wcs.wcsapi import BaseHighLevelWCS, SlicedLowLevelWCS
 from astropy.wcs.wcsapi.high_level_wcs_wrapper import HighLevelWCSWrapper
 from dask import delayed
 
-from .utils import _dask_to_numpy_memmap
+from .utils import _dask_to_numpy_memmap, as_rgb_images
 
 __all__ = ["_reproject_dispatcher"]
 
@@ -111,16 +111,19 @@ def _reproject_dispatcher(
         dask.distributed), set this to ``'current-scheduler'``.
     reproject_func_kwargs : dict, optional
         Keyword arguments to pass through to ``reproject_func``
-    return_type : {'numpy', 'dask'}, optional
-        Whether to return numpy or dask arrays - defaults to 'numpy'.
+    return_type : {'numpy', 'dask', 'rgb_image'}, optional
+        Whether to return numpy, dask arrays, or RGB images - defaults to 'numpy'.
+        If this is set to 'rgb_image', a PIL ``Image`` object is returned. The
+        'rgb_image' option can only be used if the input was RGB images or if
+        the input data has shape (3, ny, nx) and contains values between 0 and 255.
     """
 
     logger = logging.getLogger(__name__)
 
     if return_type is None:
         return_type = "numpy"
-    elif return_type not in ("numpy", "dask"):
-        raise ValueError("return_type should be set to 'numpy' or 'dask'")
+    elif return_type not in ("numpy", "dask", "rgb_image"):
+        raise ValueError("return_type should be set to 'numpy', 'dask', or 'rgb_image'")
 
     if reproject_func_kwargs is None:
         reproject_func_kwargs = {}
@@ -152,7 +155,7 @@ def _reproject_dispatcher(
             # If a dask array was passed as input, we first convert this to a
             # Numpy memory mapped array
 
-            if return_type != "numpy":
+            if return_type == "dask":
                 raise ValueError(
                     "Output cannot be returned as dask arrays "
                     "when parallel=False and no block size has "
@@ -167,7 +170,7 @@ def _reproject_dispatcher(
             logger.info(f"Calling {reproject_func.__name__} in non-dask mode")
 
             try:
-                return reproject_func(
+                output = reproject_func(
                     array_in,
                     wcs_in,
                     wcs_out,
@@ -177,6 +180,14 @@ def _reproject_dispatcher(
                     output_footprint=output_footprint,
                     **reproject_func_kwargs,
                 )
+                if return_type == "rgb_image":
+                    if return_footprint:
+                        return as_rgb_images(output[0], footprint=output[1])
+                    else:
+                        return as_rgb_images(output)
+                else:
+                    return output
+
             finally:
                 # Clean up reference to numpy memmap
                 array_in = None
@@ -362,7 +373,7 @@ def _reproject_dispatcher(
                 compute=True,
                 scheduler="synchronous",
             )
-            return array_out, output_footprint
+            output = array_out, output_footprint
         else:
             da.store(
                 result[0],
@@ -370,4 +381,9 @@ def _reproject_dispatcher(
                 compute=True,
                 scheduler="synchronous",
             )
-            return array_out
+            output = array_out
+
+    if return_footprint:
+        return as_rgb_images(output[0], footprint=output[1])
+    else:
+        return as_rgb_images(output)

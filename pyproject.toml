@@ -18,6 +18,8 @@ dependencies = [
     "cloudpickle",
     "zarr",
     "fsspec",
+    "pillow",
+    "pyavm",
 ]
 dynamic = ["version"]
 
