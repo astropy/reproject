@@ -1,4 +1,5 @@
 import os
+import shutil
 import uuid
 from datetime import datetime
 from logging import getLogger
@@ -274,12 +275,20 @@ def image_to_hips(
     if tile_format == "fits":
         properties["hips_pixel_bitpix"] = -64
 
-    with open(os.path.join(output_directory, "properties"), "w") as f:
+    save_properties(output_directory, properties)
+
+    save_index(output_directory)
+
+
+def save_index(directory):
+    with open(os.path.join(directory, "index.html"), "w") as f:
+        f.write(INDEX_HTML)
+
+
+def save_properties(directory, properties):
+    with open(os.path.join(directory, "properties"), "w") as f:
         for key, value in properties.items():
             f.write(f"{key:20s} = {value}\n")
-
-    with open(os.path.join(output_directory, "index.html"), "w") as f:
-        f.write(INDEX_HTML)
 
 
 def load_properties(directory):
@@ -310,12 +319,14 @@ def coadd_hips(input_directories, output_directory):
 
     all_properties = [load_properties(directory) for directory in input_directories]
 
-    tile_formats = [p["tile_format"] for p in all_properties]
+    tile_formats = [p["hips_tile_format"] for p in all_properties]
     hips_frame = [p["hips_frame"] for p in all_properties]
     hips_order = [p["hips_order"] for p in all_properties]
 
     if len(set(tile_formats)) > 1:
         raise ValueError("tile_format values do not match: {tile_formats}")
+    else:
+        tile_format = tile_formats[0]
 
     if len(set(hips_frame)) > 1:
         raise ValueError("tile_format values do not match: {hips_frame}")
@@ -326,4 +337,30 @@ def coadd_hips(input_directories, output_directory):
     # Create output directory (and error if it already exists)
     os.makedirs(output_directory, exist_ok=False)
 
-    raise NotImplementedError()
+    for directory in input_directories:
+
+        for dirpath, _, filenames in os.walk(directory):
+            for filename in filenames:
+                if not filename.endswith("." + tile_format):
+                    continue
+                filepath = os.path.join(dirpath, filename)
+                target_directory = os.path.join(
+                    output_directory, os.path.relpath(dirpath, directory)
+                )
+                target_filepath = os.path.join(target_directory, filename)
+                if not os.path.exists(target_directory):
+                    os.makedirs(target_directory)
+                if os.path.exists(target_filepath):
+                    if tile_format == "png":
+                        image1 = Image.open(filepath).convert("RGBA")
+                        image2 = Image.open(target_filepath).convert("RGBA")
+                        result = Image.alpha_composite(image1, image2)
+                        result.save(target_filepath)
+                    else:
+                        raise NotImplementedError()
+                else:
+                    shutil.copyfile(filepath, target_filepath)
+
+    save_properties(output_directory, reference_properties)
+
+    save_index(output_directory)
