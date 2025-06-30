@@ -383,7 +383,7 @@ def _reproject_dispatcher(
             )
             output = array_out
 
-    if return_type == 'rgb_images':
+    if return_type == "rgb_images":
         if return_footprint:
             return as_rgb_images(output[0], footprint=output[1])
         else:

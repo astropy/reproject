@@ -2,6 +2,7 @@ import os
 import shutil
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
 from datetime import datetime
 from logging import getLogger
 
@@ -168,7 +169,11 @@ def image_to_hips(
     # Iterate over the tiles and generate them
     def process(index):
         header = tile_header(level=level, index=index, frame=frame, tile_size=tile_size)
-        array_out, footprint = reproject_function((array_in, wcs_in.deepcopy()), header, **kwargs)
+        if hasattr(wcs_in, "deepcopy"):
+            wcs_in_copy = wcs_in.deepcopy()
+        else:
+            wcs_in_copy = deepcopy(wcs_in)
+        array_out, footprint = reproject_function((array_in, wcs_in_copy), header, **kwargs)
         if tile_format != "png":
             array_out[np.isnan(array_out)] = 0.0
         if np.all(footprint == 0):
@@ -201,13 +206,7 @@ def image_to_hips(
 
     from tqdm.contrib.concurrent import thread_map
 
-    if threads is None:
-        generated_indices = []
-        for index in progress_bar(indices):
-            result = process(index)
-            if result is not None:
-                generated_indices.append(result)
-    else:
+    if threads:
         generated_indices = []
         with ThreadPoolExecutor(max_workers=threads) as executor:
             futures = [executor.submit(process, index) for index in indices]
@@ -215,6 +214,12 @@ def image_to_hips(
                 result = future.result()
                 if result is not None:
                     generated_indices.append(result)
+    else:
+        generated_indices = []
+        for index in progress_bar(indices):
+            result = process(index)
+            if result is not None:
+                generated_indices.append(result)
 
     indices = np.array(generated_indices)
 
