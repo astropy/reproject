@@ -21,7 +21,7 @@ def reproject_to_hips(
     hdu_in=0,
     tile_size=512,
     progress_bar=None,
-    threaded=False,
+    threads=False,
     **kwargs,
 ):
     """
@@ -64,7 +64,10 @@ def reproject_to_hips(
     progress_bar : callable, optional
         If specified, use this as a progress_bar to track loop iterations over
         data sets.
-
+    threads : bool or int
+        If `False`, no multi-threading is used. If an integer, this number of
+        threads will be used, and if `True`, the number of threads will be chosen
+        automatically.
     **kwargs
         Keyword arguments to be passed to the reprojection function.
 
@@ -99,7 +102,7 @@ def reproject_to_hips(
             tile_size=tile_size,
             tile_format=tile_format,
             progress_bar=progress_bar,
-            threaded=threaded,
+            threads=threads,
         )
     else:
         raise NotImplementedError(

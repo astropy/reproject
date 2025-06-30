@@ -1,16 +1,17 @@
 import os
 import shutil
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from logging import getLogger
 
 import numpy as np
+from astropy import units as u
 from astropy.coordinates import ICRS, BarycentricTrueEcliptic, Galactic
 from astropy.io import fits
 from astropy.nddata import block_reduce
 from astropy_healpix import HEALPix, level_to_nside
 from PIL import Image
-from astropy import units as u
 
 from ..utils import as_rgb_images, as_transparent_rgb
 from .utils import make_tile_folders, tile_filename, tile_header
@@ -61,7 +62,7 @@ def image_to_hips(
     output_id=None,
     level=None,
     progress_bar=None,
-    threaded=False,
+    threads=None,
     **kwargs,
 ):
     """
@@ -95,6 +96,10 @@ def image_to_hips(
     progress_bar : callable, optional
         If specified, use this as a progress_bar to track loop iterations over
         data sets.
+    threads : bool or int
+        If `False`, no multi-threading is used. If an integer, this number of
+        threads will be used, and if `True`, the number of threads will be chosen
+        automatically.
     """
 
     logger = getLogger(__name__)
@@ -118,9 +123,11 @@ def image_to_hips(
 
     if level is None:
         level = determine_healpix_level(wcs_in, tile_size)
-        pixel_size = (4 * np.pi * u.sr / (12 * (2**level)**2)).to(u.arcsec**2)**0.5
+        pixel_size = (4 * np.pi * u.sr / (12 * (2**level) ** 2)).to(u.arcsec**2) ** 0.5
         tile_angular_size = pixel_size * tile_size
-        logger.info(f"Automatically set the HEALPIX level to {level} with tile size {tile_angular_size} and pixel size {pixel_size}")
+        logger.info(
+            f"Automatically set the HEALPIX level to {level} with tile size {tile_angular_size} and pixel size {pixel_size}"
+        )
 
     # Create output directory (and error if it already exists)
     os.makedirs(output_directory, exist_ok=False)
@@ -194,15 +201,20 @@ def image_to_hips(
 
     from tqdm.contrib.concurrent import thread_map
 
-    if threaded:
-        generated_indices = thread_map(process, indices, max_workers=10)
-        generated_indices = [index for index in generated_indices if index is not None]
-    else:
+    if threads is None:
         generated_indices = []
         for index in progress_bar(indices):
             result = process(index)
             if result is not None:
                 generated_indices.append(result)
+    else:
+        generated_indices = []
+        with ThreadPoolExecutor(max_workers=threads) as executor:
+            futures = [executor.submit(process, index) for index in indices]
+            for future in progress_bar(futures):
+                result = future.result()
+                if result is not None:
+                    generated_indices.append(result)
 
     indices = np.array(generated_indices)
 
@@ -389,7 +401,9 @@ def coadd_hips(input_directories, output_directory):
                         result = Image.alpha_composite(image1, image2)
                         result.save(target_filepath)
                     elif tile_format == "jpeg":
-                        raise NotImplementedError("Convert jpg to png to allow for blending/coadding")
+                        raise NotImplementedError(
+                            "Convert jpg to png to allow for blending/coadding"
+                        )
                     else:
                         raise NotImplementedError()
                 else:
@@ -419,9 +433,9 @@ def determine_healpix_level(wcs_in, tile_size):
     """
 
     # Get the pixel scale from the input WCS
-    pixel_scale = wcs_in.proj_plane_pixel_area()**0.5
+    pixel_scale = wcs_in.proj_plane_pixel_area() ** 0.5
 
-    from astropy_healpix import pixel_resolution_to_nside, nside_to_level
+    from astropy_healpix import nside_to_level, pixel_resolution_to_nside
 
     target_nside = pixel_resolution_to_nside(pixel_scale * tile_size)
     target_level = nside_to_level(target_nside)
