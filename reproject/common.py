@@ -111,10 +111,10 @@ def _reproject_dispatcher(
         dask.distributed), set this to ``'current-scheduler'``.
     reproject_func_kwargs : dict, optional
         Keyword arguments to pass through to ``reproject_func``
-    return_type : {'numpy', 'dask', 'rgb_image'}, optional
+    return_type : {'numpy', 'dask', 'pil_image'}, optional
         Whether to return numpy, dask arrays, or RGB images - defaults to 'numpy'.
-        If this is set to 'rgb_image', a PIL ``Image`` object is returned. The
-        'rgb_image' option can only be used if the input was RGB images or if
+        If this is set to 'pil_image', a PIL ``Image`` object is returned. The
+        'pil_image' option can only be used if the input was RGB images or if
         the input data has shape (3, ny, nx) and contains values between 0 and 255.
     """
 
@@ -122,8 +122,8 @@ def _reproject_dispatcher(
 
     if return_type is None:
         return_type = "numpy"
-    elif return_type not in ("numpy", "dask", "rgb_image"):
-        raise ValueError("return_type should be set to 'numpy', 'dask', or 'rgb_image'")
+    elif return_type not in ("numpy", "dask", "pil_image"):
+        raise ValueError("return_type should be set to 'numpy', 'dask', or 'pil_image'")
 
     if reproject_func_kwargs is None:
         reproject_func_kwargs = {}
@@ -180,7 +180,7 @@ def _reproject_dispatcher(
                     output_footprint=output_footprint,
                     **reproject_func_kwargs,
                 )
-                if return_type == "rgb_image":
+                if return_type == "pil_image":
                     if return_footprint:
                         return as_rgb_images(output[0], footprint=output[1])
                     else:

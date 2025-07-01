@@ -54,7 +54,14 @@ def test_reproject_to_hips(tmp_path, valid_celestial_input_data):
         **kwargs_in,
     )
 
-    assert_files_expected(output_directory, EXPECTED_FILES)
+    if str(input_value).endswith("png"):
+        expected = [filename.replace(".fits", ".png") for filename in EXPECTED_FILES]
+    elif str(input_value).endswith("jpg"):
+        expected = [filename.replace(".fits", ".jpg") for filename in EXPECTED_FILES]
+    else:
+        expected = EXPECTED_FILES
+
+    assert_files_expected(output_directory, expected)
 
 
 EXPECTED_FILES_GALACTIC = [

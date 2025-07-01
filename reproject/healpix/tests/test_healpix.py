@@ -143,6 +143,10 @@ def test_reproject_invalid_order():
 def test_reproject_to_healpix_input_types(valid_celestial_input_data):
     array_ref, wcs_in_ref, input_value, kwargs_in = valid_celestial_input_data
 
+    # For now we don't support 3D arrays in reproject_to_healpix
+    if array_ref.ndim == 3:
+        pytest.skip()
+
     # Compute reference
 
     healpix_data_ref, footprint_ref = reproject_to_healpix((array_ref, wcs_in_ref), "C", nside=64)

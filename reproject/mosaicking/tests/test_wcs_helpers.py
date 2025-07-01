@@ -151,11 +151,11 @@ class BaseTestOptimalWCS:
         assert_allclose(wcs.wcs.cdelt, (-0.01, 0.01), rtol=self.cdelt_rtol)
 
     def test_invalid_array_shape(self):
-        array = np.ones((30, 20, 10))
+        array = np.ones((30,))
 
         with pytest.raises(ValueError) as exc:
             wcs, shape = find_optimal_celestial_wcs([(array, self.wcs)])
-        assert exc.value.args[0] == "Input data is not 2-dimensional (got shape (30, 20, 10))"
+        assert exc.value.args[0] == "Input data is not 2-dimensional (got shape (30,))"
 
     def test_invalid_wcs_shape(self):
         wcs = WCS(naxis=3)

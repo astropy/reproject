@@ -129,6 +129,10 @@ def find_optimal_celestial_wcs(
     resolutions = []
 
     for shape, wcs in input_shapes:
+
+        if len(shape) > wcs.pixel_n_dim:
+            shape = shape[-wcs.pixel_n_dim :]
+
         if len(shape) != 2:
             raise ValueError(f"Input data is not 2-dimensional (got shape {shape!r})")
 

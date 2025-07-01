@@ -157,9 +157,9 @@ def parse_input_shape(input_shape, hdu_in=None):
 
     if isinstance(input_shape, str | Path):
         if is_png(input_shape) or is_jpeg(input_shape):
-            data = Image.open(input_shape).size[::-1]
+            shape = np.array(Image.open(input_shape)).transpose(2, 0, 1).shape
             wcs = AVM.from_image(input_shape).to_wcs()
-            return data, wcs
+            return shape, wcs
         else:
             with fits.open(input_shape) as hdulist:
                 return parse_input_shape(hdulist, hdu_in=hdu_in)
@@ -310,17 +310,18 @@ def as_rgb_images(data, footprint=None):
         if image is not None:
             if image.ndim != 3:
                 raise ValueError("Data needs to be three-dimensional to return RGB image")
-            if image.shape[0] != 3:
-                raise ValueError("Data should have shape (3, ny, nx)")
+            if image.shape[0] not in (3, 4):
+                raise ValueError("Data should have shape (3, ny, nx) or (4, ny, nx)")
 
     rgb_images = []
     rgb_images.append(Image.fromarray(data.astype(np.uint8).transpose(1, 2, 0)[::-1]))
     if footprint is not None:
-        rgb_images.append(
-            Image.fromarray((255 * footprint).astype(np.uint8).transpose(1, 2, 0)[::-1])
-        )
+        rgb_images.append(Image.fromarray(footprint[0].transpose(1, 2, 0)[::-1], mode="L"))
 
-    return tuple(rgb_images)
+    if footprint is None:
+        return rgb_images[0]
+    else:
+        return tuple(rgb_images)
 
 
 def as_transparent_rgb(data, footprint=None):
@@ -329,15 +330,21 @@ def as_transparent_rgb(data, footprint=None):
         if image is not None:
             if image.ndim != 3:
                 raise ValueError("Data needs to be three-dimensional to return RGB image")
-            if image.shape[0] != 3:
-                raise ValueError("Data should have shape (3, ny, nx)")
+            if image.shape[0] not in (3, 4):
+                raise ValueError("Data should have shape (3, ny, nx) or (4, ny, nx)")
 
     array = np.zeros((4,) + data.shape[1:], dtype=np.uint8)
 
     footprint[np.isnan(data)] = 0
     data = np.nan_to_num(data)
 
-    array[:3] = data
-    array[3] = 255 * (footprint > 0).max(axis=0)
+    if data.shape[0] == 3:
+        array[:3] = data
+        array[3] = 255
+    else:
+        array[...] = data
+
+    valid = (footprint > 0).max(axis=0)
+    array[3, ~valid] = 0
 
     return Image.fromarray(array.transpose(1, 2, 0)[::-1], mode="RGBA")

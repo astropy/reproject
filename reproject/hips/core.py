@@ -51,6 +51,9 @@ VALID_COORD_SYSTEM = {
 VALID_TILE_FORMATS = {"fits", "png", "jpeg"}
 
 
+EXTENSION = {"fits": "fits", "png": "png", "jpeg": "jpg"}
+
+
 def image_to_hips(
     array_in,
     wcs_in,
@@ -184,7 +187,7 @@ def image_to_hips(
                     level=level,
                     index=index,
                     output_directory=output_directory,
-                    extension=tile_format,
+                    extension=EXTENSION[tile_format],
                 ),
                 array_out,
             )
@@ -192,13 +195,13 @@ def image_to_hips(
             if tile_format == "png":
                 image = as_transparent_rgb(array_out, footprint=footprint)
             else:
-                image = as_rgb_images(array_out)[0]
+                image = as_rgb_images(array_out)
             image.save(
                 tile_filename(
                     level=level,
                     index=index,
                     output_directory=output_directory,
-                    extension=tile_format,
+                    extension=EXTENSION[tile_format],
                 )
             )
 
@@ -247,7 +250,7 @@ def image_to_hips(
                     level=ilevel + 1,
                     index=current_index,
                     output_directory=output_directory,
-                    extension=tile_format,
+                    extension=EXTENSION[tile_format],
                 )
 
                 if os.path.exists(subtile_filename):
@@ -274,7 +277,7 @@ def image_to_hips(
                         level=ilevel,
                         index=index,
                         output_directory=output_directory,
-                        extension=tile_format,
+                        extension=EXTENSION[tile_format],
                     ),
                     array,
                     header,
@@ -283,13 +286,13 @@ def image_to_hips(
                 if tile_format == "png":
                     image = Image.fromarray(array[::-1], mode="RGBA")
                 else:
-                    image = as_rgb_images(array.transpose(2, 0, 1))[0]
+                    image = as_rgb_images(array.transpose(2, 0, 1))
                 image.save(
                     tile_filename(
                         level=ilevel,
                         index=index,
                         output_directory=output_directory,
-                        extension=tile_format,
+                        extension=EXTENSION[tile_format],
                     )
                 )
 
