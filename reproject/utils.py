@@ -316,7 +316,7 @@ def as_rgb_images(data, footprint=None):
     rgb_images = []
     rgb_images.append(Image.fromarray(data.astype(np.uint8).transpose(1, 2, 0)[::-1]))
     if footprint is not None:
-        rgb_images.append(Image.fromarray(footprint[0].transpose(1, 2, 0)[::-1], mode="L"))
+        rgb_images.append(Image.fromarray(footprint[0].transpose(1, 2, 0)[::-1]))
 
     if footprint is None:
         return rgb_images[0]
@@ -347,4 +347,4 @@ def as_transparent_rgb(data, footprint=None):
     valid = (footprint > 0).max(axis=0)
     array[3, ~valid] = 0
 
-    return Image.fromarray(array.transpose(1, 2, 0)[::-1], mode="RGBA")
+    return Image.fromarray(array.transpose(1, 2, 0)[::-1])

@@ -284,7 +284,7 @@ def image_to_hips(
                 )
             else:
                 if tile_format == "png":
-                    image = Image.fromarray(array[::-1], mode="RGBA")
+                    image = Image.fromarray(array[::-1])
                 else:
                     image = as_rgb_images(array.transpose(2, 0, 1))
                 image.save(
