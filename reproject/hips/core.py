@@ -204,8 +204,6 @@ def image_to_hips(
 
         return index
 
-    from tqdm.contrib.concurrent import thread_map
-
     if threads:
         generated_indices = []
         with ThreadPoolExecutor(max_workers=threads) as executor:
