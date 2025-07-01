@@ -34,8 +34,7 @@ EXPECTED_FILES = [
 
 
 def assert_files_expected(directory, expected):
-    actual = sorted([str(f.relative_to(directory)) for f in directory.rglob("*") if f.is_file()])
-    print(actual)
+    actual = sorted([f.relative_to(directory).as_posix() for f in directory.rglob("*") if f.is_file()])
     assert actual == expected
 
 
