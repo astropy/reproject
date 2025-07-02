@@ -57,11 +57,14 @@ def _rounded_index(index):
     return 10000 * (index // 10000)
 
 
-def tile_filename(*, level, index, output_directory, extension):
+def tile_filename(*, level, index, output_directory, extension, cube_index=None):
+    rounded_index = _rounded_index(index)
+    if cube_index is not None and cube_index > 0:
+        index = f'{index}_{cube_index}'
     return os.path.join(
         output_directory,
         f"Norder{level}",
-        f"Dir{_rounded_index(index)}",
+        f"Dir{rounded_index}",
         f"Npix{index}.{extension}",
     )
 

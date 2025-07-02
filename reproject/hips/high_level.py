@@ -160,12 +160,14 @@ def reproject_to_hips(
 
     if not (
         has_celestial(wcs_in)
-        and wcs_in.low_level_wcs.pixel_n_dim == 2
-        and wcs_in.low_level_wcs.world_n_dim == 2
+        and wcs_in.low_level_wcs.pixel_n_dim in (2, 3)
+        and wcs_in.low_level_wcs.world_n_dim == wcs_in.low_level_wcs.pixel_n_dim
     ):
         raise NotImplementedError(
-            "Only data with a 2-d celestial WCS can be reprojected to HiPS tiles"
+            "Only data with a 2-d celestial WCS (with an optional third axis) can be reprojected to HiPS tiles"
         )
+
+    wcs_in = wcs_in.celestial
 
     logger = getLogger(__name__)
 
@@ -242,15 +244,28 @@ def reproject_to_hips(
         if np.all(footprint == 0):
             return None
         if tile_format == "fits":
-            fits.writeto(
-                tile_filename(
-                    level=level,
-                    index=index,
-                    output_directory=output_directory,
-                    extension=EXTENSION[tile_format],
-                ),
-                array_out,
-            )
+            if array_out.ndim == 2:
+                fits.writeto(
+                    tile_filename(
+                        level=level,
+                        index=index,
+                        output_directory=output_directory,
+                        extension=EXTENSION[tile_format],
+                    ),
+                    array_out,
+                )
+            elif array_out.ndim == 3:
+                for cube_index in range(array_out.shape[0]):
+                    fits.writeto(
+                        tile_filename(
+                            level=level,
+                            index=index,
+                            output_directory=output_directory,
+                            extension=EXTENSION[tile_format],
+                            cube_index=cube_index,
+                        ),
+                        array_out,
+                    )
         else:
             if tile_format == "png":
                 image = as_transparent_rgb(array_out, footprint=footprint)
@@ -297,7 +312,10 @@ def reproject_to_hips(
             header = tile_header(level=ilevel, index=index, frame=frame, tile_size=tile_size)
 
             if tile_format == "fits":
-                array = np.zeros((tile_size, tile_size))
+                if array_in.ndim == 3:
+                    array = np.zeros((tile_size, tile_size, array_in.shape[0]))
+                else:
+                    array = np.zeros((tile_size, tile_size))
             elif tile_format == "png":
                 array = np.zeros((tile_size, tile_size, 4), dtype=np.uint8)
             else:
@@ -316,7 +334,10 @@ def reproject_to_hips(
                 if os.path.exists(subtile_filename):
 
                     if tile_format == "fits":
-                        data = block_reduce(fits.getdata(subtile_filename), 2, func=np.mean)
+                        if array_in.ndim == 3:
+                            data = block_reduce(fits.getdata(subtile_filename), (1, 2, 2), func=np.mean).transpose(1, 2, 0)
+                        else:
+                            data = block_reduce(fits.getdata(subtile_filename), 2, func=np.mean)
                     else:
                         data = block_reduce(
                             np.array(Image.open(subtile_filename))[::-1], (2, 2, 1), func=np.mean
@@ -332,6 +353,8 @@ def reproject_to_hips(
                         array[:256, 256:] = data
 
             if tile_format == "fits":
+                if array_in.ndim == 3:
+                    array = array.transpose(2, 0, 1)
                 fits.writeto(
                     tile_filename(
                         level=ilevel,
@@ -367,7 +390,7 @@ def reproject_to_hips(
     generated_properties = {
         "creator_did": f"ivo://reproject/P/{str(uuid.uuid4())}",
         "obs_title": os.path.dirname(output_directory),
-        "dataproduct_type": "image",
+        "dataproduct_type": "image" if array_in.ndim == 2 else "cube",
         "hips_version": "1.4",
         "hips_release_date": datetime.now().isoformat(),
         "hips_status": "public master clonableOnce",
@@ -386,8 +409,10 @@ def reproject_to_hips(
         if "hips_pixel_cut" not in properties:
             if isinstance(array_in, np.ndarray):
                 generated_properties["hips_pixel_cut"] = (
-                    f"{np.percentile(array_in, 1):g} {np.percentile(array_in, 99):g}"
+                    f"{np.nanpercentile(array_in, 1):g} {np.nanpercentile(array_in, 99):g}"
                 )
+        if array_in.ndim == 3:
+            generated_properties["hips_cube_depth"] = array_in.shape[0]
 
     generated_properties.update(properties)
 
