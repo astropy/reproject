@@ -1,9 +1,11 @@
 import os
+import re
 
 import numpy as np
+import pytest
 
 from ... import reproject_interp
-from ..high_level import reproject_to_hips
+from ..core import reproject_to_hips
 
 EXPECTED_FILES = [
     "Norder0/Dir0/Npix0.fits",
@@ -91,10 +93,10 @@ EXPECTED_FILES_GALACTIC = [
 ]
 
 
-def test_reproject_to_hips_galactic(tmp_path, simple_celestial_wcs):
+def test_reproject_to_hips_galactic(tmp_path, simple_celestial_fits_wcs):
 
     array_in = np.ones((30, 40))
-    wcs_in = simple_celestial_wcs
+    wcs_in = simple_celestial_fits_wcs
 
     output_directory = tmp_path / "output"
 
@@ -107,3 +109,82 @@ def test_reproject_to_hips_galactic(tmp_path, simple_celestial_wcs):
     )
 
     assert_files_expected(output_directory, EXPECTED_FILES_GALACTIC)
+
+
+def test_reproject_to_hips_invalid_parameters(tmp_path, simple_celestial_fits_wcs):
+
+    array_in = np.ones((30, 40))
+    wcs_in = simple_celestial_fits_wcs
+
+    output_directory = tmp_path / "output"
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape("coord_system_out should be one of equatorial/galactic/ecliptic"),
+    ):
+        reproject_to_hips(
+            (array_in, wcs_in),
+            coord_system_out="intragalactic",
+            reproject_function=reproject_interp,
+            output_directory=output_directory,
+        )
+
+    with pytest.raises(ValueError, match=re.escape("tile_size should be even")):
+        reproject_to_hips(
+            (array_in, wcs_in),
+            tile_size=311,
+            coord_system_out="galactic",
+            reproject_function=reproject_interp,
+            output_directory=output_directory,
+        )
+
+
+EXPECTED_FILES_AUTO_1 = [
+    "Norder0/Dir0/Npix0.fits",
+    "Norder1/Dir0/Npix2.fits",
+    "index.html",
+    "properties",
+]
+
+
+EXPECTED_FILES_AUTO_2 = [
+    "Norder0/Dir0/Npix0.fits",
+    "Norder1/Dir0/Npix2.fits",
+    "Norder2/Dir0/Npix9.fits",
+    "Norder3/Dir0/Npix38.fits",
+    "Norder4/Dir0/Npix153.fits",
+    "Norder5/Dir0/Npix612.fits",
+    "Norder6/Dir0/Npix2450.fits",
+    "Norder7/Dir0/Npix9802.fits",
+    "index.html",
+    "properties",
+]
+
+
+def test_reproject_to_hips_automatic(tmp_path, simple_celestial_fits_wcs):
+
+    array_in = np.ones((30, 40))
+    wcs_in = simple_celestial_fits_wcs
+
+    output_directory = tmp_path / "output_1"
+
+    reproject_to_hips(
+        (array_in, wcs_in),
+        coord_system_out="equatorial",
+        reproject_function=reproject_interp,
+        output_directory=output_directory,
+    )
+
+    assert_files_expected(output_directory, EXPECTED_FILES_AUTO_1)
+
+    output_directory = tmp_path / "output_2"
+    wcs_in.wcs.cdelt = -0.001, 0.001
+
+    reproject_to_hips(
+        (array_in, wcs_in),
+        coord_system_out="equatorial",
+        reproject_function=reproject_interp,
+        output_directory=output_directory,
+    )
+
+    assert_files_expected(output_directory, EXPECTED_FILES_AUTO_2)

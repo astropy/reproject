@@ -5,19 +5,28 @@ from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from datetime import datetime
 from logging import getLogger
+from pathlib import Path
 
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import ICRS, BarycentricTrueEcliptic, Galactic
 from astropy.io import fits
 from astropy.nddata import block_reduce
-from astropy_healpix import HEALPix, level_to_nside
+from astropy.wcs import WCS
+from astropy_healpix import (
+    HEALPix,
+    level_to_nside,
+    nside_to_level,
+    pixel_resolution_to_nside,
+)
 from PIL import Image
 
-from ..utils import as_rgb_images, as_transparent_rgb
+from ..utils import as_rgb_images, as_transparent_rgb, is_jpeg, is_png, parse_input_data
+from ..wcs_utils import has_celestial
 from .utils import make_tile_folders, tile_filename, tile_header
 
-__all__ = ["image_to_hips", "coadd_hips", "determine_healpix_level"]
+__all__ = ["reproject_from_hips", "reproject_to_hips", "coadd_hips"]
+
 
 INDEX_HTML = """
 <!DOCTYPE html>
@@ -62,50 +71,61 @@ VALID_TILE_FORMATS = {"fits", "png", "jpeg"}
 EXTENSION = {"fits": "fits", "png": "png", "jpeg": "jpg"}
 
 
-def image_to_hips(
-    array_in,
-    wcs_in,
-    coord_system_out,
+def reproject_from_hips():
+    raise NotImplementedError()
+
+
+def reproject_to_hips(
+    input_data,
     *,
+    coord_system_out,
     reproject_function,
     output_directory,
-    tile_size,
-    tile_format,
-    output_id=None,
     level=None,
+    hdu_in=0,
+    tile_size=512,
     progress_bar=None,
-    threads=None,
+    threads=False,
     properties=None,
     **kwargs,
 ):
     """
-    Convert image in a normal WCS projection to HiPS tiles.
+    Reproject data from a standard projection to a set of Hierarchical Progressive
+    Surveys (HiPS) tiles.
 
     Parameters
     ----------
-    data : `numpy.ndarray`
-        Input data array to reproject
-    wcs_in : `~astropy.wcs.WCS`
-        The WCS of the input array
+    input_data : object
+        The input data to reproject. This can be:
+
+            * The name of a FITS file as a `str` or a `pathlib.Path` object
+            * An `~astropy.io.fits.HDUList` object
+            * An image HDU object such as a `~astropy.io.fits.PrimaryHDU`,
+              `~astropy.io.fits.ImageHDU`, or `~astropy.io.fits.CompImageHDU`
+              instance
+            * A tuple where the first element is a `~numpy.ndarray` and the
+              second element is either a
+              `~astropy.wcs.wcsapi.BaseLowLevelWCS`,
+              `~astropy.wcs.wcsapi.BaseHighLevelWCS`, or a
+              `~astropy.io.fits.Header` object
+            * An `~astropy.nddata.NDData` object from which the ``.data`` and
+              ``.wcs`` attributes will be used as the input data.
+            * The name of a PNG or JPEG file with AVM metadata
+
     coord_system_out : {'equatorial', 'galactic', 'ecliptic' }
         The target coordinate system for the HEALPIX projection
-    level : int, optional
-        The number of levels of FITS tiles. If not provided, will be determined
-        automatically.
     reproject_function : callable
         The function to use for the reprojection.
-    output_id : str, optional
-        A unique identifier for the output. If not provided, will be generated
-        from the output directory.  This string is the index name in HIPS
-        aggregators and generally follows the form 'host/P/name', with host
-        being the hosting data source (e.g., CDS) and name being a short descriptive
-        name
     output_directory : str
-        The name of the output directory.
+        The name of the output directory - if this already exists, an error
+        will be raised.
+    level : int, optional
+        The number of levels of FITS tiles.
+    hdu_in : int or str, optional
+        If ``input_data`` is a FITS file or an `~astropy.io.fits.HDUList`
+        instance, specifies the HDU to use.
     tile_size : int, optional
         The size of each individual tile (defaults to 512).
-    tile_format : {'fits', 'png', 'jpeg'}
-        The format of the output tiles
     progress_bar : callable, optional
         If specified, use this as a progress_bar to track loop iterations over
         data sets.
@@ -118,7 +138,33 @@ def image_to_hips(
         file inside the HiPS dataset. At list of properties and their meanings
         can be found in the `HiPS 1.0 <https://www.ivoa.net/documents/HiPS/20170406/PR-HIPS-1.0-20170406.pdf>`_
         description.
+    **kwargs
+        Keyword arguments to be passed to the reprojection function.
+
+    Returns
+    -------
+    None
+        This function does not return a value.
     """
+
+    tile_format = "fits"
+
+    if isinstance(input_data, str | Path):
+        if is_png(input_data):
+            tile_format = "png"
+        elif is_jpeg(input_data):
+            tile_format = "jpeg"
+
+    array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
+
+    if not (
+        has_celestial(wcs_in)
+        and wcs_in.low_level_wcs.pixel_n_dim == 2
+        and wcs_in.low_level_wcs.world_n_dim == 2
+    ):
+        raise NotImplementedError(
+            "Only data with a 2-d celestial WCS can be reprojected to HiPS tiles"
+        )
 
     logger = getLogger(__name__)
 
@@ -144,11 +190,7 @@ def image_to_hips(
 
     if level is None:
         level = determine_healpix_level(wcs_in, tile_size)
-        pixel_size = (4 * np.pi * u.sr / (12 * (2**level) ** 2)).to(u.arcsec**2) ** 0.5
-        tile_angular_size = pixel_size * tile_size
-        logger.info(
-            f"Automatically set the HEALPIX level to {level} with tile size {tile_angular_size} and pixel size {pixel_size}"
-        )
+        logger.info(f"Automatically set the HEALPIX level to {level}")
 
     # Create output directory (and error if it already exists)
     os.makedirs(output_directory, exist_ok=False)
@@ -341,9 +383,10 @@ def image_to_hips(
     if tile_format == "fits":
         generated_properties["hips_pixel_bitpix"] = -64
         if "hips_pixel_cut" not in properties:
-            generated_properties["hips_pixel_cut"] = (
-                f"{np.percentile(array_in, 1):g} {np.percentile(array_in, 99):g}"
-            )
+            if isinstance(array_in, np.ndarray):
+                generated_properties["hips_pixel_cut"] = (
+                    f"{np.percentile(array_in, 1):g} {np.percentile(array_in, 99):g}"
+                )
 
     generated_properties.update(properties)
 
@@ -460,11 +503,10 @@ def determine_healpix_level(wcs_in, tile_size):
         The recommended HEALPix level
     """
 
-    # Get the pixel scale from the input WCS
+    if not isinstance(wcs_in, WCS):
+        raise TypeError("Can only determine level automatically for FITS WCS objects")
+
     pixel_scale = wcs_in.proj_plane_pixel_area() ** 0.5
-
-    from astropy_healpix import nside_to_level, pixel_resolution_to_nside
-
     target_nside = pixel_resolution_to_nside(pixel_scale * tile_size)
     target_level = nside_to_level(target_nside)
 
