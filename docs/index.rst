@@ -134,6 +134,7 @@ that you want to reproject.
    installation
    celestial
    healpix
+   hips
    noncelestial
    footprints
    mosaicking
@@ -144,6 +145,9 @@ Reference/API
 =============
 
 .. automodapi:: reproject
+   :no-inheritance-diagram:
+
+.. automodapi:: reproject.hips
    :no-inheritance-diagram:
 
 .. automodapi:: reproject.mosaicking

@@ -15,13 +15,14 @@ def reproject_to_hips(
     input_data,
     *,
     coord_system_out,
-    level,
     reproject_function,
     output_directory,
+    level=None,
     hdu_in=0,
     tile_size=512,
     progress_bar=None,
     threads=False,
+    properties=None,
     **kwargs,
 ):
     """
@@ -49,13 +50,13 @@ def reproject_to_hips(
 
     coord_system_out : {'equatorial', 'galactic', 'ecliptic' }
         The target coordinate system for the HEALPIX projection
-    level : int, optional
-        The number of levels of FITS tiles.
     reproject_function : callable
         The function to use for the reprojection.
     output_directory : str
         The name of the output directory - if this already exists, an error
         will be raised.
+    level : int, optional
+        The number of levels of FITS tiles.
     hdu_in : int or str, optional
         If ``input_data`` is a FITS file or an `~astropy.io.fits.HDUList`
         instance, specifies the HDU to use.
@@ -68,6 +69,11 @@ def reproject_to_hips(
         If `False`, no multi-threading is used. If an integer, this number of
         threads will be used, and if `True`, the number of threads will be chosen
         automatically.
+    properties : dict, optional
+        Dictionary of properties that should be output to the ``properties``
+        file inside the HiPS dataset. At list of properties and their meanings
+        can be found in the `HiPS 1.0 <https://www.ivoa.net/documents/HiPS/20170406/PR-HIPS-1.0-20170406.pdf>`_
+        description.
     **kwargs
         Keyword arguments to be passed to the reprojection function.
 
@@ -103,6 +109,7 @@ def reproject_to_hips(
             tile_format=tile_format,
             progress_bar=progress_bar,
             threads=threads,
+            properties=properties,
         )
     else:
         raise NotImplementedError(

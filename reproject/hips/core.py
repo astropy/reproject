@@ -41,6 +41,14 @@ INDEX_HTML = """
 </html>
 """
 
+RESERVED_PROPERTIES = [
+    "dataproduct_type",
+    "hips_version",
+    "hips_tile_format",
+    "hips_tile_width",
+    "hips_order",
+    "hips_frame",
+]
 
 VALID_COORD_SYSTEM = {
     "equatorial": ICRS(),
@@ -67,6 +75,7 @@ def image_to_hips(
     level=None,
     progress_bar=None,
     threads=None,
+    properties=None,
     **kwargs,
 ):
     """
@@ -104,6 +113,11 @@ def image_to_hips(
         If `False`, no multi-threading is used. If an integer, this number of
         threads will be used, and if `True`, the number of threads will be chosen
         automatically.
+    properties : dict, optional
+        Dictionary of properties that should be output to the ``properties``
+        file inside the HiPS dataset. At list of properties and their meanings
+        can be found in the `HiPS 1.0 <https://www.ivoa.net/documents/HiPS/20170406/PR-HIPS-1.0-20170406.pdf>`_
+        description.
     """
 
     logger = getLogger(__name__)
@@ -121,6 +135,9 @@ def image_to_hips(
     # Check tile format
     if tile_format not in VALID_TILE_FORMATS:
         raise ValueError("tile_format should be one of " + "/".join(VALID_TILE_FORMATS))
+
+    if properties is None:
+        properties = {}
 
     if progress_bar is None:
         progress_bar = lambda x: x
@@ -300,13 +317,12 @@ def image_to_hips(
 
     cen_icrs = cen_world.icrs
 
-    if output_id is None:
-        creator_did = f"ivo://reproject/P/{str(uuid.uuid4())}"
-    else:
-        creator_did = f"ivo://{output_id}"
+    for key in properties:
+        if key in RESERVED_PROPERTIES:
+            raise ValueError(f"Cannot override property {key}")
 
-    properties = {
-        "creator_did": creator_did,
+    generated_properties = {
+        "creator_did": f"ivo://reproject/P/{str(uuid.uuid4())}",
         "obs_title": os.path.dirname(output_directory),
         "dataproduct_type": "image",
         "hips_version": "1.4",
@@ -323,9 +339,15 @@ def image_to_hips(
     }
 
     if tile_format == "fits":
-        properties["hips_pixel_bitpix"] = -64
+        generated_properties["hips_pixel_bitpix"] = -64
+        if "hips_pixel_cut" not in properties:
+            generated_properties["hips_pixel_cut"] = (
+                f"{np.percentile(array_in, 1):g} {np.percentile(array_in, 99):g}"
+            )
 
-    save_properties(output_directory, properties)
+    generated_properties.update(properties)
+
+    save_properties(output_directory, generated_properties)
 
     save_index(output_directory)
 
