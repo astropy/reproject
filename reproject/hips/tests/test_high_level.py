@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from ... import reproject_interp
-from ..core import reproject_to_hips
+from ..high_level import reproject_to_hips
 
 EXPECTED_FILES = [
     "Norder0/Dir0/Npix0.fits",
