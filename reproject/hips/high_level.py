@@ -23,7 +23,12 @@ from PIL import Image
 
 from ..utils import as_rgb_images, as_transparent_rgb, is_jpeg, is_png, parse_input_data
 from ..wcs_utils import has_celestial
-from .utils import make_tile_folders, tile_filename, tile_header
+from .utils import (
+    determine_healpix_level,
+    make_tile_folders,
+    tile_filename,
+    tile_header,
+)
 
 __all__ = ["reproject_from_hips", "reproject_to_hips", "coadd_hips"]
 
@@ -417,7 +422,7 @@ def load_properties(directory):
 
 def coadd_hips(input_directories, output_directory):
     """
-    Given multiple HiPS directories, combine these into a single HiPS
+    Given multiple HiPS directories, combine these into a single HiPS.
 
     The coordinate frame and tile format of the different input directories
     should match.
@@ -427,9 +432,9 @@ def coadd_hips(input_directories, output_directory):
     Parameters
     ----------
     input_directories : iterable
-        Iterable of HiPS directory names
+        Iterable of HiPS directory names.
     output_directory : str
-        The path to the output directory
+        The path to the output directory.
     """
 
     all_properties = [load_properties(directory) for directory in input_directories]
@@ -483,31 +488,3 @@ def coadd_hips(input_directories, output_directory):
     save_properties(output_directory, reference_properties)
 
     save_index(output_directory)
-
-
-def determine_healpix_level(wcs_in, tile_size):
-    """
-    Determine the appropriate HEALPix level by matching the HEALPix pixel size
-    to the input image pixel size.
-
-    Parameters
-    ----------
-    wcs_in : `~astropy.wcs.WCS`
-        The WCS of the input array
-    tile_size : int
-        The size of the tile in pixels
-
-    Returns
-    -------
-    level : int
-        The recommended HEALPix level
-    """
-
-    if not isinstance(wcs_in, WCS):
-        raise TypeError("Can only determine level automatically for FITS WCS objects")
-
-    pixel_scale = wcs_in.proj_plane_pixel_area() ** 0.5
-    target_nside = pixel_resolution_to_nside(pixel_scale * tile_size)
-    target_level = nside_to_level(target_nside)
-
-    return target_level

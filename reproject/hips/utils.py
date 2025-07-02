@@ -4,7 +4,7 @@ import numpy as np
 from astropy.wcs.utils import celestial_frame_to_wcs
 from astropy_healpix import HEALPix, level_to_nside
 
-__all__ = ["tile_header", "tile_filename", "make_tile_folders"]
+__all__ = ["tile_header", "tile_filename", "make_tile_folders", "determine_healpix_level"]
 
 
 def tile_header(*, level, index, frame, tile_size):
@@ -69,3 +69,31 @@ def make_tile_folders(*, level, indices, output_directory):
         )
         if not os.path.exists(dirname):
             os.makedirs(dirname)
+
+
+def determine_healpix_level(wcs_in, tile_size):
+    """
+    Determine the appropriate HEALPix level by matching the HEALPix pixel size
+    to the input image pixel size.
+
+    Parameters
+    ----------
+    wcs_in : `~astropy.wcs.WCS`
+        The WCS of the input array
+    tile_size : int
+        The size of the tile in pixels
+
+    Returns
+    -------
+    level : int
+        The recommended HEALPix level
+    """
+
+    if not isinstance(wcs_in, WCS):
+        raise TypeError("Can only determine level automatically for FITS WCS objects")
+
+    pixel_scale = wcs_in.proj_plane_pixel_area() ** 0.5
+    target_nside = pixel_resolution_to_nside(pixel_scale * tile_size)
+    target_level = nside_to_level(target_nside)
+
+    return target_level
