@@ -5,7 +5,6 @@ import itertools
 import dask.array as da
 import numpy as np
 import pytest
-from astropy import units as u
 from astropy.io import fits
 from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS

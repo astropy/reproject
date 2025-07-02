@@ -8,16 +8,12 @@ from logging import getLogger
 from pathlib import Path
 
 import numpy as np
-from astropy import units as u
 from astropy.coordinates import ICRS, BarycentricTrueEcliptic, Galactic
 from astropy.io import fits
 from astropy.nddata import block_reduce
-from astropy.wcs import WCS
 from astropy_healpix import (
     HEALPix,
     level_to_nside,
-    nside_to_level,
-    pixel_resolution_to_nside,
 )
 from PIL import Image
 

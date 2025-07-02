@@ -1,8 +1,14 @@
 import os
 
 import numpy as np
+from astropy.wcs import WCS
 from astropy.wcs.utils import celestial_frame_to_wcs
-from astropy_healpix import HEALPix, level_to_nside
+from astropy_healpix import (
+    HEALPix,
+    level_to_nside,
+    nside_to_level,
+    pixel_resolution_to_nside,
+)
 
 __all__ = ["tile_header", "tile_filename", "make_tile_folders", "determine_healpix_level"]
 

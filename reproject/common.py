@@ -305,7 +305,7 @@ def _reproject_dispatcher(
             array_out_dask = da.empty(shape_out)
             array_out_dask = array_out_dask.rechunk(block_size_limit=64 * 1024**2, **rechunk_kwargs)
 
-        logger.info(f"Setting up output dask array with map_blocks")
+        logger.info("Setting up output dask array with map_blocks")
 
         result = da.map_blocks(
             reproject_single_block,
@@ -364,7 +364,7 @@ def _reproject_dispatcher(
 
             result = da.from_zarr(zarr_path)
 
-        logger.info(f"Copying output zarr array into output Numpy arrays")
+        logger.info("Copying output zarr array into output Numpy arrays")
 
         if return_footprint:
             da.store(

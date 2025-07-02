@@ -187,6 +187,7 @@ lint.select = [
   "B",  # flake8-bugbear
   "I",  # isort
   "UP",  # pyupgrade
+  "F",   # pyflakes
 ]
 
 [tool.ruff.lint.extend-per-file-ignores]
