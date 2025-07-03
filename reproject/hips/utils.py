@@ -11,7 +11,14 @@ from astropy_healpix import (
     pixel_resolution_to_nside,
 )
 
-__all__ = ["tile_header", "tile_filename", "make_tile_folders", "determine_healpix_level"]
+__all__ = [
+    "tile_header",
+    "tile_filename",
+    "tile_filename_3d",
+    "make_tile_folders",
+    "determine_healpix_level",
+    "is_url",
+]
 
 
 def tile_header(*, level, index, frame, tile_size):
@@ -54,22 +61,37 @@ def tile_header(*, level, index, frame, tile_size):
     return header
 
 
-def _rounded_index(index):
+def _rounded_spatial_index(index):
     return 10000 * (index // 10000)
+
+
+def _rounded_spectral_index(index):
+    return 10 * (index // 10)
 
 
 def tile_filename(*, level, index, output_directory, extension):
     return os.path.join(
         output_directory,
         f"Norder{level}",
-        f"Dir{_rounded_index(index)}",
+        f"Dir{_rounded_spatial_index(index)}",
         f"Npix{index}.{extension}",
+    )
+
+
+def tile_filename_3d(
+    *, spatial_level, spectral_level, spatial_index, spectral_index, output_directory, extension
+):
+    return os.path.join(
+        output_directory,
+        f"Norder{spatial_level}_{spectral_level}",
+        f"Dir{_rounded_spatial_index(spatial_index)}_{_rounded_spectral_index(spectral_index)}",
+        f"Npix{spatial_index}_{spectral_index}.{extension}",
     )
 
 
 def make_tile_folders(*, level, indices, output_directory):
 
-    rounded_indices = np.unique(_rounded_index(indices))
+    rounded_indices = np.unique(_rounded_spatial_index(indices))
     for index in rounded_indices:
         dirname = os.path.dirname(
             tile_filename(level=level, index=index, output_directory=output_directory, extension="")
@@ -106,7 +128,7 @@ def determine_healpix_level(wcs_in, tile_size):
     return target_level
 
 
-def _is_url(directory):
+def is_url(directory):
     return directory.startswith("http://") or directory.startswith("https://")
 
 
@@ -118,7 +140,7 @@ def save_properties(directory, properties):
 
 def load_properties(directory_or_url):
 
-    if _is_url(directory_or_url):
+    if is_url(directory_or_url):
         properties_filename, _ = urllib.request.urlretrieve(f"{directory_or_url}/properties")
     else:
         properties_filename = os.path.join(directory_or_url, "properties")
