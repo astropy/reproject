@@ -22,7 +22,9 @@ from PIL import Image
 from ..utils import as_transparent_rgb, is_jpeg, is_png, parse_input_data
 from ..wcs_utils import has_celestial, pixel_scale
 from .utils import (
+    load_properties,
     make_tile_folders,
+    save_properties,
     tile_filename,
     tile_header,
 )
@@ -401,21 +403,6 @@ def reproject_to_hips(
 def save_index(directory):
     with open(os.path.join(directory, "index.html"), "w") as f:
         f.write(INDEX_HTML)
-
-
-def save_properties(directory, properties):
-    with open(os.path.join(directory, "properties"), "w") as f:
-        for key, value in properties.items():
-            f.write(f"{key:20s} = {value}\n")
-
-
-def load_properties(directory):
-    properties = {}
-    with open(os.path.join(directory, "properties")) as f:
-        for line in f:
-            key, value = line.split("=")
-            properties[key.strip()] = value.strip()
-    return properties
 
 
 def coadd_hips(input_directories, output_directory):

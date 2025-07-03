@@ -1,4 +1,5 @@
 import os
+import urllib
 
 import numpy as np
 from astropy.wcs.utils import celestial_frame_to_wcs
@@ -72,3 +73,31 @@ def make_tile_folders(*, level, indices, output_directory):
         )
         if not os.path.exists(dirname):
             os.makedirs(dirname)
+
+
+def _is_url(directory):
+    return directory.startswith("http://") or directory.startswith("https://")
+
+
+def save_properties(directory, properties):
+    with open(os.path.join(directory, "properties"), "w") as f:
+        for key, value in properties.items():
+            f.write(f"{key:20s} = {value}\n")
+
+
+def load_properties(directory_or_url):
+
+    if _is_url(directory_or_url):
+        properties_filename, _ = urllib.request.urlretrieve(f"{directory_or_url}/properties")
+    else:
+        properties_filename = os.path.join(directory_or_url, "properties")
+
+    properties = {}
+    with open(properties_filename) as f:
+        for line in f:
+            if line.startswith("#"):
+                continue
+            key, value = line.split("=", 1)
+            properties[key.strip()] = value.strip()
+
+    return properties
