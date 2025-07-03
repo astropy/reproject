@@ -43,6 +43,7 @@ docs = [
     "sphinx-astropy",
     "pyvo",
     "matplotlib",
+    "tqdm",
 ]
 
 [build-system]
