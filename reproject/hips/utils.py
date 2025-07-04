@@ -116,7 +116,7 @@ def load_properties(directory_or_url):
     properties = {}
     with open(properties_filename) as f:
         for line in f:
-            if line.startswith("#"):
+            if line.startswith("#") or line.strip() == "":
                 continue
             key, value = line.split("=", 1)
             properties[key.strip()] = value.strip()

@@ -2,6 +2,7 @@ import os
 import struct
 import urllib
 import uuid
+import functools
 
 import numpy as np
 from astropy import units as u
@@ -9,6 +10,7 @@ from astropy.io import fits
 from astropy.wcs import WCS
 from astropy_healpix import HEALPix, level_to_nside
 from dask import array as da
+from astropy.utils.data import download_file
 
 from .utils import is_url, load_properties, tile_filename, tile_filename_3d
 
@@ -69,9 +71,10 @@ class HiPSArray:
 
         return self._get_tile(level=self._level, index=index)
 
+    @functools.lru_cache(maxsize=128)
     def _get_tile(self, *, level, index):
 
-        filename = tile_filename(
+        filename_or_url = tile_filename(
             level=self._level,
             index=index,
             output_directory=self._directory_or_url,
@@ -80,15 +83,19 @@ class HiPSArray:
 
         if self._is_url:
             try:
-                return fits.getdata(filename).astype(float)[::-1]
+                filename = download_file(filename_or_url, cache=True)
             except urllib.error.HTTPError:
                 return self._nan
+        elif not os.path.exists(filename_or_url):
+            return self._nan
         else:
-            if os.path.exists(filename):
-                # FIXME: why flip vertically?
-                return fits.getdata(filename).astype(float)[::-1]
-            else:
-                return self._nan
+            filename = filename_or_url
+
+        with fits.open(filename) as hdulist:
+            hdu = hdulist[0]
+            data = hdu.data[::-1]
+
+        return data
 
 
 def freq2pix(order, freq):
@@ -122,6 +129,8 @@ def get_freq(hash_value):
 class HiPS3DArray:
 
     def __init__(self, directory_or_url, level=None):
+
+        self._cache = {}
 
         self._directory_or_url = directory_or_url
 
@@ -157,7 +166,7 @@ class HiPS3DArray:
         # NOTE: em_min is given as wav but is minimum frequency
 
         self._freq_min = (float(self._properties["em_min"]) * u.m).to_value(u.Hz, u.spectral())
-        self._freq_max = (float(self._properties["em_min"]) * u.m).to_value(u.Hz, u.spectral())
+        self._freq_max = (float(self._properties["em_max"]) * u.m).to_value(u.Hz, u.spectral())
 
         # Now determine what the indices would be for this at the given spectral order
 
@@ -207,6 +216,7 @@ class HiPS3DArray:
             level=self._level, spatial_index=spatial_index, spectral_index=spectral_index
         )
 
+    @functools.lru_cache(maxsize=128)
     def _get_tile(self, *, level, spatial_index, spectral_index):
 
         filename_or_url = tile_filename_3d(
@@ -220,7 +230,7 @@ class HiPS3DArray:
 
         if self._is_url:
             try:
-                filename, _ = urllib.request.urlretrieve(filename_or_url)
+                filename = download_file(filename_or_url, cache=True)
             except urllib.error.HTTPError:
                 return self._nan
         elif not os.path.exists(filename_or_url):
