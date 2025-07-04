@@ -322,6 +322,8 @@ def test_solar_wcs():
 
     pytest.importorskip("sunpy", minversion="6.0.1")
 
+    # The following registers the WCS <-> frame for solar coordinates
+
     # Make sure the WCS <-> frame functions are registered
 
     wcs_ref = WCS(fits.Header.fromstring(SOLAR_HEADER, sep="\n"))
@@ -338,5 +340,8 @@ def test_solar_wcs():
     assert wcs.wcs.ctype[1] == wcs_ref.wcs.ctype[1]
     assert wcs.wcs.cunit[0] == wcs_ref.wcs.cunit[0]
     assert wcs.wcs.cunit[1] == wcs_ref.wcs.cunit[1]
+
+    # Make sure cdelt[0] and cdelt[1] are both positive
+    assert np.all(wcs.wcs.cdelt > 0)
 
     assert shape == (4281, 8237)
