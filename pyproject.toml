@@ -18,6 +18,8 @@ dependencies = [
     "cloudpickle",
     "zarr",
     "fsspec",
+    "pillow",
+    "pyavm",
 ]
 dynamic = ["version"]
 
@@ -29,6 +31,7 @@ content-type = "text/x-rst"
 all = ["shapely"]
 test = [
     "pytest-astropy",
+    "tqdm",
 ]
 testall = [
     "shapely>=2.0.2",  # 2.0.2 fixed a bug that causes changes in test results
@@ -41,6 +44,7 @@ docs = [
     "sphinx-astropy",
     "pyvo",
     "matplotlib",
+    "tqdm",
 ]
 
 [build-system]
@@ -185,6 +189,7 @@ lint.select = [
   "B",  # flake8-bugbear
   "I",  # isort
   "UP",  # pyupgrade
+  "F",   # pyflakes
 ]
 
 [tool.ruff.lint.extend-per-file-ignores]

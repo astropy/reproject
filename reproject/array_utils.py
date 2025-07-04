@@ -176,8 +176,8 @@ def map_coordinates(
 
             # Adjust chunks to add padding
             for idim, slc in enumerate(chunk):
-                start = max(0, slc.start - 10)
-                stop = min(original_shape[idim], slc.stop + 10)
+                start = max(0, slc.start - padding)
+                stop = min(original_shape[idim], slc.stop + padding)
                 chunk[idim] = slice(start, stop)
 
             chunk = tuple(chunk)

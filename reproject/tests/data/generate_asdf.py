@@ -82,7 +82,6 @@ def generate_asdf(input_file="aia_171_level1.fits", output_file="aia_171_level1.
 
     aia_map = sunpy.map.Map(input_file)
 
-    spatial_unit = aia_map.spatial_units[0]
     transform = generate_celestial_transform(
         crpix=aia_map.reference_pixel,
         cdelt=aia_map.scale,

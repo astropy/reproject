@@ -11,12 +11,16 @@ from astropy.io.fits import CompImageHDU, HDUList, Header, ImageHDU, PrimaryHDU
 from astropy.wcs import WCS
 from astropy.wcs.wcsapi import BaseHighLevelWCS, BaseLowLevelWCS
 from astropy.wcs.wcsapi.high_level_wcs_wrapper import HighLevelWCSWrapper
+from PIL import Image
+from pyavm import AVM
 
 __all__ = [
     "parse_input_data",
     "parse_input_shape",
     "parse_input_weights",
     "parse_output_projection",
+    "as_transparent_rgb",
+    "as_rgb_images",
 ]
 
 
@@ -103,8 +107,13 @@ def parse_input_data(input_data, hdu_in=None, source_hdul=None):
     """
 
     if isinstance(input_data, str | Path):
-        with fits.open(input_data) as hdul:
-            return parse_input_data(hdul, hdu_in=hdu_in)
+        if is_png(input_data) or is_jpeg(input_data):
+            data = np.array(Image.open(input_data)).transpose(2, 0, 1)[:, ::-1]
+            wcs = AVM.from_image(input_data).to_wcs()
+            return data, wcs
+        else:
+            with fits.open(input_data) as hdul:
+                return parse_input_data(hdul, hdu_in=hdu_in)
     elif isinstance(input_data, HDUList):
         if hdu_in is None:
             if len(input_data) > 1:
@@ -147,7 +156,13 @@ def parse_input_shape(input_shape, hdu_in=None):
     """
 
     if isinstance(input_shape, str | Path):
-        return parse_input_shape(fits.open(input_shape), hdu_in=hdu_in)
+        if is_png(input_shape) or is_jpeg(input_shape):
+            shape = np.array(Image.open(input_shape)).transpose(2, 0, 1).shape
+            wcs = AVM.from_image(input_shape).to_wcs()
+            return shape, wcs
+        else:
+            with fits.open(input_shape) as hdulist:
+                return parse_input_shape(hdulist, hdu_in=hdu_in)
     elif isinstance(input_shape, HDUList):
         if hdu_in is None:
             if len(input_shape) > 1:
@@ -277,3 +292,59 @@ def parse_output_projection(output_projection, shape_in=None, shape_out=None, ou
         # currently have any broadcast dims
         shape_out = (*shape_in[: -len(shape_out)], *shape_out)
     return wcs_out, tuple(shape_out)
+
+
+def is_png(filename):
+    with open(filename, "rb") as f:
+        return f.read(8) == b"\x89\x50\x4e\x47\x0d\x0a\x1a\x0a"
+
+
+def is_jpeg(filename):
+    with open(filename, "rb") as f:
+        return f.read(4) == b"\xff\xd8\xff\xe0"
+
+
+def as_rgb_images(data, footprint=None):
+
+    for image in [data, footprint]:
+        if image is not None:
+            if image.ndim != 3:
+                raise ValueError("Data needs to be three-dimensional to return RGB image")
+            if image.shape[0] not in (3, 4):
+                raise ValueError("Data should have shape (3, ny, nx) or (4, ny, nx)")
+
+    rgb_images = []
+    rgb_images.append(Image.fromarray(data.astype(np.uint8).transpose(1, 2, 0)[::-1]))
+    if footprint is not None:
+        rgb_images.append(Image.fromarray(footprint[0].transpose(1, 2, 0)[::-1]))
+
+    if footprint is None:
+        return rgb_images[0]
+    else:
+        return tuple(rgb_images)
+
+
+def as_transparent_rgb(data, footprint=None):
+
+    for image in [data, footprint]:
+        if image is not None:
+            if image.ndim != 3:
+                raise ValueError("Data needs to be three-dimensional to return RGB image")
+            if image.shape[0] not in (3, 4):
+                raise ValueError("Data should have shape (3, ny, nx) or (4, ny, nx)")
+
+    array = np.zeros((4,) + data.shape[1:], dtype=np.uint8)
+
+    footprint[np.isnan(data)] = 0
+    data = np.nan_to_num(data)
+
+    if data.shape[0] == 3:
+        array[:3] = data
+        array[3] = 255
+    else:
+        array[...] = data
+
+    valid = (footprint > 0).max(axis=0)
+    array[3, ~valid] = 0
+
+    return Image.fromarray(array.transpose(1, 2, 0)[::-1])

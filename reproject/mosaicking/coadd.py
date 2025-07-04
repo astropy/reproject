@@ -383,7 +383,7 @@ def reproject_and_coadd(
 
                 if intermediate_memmap:
                     # Remove the reference to the memmap before trying to remove the file itself
-                    logger.info(f"Removing memory-mapped weight array")
+                    logger.info("Removing memory-mapped weight array")
                     weights = None
                     try:
                         os.remove(weights_path)
@@ -396,7 +396,7 @@ def reproject_and_coadd(
             # output image is empty (due e.g. to no overlap).
 
             if on_the_fly:
-                logger.info(f"Adding reprojected array to final array")
+                logger.info("Adding reprojected array to final array")
                 # By default, values outside of the footprint are set to NaN
                 # but we set these to 0 here to avoid getting NaNs in the
                 # means/sums.
@@ -412,7 +412,7 @@ def reproject_and_coadd(
                 if intermediate_memmap:
                     # Remove the references to the memmaps themesleves before
                     # trying to remove the files thermselves.
-                    logger.info(f"Removing memory-mapped array and footprint arrays")
+                    logger.info("Removing memory-mapped array and footprint arrays")
                     array = None
                     footprint = None
                     try:
@@ -422,12 +422,12 @@ def reproject_and_coadd(
                         pass
 
             else:
-                logger.info(f"Adding reprojected array to list to combine later")
+                logger.info("Adding reprojected array to list to combine later")
                 arrays.append(array)
 
         # If requested, try and match the backgrounds.
         if match_background and len(arrays) > 1:
-            logger.info(f"Match backgrounds")
+            logger.info("Match backgrounds")
             offset_matrix = determine_offset_matrix(arrays)
             corrections = solve_corrections_sgd(offset_matrix)
             if background_reference:
@@ -448,7 +448,7 @@ def reproject_and_coadd(
                     output_footprint[array.view_in_original_array] += array.footprint
 
             if combine_function == "mean":
-                logger.info(f"Handle normalization of output array")
+                logger.info("Handle normalization of output array")
                 with np.errstate(invalid="ignore"):
                     output_array /= output_footprint
 

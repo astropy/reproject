@@ -41,6 +41,7 @@ def reproject_exact(
               `~astropy.io.fits.Header` object
             * An `~astropy.nddata.NDData` object from which the ``.data`` and
               ``.wcs`` attributes will be used as the input data.
+            * The name of a PNG or JPEG file with AVM metadata
 
         If the data array contains more dimensions than are described by the
         input header or WCS, the extra dimensions (assumed to be the first
@@ -84,8 +85,11 @@ def reproject_exact(
         by ``block_size`` (if the block size is not set, it will be determined
         automatically). To use the currently active dask scheduler (e.g.
         dask.distributed), set this to ``'current-scheduler'``.
-    return_type : {'numpy', 'dask'}, optional
-        Whether to return numpy or dask arrays - defaults to 'numpy'.
+    return_type : {'numpy', 'dask', 'pil_image'}, optional
+        Whether to return numpy, dask arrays, or RGB images - defaults to 'numpy'.
+        If this is set to 'pil_image', a PIL ``Image`` object is returned. The
+        'pil_image' option can only be used if the input was RGB images or if
+        the input data has shape (3, ny, nx) and contains values between 0 and 255.
 
     Returns
     -------

@@ -142,6 +142,7 @@ def reproject_to_healpix(
         has_celestial(wcs_in)
         and wcs_in.low_level_wcs.pixel_n_dim == 2
         and wcs_in.low_level_wcs.world_n_dim == 2
+        and array_in.ndim == 2
     ):
         return image_to_healpix(
             array_in, wcs_in, coord_system_out, nside=nside, order=order, nested=nested
