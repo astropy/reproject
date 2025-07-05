@@ -324,7 +324,7 @@ def as_rgb_images(data, footprint=None):
         return tuple(rgb_images)
 
 
-def as_transparent_rgb(data, footprint=None):
+def as_transparent_rgb(data, footprint):
 
     for image in [data, footprint]:
         if image is not None:
