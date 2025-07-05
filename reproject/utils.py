@@ -347,4 +347,4 @@ def as_transparent_rgb(data, footprint=None):
     valid = (footprint > 0).max(axis=0)
     array[3, ~valid] = 0
 
-    return Image.fromarray(array.transpose(1, 2, 0)[::-1])
+    return Image.fromarray(array.transpose(1, 2, 0)[::-1], mode='RGBA')
