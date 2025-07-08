@@ -114,7 +114,7 @@ def _reproject_dispatcher(
         Keyword arguments to pass through to ``reproject_func``
     return_type : {'numpy', 'dask' }, optional
         Whether to return numpy or dask arrays.
-    dask_method : {'memmap', 'none'}, optional
+    dask_method : {'memmap', 'none', 'native'}, optional
         Method to use when input array is a dask array. The methods are:
             * ``'memmap'``: write out the entire input dask array to a temporary
               memory-mapped array. This requires enough disk space to store
@@ -194,6 +194,7 @@ def _reproject_dispatcher(
                     array_out=array_out,
                     return_footprint=return_footprint,
                     output_footprint=output_footprint,
+                    dask_method=dask_method,
                     **reproject_func_kwargs,
                 )
             finally:
@@ -310,6 +311,7 @@ def _reproject_dispatcher(
                 wcs_out_sub,
                 shape_out=shape_out,
                 array_out=np.zeros(shape_out),
+                dask_method=dask_method,
                 **reproject_func_kwargs,
             )
 
