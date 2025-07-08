@@ -66,6 +66,7 @@ def _reproject_dispatcher(
     parallel=True,
     reproject_func_kwargs=None,
     return_type=None,
+    dask_method="memmap",
 ):
     """
     Main function that handles either calling the core algorithms directly or
@@ -116,6 +117,7 @@ def _reproject_dispatcher(
         If this is set to 'pil_image', a PIL ``Image`` object is returned. The
         'pil_image' option can only be used if the input was RGB images or if
         the input data has shape (3, ny, nx) and contains values between 0 and 255.
+    dask_method : {'memmap', 'vindex', 'nothing'}
     """
 
     logger = logging.getLogger(__name__)
@@ -162,7 +164,7 @@ def _reproject_dispatcher(
                     "been specified"
                 )
 
-            if isinstance(array_in, da.core.Array):
+            if isinstance(array_in, da.core.Array) and dask_method == "memmap":
                 logger.info("Computing input dask array to Numpy memory-mapped array")
                 array_path, array_in = _dask_to_numpy_memmap(array_in, local_tmp_dir)
                 logger.info(f"Numpy memory-mapped array is now at {array_path}")
@@ -210,7 +212,9 @@ def _reproject_dispatcher(
                 "shape": array_in.shape,
                 "offset": array_in.offset,
             }
-        elif isinstance(array_in, da.core.Array) or return_type == "dask":
+        elif (
+            isinstance(array_in, da.core.Array) and dask_method == "memmap"
+        ) or return_type == "dask":
             if return_type == "dask":
                 # We should use a temporary directory that will persist beyond
                 # the call to the reproject function.
@@ -276,6 +280,7 @@ def _reproject_dispatcher(
                 wcs_out_sub,
                 shape_out=shape_out,
                 array_out=np.zeros(shape_out),
+                dask_method=dask_method,
                 **reproject_func_kwargs,
             )
 

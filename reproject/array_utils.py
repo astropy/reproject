@@ -107,6 +107,48 @@ def memory_efficient_access(array, chunk):
         return array[chunk]
 
 
+def map_coordinates_vindex(
+    image,
+    coords,
+    order=0,
+    output=None,
+    cval=np.nan,
+    mode="constant",
+):
+
+    if order != 0:
+        raise ValueError("Only order==0 is supported")
+
+    if mode != "constant":
+        raise ValueError("Only mode=='constant' is supported")
+
+    original_shape = image.shape
+
+    # As in map_coordinates
+    coords = coords.copy()
+    for i in range(coords.shape[0]):
+        coords[i][(coords[i] < 0) & (coords[i] >= -0.5)] = 0
+        coords[i][(coords[i] < original_shape[i] - 0.5) & (coords[i] >= original_shape[i] - 1)] = (
+            original_shape[i] - 1
+        )
+
+    y, x = coords
+
+    keep = (x >= 0) & (x <= original_shape[1] - 1) & (y >= 0) & (y <= original_shape[0] - 1)
+
+    if output is None:
+        output = np.repeat(cval, coords.shape[1])
+    else:
+        output[...] = cval
+
+    xsub = np.round(x[keep]).astype(int)
+    ysub = np.round(y[keep]).astype(int)
+
+    output[keep] = image.vindex[ysub, xsub]
+
+    return output
+
+
 def map_coordinates(
     image, coords, max_chunk_size=None, output=None, optimize_memory=False, **kwargs
 ):
