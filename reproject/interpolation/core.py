@@ -72,6 +72,8 @@ def _reproject_full(
     "broadcast" across those images.
     """
 
+    print("HERE3")
+
     # shape_out must be exactly a tuple type
     shape_out = tuple(shape_out)
     _validate_wcs(wcs_in, wcs_out, array.shape, shape_out)
@@ -81,6 +83,8 @@ def _reproject_full(
 
     if output_footprint is None:
         output_footprint = np.empty(shape_out)
+
+    print("HERE4")
 
     array_out_loopable = array_out
     if len(array.shape) == wcs_in.low_level_wcs.pixel_n_dim:
@@ -99,6 +103,8 @@ def _reproject_full(
     else:
         raise ValueError("Too few dimensions for input array")
 
+    print("HERE5")
+
     wcs_dims = shape_out[-wcs_in.low_level_wcs.pixel_n_dim :]
     pixel_out = np.meshgrid(
         *[np.arange(size, dtype=float) for size in wcs_dims],
@@ -107,6 +113,9 @@ def _reproject_full(
         copy=False,
     )
     pixel_out = [p.ravel() for p in pixel_out]
+
+    print([p.shape for p in pixel_out])
+
     # For each pixel in the output array, get the pixel value in the input WCS
     if roundtrip_coords:
         pixel_in = pixel_to_pixel_with_roundtrip(wcs_out, wcs_in, *pixel_out[::-1])[::-1]
@@ -114,10 +123,13 @@ def _reproject_full(
         pixel_in = pixel_to_pixel(wcs_out, wcs_in, *pixel_out[::-1])[::-1]
     pixel_in = np.array(pixel_in)
 
+    print("HERE6")
+
     # Loop over the broadcasted dimensions in our array, reusing the same
     # computed transformation each time
     for i in range(len(array)):
         # Interpolate array on to the pixels coordinates in pixel_in
+        print(array[i].shape)
         map_coordinates(
             array[i],
             pixel_in,

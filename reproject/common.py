@@ -155,7 +155,7 @@ def _reproject_dispatcher(
     if broadcasted_parallelization:
         logger.info("Parallelizing along broadcasted dimension")
     else:
-        logger.info("Not parallelizing along broadcasted dimension")
+        logger.info(f"Not parallelizing along broadcasted dimension ({block_size=}, {shape_out=})")
 
     # We set up a global temporary directory since this will be used e.g. to
     # store memory mapped Numpy arrays and zarr arrays.
@@ -228,6 +228,8 @@ def _reproject_dispatcher(
 
         def reproject_single_block(a, array_or_path, block_info=None):
 
+            print("HERE0")
+
             if (
                 a.ndim == 0
                 or block_info is None
@@ -270,6 +272,8 @@ def _reproject_dispatcher(
 
             shape_out = block_info[None]["chunk-shape"][1:]
 
+            print("HERE1", shape_out)
+
             array, footprint = reproject_func(
                 array_in,
                 wcs_in_cp,
@@ -278,6 +282,8 @@ def _reproject_dispatcher(
                 array_out=np.zeros(shape_out),
                 **reproject_func_kwargs,
             )
+
+            print("HERE2")
 
             return np.array([array, footprint])
 
@@ -388,7 +394,9 @@ def _reproject_dispatcher(
             if parallel == "current-scheduler":
                 # Just use whatever is the current active scheduler, which can
                 # be used for e.g. dask.distributed
+                print("HERE1")
                 result.to_zarr(zarr_path)
+                print("HERE2")
             else:
                 if isinstance(parallel, bool):
                     workers = {}
