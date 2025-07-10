@@ -270,6 +270,8 @@ def reproject_and_coadd(
 
             slice_out = tuple([slice(imin, imax) for (imin, imax) in bounds])
 
+            print(slice_out)
+
             if isinstance(wcs_out, WCS):
                 wcs_out_indiv = wcs_out[slice_out]
             else:

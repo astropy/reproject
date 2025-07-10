@@ -180,6 +180,7 @@ def _reproject_dispatcher(
                     array_out=array_out,
                     return_footprint=return_footprint,
                     output_footprint=output_footprint,
+                    dask_method=dask_method,
                     **reproject_func_kwargs,
                 )
                 if return_type == "pil_image":
@@ -222,6 +223,9 @@ def _reproject_dispatcher(
             else:
                 tmp_dir = local_tmp_dir
             array_in_or_path = as_delayed_memmap_path(_ArrayContainer(array_in), tmp_dir)
+        elif isinstance(array_in, da.core.Array) and dask_method != "memmap":
+            dask_arrays = {'array': array_in}
+            array_in_or_path = 'from-dict'
         else:
             # Here we could set array_in_or_path to array_in_path if it has
             # been set previously, but in synchronous and threaded mode it is
@@ -232,6 +236,7 @@ def _reproject_dispatcher(
 
         def reproject_single_block(a, array_or_path, block_info=None):
 
+
             if (
                 a.ndim == 0
                 or block_info is None
@@ -239,6 +244,12 @@ def _reproject_dispatcher(
                 or (isinstance(block_info, np.ndarray) and block_info.tolist() == [])
             ):
                 return np.array([a, a])
+
+            print(array_or_path, type(array_or_path))
+
+            if isinstance(array_or_path, str) and array_or_path == 'from-dict':
+                array_or_path = dask_arrays['array']
+
 
             # The WCS class from astropy is not thread-safe, see e.g.
             # https://github.com/astropy/astropy/issues/16244
@@ -312,6 +323,11 @@ def _reproject_dispatcher(
 
         logger.info("Setting up output dask array with map_blocks")
 
+        print("DOING MAP BLOCKS")
+
+        print(array_out_dask)
+        print(array_out_dask.chunksize)
+        print(type(array_in_or_path))
         result = da.map_blocks(
             reproject_single_block,
             array_out_dask,
@@ -324,6 +340,8 @@ def _reproject_dispatcher(
         # Ensure that there are no more references to Numpy memmaps
         array_in = None
         array_in_or_path = None
+
+        print("FINALLY HERE")
 
         # Truncate extra elements
         result = result[tuple([slice(None)] + [slice(s) for s in shape_out])]
@@ -370,6 +388,8 @@ def _reproject_dispatcher(
             result = da.from_zarr(zarr_path)
 
         logger.info("Copying output zarr array into output Numpy arrays")
+
+        print('HERE, ABOUT TO STORE')
 
         if return_footprint:
             da.store(

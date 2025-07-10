@@ -118,6 +118,7 @@ def _reproject_full(
     # Loop over the broadcasted dimensions in our array, reusing the same
     # computed transformation each time
     for i in range(len(array)):
+        print('dask_method', dask_method)
         # Interpolate array on to the pixels coordinates in pixel_in
         if dask_method == "vindex":
             map_coordinates_vindex(

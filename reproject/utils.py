@@ -83,6 +83,8 @@ def hdu_to_numpy_memmap(hdu):
     array backed by a memmapped buffer as returned by astropy.
     """
 
+    print(type(hdu))
+
     if (
         hdu.header.get("BSCALE", 1) != 1
         or hdu.header.get("BZERO", 0) != 0
@@ -106,6 +108,8 @@ def parse_input_data(input_data, hdu_in=None, source_hdul=None):
     Parse input data to return a Numpy array and WCS object.
     """
 
+    print(type(input_data))
+
     if isinstance(input_data, str | Path):
         if is_png(input_data) or is_jpeg(input_data):
             data = np.array(Image.open(input_data)).transpose(2, 0, 1)[:, ::-1]
@@ -124,8 +128,10 @@ def parse_input_data(input_data, hdu_in=None, source_hdul=None):
             else:
                 hdu_in = 0
         return parse_input_data(input_data[hdu_in], source_hdul=input_data)
-    elif isinstance(input_data, PrimaryHDU | ImageHDU | CompImageHDU):
+    elif isinstance(input_data, PrimaryHDU | ImageHDU) and not isinstance(input_data, CompImageHDU):
         return (hdu_to_numpy_memmap(input_data), WCS(input_data.header, fobj=source_hdul))
+    elif isinstance(input_data, CompImageHDU):
+        return (input_data.data, WCS(input_data.header, fobj=source_hdul))
     elif isinstance(input_data, tuple) and isinstance(input_data[0], np.ndarray | da.core.Array):
         if isinstance(input_data[1], Header):
             return input_data[0], WCS(input_data[1])

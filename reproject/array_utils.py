@@ -132,19 +132,22 @@ def map_coordinates_vindex(
             original_shape[i] - 1
         )
 
-    y, x = coords
+    keep = np.ones(coords.shape[1], dtype=bool)
 
-    keep = (x >= 0) & (x <= original_shape[1] - 1) & (y >= 0) & (y <= original_shape[0] - 1)
+    for i in range(coords.shape[0]):
+        keep[(coords[i] < 0) | (coords[i] > original_shape[i] - 1)] = False
 
     if output is None:
         output = np.repeat(cval, coords.shape[1])
     else:
         output[...] = cval
 
-    xsub = np.round(x[keep]).astype(int)
-    ysub = np.round(y[keep]).astype(int)
+    coords_sub = []
+    for i in range(coords.shape[0]):
+        coords_sub.append(np.round(coords[i][keep]).astype(int))
+    coords_sub = tuple(coords_sub)
 
-    output[keep] = image.vindex[ysub, xsub]
+    output[keep] = image.vindex[coords_sub]
 
     return output
 
