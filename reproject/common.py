@@ -131,6 +131,11 @@ def _reproject_dispatcher(
     # Determine whether any broadcasting is taking place
     broadcasting = wcs_in.low_level_wcs.pixel_n_dim < len(shape_out)
 
+    if broadcasting:
+        logger.info("Broadcasting is being used")
+    else:
+        logger.info("Broadcasting is not being used")
+
     # Determine whether block size indicates we should parallelize over broadcasted dimension
     broadcasted_parallelization = False
     if broadcasting and block_size:
@@ -144,6 +149,13 @@ def _reproject_dispatcher(
                     block_size[: -wcs_in.low_level_wcs.pixel_n_dim]
                     + (-1,) * wcs_in.low_level_wcs.pixel_n_dim
                 )
+        # TODO: disallow block_size != shape_out?
+        # TODO: check for shape_out not matching shape_in along broadcasted dimensions
+
+    if broadcasted_parallelization:
+        logger.info("Parallelizing along broadcasted dimension")
+    else:
+        logger.info("Not parallelizing along broadcasted dimension")
 
     # We set up a global temporary directory since this will be used e.g. to
     # store memory mapped Numpy arrays and zarr arrays.
@@ -277,9 +289,9 @@ def _reproject_dispatcher(
                 reproject_single_block,
                 array_out_dask,
                 array_in,
-                dtype=float,
+                dtype="<f8",
                 new_axis=0,
-                chunks=(2,) + array_out_dask.chunksize,
+                chunks=((2,),) + array_out_dask.chunks,
             )
 
         else:
