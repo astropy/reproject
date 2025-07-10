@@ -27,6 +27,7 @@ def reproject_interp(
     block_size=None,
     parallel=False,
     return_type=None,
+    dask_method="memmap",
 ):
     """
     Reproject data to a new projection using interpolation (this is typically
@@ -149,4 +150,5 @@ def reproject_interp(
             roundtrip_coords=roundtrip_coords,
         ),
         return_type=return_type,
+        dask_method=dask_method,
     )
