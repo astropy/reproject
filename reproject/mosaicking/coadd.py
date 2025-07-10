@@ -238,7 +238,7 @@ def reproject_and_coadd(
             # convex in the output projection), and transforming every edge pixel,
             # which provides a lot of redundant information.
 
-            edges = sample_array_edges(array_in.shape, n_samples=11)[::-1]
+            edges = sample_array_edges(array_in.shape[-wcs_in.low_level_wcs.pixel_n_dim:], n_samples=11)[::-1]
             edges_out = pixel_to_pixel(wcs_in, wcs_out, *edges)[::-1]
 
             # Determine the cutout parameters
@@ -249,14 +249,19 @@ def reproject_and_coadd(
 
             ndim_out = len(shape_out)
 
+            n_extra = len(shape_out) - wcs_in.low_level_wcs.pixel_n_dim
+
             skip_data = False
             if np.any(np.isnan(edges_out)):
                 bounds = list(zip([0] * ndim_out, shape_out, strict=False))
             else:
                 bounds = []
-                for idim in range(ndim_out):
+                if n_extra > 0:
+                    for idim in range(n_extra):
+                        bounds.append((0, shape_out[idim]))
+                for idim in range(len(edges_out)):
                     imin = max(0, int(np.floor(edges_out[idim].min() + 0.5)))
-                    imax = min(shape_out[idim], int(np.ceil(edges_out[idim].max() + 0.5)))
+                    imax = min(shape_out[n_extra + idim], int(np.ceil(edges_out[idim].max() + 0.5)))
                     bounds.append((imin, imax))
                     if imax <= imin:
                         skip_data = True
@@ -268,7 +273,7 @@ def reproject_and_coadd(
                 )
                 continue
 
-            slice_out = tuple([slice(imin, imax) for (imin, imax) in bounds])
+            slice_out = tuple([slice(imin, imax) for (imin, imax) in bounds[n_extra:]])
 
             if isinstance(wcs_out, WCS):
                 wcs_out_indiv = wcs_out[slice_out]
@@ -284,6 +289,8 @@ def reproject_and_coadd(
                     kwargs["block_size"] = block_sizes[idata]
                 else:
                     kwargs["block_size"] = block_sizes
+
+            kwargs["block_size"] = kwargs["block_size"][:n_extra] + shape_out_indiv[n_extra:]
 
             # TODO: optimize handling of weights by making reprojection functions
             # able to handle weights, and make the footprint become the combined
