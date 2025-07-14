@@ -402,7 +402,10 @@ class TestReprojectAndCoAdd:
 
         input_data = self._get_tiles(self._overlapping_views)
 
-        input_data = [(np.broadcast_to(array.reshape((1,) + array.shape), (3,) + array.shape), wcs) for array, wcs in input_data]
+        input_data = [
+            (np.broadcast_to(array.reshape((1,) + array.shape), (3,) + array.shape), wcs)
+            for array, wcs in input_data
+        ]
 
         array, footprint = reproject_and_coadd(
             input_data,
