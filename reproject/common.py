@@ -128,35 +128,6 @@ def _reproject_dispatcher(
     if reproject_func_kwargs is None:
         reproject_func_kwargs = {}
 
-    # Determine whether any broadcasting is taking place
-    broadcasting = wcs_in.low_level_wcs.pixel_n_dim < len(shape_out)
-
-    if broadcasting:
-        logger.info("Broadcasting is being used")
-    else:
-        logger.info("Broadcasting is not being used")
-
-    # Determine whether block size indicates we should parallelize over broadcasted dimension
-    broadcasted_parallelization = False
-    if broadcasting and block_size:
-        if len(block_size) == len(shape_out):
-            if (
-                block_size[-wcs_in.low_level_wcs.pixel_n_dim :]
-                == shape_out[-wcs_in.low_level_wcs.pixel_n_dim :]
-            ):
-                broadcasted_parallelization = True
-                block_size = (
-                    block_size[: -wcs_in.low_level_wcs.pixel_n_dim]
-                    + (-1,) * wcs_in.low_level_wcs.pixel_n_dim
-                )
-        # TODO: disallow block_size != shape_out?
-        # TODO: check for shape_out not matching shape_in along broadcasted dimensions
-
-    if broadcasted_parallelization:
-        logger.info("Parallelizing along broadcasted dimension")
-    else:
-        logger.info(f"Not parallelizing along broadcasted dimension ({block_size=}, {shape_out=})")
-
     # We set up a global temporary directory since this will be used e.g. to
     # store memory mapped Numpy arrays and zarr arrays.
 
@@ -221,6 +192,58 @@ def _reproject_dispatcher(
                 # Clean up reference to numpy memmap
                 array_in = None
 
+        # Determine whether any broadcasting is taking place. This is when the
+        # input/output WCS have fewer dimensions that the data, and any preceding
+        # dimensions can be assumed to be independent of the WCS. At this point
+        # shape_out will be the full size of the output array as this is updated
+        # in parse_output_projection, even if shape_out was originally passed in as
+        # the shape of a single image.
+        broadcasting = wcs_in.low_level_wcs.pixel_n_dim < len(shape_out)
+
+        logger.info(f"Broadcasting is {'' if broadcasting else 'not '}being used")
+
+        # Check block size and determine whether block size indicates we should
+        # parallelize over broadcasted dimension. The logic is as follows: if
+        # the block size and output shape are the same size, then either the
+        # block size should match the output shape along the broadcasted
+        # dimensions or along the non-broadcasted dimensions. If it matches the
+        # non-broadcasted dimensions we can parallelize over the broadcasted
+        # dimensions. If the block size does not match the output shape, we
+        # don't make any assumptions for now and assume a single chunk in the
+        # missing dimensions.
+        broadcasted_parallelization = False
+        if broadcasting and block_size is not None and block_size != "auto":
+            if len(block_size) == len(shape_out):
+                if (
+                    block_size[-wcs_in.low_level_wcs.pixel_n_dim :]
+                    == shape_out[-wcs_in.low_level_wcs.pixel_n_dim :]
+                ):
+                    broadcasted_parallelization = True
+                    block_size = (
+                        block_size[: -wcs_in.low_level_wcs.pixel_n_dim]
+                        + (-1,) * wcs_in.low_level_wcs.pixel_n_dim
+                    )
+                else:
+                    for i in range(len(shape_out) - wcs_in.low_level_wcs.pixel_n_dim):
+                        if block_size[i] != -1 and block_size[i] != shape_out[i]:
+                            raise ValueError(
+                                "block shape should either match output data shape along broadcasted dimension or non-broadcasted dimensions"
+                            )
+            elif len(block_size) < len(shape_out):
+                block_size = [-1] * (len(shape_out) - len(block_size)) + list(block_size)
+            else:
+                raise ValueError(
+                    f"block_size {len(block_size)} cannot have more elements "
+                    f"than the dimensionality of the output ({len(shape_out)})"
+                )
+
+            # TODO: check for shape_out not matching shape_in along broadcasted dimensions
+
+        logger.info(
+            f"{'P' if broadcasted_parallelization else 'Not p'}arallelizing along "
+            f"broadcasted dimension ({block_size=}, {shape_out=})"
+        )
+
         if output_footprint is None and return_footprint:
             output_footprint = np.zeros(shape_out, dtype=float)
 
@@ -282,8 +305,17 @@ def _reproject_dispatcher(
             return np.array([array, footprint])
 
         if broadcasted_parallelization:
+
             array_out_dask = da.empty(shape_out, chunks=block_size)
-            array_in = array_in.rechunk(block_size)
+            if isinstance(array_in, da.core.Array):
+                if array_in.chunksize != block_size:
+                    logger.info(
+                        f"Rechunking input dask array as chunks ({array_in.chunksize}) "
+                        "do not match block size ({block_size})"
+                    )
+                    array_in = array_in.rechunk(block_size)
+            else:
+                array_in = da.asarray(array_in, name=str(uuid.uuid4()), chunks=block_size)
 
             result = da.map_blocks(
                 reproject_single_block,
@@ -326,15 +358,6 @@ def _reproject_dispatcher(
                 array_in_or_path = array_in
 
             if block_size is not None and block_size != "auto":
-                if broadcasting:
-                    if len(block_size) < len(shape_out):
-                        block_size = [-1] * (len(shape_out) - len(block_size)) + list(block_size)
-                    else:
-                        for i in range(len(shape_out) - wcs_in.low_level_wcs.pixel_n_dim):
-                            if block_size[i] != -1 and block_size[i] != shape_out[i]:
-                                raise ValueError(
-                                    "block shape for extra broadcasted dimensions should cover entire array along those dimensions"
-                                )
                 array_out_dask = da.empty(shape_out, chunks=block_size)
             else:
                 if wcs_in.low_level_wcs.pixel_n_dim < len(shape_out):

@@ -981,3 +981,65 @@ def test_bigendian_dask(itemsize):
     )
 
     assert_allclose(array_out_be, array_out_le)
+
+
+def test_reproject_parallel_broadcasting(caplog):
+
+    # Unit test for reprojecting using parallelization along broadcasted
+    # dimensions
+
+    array_in = np.ones((350, 250, 150))
+    wcs_in = WCS(naxis=2)
+    wcs_out = WCS(naxis=2)
+
+    # By default if we give a block size that is only in the WCS dimensions,
+    # the data has a single chunk in the broadcasted dimensions
+
+    array1 = reproject_interp(
+        (array_in, wcs_in),
+        wcs_out,
+        shape_out=(300, 300),
+        parallel=1,
+        return_footprint=False,
+        block_size=(100, 100),
+        return_type="dask",
+    )
+
+    assert array1.chunksize == (350, 100, 100)
+
+    assert "Broadcasting is being used" in caplog.text
+    assert "Not parallelizing along broadcasted dimension" in caplog.text
+    caplog.clear()
+
+    # However, we can also have one chunk in the WCS dimensions and several in
+    # the broadcasted dimensions.
+
+    array2 = reproject_interp(
+        (array_in, wcs_in),
+        wcs_out,
+        shape_out=(300, 300),
+        parallel=1,
+        return_footprint=False,
+        block_size=(1, 300, 300),
+        return_type="dask",
+    )
+
+    assert array2.chunksize == (1, 300, 300)
+
+    assert "Broadcasting is being used" in caplog.text
+    assert "Parallelizing along broadcasted dimension" in caplog.text
+    caplog.clear()
+
+    # However, we can also have one chunk in the WCS dimensions and several in
+    # the broadcasted dimensions.
+
+    with pytest.raises(ValueError, match="block shape should either match output"):
+        reproject_interp(
+            (array_in, wcs_in),
+            wcs_out,
+            shape_out=(300, 300),
+            parallel=1,
+            return_footprint=False,
+            block_size=(1, 100, 100),
+            return_type="dask",
+        )
