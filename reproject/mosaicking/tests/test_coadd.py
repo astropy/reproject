@@ -395,7 +395,10 @@ class TestReprojectAndCoAdd:
 
         assert_allclose(array, expected, atol=ATOL)
 
-    def test_coadd_with_broadcasting(self, reproject_function, intermediate_memmap):
+    @pytest.mark.parametrize("block_size_mode", (None, "block_size", "block_sizes"))
+    def test_coadd_with_broadcasting(
+        self, reproject_function, intermediate_memmap, block_size_mode
+    ):
 
         # Coadding should work with broadcasting, i.e. the fact the
         # input/output WCS might have fewer dimensions than the data.
@@ -407,12 +410,20 @@ class TestReprojectAndCoAdd:
             for array, wcs in input_data
         ]
 
+        if block_size_mode == "block_size":
+            kwargs = {"block_size": (1,) + self.array.shape}
+        elif block_size_mode == "block_size":
+            kwargs = {"block_sizes": (1,) + self.array.shape}
+        else:
+            kwargs = {}
+
         array, footprint = reproject_and_coadd(
             input_data,
             self.wcs,
             shape_out=(3,) + self.array.shape,
             combine_function="mean",
             reproject_function=reproject_function,
+            **kwargs,
         )
 
         for index in range(3):
