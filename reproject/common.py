@@ -192,39 +192,62 @@ def _reproject_dispatcher(
                 # Clean up reference to numpy memmap
                 array_in = None
 
+        # Determine whether any broadcasting is taking place. This is when the
+        # input/output WCS have fewer dimensions that the data, and any preceding
+        # dimensions can be assumed to be independent of the WCS. At this point
+        # shape_out will be the full size of the output array as this is updated
+        # in parse_output_projection, even if shape_out was originally passed in as
+        # the shape of a single image.
+        broadcasting = wcs_in.low_level_wcs.pixel_n_dim < len(shape_out)
+
+        logger.info(f"Broadcasting is {'' if broadcasting else 'not '}being used")
+
+        # Check block size and determine whether block size indicates we should
+        # parallelize over broadcasted dimension. The logic is as follows: if
+        # the block size and output shape are the same size, then either the
+        # block size should match the output shape along the broadcasted
+        # dimensions or along the non-broadcasted dimensions. If it matches the
+        # non-broadcasted dimensions we can parallelize over the broadcasted
+        # dimensions. If the block size does not match the output shape, we
+        # don't make any assumptions for now and assume a single chunk in the
+        # missing dimensions.
+        broadcasted_parallelization = False
+        if broadcasting and block_size is not None and block_size != "auto":
+            if len(block_size) == len(shape_out):
+                if (
+                    block_size[-wcs_in.low_level_wcs.pixel_n_dim :]
+                    == shape_out[-wcs_in.low_level_wcs.pixel_n_dim :]
+                ):
+                    broadcasted_parallelization = True
+                    block_size = (
+                        block_size[: -wcs_in.low_level_wcs.pixel_n_dim]
+                        + (-1,) * wcs_in.low_level_wcs.pixel_n_dim
+                    )
+                else:
+                    for i in range(len(shape_out) - wcs_in.low_level_wcs.pixel_n_dim):
+                        if block_size[i] != -1 and block_size[i] != shape_out[i]:
+                            raise ValueError(
+                                "block shape should either match output data shape along broadcasted dimension or non-broadcasted dimensions"
+                            )
+            elif len(block_size) < len(shape_out):
+                block_size = [-1] * (len(shape_out) - len(block_size)) + list(block_size)
+            else:
+                raise ValueError(
+                    f"block_size {len(block_size)} cannot have more elements "
+                    f"than the dimensionality of the output ({len(shape_out)})"
+                )
+
+            # TODO: check for shape_out not matching shape_in along broadcasted dimensions
+
+        logger.info(
+            f"{'P' if broadcasted_parallelization else 'Not p'}arallelizing along "
+            f"broadcasted dimension ({block_size=}, {shape_out=})"
+        )
+
         if output_footprint is None and return_footprint:
             output_footprint = np.zeros(shape_out, dtype=float)
 
         shape_in = array_in.shape
-
-        # As we use the synchronous or threads scheduler, we don't need to worry about
-        # the data getting copied, so if the data is already a Numpy array (including
-        # a memory-mapped array) then we don't need to do anything special. However,
-        # if the input array is a dask array, we should convert it to a Numpy
-        # memory-mapped array so that it can be used by the various reprojection
-        # functions (which don't internally work with dask arrays).
-
-        if isinstance(array_in, np.memmap) and array_in.flags.c_contiguous:
-            array_in_or_path = array_in.filename, {
-                "dtype": array_in.dtype,
-                "shape": array_in.shape,
-                "offset": array_in.offset,
-            }
-        elif isinstance(array_in, da.core.Array) or return_type == "dask":
-            if return_type == "dask":
-                # We should use a temporary directory that will persist beyond
-                # the call to the reproject function.
-                tmp_dir = tempfile.mkdtemp()
-            else:
-                tmp_dir = local_tmp_dir
-            array_in_or_path = as_delayed_memmap_path(_ArrayContainer(array_in), tmp_dir)
-        else:
-            # Here we could set array_in_or_path to array_in_path if it has
-            # been set previously, but in synchronous and threaded mode it is
-            # better to simply pass a reference to the memmap array itself to
-            # avoid having to load the memmap inside each
-            # reproject_single_block call.
-            array_in_or_path = array_in
 
         def reproject_single_block(a, array_or_path, block_info=None):
 
@@ -281,40 +304,83 @@ def _reproject_dispatcher(
 
             return np.array([array, footprint])
 
-        # NOTE: the following array is just used to set up the iteration in map_blocks
-        # but isn't actually used otherwise - this is deliberate.
+        if broadcasted_parallelization:
 
-        if block_size is not None and block_size != "auto":
-            if wcs_in.low_level_wcs.pixel_n_dim < len(shape_out):
-                if len(block_size) < len(shape_out):
-                    block_size = [-1] * (len(shape_out) - len(block_size)) + list(block_size)
-                else:
-                    for i in range(len(shape_out) - wcs_in.low_level_wcs.pixel_n_dim):
-                        if block_size[i] != -1 and block_size[i] != shape_out[i]:
-                            raise ValueError(
-                                "block shape for extra broadcasted dimensions should cover entire array along those dimensions"
-                            )
             array_out_dask = da.empty(shape_out, chunks=block_size)
-        else:
-            if wcs_in.low_level_wcs.pixel_n_dim < len(shape_out):
-                chunks = (-1,) * (len(shape_out) - wcs_in.low_level_wcs.pixel_n_dim)
-                chunks += ("auto",) * wcs_in.low_level_wcs.pixel_n_dim
-                rechunk_kwargs = {"chunks": chunks}
+            if isinstance(array_in, da.core.Array):
+                if array_in.chunksize != block_size:
+                    logger.info(
+                        f"Rechunking input dask array as chunks ({array_in.chunksize}) "
+                        "do not match block size ({block_size})"
+                    )
+                    array_in = array_in.rechunk(block_size)
             else:
-                rechunk_kwargs = {}
-            array_out_dask = da.empty(shape_out)
-            array_out_dask = array_out_dask.rechunk(block_size_limit=64 * 1024**2, **rechunk_kwargs)
+                array_in = da.asarray(array_in, name=str(uuid.uuid4()), chunks=block_size)
 
-        logger.info("Setting up output dask array with map_blocks")
+            result = da.map_blocks(
+                reproject_single_block,
+                array_out_dask,
+                array_in,
+                dtype="<f8",
+                new_axis=0,
+                chunks=((2,),) + array_out_dask.chunks,
+            )
 
-        result = da.map_blocks(
-            reproject_single_block,
-            array_out_dask,
-            array_in_or_path,
-            dtype="<f8",
-            new_axis=0,
-            chunks=(2,) + array_out_dask.chunksize,
-        )
+        else:
+
+            # As we use the synchronous or threads scheduler, we don't need to worry about
+            # the data getting copied, so if the data is already a Numpy array (including
+            # a memory-mapped array) then we don't need to do anything special. However,
+            # if the input array is a dask array, we should convert it to a Numpy
+            # memory-mapped array so that it can be used by the various reprojection
+            # functions (which don't internally work with dask arrays).
+
+            if isinstance(array_in, np.memmap) and array_in.flags.c_contiguous:
+                array_in_or_path = array_in.filename, {
+                    "dtype": array_in.dtype,
+                    "shape": array_in.shape,
+                    "offset": array_in.offset,
+                }
+            elif isinstance(array_in, da.core.Array) or return_type == "dask":
+                if return_type == "dask":
+                    # We should use a temporary directory that will persist beyond
+                    # the call to the reproject function.
+                    tmp_dir = tempfile.mkdtemp()
+                else:
+                    tmp_dir = local_tmp_dir
+                array_in_or_path = as_delayed_memmap_path(_ArrayContainer(array_in), tmp_dir)
+            else:
+                # Here we could set array_in_or_path to array_in_path if it has
+                # been set previously, but in synchronous and threaded mode it is
+                # better to simply pass a reference to the memmap array itself to
+                # avoid having to load the memmap inside each
+                # reproject_single_block call.
+                array_in_or_path = array_in
+
+            if block_size is not None and block_size != "auto":
+                array_out_dask = da.empty(shape_out, chunks=block_size)
+            else:
+                if broadcasting:
+                    chunks = (-1,) * (len(shape_out) - wcs_in.low_level_wcs.pixel_n_dim)
+                    chunks += ("auto",) * wcs_in.low_level_wcs.pixel_n_dim
+                    rechunk_kwargs = {"chunks": chunks}
+                else:
+                    rechunk_kwargs = {}
+                array_out_dask = da.empty(shape_out)
+                array_out_dask = array_out_dask.rechunk(
+                    block_size_limit=64 * 1024**2, **rechunk_kwargs
+                )
+
+            logger.info("Setting up output dask array with map_blocks")
+
+            result = da.map_blocks(
+                reproject_single_block,
+                array_out_dask,
+                array_in_or_path,
+                dtype="<f8",
+                new_axis=0,
+                chunks=(2,) + array_out_dask.chunksize,
+            )
 
         # Ensure that there are no more references to Numpy memmaps
         array_in = None

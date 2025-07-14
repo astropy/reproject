@@ -38,7 +38,7 @@ jobs:
     uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish.yml@86823142467dd2afcd1bbac57d3a664cf468eb3b  # v2.1.0
     with:
       test_extras: test
-      test_command: pytest -p no:warnings --pyargs reproject
+      test_command: pytest -p no:warnings --pyargs reproject --log-cli-level=INFO
       targets: |
         - cp*-manylinux_x86_64
         - target: cp*-manylinux_aarch64

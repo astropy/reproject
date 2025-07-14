@@ -395,6 +395,29 @@ class TestReprojectAndCoAdd:
 
         assert_allclose(array, expected, atol=ATOL)
 
+    def test_coadd_with_broadcasting(self, reproject_function, intermediate_memmap):
+
+        # Coadding should work with broadcasting, i.e. the fact the
+        # input/output WCS might have fewer dimensions than the data.
+
+        input_data = self._get_tiles(self._overlapping_views)
+
+        input_data = [
+            (np.broadcast_to(array.reshape((1,) + array.shape), (3,) + array.shape), wcs)
+            for array, wcs in input_data
+        ]
+
+        array, footprint = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=(3,) + self.array.shape,
+            combine_function="mean",
+            reproject_function=reproject_function,
+        )
+
+        for index in range(3):
+            assert_allclose(array[index], self.array, atol=ATOL)
+
 
 HEADER_SOLAR_OUT = """
 WCSAXES =                    2
