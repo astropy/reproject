@@ -238,7 +238,9 @@ def reproject_and_coadd(
             # convex in the output projection), and transforming every edge pixel,
             # which provides a lot of redundant information.
 
-            edges = sample_array_edges(array_in.shape[-wcs_in.low_level_wcs.pixel_n_dim:], n_samples=11)[::-1]
+            edges = sample_array_edges(
+                array_in.shape[-wcs_in.low_level_wcs.pixel_n_dim :], n_samples=11
+            )[::-1]
             edges_out = pixel_to_pixel(wcs_in, wcs_out, *edges)[::-1]
 
             # Determine the cutout parameters

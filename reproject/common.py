@@ -228,8 +228,6 @@ def _reproject_dispatcher(
 
         def reproject_single_block(a, array_or_path, block_info=None):
 
-            print("HERE0")
-
             if (
                 a.ndim == 0
                 or block_info is None
@@ -272,8 +270,6 @@ def _reproject_dispatcher(
 
             shape_out = block_info[None]["chunk-shape"][1:]
 
-            print("HERE1", shape_out)
-
             array, footprint = reproject_func(
                 array_in,
                 wcs_in_cp,
@@ -282,8 +278,6 @@ def _reproject_dispatcher(
                 array_out=np.zeros(shape_out),
                 **reproject_func_kwargs,
             )
-
-            print("HERE2")
 
             return np.array([array, footprint])
 
@@ -350,7 +344,9 @@ def _reproject_dispatcher(
                 else:
                     rechunk_kwargs = {}
                 array_out_dask = da.empty(shape_out)
-                array_out_dask = array_out_dask.rechunk(block_size_limit=64 * 1024**2, **rechunk_kwargs)
+                array_out_dask = array_out_dask.rechunk(
+                    block_size_limit=64 * 1024**2, **rechunk_kwargs
+                )
 
             logger.info("Setting up output dask array with map_blocks")
 
@@ -394,9 +390,7 @@ def _reproject_dispatcher(
             if parallel == "current-scheduler":
                 # Just use whatever is the current active scheduler, which can
                 # be used for e.g. dask.distributed
-                print("HERE1")
                 result.to_zarr(zarr_path)
-                print("HERE2")
             else:
                 if isinstance(parallel, bool):
                     workers = {}
