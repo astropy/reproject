@@ -19,6 +19,7 @@ from ..utils import parse_input_shape
 __all__ = ["find_optimal_celestial_wcs"]
 
 
+# Note that if this is modified, the docstring should be updated
 NEGATIVE_CDELT_CTYPES = ["RA--", "GLON", "ELON", "HLON", "SLON"]
 
 
@@ -91,7 +92,10 @@ def find_optimal_celestial_wcs(
         (`True`) or positive (`False`). For astronomical observations of the
         sky this is usually the case, while for coordinate systems used in
         solar physics this is usually positive. If this is not specified, the
-        value will be guessed based on the coordinate frame.
+        value will be `True` if the first four characters for CTYPE for the
+        longitude is ``RA--``, ``GLON``, ``ELON``, ``HLON``, or ``SLON``, and
+        `False` otherwise.
+
 
     Returns
     -------
