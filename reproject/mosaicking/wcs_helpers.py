@@ -96,7 +96,6 @@ def find_optimal_celestial_wcs(
         longitude is ``RA--``, ``GLON``, ``ELON``, ``HLON``, or ``SLON``, and
         `False` otherwise.
 
-
     Returns
     -------
     wcs : :class:`~astropy.wcs.WCS`
