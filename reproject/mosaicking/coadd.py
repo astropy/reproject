@@ -157,6 +157,11 @@ def reproject_and_coadd(
             "reprojection function should be specified with the reproject_function argument"
         )
 
+    if "block_size" in kwargs and kwargs["block_size"] is not None:
+        if block_sizes is not None:
+            raise ValueError("Cannot specify block_sizes= and block_size= at the same time")
+        block_sizes = kwargs.pop("block_size")
+
     if progress_bar is None:
         progress_bar = _noop
 
@@ -291,21 +296,23 @@ def reproject_and_coadd(
                 if len(block_sizes) == len(input_data) and len(block_sizes[idata]) == len(
                     shape_out
                 ):
-                    kwargs["block_size"] = block_sizes[idata]
+                    global_block_size = block_sizes[idata]
                 else:
-                    kwargs["block_size"] = block_sizes
+                    global_block_size = block_sizes
+            else:
+                global_block_size = None
 
             # If the block size matches the non-broadcasted shape of the final
             # cube, we need to update the non-broadcasted shape to then match
             # the subset size.
             if (
-                "block_size" in kwargs
-                and kwargs["block_size"][-wcs_in.low_level_wcs.pixel_n_dim]
+                global_block_size
+                and global_block_size[-wcs_in.low_level_wcs.pixel_n_dim]
                 == shape_out[-wcs_in.low_level_wcs.pixel_n_dim]
             ):
-                kwargs["block_size"] = (
-                    kwargs["block_size"][:n_broadcasted] + shape_out_indiv[n_broadcasted:]
-                )
+                block_size = global_block_size[:n_broadcasted] + shape_out_indiv[n_broadcasted:]
+            else:
+                block_size = global_block_size
 
             # TODO: optimize handling of weights by making reprojection functions
             # able to handle weights, and make the footprint become the combined
@@ -352,6 +359,7 @@ def reproject_and_coadd(
                 hdu_in=hdu_in,
                 output_array=array,
                 output_footprint=footprint,
+                block_size=block_size,
                 **kwargs,
             )
 
