@@ -31,6 +31,7 @@ content-type = "text/x-rst"
 all = ["shapely"]
 test = [
     "pytest-astropy",
+    "pytest-xdist",
     "tqdm",
 ]
 testall = [

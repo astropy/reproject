@@ -107,7 +107,6 @@ def _reproject_full(
         copy=False,
     )
     pixel_out = [p.ravel() for p in pixel_out]
-
     # For each pixel in the output array, get the pixel value in the input WCS
     if roundtrip_coords:
         pixel_in = pixel_to_pixel_with_roundtrip(wcs_out, wcs_in, *pixel_out[::-1])[::-1]

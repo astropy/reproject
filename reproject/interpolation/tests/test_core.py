@@ -888,7 +888,7 @@ def test_reproject_block_size_broadcasting():
 
     # But it should fail if we specify a block size that is smaller that the total array shape
 
-    with pytest.raises(ValueError, match="block shape for extra broadcasted dimensions"):
+    with pytest.raises(ValueError, match="block shape should either match output data shape"):
         reproject_interp(
             (array_in, wcs_in),
             wcs_out,

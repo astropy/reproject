@@ -117,7 +117,7 @@ def reproject_and_coadd(
         specified with ``shape_out`` or derived from the output projection.
     block_sizes : list of tuples or None
         The block size to use for each dataset.  Could also be a single tuple
-        if you want the sample block size for all data sets.
+        if you want the same block size for all data sets.
     progress_bar : callable, optional
         If specified, use this as a progress_bar to track loop iterations over
         data sets.
@@ -251,19 +251,22 @@ def reproject_and_coadd(
 
             ndim_out = len(shape_out)
 
-            n_extra = len(shape_out) - wcs_in.low_level_wcs.pixel_n_dim
+            # Determine how many extra broadcasted dimensions are present
+            n_broadcasted = len(shape_out) - wcs_in.low_level_wcs.pixel_n_dim
 
             skip_data = False
             if np.any(np.isnan(edges_out)):
                 bounds = list(zip([0] * ndim_out, shape_out, strict=False))
             else:
                 bounds = []
-                if n_extra > 0:
-                    for idim in range(n_extra):
+                if n_broadcasted > 0:
+                    for idim in range(n_broadcasted):
                         bounds.append((0, shape_out[idim]))
                 for idim in range(len(edges_out)):
                     imin = max(0, int(np.floor(edges_out[idim].min() + 0.5)))
-                    imax = min(shape_out[n_extra + idim], int(np.ceil(edges_out[idim].max() + 0.5)))
+                    imax = min(
+                        shape_out[n_broadcasted + idim], int(np.ceil(edges_out[idim].max() + 0.5))
+                    )
                     bounds.append((imin, imax))
                     if imax <= imin:
                         skip_data = True
@@ -275,7 +278,7 @@ def reproject_and_coadd(
                 )
                 continue
 
-            slice_out = tuple([slice(imin, imax) for (imin, imax) in bounds[n_extra:]])
+            slice_out = tuple([slice(imin, imax) for (imin, imax) in bounds[n_broadcasted:]])
 
             if isinstance(wcs_out, WCS):
                 wcs_out_indiv = wcs_out[slice_out]
@@ -292,7 +295,17 @@ def reproject_and_coadd(
                 else:
                     kwargs["block_size"] = block_sizes
 
-            kwargs["block_size"] = kwargs["block_size"][:n_extra] + shape_out_indiv[n_extra:]
+            # If the block size matches the non-broadcasted shape of the final
+            # cube, we need to update the non-broadcasted shape to then match
+            # the subset size.
+            if (
+                "block_size" in kwargs
+                and kwargs["block_size"][-wcs_in.low_level_wcs.pixel_n_dim]
+                == shape_out[-wcs_in.low_level_wcs.pixel_n_dim]
+            ):
+                kwargs["block_size"] = (
+                    kwargs["block_size"][:n_broadcasted] + shape_out_indiv[n_broadcasted:]
+                )
 
             # TODO: optimize handling of weights by making reprojection functions
             # able to handle weights, and make the footprint become the combined

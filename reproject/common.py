@@ -360,7 +360,7 @@ def _reproject_dispatcher(
             if block_size is not None and block_size != "auto":
                 array_out_dask = da.empty(shape_out, chunks=block_size)
             else:
-                if wcs_in.low_level_wcs.pixel_n_dim < len(shape_out):
+                if broadcasting:
                     chunks = (-1,) * (len(shape_out) - wcs_in.low_level_wcs.pixel_n_dim)
                     chunks += ("auto",) * wcs_in.low_level_wcs.pixel_n_dim
                     rechunk_kwargs = {"chunks": chunks}
