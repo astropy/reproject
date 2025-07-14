@@ -19,6 +19,10 @@ from ..utils import parse_input_shape
 __all__ = ["find_optimal_celestial_wcs"]
 
 
+# Note that if this is modified, the docstring should be updated
+NEGATIVE_CDELT_CTYPES = ["RA--", "GLON", "ELON", "HLON", "SLON"]
+
+
 def find_optimal_celestial_wcs(
     input_data,
     hdu_in=None,
@@ -27,6 +31,7 @@ def find_optimal_celestial_wcs(
     projection="TAN",
     resolution=None,
     reference=None,
+    negative_lon_cdelt=None,
 ):
     """
     Given one or more images, return an optimal WCS projection object and
@@ -82,6 +87,14 @@ def find_optimal_celestial_wcs(
     reference : `~astropy.coordinates.SkyCoord`
         The reference coordinate for the final header. If not specified, this
         is determined automatically from the input images.
+    negative_lon_cdelt : bool, optional
+        Whether the CDELT value for the longitude coordinate should be negative
+        (`True`) or positive (`False`). For astronomical observations of the
+        sky this is usually the case, while for coordinate systems used in
+        solar physics this is usually positive. If this is not specified, the
+        value will be `True` if the first four characters for CTYPE for the
+        longitude is ``RA--``, ``GLON``, ``ELON``, ``HLON``, or ``SLON``, and
+        `False` otherwise.
 
     Returns
     -------
@@ -219,6 +232,9 @@ def find_optimal_celestial_wcs(
     # Construct WCS object centered on position
     wcs_final = celestial_frame_to_wcs(frame, projection=projection)
 
+    if negative_lon_cdelt is None:
+        negative_lon_cdelt = wcs_final.wcs.ctype[0][:4] in NEGATIVE_CDELT_CTYPES
+
     if wcs_final.wcs.cunit[0] == "":
         wcs_final.wcs.cunit[0] = "deg"
 
@@ -230,8 +246,11 @@ def find_optimal_celestial_wcs(
         rep.lon.to_value(wcs_final.wcs.cunit[0]),
         rep.lat.to_value(wcs_final.wcs.cunit[1]),
     )
+
+    lon_factor = -1 if negative_lon_cdelt else 1
+
     wcs_final.wcs.cdelt = (
-        -resolution.to_value(wcs_final.wcs.cunit[0]),
+        lon_factor * resolution.to_value(wcs_final.wcs.cunit[0]),
         resolution.to_value(wcs_final.wcs.cunit[1]),
     )
 
