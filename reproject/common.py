@@ -255,8 +255,6 @@ def _reproject_dispatcher(
 
         block_size = [(block_size[i] if block_size[i] != -1 else shape_out[i]) for i in range(len(block_size))]
 
-        print(block_size, shape_out, n_dim_reproject)
-
         block_size = tuple(block_size)
         shape_out = tuple(shape_out)
 
