@@ -96,6 +96,19 @@ def make_tile_folders(*, level, indices, output_directory):
             os.makedirs(dirname)
 
 
+def make_tile_folders_3d(*, spatial_level, spectral_level, spatial_indices, spectral_indices, output_directory):
+
+    rounded_spatial_indices = np.unique(_rounded_spatial_index(spatial_indices))
+    for spatial_index in rounded_spatial_indices:
+        dirname = os.path.dirname(
+            tile_filename_3d(spatial_level=spatial_level, spectral_level=spectral_level,
+            spatial_index=spatial_index, spectral_index=spectral_indices,
+            output_directory=output_directory, extension="")
+        )
+        if not os.path.exists(dirname):
+            os.makedirs(dirname)
+
+
 def is_url(directory):
     return directory.startswith("http://") or directory.startswith("https://")
 
