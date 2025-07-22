@@ -170,8 +170,11 @@ class HiPS3DArray:
 
         # Now determine what the indices would be for this at the given spectral order
 
-        self._index_min = freq2pix(self._level_freq, self._freq_min)
-        self._index_max = freq2pix(self._level_freq, self._freq_max) + 1
+
+        self._index_min = freq2pix(self._level_freq, self._freq_min) + 1
+        self._index_max = freq2pix(self._level_freq, self._freq_max) + 2
+
+        print(self._level_freq, self._index_min)
 
         image_depth = (self._index_max - self._index_min) * self._tile_depth
 
@@ -211,6 +214,8 @@ class HiPS3DArray:
         # Get spectral index
 
         spectral_index = ispec // self._tile_depth + self._index_min
+
+        print(spectral_index, self._index_min, self._index_max)
 
         return self._get_tile(
             level=self._level, spatial_index=spatial_index, spectral_index=spectral_index
