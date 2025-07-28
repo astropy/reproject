@@ -143,7 +143,7 @@ def _reproject_dispatcher(
 
     with tempfile.TemporaryDirectory() as local_tmp_dir:
         if array_out is None:
-            if return_type != 'dask':
+            if return_type != "dask":
                 array_out = np.zeros(shape_out, dtype=float)
         elif array_out.shape != tuple(shape_out):
             raise ValueError(
@@ -333,7 +333,9 @@ def _reproject_dispatcher(
                     def __getitem__(self, item):
                         return self._array[item]
 
-                array_in = da.asarray(ArrayWrapper(array_in), name=str(uuid.uuid4()), chunks=block_size)
+                array_in = da.asarray(
+                    ArrayWrapper(array_in), name=str(uuid.uuid4()), chunks=block_size
+                )
 
             result = da.map_blocks(
                 reproject_single_block,
