@@ -338,7 +338,9 @@ def as_transparent_rgb(data, alpha=None):
             raise ValueError("alpha needs to be two-dimensional")
 
         if alpha.shape != data.shape[1:]:
-            raise ValueError("alpha layer shape {alpha.shape} does not match data spatial shape {data.shape[1:]}")
+            raise ValueError(
+                "alpha layer shape {alpha.shape} does not match data spatial shape {data.shape[1:]}"
+            )
 
         alpha = alpha.copy()
 

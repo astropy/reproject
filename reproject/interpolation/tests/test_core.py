@@ -2,7 +2,6 @@
 
 import itertools
 
-from PIL import Image
 import dask.array as da
 import numpy as np
 import pytest

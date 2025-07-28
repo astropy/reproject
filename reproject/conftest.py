@@ -161,8 +161,8 @@ def valid_celestial_input(tmp_path, request, wcs):
         if channels == 4:
             array[3] = 1
         image = as_transparent_rgb(array)
-        if 'transparent' not in request.param:
-            image = image.convert('RGB')
+        if "transparent" not in request.param:
+            image = image.convert("RGB")
         original_rgb = tmp_path / f"original.{extension}"
         image.save(original_rgb)
         input_value = tmp_path / f"tagged.{extension}"

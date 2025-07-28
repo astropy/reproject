@@ -255,7 +255,7 @@ def reproject_to_hips(
             if tile_format == "png":
                 image = as_transparent_rgb(array_out, alpha=footprint[0])
             else:
-                image = as_transparent_rgb(array_out).convert('RGB')
+                image = as_transparent_rgb(array_out).convert("RGB")
             image.save(
                 tile_filename(
                     level=level,
@@ -345,7 +345,7 @@ def reproject_to_hips(
             else:
                 image = as_transparent_rgb(array.transpose(2, 0, 1))
                 if tile_format == "jpeg":
-                    image = image.convert('RGB')
+                    image = image.convert("RGB")
                 image.save(
                     tile_filename(
                         level=ilevel,
