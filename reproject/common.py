@@ -143,7 +143,8 @@ def _reproject_dispatcher(
 
     with tempfile.TemporaryDirectory() as local_tmp_dir:
         if array_out is None:
-            array_out = np.zeros(shape_out, dtype=float)
+            if return_type != 'dask':
+                array_out = np.zeros(shape_out, dtype=float)
         elif array_out.shape != tuple(shape_out):
             raise ValueError(
                 f"Output array shape {array_out.shape} should match " f"shape_out={shape_out}"
@@ -320,7 +321,19 @@ def _reproject_dispatcher(
                     )
                     array_in = array_in.rechunk(block_size)
             else:
-                array_in = da.asarray(array_in, name=str(uuid.uuid4()), chunks=block_size)
+
+                class ArrayWrapper:
+
+                    def __init__(self, array):
+                        self._array = array
+                        self.ndim = array.ndim
+                        self.shape = array.shape
+                        self.dtype = array.dtype
+
+                    def __getitem__(self, item):
+                        return self._array[item]
+
+                array_in = da.asarray(ArrayWrapper(array_in), name=str(uuid.uuid4()), chunks=block_size)
 
             result = da.map_blocks(
                 reproject_single_block,
