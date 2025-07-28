@@ -111,7 +111,7 @@ def valid_celestial_input(tmp_path, request, wcs):
         if not isinstance(wcs, WCS):
             pytest.skip()
 
-    if "hdu" in request.param or request.param in ["filename", "path"]:
+    if "hdu" in request.param or request.param in ["filename", "path", "path_compressed"]:
         if not isinstance(wcs, WCS):
             pytest.skip()
 
@@ -123,12 +123,12 @@ def valid_celestial_input(tmp_path, request, wcs):
             ]
         )
 
-    if request.param in ["filename", "path"]:
+    if request.param in ["filename", "path", "path_compressed"]:
         input_value = tmp_path / "test.fits"
         if request.param == "filename":
             input_value = str(input_value)
         hdulist.writeto(input_value)
-        kwargs["hdu_in"] = 0
+        kwargs["hdu_in"] = 2 if request.param == "path_compressed" else 0
     elif request.param == "hdulist":
         input_value = hdulist
         kwargs["hdu_in"] = 1
@@ -174,6 +174,7 @@ def valid_celestial_input(tmp_path, request, wcs):
 COMMON_PARAMS = [
     "filename",
     "path",
+    "path_compressed",
     "hdulist",
     "primary_hdu",
     "image_hdu",
