@@ -172,7 +172,7 @@ def _reproject_dispatcher(
                     "been specified"
                 )
 
-            if isinstance(array_in, da.core.Array) and dask_method == "memmap"::
+            if isinstance(array_in, da.core.Array) and dask_method == "memmap":
                 logger.info("Computing input dask array to Numpy memory-mapped array")
                 array_path, array_in = _dask_to_numpy_memmap(array_in, local_tmp_dir)
                 logger.info(f"Numpy memory-mapped array is now at {array_path}")
@@ -261,8 +261,8 @@ def _reproject_dispatcher(
             ):
                 return np.array([a, a])
 
-            if isinstance(array_or_path, str) and array_or_path == 'from-dict':
-                array_or_path = dask_arrays['array']
+            if isinstance(array_or_path, str) and array_or_path == "from-dict":
+                array_or_path = dask_arrays["array"]
 
             # The WCS class from astropy is not thread-safe, see e.g.
             # https://github.com/astropy/astropy/issues/16244
@@ -356,8 +356,8 @@ def _reproject_dispatcher(
                         tmp_dir = local_tmp_dir
                     array_in_or_path = as_delayed_memmap_path(_ArrayContainer(array_in), tmp_dir)
                 else:
-                    dask_arrays = {'array': array_in}
-                    array_in_or_path = 'from-dict'
+                    dask_arrays = {"array": array_in}
+                    array_in_or_path = "from-dict"
             else:
                 # Here we could set array_in_or_path to array_in_path if it has
                 # been set previously, but in synchronous and threaded mode it is
