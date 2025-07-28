@@ -121,7 +121,7 @@ def _reproject_dispatcher(
               the entire input array, but should avoid accidentally loading
               the entire array into memory.
             * ``'none'``: load the dask array into memory as needed. This may
-              result in the entired array being loaded into memory. However,
+              result in the entire array being loaded into memory. However,
               this can be efficient under two conditions: if the array easily
               fits into memory (as this will then be faster than ``'memmap'``),
               and when the data contains more dimensions than the input WCS and
