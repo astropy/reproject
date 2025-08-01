@@ -10,7 +10,7 @@ from ..wcs_utils import has_celestial, pixel_to_pixel_with_roundtrip
 
 def _validate_wcs(wcs_in, wcs_out, shape_in, shape_out):
     if wcs_in.low_level_wcs.pixel_n_dim != wcs_out.low_level_wcs.pixel_n_dim:
-        raise ValueError("Number of dimensions in input and output WCS should match")
+        raise ValueError(f"Number of dimensions in input and output WCS should match (got {wcs_in.low_level_wcs.pixel_n_dim} and {wcs_out.low_level_wcs.pixel_n_dim})")
     elif len(shape_out) < wcs_out.low_level_wcs.pixel_n_dim:
         raise ValueError("Too few dimensions in shape_out")
     elif len(shape_in) < wcs_in.low_level_wcs.pixel_n_dim:
