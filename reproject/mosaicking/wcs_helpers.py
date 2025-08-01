@@ -219,7 +219,7 @@ def find_optimal_celestial_wcs(
 
     # Determine resolution if not specified
     if resolution is None:
-        resolution = np.min(resolutions) * u.deg
+        resolution = np.min(u.Quantity(resolutions))
 
     # Construct WCS object centered on position
     wcs_final = celestial_frame_to_wcs(frame, projection=projection)
