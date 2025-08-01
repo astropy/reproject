@@ -1,5 +1,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
+import warnings
+
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord, frame_transform_graph
@@ -87,14 +89,16 @@ def find_optimal_celestial_wcs(
     reference : `~astropy.coordinates.SkyCoord`
         The reference coordinate for the final header. If not specified, this
         is determined automatically from the input images.
-    negative_lon_cdelt : bool, optional
+    negative_lon_cdelt : bool or str, optional
         Whether the CDELT value for the longitude coordinate should be negative
-        (`True`) or positive (`False`). For astronomical observations of the
-        sky this is usually the case, while for coordinate systems used in
-        solar physics this is usually positive. If this is not specified, the
-        value will be `True` if the first four characters for CTYPE for the
-        longitude is ``RA--``, ``GLON``, ``ELON``, ``HLON``, or ``SLON``, and
-        `False` otherwise.
+        (`True`) or positive (`False`), or determined automatically (``'auto'``).
+        For astronomical observations of the sky CDELT is usually negative,
+        while for coordinate systems used in solar physics this is usually
+        positive. If this is ``'auto'``, the value will be `True` if the
+        first four characters for CTYPE for the longitude is ``RA--``,
+        ``GLON``, ``ELON``, ``HLON``, or ``SLON``, and `False` otherwise.
+        The default is currently ``True``, and will become ``'auto'`` in
+        future.
 
     Returns
     -------
@@ -232,8 +236,21 @@ def find_optimal_celestial_wcs(
     # Construct WCS object centered on position
     wcs_final = celestial_frame_to_wcs(frame, projection=projection)
 
-    if negative_lon_cdelt is None:
-        negative_lon_cdelt = wcs_final.wcs.ctype[0][:4] in NEGATIVE_CDELT_CTYPES
+    negative_lon_cdelt_auto = wcs_final.wcs.ctype[0][:4] in NEGATIVE_CDELT_CTYPES
+
+    if negative_lon_cdelt == "auto":
+        negative_lon_cdelt = negative_lon_cdelt_auto
+    elif negative_lon_cdelt is None:
+        if not negative_lon_cdelt_auto:
+            warnings.warn(
+                "negative_lon_cdelt is not set, and currently defaults to True, "
+                "but in future will change to 'auto', and for this WCS this will "
+                "evaluate to False in future. It is recommended that you set "
+                "negative_lon_cdelt explicitly, either to 'auto', or to True/False.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        negative_lon_cdelt = True
 
     if wcs_final.wcs.cunit[0] == "":
         wcs_final.wcs.cunit[0] = "deg"
