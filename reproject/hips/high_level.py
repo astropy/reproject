@@ -192,7 +192,6 @@ def reproject_to_hips(
 
     if level is None:
         scale = pixel_scale(wcs_in, array_in.shape)
-        print("scale=", scale)
         nside = pixel_resolution_to_nside(scale * tile_size)
         level = nside_to_level(nside)
         logger.info(f"Automatically set the HEALPIX level to {level}")
