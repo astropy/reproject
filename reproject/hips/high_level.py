@@ -269,7 +269,7 @@ def reproject_to_hips(
 
     if threads:
         generated_indices = []
-        with ThreadPoolExecutor(max_workers=threads) as executor:
+        with ThreadPoolExecutor(max_workers=None if threads is True else threads) as executor:
             futures = [executor.submit(process, index) for index in indices]
             for future in progress_bar(futures):
                 result = future.result()
