@@ -1,6 +1,7 @@
 changelog:
   exclude:
     authors:
+      - dependabot
       - pre-commit-ci
   categories:
     - title: Bug Fixes
