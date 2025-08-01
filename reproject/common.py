@@ -66,6 +66,7 @@ def _reproject_dispatcher(
     parallel=True,
     reproject_func_kwargs=None,
     return_type=None,
+    dask_method=None,
 ):
     """
     Main function that handles either calling the core algorithms directly or
@@ -113,6 +114,18 @@ def _reproject_dispatcher(
         Keyword arguments to pass through to ``reproject_func``
     return_type : {'numpy', 'dask' }, optional
         Whether to return numpy or dask arrays.
+    dask_method : {'memmap', 'none'}, optional
+        Method to use when input array is a dask array. The methods are:
+            * ``'memmap'``: write out the entire input dask array to a temporary
+              memory-mapped array. This requires enough disk space to store
+              the entire input array, but should avoid accidentally loading
+              the entire array into memory.
+            * ``'none'``: load the dask array into memory as needed. This may
+              result in the entire array being loaded into memory. However,
+              this can be efficient under two conditions: if the array easily
+              fits into memory (as this will then be faster than ``'memmap'``),
+              and when the data contains more dimensions than the input WCS and
+              the block_size is chosen to iterate over the extra dimensions.
     """
 
     logger = logging.getLogger(__name__)
@@ -122,6 +135,11 @@ def _reproject_dispatcher(
     elif return_type not in ("numpy", "dask"):
         raise ValueError("return_type should be set to 'numpy' or 'dask'")
 
+    if dask_method is None:
+        dask_method = "memmap"
+    elif dask_method not in ("memmap", "none"):
+        raise ValueError("dask_method should be set to 'memmap' or 'none'")
+
     if reproject_func_kwargs is None:
         reproject_func_kwargs = {}
 
@@ -130,7 +148,8 @@ def _reproject_dispatcher(
 
     with tempfile.TemporaryDirectory() as local_tmp_dir:
         if array_out is None:
-            array_out = np.zeros(shape_out, dtype=float)
+            if return_type != "dask":
+                array_out = np.zeros(shape_out, dtype=float)
         elif array_out.shape != tuple(shape_out):
             raise ValueError(
                 f"Output array shape {array_out.shape} should match " f"shape_out={shape_out}"
@@ -159,7 +178,7 @@ def _reproject_dispatcher(
                     "been specified"
                 )
 
-            if isinstance(array_in, da.core.Array):
+            if isinstance(array_in, da.core.Array) and dask_method == "memmap":
                 logger.info("Computing input dask array to Numpy memory-mapped array")
                 array_path, array_in = _dask_to_numpy_memmap(array_in, local_tmp_dir)
                 logger.info(f"Numpy memory-mapped array is now at {array_path}")
@@ -248,6 +267,9 @@ def _reproject_dispatcher(
             ):
                 return np.array([a, a])
 
+            if isinstance(array_or_path, str) and array_or_path == "from-dict":
+                array_or_path = dask_arrays["array"]
+
             # The WCS class from astropy is not thread-safe, see e.g.
             # https://github.com/astropy/astropy/issues/16244
             # https://github.com/astropy/astropy/issues/16245
@@ -304,7 +326,21 @@ def _reproject_dispatcher(
                     )
                     array_in = array_in.rechunk(block_size)
             else:
-                array_in = da.asarray(array_in, name=str(uuid.uuid4()), chunks=block_size)
+
+                class ArrayWrapper:
+
+                    def __init__(self, array):
+                        self._array = array
+                        self.ndim = array.ndim
+                        self.shape = array.shape
+                        self.dtype = array.dtype
+
+                    def __getitem__(self, item):
+                        return self._array[item]
+
+                array_in = da.asarray(
+                    ArrayWrapper(array_in), name=str(uuid.uuid4()), chunks=block_size
+                )
 
             result = da.map_blocks(
                 reproject_single_block,
@@ -331,13 +367,17 @@ def _reproject_dispatcher(
                     "offset": array_in.offset,
                 }
             elif isinstance(array_in, da.core.Array) or return_type == "dask":
-                if return_type == "dask":
-                    # We should use a temporary directory that will persist beyond
-                    # the call to the reproject function.
-                    tmp_dir = tempfile.mkdtemp()
+                if return_type == "memmap":
+                    if return_type == "dask":
+                        # We should use a temporary directory that will persist beyond
+                        # the call to the reproject function.
+                        tmp_dir = tempfile.mkdtemp()
+                    else:
+                        tmp_dir = local_tmp_dir
+                    array_in_or_path = as_delayed_memmap_path(_ArrayContainer(array_in), tmp_dir)
                 else:
-                    tmp_dir = local_tmp_dir
-                array_in_or_path = as_delayed_memmap_path(_ArrayContainer(array_in), tmp_dir)
+                    dask_arrays = {"array": array_in}
+                    array_in_or_path = "from-dict"
             else:
                 # Here we could set array_in_or_path to array_in_path if it has
                 # been set previously, but in synchronous and threaded mode it is
