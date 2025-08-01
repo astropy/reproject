@@ -3,6 +3,8 @@ import re
 import numpy as np
 import pytest
 from astropy.wcs import WCS
+from PIL import Image
+from pyavm import AVM
 
 from ... import reproject_interp
 from ..high_level import reproject_to_hips
@@ -191,3 +193,37 @@ def test_reproject_to_hips_automatic(tmp_path, simple_celestial_wcs):
         )
 
         assert_files_expected(output_directory, EXPECTED_FILES_AUTO_2)
+
+
+def test_reproject_to_hips_alpha(tmp_path, simple_celestial_fits_wcs):
+
+    # Make sure that any input alpha channel is preserved
+
+    data = np.arange(900).reshape((30, 30)) / 1200
+    layer = (data * 255).astype(np.uint8)
+    alpha = np.zeros((30, 30)).astype(np.uint8)
+    alpha[10:15, 10:15] = 255
+    array_rgba = np.dstack([layer, np.rot90(layer, k=1), np.rot90(layer, k=2), alpha])
+    image = Image.fromarray(array_rgba)
+    image.save(tmp_path / "rgb.png")
+
+    avm = AVM.from_wcs(simple_celestial_fits_wcs, shape=(30, 30))
+    avm.embed(tmp_path / "rgb.png", tmp_path / "rgb_tagged.png")
+
+    output_directory = tmp_path / "output_1"
+
+    reproject_to_hips(
+        tmp_path / "rgb_tagged.png",
+        coord_system_out="equatorial",
+        reproject_function=reproject_interp,
+        output_directory=output_directory,
+    )
+
+    result = np.array(Image.open(output_directory / "Norder1" / "Dir0" / "Npix2.png"))
+
+    count = result.sum(axis=(0, 1))
+
+    # There should be many pixels that are valid but transparent
+    assert result[:, :, 0].size == 262144
+    assert np.all(count[:3] > 50000)
+    assert count[3] < 4000
