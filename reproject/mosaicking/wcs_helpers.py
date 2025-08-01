@@ -10,13 +10,13 @@ from astropy.wcs import WCS
 from astropy.wcs.utils import (
     celestial_frame_to_wcs,
     pixel_to_skycoord,
-    proj_plane_pixel_scales,
     skycoord_to_pixel,
     wcs_to_celestial_frame,
 )
 from astropy.wcs.wcsapi import BaseHighLevelWCS, BaseLowLevelWCS
 
 from ..utils import parse_input_shape
+from ..wcs_utils import pixel_scale
 
 __all__ = ["find_optimal_celestial_wcs"]
 
@@ -195,23 +195,11 @@ def find_optimal_celestial_wcs(
             # 1-based.
             xp, yp = wcs.wcs.crpix
             references.append(pixel_to_skycoord(xp, yp, wcs, origin=1).transform_to(frame).frame)
-
-            # Find the pixel scale at the reference position - we take the minimum
-            # since we are going to set up a header with 'square' pixels with the
-            # smallest resolution specified.
-            scales = proj_plane_pixel_scales(wcs)
-            resolutions.append(np.min(np.abs(scales)))
-
         else:
             xp, yp = (nx - 1) / 2, (ny - 1) / 2
             references.append(wcs.pixel_to_world(xp, yp).transform_to(frame).frame)
 
-            xs = np.array([xp, xp, xp + 1])
-            ys = np.array([yp, yp + 1, yp])
-            cs = wcs.pixel_to_world(xs, ys)
-            dx = abs(cs[0].separation(cs[2]).deg)
-            dy = abs(cs[0].separation(cs[1]).deg)
-            resolutions.append(min(dx, dy))
+        resolutions.append(pixel_scale(wcs, shape))
 
     # We now stack the coordinates - however the frame classes can't do this
     # so we have to use the high-level SkyCoord class.
