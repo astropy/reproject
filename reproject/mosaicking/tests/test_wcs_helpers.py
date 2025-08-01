@@ -322,6 +322,10 @@ def test_solar_wcs():
 
     pytest.importorskip("sunpy", minversion="6.0.1")
 
+    # The following registers the WCS <-> frame for solar coordinates
+
+    import sunpy.coordinates  # noqa
+
     # Make sure the WCS <-> frame functions are registered
 
     wcs_ref = WCS(fits.Header.fromstring(SOLAR_HEADER, sep="\n"))
@@ -330,7 +334,9 @@ def test_solar_wcs():
     wcs2 = wcs_ref.deepcopy()
     wcs2.wcs.crpix[0] -= 4096
 
-    wcs, shape = find_optimal_celestial_wcs([((4096, 4096), wcs1), ((4096, 4096), wcs2)])
+    wcs, shape = find_optimal_celestial_wcs(
+        [((4096, 4096), wcs1), ((4096, 4096), wcs2)], negative_lon_cdelt="auto"
+    )
 
     wcs.wcs.set()
 
@@ -339,4 +345,40 @@ def test_solar_wcs():
     assert wcs.wcs.cunit[0] == wcs_ref.wcs.cunit[0]
     assert wcs.wcs.cunit[1] == wcs_ref.wcs.cunit[1]
 
+    # Make sure cdelt[0] and cdelt[1] are both positive
+    assert np.all(wcs.wcs.cdelt > 0)
+
     assert shape == (4281, 8237)
+
+
+@pytest.mark.filterwarnings("ignore::astropy.wcs.wcs.FITSFixedWarning")
+def test_negative_lon_cdelt():
+    # Regression test for issues that occurred when trying to find
+    # the optimal WCS for a set of solar WCSes
+
+    pytest.importorskip("sunpy", minversion="6.0.1")
+
+    # The following registers the WCS <-> frame for solar coordinates
+
+    import sunpy.coordinates  # noqa
+
+    # Make sure the WCS <-> frame functions are registered
+
+    wcs_ref = WCS(fits.Header.fromstring(SOLAR_HEADER, sep="\n"))
+
+    with pytest.warns(DeprecationWarning, match="negative_lon_cdelt is not set"):
+        wcs_out, _ = find_optimal_celestial_wcs(((10, 10), wcs_ref))
+
+    assert wcs_out.wcs.cdelt[0] < 0 and wcs_out.wcs.cdelt[1] > 0
+
+    wcs_out, _ = find_optimal_celestial_wcs(((10, 10), wcs_ref), negative_lon_cdelt=True)
+
+    assert wcs_out.wcs.cdelt[0] < 0 and wcs_out.wcs.cdelt[1] > 0
+
+    wcs_out, _ = find_optimal_celestial_wcs(((10, 10), wcs_ref), negative_lon_cdelt=False)
+
+    assert np.all(wcs_out.wcs.cdelt > 0)
+
+    wcs_out, _ = find_optimal_celestial_wcs(((10, 10), wcs_ref), negative_lon_cdelt="auto")
+
+    assert np.all(wcs_out.wcs.cdelt > 0)
