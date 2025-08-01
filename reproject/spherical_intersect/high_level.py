@@ -19,6 +19,7 @@ def reproject_exact(
     block_size=None,
     parallel=False,
     return_type=None,
+    dask_method=None,
 ):
     """
     Reproject data to a new projection using flux-conserving spherical
@@ -87,6 +88,18 @@ def reproject_exact(
         dask.distributed), set this to ``'current-scheduler'``.
     return_type : {'numpy', 'dask'}, optional
         Whether to return numpy or dask arrays
+    dask_method : {'memmap', 'none'}, optional
+        Method to use when input array is a dask array. The methods are:
+            * ``'memmap'``: write out the entire input dask array to a temporary
+              memory-mapped array. This requires enough disk space to store
+              the entire input array, but should avoid accidentally loading
+              the entire array into memory.
+            * ``'none'``: load the dask array into memory as needed. This may
+              result in the entire array being loaded into memory. However,
+              this can be efficient under two conditions: if the array easily
+              fits into memory (as this will then be faster than ``'memmap'``),
+              and when the data contains more dimensions than the input WCS and
+              the block_size is chosen to iterate over the extra dimensions.
 
     Returns
     -------

@@ -66,7 +66,7 @@ def _reproject_dispatcher(
     parallel=True,
     reproject_func_kwargs=None,
     return_type=None,
-    dask_method="memmap",
+    dask_method=None,
 ):
     """
     Main function that handles either calling the core algorithms directly or
@@ -114,7 +114,7 @@ def _reproject_dispatcher(
         Keyword arguments to pass through to ``reproject_func``
     return_type : {'numpy', 'dask' }, optional
         Whether to return numpy or dask arrays.
-    dask_method : {'memmap', 'none'}
+    dask_method : {'memmap', 'none'}, optional
         Method to use when input array is a dask array. The methods are:
             * ``'memmap'``: write out the entire input dask array to a temporary
               memory-mapped array. This requires enough disk space to store
@@ -134,6 +134,11 @@ def _reproject_dispatcher(
         return_type = "numpy"
     elif return_type not in ("numpy", "dask"):
         raise ValueError("return_type should be set to 'numpy' or 'dask'")
+
+    if dask_method is None:
+        dask_method = "memmap"
+    elif dask_method not in ("memmap", "none"):
+        raise ValueError("dask_method should be set to 'memmap' or 'none'")
 
     if reproject_func_kwargs is None:
         reproject_func_kwargs = {}

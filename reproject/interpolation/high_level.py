@@ -27,7 +27,7 @@ def reproject_interp(
     block_size=None,
     parallel=False,
     return_type=None,
-    dask_method="memmap",
+    dask_method=None,
 ):
     """
     Reproject data to a new projection using interpolation (this is typically
@@ -110,7 +110,7 @@ def reproject_interp(
         dask.distributed), set this to ``'current-scheduler'``.
     return_type : {'numpy', 'dask'}, optional
         Whether to return numpy or dask arrays.
-    dask_method : {'memmap', 'none'}
+    dask_method : {'memmap', 'none'}, optional
         Method to use when input array is a dask array. The methods are:
             * ``'memmap'``: write out the entire input dask array to a temporary
               memory-mapped array. This requires enough disk space to store
