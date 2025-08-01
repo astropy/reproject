@@ -14,13 +14,14 @@ from astropy.nddata import block_reduce
 from astropy_healpix import (
     HEALPix,
     level_to_nside,
+    nside_to_level,
+    pixel_resolution_to_nside,
 )
 from PIL import Image
 
 from ..utils import as_transparent_rgb, is_jpeg, is_png, parse_input_data
-from ..wcs_utils import has_celestial
+from ..wcs_utils import has_celestial, pixel_scale
 from .utils import (
-    determine_healpix_level,
     make_tile_folders,
     tile_filename,
     tile_header,
@@ -190,7 +191,10 @@ def reproject_to_hips(
         progress_bar = lambda x: x
 
     if level is None:
-        level = determine_healpix_level(wcs_in, tile_size)
+        scale = pixel_scale(wcs_in, array_in.shape)
+        print("scale=", scale)
+        nside = pixel_resolution_to_nside(scale * tile_size)
+        level = nside_to_level(nside)
         logger.info(f"Automatically set the HEALPIX level to {level}")
 
     # Create output directory (and error if it already exists)

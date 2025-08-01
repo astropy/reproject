@@ -52,15 +52,17 @@ def pixel_scale(wcs, shape):
     """
 
     if isinstance(wcs, WCS):
-        scales = proj_plane_pixel_scales(wcs)
+        scales = [
+            abs(s) * u for (s, u) in zip(proj_plane_pixel_scales(wcs), wcs.wcs.cunit, strict=False)
+        ]
     else:
         xp, yp = (shape[1] - 1) / 2, (shape[0] - 1) / 2
         xs = np.array([xp, xp, xp + 1])
         ys = np.array([yp, yp + 1, yp])
         cs = wcs.pixel_to_world(xs, ys)
         scales = (
-            cs[0].separation(cs[2]).deg,
-            cs[0].separation(cs[1]).deg,
+            abs(cs[0].separation(cs[2])),
+            abs(cs[0].separation(cs[1])),
         )
 
-    return np.min(np.abs(scales))
+    return min(*scales)

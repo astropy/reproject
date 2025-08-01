@@ -2,6 +2,7 @@ import re
 
 import numpy as np
 import pytest
+from astropy.wcs import WCS
 
 from ... import reproject_interp
 from ..high_level import reproject_to_hips
@@ -141,6 +142,7 @@ def test_reproject_to_hips_invalid_parameters(tmp_path, simple_celestial_fits_wc
 EXPECTED_FILES_AUTO_1 = [
     "Norder0/Dir0/Npix0.fits",
     "Norder1/Dir0/Npix2.fits",
+    "Norder2/Dir0/Npix9.fits",
     "index.html",
     "properties",
 ]
@@ -160,10 +162,10 @@ EXPECTED_FILES_AUTO_2 = [
 ]
 
 
-def test_reproject_to_hips_automatic(tmp_path, simple_celestial_fits_wcs):
+def test_reproject_to_hips_automatic(tmp_path, simple_celestial_wcs):
 
     array_in = np.ones((30, 40))
-    wcs_in = simple_celestial_fits_wcs
+    wcs_in = simple_celestial_wcs
 
     output_directory = tmp_path / "output_1"
 
@@ -176,14 +178,16 @@ def test_reproject_to_hips_automatic(tmp_path, simple_celestial_fits_wcs):
 
     assert_files_expected(output_directory, EXPECTED_FILES_AUTO_1)
 
-    output_directory = tmp_path / "output_2"
-    wcs_in.wcs.cdelt = -0.001, 0.001
+    if isinstance(wcs_in, WCS):
 
-    reproject_to_hips(
-        (array_in, wcs_in),
-        coord_system_out="equatorial",
-        reproject_function=reproject_interp,
-        output_directory=output_directory,
-    )
+        output_directory = tmp_path / "output_2"
+        wcs_in.wcs.cdelt = -0.001, 0.001
 
-    assert_files_expected(output_directory, EXPECTED_FILES_AUTO_2)
+        reproject_to_hips(
+            (array_in, wcs_in),
+            coord_system_out="equatorial",
+            reproject_function=reproject_interp,
+            output_directory=output_directory,
+        )
+
+        assert_files_expected(output_directory, EXPECTED_FILES_AUTO_2)
