@@ -11,7 +11,7 @@ from astropy.wcs.wcsapi import BaseHighLevelWCS, SlicedLowLevelWCS
 from astropy.wcs.wcsapi.high_level_wcs_wrapper import HighLevelWCSWrapper
 from dask import delayed
 
-from .utils import _dask_to_numpy_memmap, as_rgb_images
+from .utils import _dask_to_numpy_memmap
 
 __all__ = ["_reproject_dispatcher"]
 
@@ -111,19 +111,16 @@ def _reproject_dispatcher(
         dask.distributed), set this to ``'current-scheduler'``.
     reproject_func_kwargs : dict, optional
         Keyword arguments to pass through to ``reproject_func``
-    return_type : {'numpy', 'dask', 'pil_image'}, optional
-        Whether to return numpy, dask arrays, or RGB images - defaults to 'numpy'.
-        If this is set to 'pil_image', a PIL ``Image`` object is returned. The
-        'pil_image' option can only be used if the input was RGB images or if
-        the input data has shape (3, ny, nx) and contains values between 0 and 255.
+    return_type : {'numpy', 'dask' }, optional
+        Whether to return numpy or dask arrays.
     """
 
     logger = logging.getLogger(__name__)
 
     if return_type is None:
         return_type = "numpy"
-    elif return_type not in ("numpy", "dask", "pil_image"):
-        raise ValueError("return_type should be set to 'numpy', 'dask', or 'pil_image'")
+    elif return_type not in ("numpy", "dask"):
+        raise ValueError("return_type should be set to 'numpy' or 'dask'")
 
     if reproject_func_kwargs is None:
         reproject_func_kwargs = {}
@@ -170,7 +167,7 @@ def _reproject_dispatcher(
             logger.info(f"Calling {reproject_func.__name__} in non-dask mode")
 
             try:
-                output = reproject_func(
+                return reproject_func(
                     array_in,
                     wcs_in,
                     wcs_out,
@@ -180,14 +177,6 @@ def _reproject_dispatcher(
                     output_footprint=output_footprint,
                     **reproject_func_kwargs,
                 )
-                if return_type == "pil_image":
-                    if return_footprint:
-                        return as_rgb_images(output[0], footprint=output[1])
-                    else:
-                        return as_rgb_images(output)
-                else:
-                    return output
-
             finally:
                 # Clean up reference to numpy memmap
                 array_in = None
@@ -449,13 +438,7 @@ def _reproject_dispatcher(
             )
             output = array_out
 
-    if return_type == "rgb_images":
-        if return_footprint:
-            return as_rgb_images(output[0], footprint=output[1])
-        else:
-            return as_rgb_images(output)
+    if return_footprint:
+        return output[0], output[1]
     else:
-        if return_footprint:
-            return output[0], output[1]
-        else:
-            return output
+        return output

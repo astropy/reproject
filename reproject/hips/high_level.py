@@ -17,7 +17,7 @@ from astropy_healpix import (
 )
 from PIL import Image
 
-from ..utils import as_rgb_images, as_transparent_rgb, is_jpeg, is_png, parse_input_data
+from ..utils import as_transparent_rgb, is_jpeg, is_png, parse_input_data
 from ..wcs_utils import has_celestial
 from .utils import (
     determine_healpix_level,
@@ -253,9 +253,9 @@ def reproject_to_hips(
             )
         else:
             if tile_format == "png":
-                image = as_transparent_rgb(array_out, footprint=footprint)
+                image = as_transparent_rgb(array_out, alpha=footprint[0])
             else:
-                image = as_rgb_images(array_out)
+                image = as_transparent_rgb(array_out).convert("RGB")
             image.save(
                 tile_filename(
                     level=level,
@@ -343,10 +343,9 @@ def reproject_to_hips(
                     header,
                 )
             else:
-                if tile_format == "png":
-                    image = Image.fromarray(array[::-1])
-                else:
-                    image = as_rgb_images(array.transpose(2, 0, 1))
+                image = as_transparent_rgb(array.transpose(2, 0, 1))
+                if tile_format == "jpeg":
+                    image = image.convert("RGB")
                 image.save(
                     tile_filename(
                         level=ilevel,

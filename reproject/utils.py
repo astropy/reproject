@@ -20,7 +20,6 @@ __all__ = [
     "parse_input_weights",
     "parse_output_projection",
     "as_transparent_rgb",
-    "as_rgb_images",
 ]
 
 
@@ -306,38 +305,49 @@ def is_jpeg(filename):
         return f.read(4) == b"\xff\xd8\xff\xe0"
 
 
-def as_rgb_images(data, footprint=None):
+def as_transparent_rgb(data, alpha=None):
+    """
+    Convert a 3D Numpy array to a PIL object.
 
-    for image in [data, footprint]:
-        if image is not None:
-            if image.ndim != 3:
-                raise ValueError("Data needs to be three-dimensional to return RGB image")
-            if image.shape[0] not in (3, 4):
-                raise ValueError("Data should have shape (3, ny, nx) or (4, ny, nx)")
+    This takes care of swapping the order of the axes, and can apply an additional
+    transparency layer. This also converts any NaNs to transparency.
 
-    rgb_images = []
-    rgb_images.append(Image.fromarray(data.astype(np.uint8).transpose(1, 2, 0)[::-1]))
-    if footprint is not None:
-        rgb_images.append(Image.fromarray(footprint[0].transpose(1, 2, 0)[::-1]))
+    Parameters
+    ----------
+    data : `numpy.ndarray`
+        Input array with shape ``(3, ny, nx)`` or ``(4, ny, nx)``
+    alpha : `numpy.ndarray`
+        Alpha layer to apply to the image in addition to any pre-existing alpha
+        layer and transparency originating from NaN values. This should have
+        a shape ``(ny, nx)``
+    """
 
-    if footprint is None:
-        return rgb_images[0]
-    else:
-        return tuple(rgb_images)
+    if data.ndim != 3:
+        raise ValueError("Data needs to be three-dimensional to return RGB image")
 
-
-def as_transparent_rgb(data, footprint=None):
-
-    for image in [data, footprint]:
-        if image is not None:
-            if image.ndim != 3:
-                raise ValueError("Data needs to be three-dimensional to return RGB image")
-            if image.shape[0] not in (3, 4):
-                raise ValueError("Data should have shape (3, ny, nx) or (4, ny, nx)")
+    if data.shape[0] not in (3, 4):
+        raise ValueError("Data should have shape (3, ny, nx) or (4, ny, nx)")
 
     array = np.zeros((4,) + data.shape[1:], dtype=np.uint8)
 
-    footprint[np.isnan(data)] = 0
+    if alpha is None:
+
+        alpha = np.ones(data.shape[1:])
+
+    else:
+
+        if alpha.ndim != 2:
+            raise ValueError("alpha needs to be two-dimensional")
+
+        if alpha.shape != data.shape[1:]:
+            raise ValueError(
+                "alpha layer shape {alpha.shape} does not match data spatial shape {data.shape[1:]}"
+            )
+
+        alpha = alpha.copy()
+
+    alpha[np.any(np.isnan(data), axis=0)] = 0
+
     data = np.nan_to_num(data)
 
     if data.shape[0] == 3:
@@ -346,7 +356,6 @@ def as_transparent_rgb(data, footprint=None):
     else:
         array[...] = data
 
-    valid = (footprint > 0).max(axis=0)
-    array[3, ~valid] = 0
+    array[3] = array[3] * alpha
 
     return Image.fromarray(array.transpose(1, 2, 0)[::-1])

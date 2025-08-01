@@ -15,7 +15,7 @@ from astropy.wcs import WCS
 from astropy.wcs.wcsapi import HighLevelWCSMixin, SlicedLowLevelWCS
 from pyavm import AVM
 
-from .utils import as_rgb_images
+from .utils import as_transparent_rgb
 
 try:
     from pytest_astropy_header.display import PYTEST_HEADER_MODULES, TESTED_VERSIONS
@@ -160,7 +160,9 @@ def valid_celestial_input(tmp_path, request, wcs):
         array = np.broadcast_to(array[None], (channels,) + array.shape).copy()
         if channels == 4:
             array[3] = 1
-        image = as_rgb_images(array)
+        image = as_transparent_rgb(array)
+        if "transparent" not in request.param:
+            image = image.convert("RGB")
         original_rgb = tmp_path / f"original.{extension}"
         image.save(original_rgb)
         input_value = tmp_path / f"tagged.{extension}"
