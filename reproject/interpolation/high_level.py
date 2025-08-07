@@ -25,6 +25,7 @@ def reproject_interp(
     output_footprint=None,
     return_footprint=True,
     block_size=None,
+    non_reprojected_dims=None,
     parallel=False,
     return_type=None,
     dask_method=None,
@@ -152,6 +153,7 @@ def reproject_interp(
         array_out=output_array,
         parallel=parallel,
         block_size=block_size,
+        non_reprojected_dims=non_reprojected_dims,
         return_footprint=return_footprint,
         output_footprint=output_footprint,
         reproject_func_kwargs=dict(
