@@ -143,7 +143,7 @@ max-line-length = "100"
 write_to = "reproject/version.py"
 
 [tool.cibuildwheel]
-skip = "cp36-* pp* *-musllinux*"
+skip = "cp36-* pp* *-musllinux* cp31?t-*"
 test-skip = "*-manylinux_aarch64"
 
 [tool.isort]
