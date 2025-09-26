@@ -10,7 +10,6 @@ from pathlib import Path
 import numpy as np
 from astropy.coordinates import ICRS, BarycentricTrueEcliptic, Galactic
 from astropy.io import fits
-from astropy.nddata import block_reduce
 from astropy_healpix import (
     HEALPix,
     level_to_nside,
@@ -22,7 +21,9 @@ from PIL import Image
 from ..utils import as_transparent_rgb, is_jpeg, is_png, parse_input_data
 from ..wcs_utils import has_celestial, pixel_scale
 from .utils import (
+    load_properties,
     make_tile_folders,
+    save_properties,
     tile_filename,
     tile_header,
 )
@@ -202,6 +203,8 @@ def reproject_to_hips(
     # Determine center of image and radius to furthest corner, to determine
     # which HiPS tiles need to be generated
 
+    # TODO: this will fail for e.g. allsky maps
+
     ny, nx = array_in.shape[-2:]
 
     cen_x, cen_y = (nx - 1) / 2, (ny - 1) / 2
@@ -212,7 +215,7 @@ def reproject_to_hips(
     cen_world = wcs_in.pixel_to_world(cen_x, cen_y)
     cor_world = wcs_in.pixel_to_world(cor_x, cor_y)
 
-    radius = cor_world.separation(cen_world).max()
+    radius = cor_world.separation(cen_world).max() * 2
 
     # TODO: in future if astropy-healpix implements polygon searches, we could
     # use that instead
@@ -222,7 +225,9 @@ def reproject_to_hips(
     nside = level_to_nside(level)
     hp = HEALPix(nside=nside, order="nested", frame=frame)
 
-    indices = hp.cone_search_skycoord(cen_world, radius=radius)
+    # indices = hp.cone_search_skycoord(cen_world, radius=radius)
+
+    indices = np.arange(hp.npix)
 
     logger.info(f"Found {len(indices)} tiles (at most) to generate at level {level}")
 
@@ -234,12 +239,28 @@ def reproject_to_hips(
 
     # Iterate over the tiles and generate them
     def process(index):
-        header = tile_header(level=level, index=index, frame=frame, tile_size=tile_size)
         if hasattr(wcs_in, "deepcopy"):
             wcs_in_copy = wcs_in.deepcopy()
         else:
             wcs_in_copy = deepcopy(wcs_in)
-        array_out, footprint = reproject_function((array_in, wcs_in_copy), header, **kwargs)
+
+        header = tile_header(level=level, index=index, frame=frame, tile_size=tile_size)
+
+        if isinstance(header, tuple):
+            array_out1, footprint1 = reproject_function(
+                (array_in, wcs_in_copy), header[0], **kwargs
+            )
+            array_out2, footprint2 = reproject_function(
+                (array_in, wcs_in_copy), header[1], **kwargs
+            )
+            array_out = (
+                np.nan_to_num(array_out1) * footprint1 + np.nan_to_num(array_out2) * footprint2
+            ) / (footprint1 + footprint2)
+            footprint = (footprint1 + footprint2) / 2
+            header = header[0]
+        else:
+            array_out, footprint = reproject_function((array_in, wcs_in_copy), header, **kwargs)
+
         if tile_format != "png":
             array_out[np.isnan(array_out)] = 0.0
         if np.all(footprint == 0):
@@ -253,6 +274,7 @@ def reproject_to_hips(
                     extension=EXTENSION[tile_format],
                 ),
                 array_out,
+                header,
             )
         else:
             if tile_format == "png":
@@ -287,76 +309,76 @@ def reproject_to_hips(
 
     indices = np.array(generated_indices)
 
-    # Iterate over higher levels and compute lower resolution tiles
-    for ilevel in range(level - 1, -1, -1):
+    # # Iterate over higher levels and compute lower resolution tiles
+    # for ilevel in range(level - 1, -1, -1):
 
-        # Find index of tiles to produce at lower-resolution levels
-        indices = np.sort(np.unique(indices // 4))
+    #     # Find index of tiles to produce at lower-resolution levels
+    #     indices = np.sort(np.unique(indices // 4))
 
-        make_tile_folders(level=ilevel, indices=indices, output_directory=output_directory)
+    #     make_tile_folders(level=ilevel, indices=indices, output_directory=output_directory)
 
-        for index in indices:
+    #     for index in indices:
 
-            header = tile_header(level=ilevel, index=index, frame=frame, tile_size=tile_size)
+    #         header = tile_header(level=ilevel, index=index, frame=frame, tile_size=tile_size)
 
-            if tile_format == "fits":
-                array = np.zeros((tile_size, tile_size))
-            elif tile_format == "png":
-                array = np.zeros((tile_size, tile_size, 4), dtype=np.uint8)
-            else:
-                array = np.zeros((tile_size, tile_size, 3), dtype=np.uint8)
+    #         if tile_format == "fits":
+    #             array = np.zeros((tile_size, tile_size))
+    #         elif tile_format == "png":
+    #             array = np.zeros((tile_size, tile_size, 4), dtype=np.uint8)
+    #         else:
+    #             array = np.zeros((tile_size, tile_size, 3), dtype=np.uint8)
 
-            for subindex in range(4):
+    #         for subindex in range(4):
 
-                current_index = 4 * index + subindex
-                subtile_filename = tile_filename(
-                    level=ilevel + 1,
-                    index=current_index,
-                    output_directory=output_directory,
-                    extension=EXTENSION[tile_format],
-                )
+    #             current_index = 4 * index + subindex
+    #             subtile_filename = tile_filename(
+    #                 level=ilevel + 1,
+    #                 index=current_index,
+    #                 output_directory=output_directory,
+    #                 extension=EXTENSION[tile_format],
+    #             )
 
-                if os.path.exists(subtile_filename):
+    #             if os.path.exists(subtile_filename):
 
-                    if tile_format == "fits":
-                        data = block_reduce(fits.getdata(subtile_filename), 2, func=np.mean)
-                    else:
-                        data = block_reduce(
-                            np.array(Image.open(subtile_filename))[::-1], (2, 2, 1), func=np.mean
-                        )
+    #                 if tile_format == "fits":
+    #                     data = block_reduce(fits.getdata(subtile_filename), 2, func=np.mean)
+    #                 else:
+    #                     data = block_reduce(
+    #                         np.array(Image.open(subtile_filename))[::-1], (2, 2, 1), func=np.mean
+    #                     )
 
-                    if subindex == 0:
-                        array[256:, :256] = data
-                    elif subindex == 2:
-                        array[256:, 256:] = data
-                    elif subindex == 1:
-                        array[:256, :256] = data
-                    elif subindex == 3:
-                        array[:256, 256:] = data
+    #                 if subindex == 0:
+    #                     array[256:, :256] = data
+    #                 elif subindex == 2:
+    #                     array[256:, 256:] = data
+    #                 elif subindex == 1:
+    #                     array[:256, :256] = data
+    #                 elif subindex == 3:
+    #                     array[:256, 256:] = data
 
-            if tile_format == "fits":
-                fits.writeto(
-                    tile_filename(
-                        level=ilevel,
-                        index=index,
-                        output_directory=output_directory,
-                        extension=EXTENSION[tile_format],
-                    ),
-                    array,
-                    header,
-                )
-            else:
-                image = as_transparent_rgb(array.transpose(2, 0, 1))
-                if tile_format == "jpeg":
-                    image = image.convert("RGB")
-                image.save(
-                    tile_filename(
-                        level=ilevel,
-                        index=index,
-                        output_directory=output_directory,
-                        extension=EXTENSION[tile_format],
-                    )
-                )
+    #         if tile_format == "fits":
+    #             fits.writeto(
+    #                 tile_filename(
+    #                     level=ilevel,
+    #                     index=index,
+    #                     output_directory=output_directory,
+    #                     extension=EXTENSION[tile_format],
+    #                 ),
+    #                 array,
+    #                 header,
+    #             )
+    #         else:
+    #             image = as_transparent_rgb(array.transpose(2, 0, 1))
+    #             if tile_format == "jpeg":
+    #                 image = image.convert("RGB")
+    #             image.save(
+    #                 tile_filename(
+    #                     level=ilevel,
+    #                     index=index,
+    #                     output_directory=output_directory,
+    #                     extension=EXTENSION[tile_format],
+    #                 )
+    #             )
 
     # Generate properties file
 
@@ -401,21 +423,6 @@ def reproject_to_hips(
 def save_index(directory):
     with open(os.path.join(directory, "index.html"), "w") as f:
         f.write(INDEX_HTML)
-
-
-def save_properties(directory, properties):
-    with open(os.path.join(directory, "properties"), "w") as f:
-        for key, value in properties.items():
-            f.write(f"{key:20s} = {value}\n")
-
-
-def load_properties(directory):
-    properties = {}
-    with open(os.path.join(directory, "properties")) as f:
-        for line in f:
-            key, value = line.split("=")
-            properties[key.strip()] = value.strip()
-    return properties
 
 
 def coadd_hips(input_directories, output_directory):
