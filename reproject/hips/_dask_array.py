@@ -65,10 +65,8 @@ class HiPSArray:
         if item[0].start == item[0].stop or item[1].start == item[1].stop:
             return self._blank[item]
 
-        # For now assume item is a list of slices. Find
-
-        # imid = (item[0].start + item[0].stop) // 2
-        # jmid = (item[1].start + item[1].stop) // 2
+        # We use two points in different parts of the image because in some
+        # cases using the exact center or corners can cause issues.
 
         istart = item[0].start
         irange = item[0].stop - item[0].start
@@ -127,15 +125,15 @@ class HiPSArray:
 
         with fits.open(filename) as hdulist:
             hdu = hdulist[0]
-            # data = hdu.data[::-1]
             data = hdu.data
-
-            # return np.ones(hdu.data.shape) * index
 
         return data
 
 
 def hips_as_dask_and_wcs(directory_or_url, *, level=None):
+    """
+    Return a dask array and WCS that represent a HiPS dataset at a particular level.
+    """
     array_wrapper = HiPSArray(directory_or_url, level=level)
     return (
         da.from_array(
