@@ -64,8 +64,6 @@ def tile_header(*, level, index, frame, tile_size):
 
     nside = level_to_nside(level)
 
-    # threshold = np.hypot(image_size, image_size) / 2.
-
     hp = HEALPix(nside=nside, order="nested", frame=frame)
 
     tile_wcs = celestial_frame_to_wcs(frame, projection="HPX")
@@ -87,7 +85,6 @@ def tile_header(*, level, index, frame, tile_size):
         np.max(np.hypot(offset_x[1:] - offset_x[0], offset_y[1:] - offset_y[0])) > tile_size
     )
 
-    # offset_x, offset_y = tile_wcs.world_to_pixel(hp.healpix_to_skycoord(index, dx=1, dy=0))
     offset_x, offset_y = tile_wcs.world_to_pixel(hp.healpix_to_skycoord(index, dx=0.75, dy=0.25))
 
     tile_wcs.wcs.crpix[0] = -offset_x - 0.5 + tile_size / 4
