@@ -105,7 +105,7 @@ class HiPSArray:
 
         return self._get_tile(level=self._level, index=index)
 
-    @functools.lru_cache(maxsize=128)
+    @functools.lru_cache(maxsize=128)  # noqa: B019
     def _get_tile(self, *, level, index):
 
         filename_or_url = tile_filename(

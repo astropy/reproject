@@ -8,8 +8,10 @@ from logging import getLogger
 from pathlib import Path
 
 import numpy as np
+from astropy import units as u
 from astropy.coordinates import ICRS, BarycentricTrueEcliptic, Galactic
 from astropy.io import fits
+from astropy.nddata import block_reduce
 from astropy_healpix import (
     HEALPix,
     level_to_nside,
@@ -215,7 +217,30 @@ def reproject_to_hips(
     cen_world = wcs_in.pixel_to_world(cen_x, cen_y)
     cor_world = wcs_in.pixel_to_world(cor_x, cor_y)
 
-    radius = cor_world.separation(cen_world).max() * 2
+    separations = cor_world.separation(cen_world)
+
+    if np.any(np.isnan(separations)):
+
+        # At least one of the corners is outside of the region of validity of
+        # the WCS, so we use a different approach where we randomly sample a
+        # number of positions in the image and then check the maximum
+        # separation between any pair of points.
+
+        n_ran = 1000
+        ran_x = np.random.uniform(-0.5, nx - 0.5, n_ran)
+        ran_y = np.random.uniform(-0.5, nx - 0.5, n_ran)
+
+        ran_world = wcs_in.pixel_to_world(ran_x, ran_y)
+
+        separations = ran_world[:, None].separation(ran_world[None, :])
+
+        max_separation = np.nanmax(separations)
+
+    else:
+
+        max_separation = separations.max()
+
+    radius = 1.5 * max_separation
 
     # TODO: in future if astropy-healpix implements polygon searches, we could
     # use that instead
@@ -225,9 +250,10 @@ def reproject_to_hips(
     nside = level_to_nside(level)
     hp = HEALPix(nside=nside, order="nested", frame=frame)
 
-    # indices = hp.cone_search_skycoord(cen_world, radius=radius)
-
-    indices = np.arange(hp.npix)
+    if radius > 120 * u.deg:
+        indices = np.arange(hp.npix)
+    else:
+        indices = hp.cone_search_skycoord(cen_world, radius=radius)
 
     logger.info(f"Found {len(indices)} tiles (at most) to generate at level {level}")
 
@@ -310,76 +336,82 @@ def reproject_to_hips(
 
     indices = np.array(generated_indices)
 
-    # # Iterate over higher levels and compute lower resolution tiles
-    # for ilevel in range(level - 1, -1, -1):
+    # Iterate over higher levels and compute lower resolution tiles
 
-    #     # Find index of tiles to produce at lower-resolution levels
-    #     indices = np.sort(np.unique(indices // 4))
+    half_tile_size = tile_size // 2
 
-    #     make_tile_folders(level=ilevel, indices=indices, output_directory=output_directory)
+    for ilevel in range(level - 1, -1, -1):
 
-    #     for index in indices:
+        # Find index of tiles to produce at lower-resolution levels
+        indices = np.sort(np.unique(indices // 4))
 
-    #         header = tile_header(level=ilevel, index=index, frame=frame, tile_size=tile_size)
+        make_tile_folders(level=ilevel, indices=indices, output_directory=output_directory)
 
-    #         if tile_format == "fits":
-    #             array = np.zeros((tile_size, tile_size))
-    #         elif tile_format == "png":
-    #             array = np.zeros((tile_size, tile_size, 4), dtype=np.uint8)
-    #         else:
-    #             array = np.zeros((tile_size, tile_size, 3), dtype=np.uint8)
+        for index in indices:
 
-    #         for subindex in range(4):
+            header = tile_header(level=ilevel, index=index, frame=frame, tile_size=tile_size)
 
-    #             current_index = 4 * index + subindex
-    #             subtile_filename = tile_filename(
-    #                 level=ilevel + 1,
-    #                 index=current_index,
-    #                 output_directory=output_directory,
-    #                 extension=EXTENSION[tile_format],
-    #             )
+            if isinstance(header, tuple):
+                header = header[0]
 
-    #             if os.path.exists(subtile_filename):
+            if tile_format == "fits":
+                array = np.zeros((tile_size, tile_size))
+            elif tile_format == "png":
+                array = np.zeros((tile_size, tile_size, 4), dtype=np.uint8)
+            else:
+                array = np.zeros((tile_size, tile_size, 3), dtype=np.uint8)
 
-    #                 if tile_format == "fits":
-    #                     data = block_reduce(fits.getdata(subtile_filename), 2, func=np.mean)
-    #                 else:
-    #                     data = block_reduce(
-    #                         np.array(Image.open(subtile_filename))[::-1], (2, 2, 1), func=np.mean
-    #                     )
+            for subindex in range(4):
 
-    #                 if subindex == 0:
-    #                     array[256:, :256] = data
-    #                 elif subindex == 2:
-    #                     array[256:, 256:] = data
-    #                 elif subindex == 1:
-    #                     array[:256, :256] = data
-    #                 elif subindex == 3:
-    #                     array[:256, 256:] = data
+                current_index = 4 * index + subindex
+                subtile_filename = tile_filename(
+                    level=ilevel + 1,
+                    index=current_index,
+                    output_directory=output_directory,
+                    extension=EXTENSION[tile_format],
+                )
 
-    #         if tile_format == "fits":
-    #             fits.writeto(
-    #                 tile_filename(
-    #                     level=ilevel,
-    #                     index=index,
-    #                     output_directory=output_directory,
-    #                     extension=EXTENSION[tile_format],
-    #                 ),
-    #                 array,
-    #                 header,
-    #             )
-    #         else:
-    #             image = as_transparent_rgb(array.transpose(2, 0, 1))
-    #             if tile_format == "jpeg":
-    #                 image = image.convert("RGB")
-    #             image.save(
-    #                 tile_filename(
-    #                     level=ilevel,
-    #                     index=index,
-    #                     output_directory=output_directory,
-    #                     extension=EXTENSION[tile_format],
-    #                 )
-    #             )
+                if os.path.exists(subtile_filename):
+
+                    if tile_format == "fits":
+                        data = block_reduce(fits.getdata(subtile_filename), 2, func=np.mean)
+                    else:
+                        data = block_reduce(
+                            np.array(Image.open(subtile_filename))[::-1], (2, 2, 1), func=np.mean
+                        )
+
+                    if subindex == 0:
+                        array[half_tile_size:, :half_tile_size] = data
+                    elif subindex == 2:
+                        array[half_tile_size:, half_tile_size:] = data
+                    elif subindex == 1:
+                        array[:half_tile_size, :half_tile_size] = data
+                    elif subindex == 3:
+                        array[:half_tile_size, half_tile_size:] = data
+
+            if tile_format == "fits":
+                fits.writeto(
+                    tile_filename(
+                        level=ilevel,
+                        index=index,
+                        output_directory=output_directory,
+                        extension=EXTENSION[tile_format],
+                    ),
+                    array,
+                    header,
+                )
+            else:
+                image = as_transparent_rgb(array.transpose(2, 0, 1))
+                if tile_format == "jpeg":
+                    image = image.convert("RGB")
+                image.save(
+                    tile_filename(
+                        level=ilevel,
+                        index=index,
+                        output_directory=output_directory,
+                        extension=EXTENSION[tile_format],
+                    )
+                )
 
     # Generate properties file
 

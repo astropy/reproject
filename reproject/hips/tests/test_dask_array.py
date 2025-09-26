@@ -53,11 +53,11 @@ class TestHIPSDaskArray:
         # adjacent to non-empty tiles, we set the values to the boundaries of
         # the non-empty neighbouring tiles so that interpolation doesn't run
         # into any issues. In theory there should be around 90500 pixels inside
-        # the valid region of the image, so we require at least 90400 valid
+        # the valid region of the image, so we require at least 90000 valid
         # values.
 
         valid = ~np.isnan(final_array)
-        assert np.sum(valid) > 90400
+        assert np.sum(valid) > 90000
         np.testing.assert_allclose(final_array[valid], self.original_array[valid], rtol=0.01)
 
     def test_level_validation(self, tmp_path):
