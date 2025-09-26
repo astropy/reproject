@@ -1,22 +1,19 @@
+import functools
 import os
-import struct
 import urllib
 import uuid
-import functools
 
 import numpy as np
-from astropy import units as u
 from astropy.io import fits
+from astropy.utils.data import download_file
 from astropy.wcs import WCS
 from astropy_healpix import HEALPix, level_to_nside
 from dask import array as da
-from astropy.utils.data import download_file
-from astropy.wcs.utils import celestial_frame_to_wcs
 
-from .utils import is_url, load_properties, tile_filename, tile_header, map_header
 from .high_level import VALID_COORD_SYSTEM
+from .utils import is_url, load_properties, map_header, tile_filename
 
-__all__ = ['hips_as_dask_and_wcs']
+__all__ = ["hips_as_dask_and_wcs"]
 
 
 class HiPSArray:
@@ -31,6 +28,17 @@ class HiPSArray:
 
         self._tile_width = int(self._properties["hips_tile_width"])
         self._order = int(self._properties["hips_order"])
+        if level is None:
+            self._level = self._order
+        else:
+            if level > self._order:
+                raise ValueError(
+                    f"HiPS dataset at {directory_or_url} does not contain level {level} data"
+                )
+            elif level < 0:
+                raise ValueError("level should be positive")
+            else:
+                self._level = int(level)
         self._level = self._order if level is None else level
         self._tile_format = self._properties["hips_tile_format"]
         self._frame_str = self._properties["hips_frame"]
@@ -81,8 +89,12 @@ class HiPSArray:
         else:
             raise NotImplementedError()
 
-        if np.all(np.isnan(lon) | np.isnan(lat)):
+        invalid = np.isnan(lon) | np.isnan(lat)
+
+        if np.all(invalid):
             return self._nan
+        elif np.any(invalid):
+            coord = coord[~invalid]
 
         index = self._hp.skycoord_to_healpix(coord)
 
@@ -125,9 +137,12 @@ class HiPSArray:
 
 def hips_as_dask_and_wcs(directory_or_url, *, level=None):
     array_wrapper = HiPSArray(directory_or_url, level=level)
-    return da.from_array(
-        array_wrapper,
-        chunks=array_wrapper.chunksize,
-        name=str(uuid.uuid4()),
-        meta=np.array([], dtype=float)
-    ), array_wrapper.wcs
+    return (
+        da.from_array(
+            array_wrapper,
+            chunks=array_wrapper.chunksize,
+            name=str(uuid.uuid4()),
+            meta=np.array([], dtype=float),
+        ),
+        array_wrapper.wcs,
+    )

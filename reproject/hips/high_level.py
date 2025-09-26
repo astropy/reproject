@@ -253,10 +253,11 @@ def reproject_to_hips(
             array_out2, footprint2 = reproject_function(
                 (array_in, wcs_in_copy), header[1], **kwargs
             )
-            array_out = (
-                np.nan_to_num(array_out1) * footprint1 + np.nan_to_num(array_out2) * footprint2
-            ) / (footprint1 + footprint2)
-            footprint = (footprint1 + footprint2) / 2
+            with np.errstate(invalid="ignore"):
+                array_out = (
+                    np.nan_to_num(array_out1) * footprint1 + np.nan_to_num(array_out2) * footprint2
+                ) / (footprint1 + footprint2)
+                footprint = (footprint1 + footprint2) / 2
             header = header[0]
         else:
             array_out, footprint = reproject_function((array_in, wcs_in_copy), header, **kwargs)
