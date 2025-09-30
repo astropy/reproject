@@ -13,7 +13,7 @@ from dask import array as da
 from .high_level import VALID_COORD_SYSTEM
 from .utils import is_url, load_properties, map_header, tile_filename
 
-__all__ = ["hips_as_dask_and_wcs"]
+__all__ = ["hips_as_dask_array"]
 
 
 class HiPSArray:
@@ -130,7 +130,7 @@ class HiPSArray:
         return data
 
 
-def hips_as_dask_and_wcs(directory_or_url, *, level=None):
+def hips_as_dask_array(directory_or_url, *, level=None):
     """
     Return a dask array and WCS that represent a HiPS dataset at a particular level.
     """

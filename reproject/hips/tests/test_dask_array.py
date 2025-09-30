@@ -6,7 +6,7 @@ from astropy.wcs import WCS
 
 from reproject import reproject_interp
 from reproject.hips import reproject_to_hips
-from reproject.hips._dask_array import hips_as_dask_and_wcs
+from reproject.hips._dask_array import hips_as_dask_array
 
 
 class TestHIPSDaskArray:
@@ -37,7 +37,7 @@ class TestHIPSDaskArray:
         )
 
         # Represent the HiPS as a dask array
-        dask_array, wcs = hips_as_dask_and_wcs(output_directory, level=level)
+        dask_array, wcs = hips_as_dask_array(output_directory, level=level)
 
         # Reproject back to the original WCS
         final_array, footprint = reproject_interp(
@@ -73,17 +73,17 @@ class TestHIPSDaskArray:
             tile_size=32,
         )
 
-        dask_array, wcs = hips_as_dask_and_wcs(output_directory, level=0)
+        dask_array, wcs = hips_as_dask_array(output_directory, level=0)
         assert dask_array.shape == (160, 160)
 
-        dask_array, wcs = hips_as_dask_and_wcs(output_directory, level=1)
+        dask_array, wcs = hips_as_dask_array(output_directory, level=1)
         assert dask_array.shape == (320, 320)
 
-        dask_array, wcs = hips_as_dask_and_wcs(output_directory)
+        dask_array, wcs = hips_as_dask_array(output_directory)
         assert dask_array.shape == (320, 320)
 
         with pytest.raises(Exception, match=r"does not contain level 2 data"):
-            hips_as_dask_and_wcs(output_directory, level=2)
+            hips_as_dask_array(output_directory, level=2)
 
         with pytest.raises(Exception, match=r"should be positive"):
-            hips_as_dask_and_wcs(output_directory, level=-1)
+            hips_as_dask_array(output_directory, level=-1)
