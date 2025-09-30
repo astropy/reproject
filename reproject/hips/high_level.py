@@ -8,6 +8,7 @@ from logging import getLogger
 from pathlib import Path
 
 import numpy as np
+from astropy import units as u
 from astropy.coordinates import ICRS, BarycentricTrueEcliptic, Galactic
 from astropy.io import fits
 from astropy.nddata import block_reduce
@@ -22,7 +23,9 @@ from PIL import Image
 from ..utils import as_transparent_rgb, is_jpeg, is_png, parse_input_data
 from ..wcs_utils import has_celestial, pixel_scale
 from .utils import (
+    load_properties,
     make_tile_folders,
+    save_properties,
     tile_filename,
     tile_header,
 )
@@ -202,6 +205,8 @@ def reproject_to_hips(
     # Determine center of image and radius to furthest corner, to determine
     # which HiPS tiles need to be generated
 
+    # TODO: this will fail for e.g. allsky maps
+
     ny, nx = array_in.shape[-2:]
 
     cen_x, cen_y = (nx - 1) / 2, (ny - 1) / 2
@@ -212,7 +217,30 @@ def reproject_to_hips(
     cen_world = wcs_in.pixel_to_world(cen_x, cen_y)
     cor_world = wcs_in.pixel_to_world(cor_x, cor_y)
 
-    radius = cor_world.separation(cen_world).max()
+    separations = cor_world.separation(cen_world)
+
+    if np.any(np.isnan(separations)):
+
+        # At least one of the corners is outside of the region of validity of
+        # the WCS, so we use a different approach where we randomly sample a
+        # number of positions in the image and then check the maximum
+        # separation between any pair of points.
+
+        n_ran = 1000
+        ran_x = np.random.uniform(-0.5, nx - 0.5, n_ran)
+        ran_y = np.random.uniform(-0.5, nx - 0.5, n_ran)
+
+        ran_world = wcs_in.pixel_to_world(ran_x, ran_y)
+
+        separations = ran_world[:, None].separation(ran_world[None, :])
+
+        max_separation = np.nanmax(separations)
+
+    else:
+
+        max_separation = separations.max()
+
+    radius = 1.5 * max_separation
 
     # TODO: in future if astropy-healpix implements polygon searches, we could
     # use that instead
@@ -222,7 +250,10 @@ def reproject_to_hips(
     nside = level_to_nside(level)
     hp = HEALPix(nside=nside, order="nested", frame=frame)
 
-    indices = hp.cone_search_skycoord(cen_world, radius=radius)
+    if radius > 120 * u.deg:
+        indices = np.arange(hp.npix)
+    else:
+        indices = hp.cone_search_skycoord(cen_world, radius=radius)
 
     logger.info(f"Found {len(indices)} tiles (at most) to generate at level {level}")
 
@@ -234,12 +265,29 @@ def reproject_to_hips(
 
     # Iterate over the tiles and generate them
     def process(index):
-        header = tile_header(level=level, index=index, frame=frame, tile_size=tile_size)
         if hasattr(wcs_in, "deepcopy"):
             wcs_in_copy = wcs_in.deepcopy()
         else:
             wcs_in_copy = deepcopy(wcs_in)
-        array_out, footprint = reproject_function((array_in, wcs_in_copy), header, **kwargs)
+
+        header = tile_header(level=level, index=index, frame=frame, tile_size=tile_size)
+
+        if isinstance(header, tuple):
+            array_out1, footprint1 = reproject_function(
+                (array_in, wcs_in_copy), header[0], **kwargs
+            )
+            array_out2, footprint2 = reproject_function(
+                (array_in, wcs_in_copy), header[1], **kwargs
+            )
+            with np.errstate(invalid="ignore"):
+                array_out = (
+                    np.nan_to_num(array_out1) * footprint1 + np.nan_to_num(array_out2) * footprint2
+                ) / (footprint1 + footprint2)
+                footprint = (footprint1 + footprint2) / 2
+            header = header[0]
+        else:
+            array_out, footprint = reproject_function((array_in, wcs_in_copy), header, **kwargs)
+
         if tile_format != "png":
             array_out[np.isnan(array_out)] = 0.0
         if np.all(footprint == 0):
@@ -253,6 +301,7 @@ def reproject_to_hips(
                     extension=EXTENSION[tile_format],
                 ),
                 array_out,
+                header,
             )
         else:
             if tile_format == "png":
@@ -288,6 +337,9 @@ def reproject_to_hips(
     indices = np.array(generated_indices)
 
     # Iterate over higher levels and compute lower resolution tiles
+
+    half_tile_size = tile_size // 2
+
     for ilevel in range(level - 1, -1, -1):
 
         # Find index of tiles to produce at lower-resolution levels
@@ -298,6 +350,9 @@ def reproject_to_hips(
         for index in indices:
 
             header = tile_header(level=ilevel, index=index, frame=frame, tile_size=tile_size)
+
+            if isinstance(header, tuple):
+                header = header[0]
 
             if tile_format == "fits":
                 array = np.zeros((tile_size, tile_size))
@@ -326,13 +381,13 @@ def reproject_to_hips(
                         )
 
                     if subindex == 0:
-                        array[256:, :256] = data
+                        array[half_tile_size:, :half_tile_size] = data
                     elif subindex == 2:
-                        array[256:, 256:] = data
+                        array[half_tile_size:, half_tile_size:] = data
                     elif subindex == 1:
-                        array[:256, :256] = data
+                        array[:half_tile_size, :half_tile_size] = data
                     elif subindex == 3:
-                        array[:256, 256:] = data
+                        array[:half_tile_size, half_tile_size:] = data
 
             if tile_format == "fits":
                 fits.writeto(
@@ -401,21 +456,6 @@ def reproject_to_hips(
 def save_index(directory):
     with open(os.path.join(directory, "index.html"), "w") as f:
         f.write(INDEX_HTML)
-
-
-def save_properties(directory, properties):
-    with open(os.path.join(directory, "properties"), "w") as f:
-        for key, value in properties.items():
-            f.write(f"{key:20s} = {value}\n")
-
-
-def load_properties(directory):
-    properties = {}
-    with open(os.path.join(directory, "properties")) as f:
-        for line in f:
-            key, value = line.split("=")
-            properties[key.strip()] = value.strip()
-    return properties
 
 
 def coadd_hips(input_directories, output_directory):
