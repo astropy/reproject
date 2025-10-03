@@ -1,7 +1,9 @@
 import re
+from math import prod
 
 import numpy as np
 import pytest
+from astropy.io.fits import Header
 from astropy.wcs import WCS
 from PIL import Image
 from pyavm import AVM
@@ -227,3 +229,49 @@ def test_reproject_to_hips_alpha(tmp_path, simple_celestial_fits_wcs):
     assert result[:, :, 0].size == 262144
     assert np.all(count[:3] > 50000)
     assert count[3] < 4000
+
+
+HEADER_SPECTRAL = """
+WCSAXES = 3
+CRPIX1  = 10.
+CRPIX2  = 20.
+CRPIX3  = 30.
+CDELT1  = -0.02
+CDELT2  = 0.02
+CDELT3  = 0.1
+CUNIT1  = 'deg'
+CUNIT2  = 'deg'
+CUNIT3  = 'GHz'
+CTYPE1  = 'RA---SIN'
+CTYPE2  = 'DEC--SIN'
+CTYPE3  = 'FREQ'
+CRVAL1  = 50.
+CRVAL2  = 70.
+CRVAL3  = 230.
+SPECSYS = 'LSRK'
+"""
+
+
+EXPECTED_FILES_CUBE = []
+
+
+def test_reproject_to_hips3d_spectral(tmp_path):
+
+    shape = (100, 200, 300)
+
+    cube_data = np.arange(prod(shape))
+    cube_wcs = WCS(Header.fromstring(HEADER_SPECTRAL, sep="\n"))
+
+    output_directory = tmp_path / "output"
+
+    reproject_to_hips(
+        (cube_data, cube_wcs),
+        coord_system_out="equatorial",
+        reproject_function=reproject_interp,
+        output_directory=output_directory,
+    )
+
+    assert_files_expected(output_directory, EXPECTED_FILES_CUBE)
+
+
+# TODO: Add tests of different spectral frames

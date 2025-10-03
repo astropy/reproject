@@ -4,12 +4,19 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from datetime import datetime
+from itertools import product
 from logging import getLogger
 from pathlib import Path
 
 import numpy as np
 from astropy import units as u
-from astropy.coordinates import ICRS, BarycentricTrueEcliptic, Galactic
+from astropy.coordinates import (
+    ICRS,
+    BarycentricTrueEcliptic,
+    Galactic,
+    SkyCoord,
+    SpectralCoord,
+)
 from astropy.io import fits
 from astropy.nddata import block_reduce
 from astropy_healpix import (
@@ -20,12 +27,14 @@ from astropy_healpix import (
 )
 from PIL import Image
 
+from ..array_utils import sample_array_edges
 from ..utils import as_transparent_rgb, is_jpeg, is_png, parse_input_data
-from ..wcs_utils import has_celestial, pixel_scale
+from ..wcs_utils import has_celestial, has_spectral, pixel_scale
 from .utils import (
     load_properties,
     make_tile_folders,
     save_properties,
+    spectral_coord_to_index,
     tile_filename,
     tile_header,
 )
@@ -87,8 +96,10 @@ def reproject_to_hips(
     reproject_function,
     output_directory,
     level=None,
+    level_depth=None,
     hdu_in=0,
     tile_size=512,
+    tile_depth=16,
     progress_bar=None,
     threads=False,
     properties=None,
@@ -125,12 +136,16 @@ def reproject_to_hips(
         The name of the output directory - if this already exists, an error
         will be raised.
     level : int, optional
-        The number of levels of FITS tiles.
+        The number of levels of tiles for celestial coordinates.
+    level_depth : int, optional
+        The number of levels of tiles for the third (e.g. spectral) dimension.
     hdu_in : int or str, optional
         If ``input_data`` is a FITS file or an `~astropy.io.fits.HDUList`
         instance, specifies the HDU to use.
-    tile_size : int, optional
-        The size of each individual tile (defaults to 512).
+    tile_size : int or tuple, optional
+        The size of each individual tile (defaults to 512) for celestial dimensions.
+    tile_depth : int or tuple, optional
+        The depth of each individual tile (defaults to 16) for the third (e.g. spectral) dimension when present.
     progress_bar : callable, optional
         If specified, use this as a progress_bar to track loop iterations over
         data sets.
@@ -162,13 +177,31 @@ def reproject_to_hips(
 
     array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
 
-    if not (
-        has_celestial(wcs_in)
-        and wcs_in.low_level_wcs.pixel_n_dim == 2
-        and wcs_in.low_level_wcs.world_n_dim == 2
-    ):
-        raise NotImplementedError(
-            "Only data with a 2-d celestial WCS can be reprojected to HiPS tiles"
+    if not has_celestial(wcs_in):
+        raise Exception("Only data with a celestial WCS can be reprojected to HiPS tiles")
+
+    if wcs_in.low_level_wcs.pixel_n_dim != wcs_in.low_level_wcs.world_n_dim:
+        raise Exception(
+            f"Number of pixel ({wcs_in.low_level_wcs.pixel_n_dim}) "
+            f"and world ({wcs_in.low_level_wcs.world_n_dim}) "
+            f"dimensions do not match"
+        )
+
+    if wcs_in.low_level_wcs.pixel_n_dim == 2:
+        ndim = 2
+    elif wcs_in.low_level_wcs.pixel_n_dim == 3:
+        if has_spectral(wcs_in):
+            ndim = 3
+        else:
+            raise NotImplementedError(
+                "Only 3-d data with a spectral axis are supported at this time"
+            )
+    else:
+        raise Exception("Can only reproject data with 2-d or 3-d WCS")
+
+    if array_in.ndim != ndim:
+        raise Exception(
+            f"Input array dimensionality ({array_in.ndim}) should match WCS dimensionality ({ndim})"
         )
 
     logger = getLogger(__name__)
@@ -193,11 +226,16 @@ def reproject_to_hips(
     if progress_bar is None:
         progress_bar = lambda x: x
 
+    # Determine celestial level if not specified
+
     if level is None:
         scale = pixel_scale(wcs_in, array_in.shape)
         nside = pixel_resolution_to_nside(scale * tile_size)
-        level = nside_to_level(nside)
+        level = int(nside_to_level(nside))
         logger.info(f"Automatically set the HEALPIX level to {level}")
+
+    if ndim == 3 and level_depth is None:
+        raise NotImplementedError("For now, the depth level has to be specified manually")
 
     # Create output directory (and error if it already exists)
     os.makedirs(output_directory, exist_ok=False)
@@ -209,15 +247,23 @@ def reproject_to_hips(
 
     ny, nx = array_in.shape[-2:]
 
-    cen_x, cen_y = (nx - 1) / 2, (ny - 1) / 2
+    centers = [(s - 1) / 2 for s in array_in.shape][::-1]
+    edges = sample_array_edges(array_in.shape, n_samples=2)[::-1]
 
-    cor_x = np.array([-0.5, -0.5, nx - 0.5, nx - 0.5])
-    cor_y = np.array([-0.5, ny - 0.5, ny - 0.5, -0.5])
+    if ndim == 2:
+        cen_skycoord = wcs_in.pixel_to_world(*centers)
+        cor_skycoord = wcs_in.pixel_to_world(*edges)
+    else:
+        for w in wcs_in.pixel_to_world(*centers):
+            if isinstance(w, SkyCoord):
+                cen_skycoord = w
+        for w in wcs_in.pixel_to_world(*edges):
+            if isinstance(w, SkyCoord):
+                cor_skycoord = w
+            if isinstance(w, SpectralCoord):
+                cor_spectralcoord = w
 
-    cen_world = wcs_in.pixel_to_world(cen_x, cen_y)
-    cor_world = wcs_in.pixel_to_world(cor_x, cor_y)
-
-    separations = cor_world.separation(cen_world)
+    separations = cor_skycoord.separation(cen_skycoord)
 
     if np.any(np.isnan(separations)):
 
@@ -245,7 +291,7 @@ def reproject_to_hips(
     # TODO: in future if astropy-healpix implements polygon searches, we could
     # use that instead
 
-    # Determine all the indices at the highest level
+    # Determine all the celestial indices at the highest level
 
     nside = level_to_nside(level)
     hp = HEALPix(nside=nside, order="nested", frame=frame)
@@ -253,7 +299,15 @@ def reproject_to_hips(
     if radius > 120 * u.deg:
         indices = np.arange(hp.npix)
     else:
-        indices = hp.cone_search_skycoord(cen_world, radius=radius)
+        indices = hp.cone_search_skycoord(cen_skycoord, radius=radius)
+
+    if ndim == 3:
+        # Determine all the spectral indices at the highest spectral level
+        spectral_indices_edges = spectral_coord_to_index(level_depth, cor_spectralcoord)
+        spectral_indices = np.arange(spectral_indices_edges.min(), spectral_indices_edges.max())
+        indices = list(product(indices, spectral_indices))
+        level = (level, level_depth)
+        tile_size = (tile_size, tile_depth)
 
     logger.info(f"Found {len(indices)} tiles (at most) to generate at level {level}")
 
@@ -415,7 +469,7 @@ def reproject_to_hips(
 
     # Generate properties file
 
-    cen_icrs = cen_world.icrs
+    cen_icrs = cen_skycoord.icrs
 
     for key in properties:
         if key in RESERVED_PROPERTIES:

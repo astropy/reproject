@@ -1,8 +1,11 @@
 import os
 import urllib
+from numbers import Number
 from pathlib import Path
 
 import numpy as np
+from astropy import units as u
+from astropy.coordinates import SpectralCoord
 from astropy.wcs.utils import celestial_frame_to_wcs
 from astropy_healpix import (
     HEALPix,
@@ -13,11 +16,33 @@ __all__ = [
     "map_header",
     "tile_header",
     "tile_filename",
+    "tile_filename_3d",
     "make_tile_folders",
     "is_url",
     "load_properties",
     "save_properties",
+    "spectral_coord_to_index",
+    "spectral_index_to_coord",
 ]
+
+
+FREQ_MIN = 1e-18  # Hz
+FREQ_MAX = 1e38  # Hz
+FREQ_MAX_ORDER = 52
+
+
+def spectral_index_to_coord(level, index):
+    return SpectralCoord(
+        10 ** (index / 2**level * np.log10(FREQ_MAX / FREQ_MIN) + np.log10(FREQ_MIN)) * u.Hz
+    )
+
+
+def spectral_coord_to_index(level, coord):
+    return (
+        np.floor(
+            2**level * np.log10(coord.to_value(u.Hz) / FREQ_MIN) / np.log10(FREQ_MAX / FREQ_MIN)
+        )
+    ).astype(int)
 
 
 def map_header(*, level, frame, tile_size):
@@ -54,6 +79,26 @@ def map_header(*, level, frame, tile_size):
 
 
 def tile_header(*, level, index, frame, tile_size):
+    if isinstance(level, Number):
+        return tile_header_2d(
+            level=level,
+            index=index,
+            frame=frame,
+            tile_size=tile_size,
+        )
+    else:
+        return tile_header_3d(
+            spatial_level=level[0],
+            spatial_index=index[0],
+            spectral_level=level[1],
+            spectral_index=index[1],
+            frame=frame,
+            tile_size=tile_size[0],
+            tile_depth=tile_size[1],
+        )
+
+
+def tile_header_2d(*, level, index, frame, tile_size):
     """
     Return the WCS for a given HiPS tile
     """
@@ -108,22 +153,96 @@ def tile_header(*, level, index, frame, tile_size):
         return header
 
 
-def _rounded_index(index):
+def tile_header_3d(
+    *, spatial_level, spatial_index, spectral_level, spectral_index, frame, tile_size, tile_depth
+):
+
+    # First get the 2D header
+    header = tile_header_2d(
+        level=spatial_level, index=spatial_index, frame=frame, tile_size=tile_size
+    )
+
+    # Then modify it to be 3D
+    header["NAXIS"] = 3
+    header["NAXIS3"] = tile_depth
+    header["FORDER"] = spectral_level
+    header["FPIX"] = spectral_index
+    header["CTYPE3"] = "FREQ-LOG"
+    header["CUNIT3"] = "Hz"
+    header["CRPIX3"] = 1 - spectral_index * tile_depth
+    header["CRVAL3"] = FREQ_MIN
+    header["CDELT3"] = (
+        FREQ_MIN * np.log(FREQ_MAX / FREQ_MIN) / 2 ** (spectral_level + np.log2(tile_depth))
+    )
+
+    return header
+
+
+def _rounded_spatial_index(index):
     return 10000 * (index // 10000)
 
 
+def _rounded_spectral_index(index):
+    return 10 * (index // 10)
+
+
 def tile_filename(*, level, index, output_directory, extension):
+    if isinstance(level, Number):
+        return tile_filename_2d(
+            level=level, index=index, output_directory=output_directory, extension=extension
+        )
+    else:
+        return tile_filename_3d(
+            spatial_level=level[0],
+            spatial_index=index[0],
+            spectral_level=level[1],
+            spectral_index=index[1],
+            output_directory=output_directory,
+            extension=extension,
+        )
+
+
+def tile_filename_2d(*, level, index, output_directory, extension):
     return os.path.join(
         output_directory,
         f"Norder{level}",
-        f"Dir{_rounded_index(index)}",
+        f"Dir{_rounded_spatial_index(index)}",
         f"Npix{index}.{extension}",
     )
 
 
-def make_tile_folders(*, level, indices, output_directory):
+def tile_filename_3d(
+    *, spatial_level, spectral_level, spatial_index, spectral_index, output_directory, extension
+):
+    return os.path.join(
+        output_directory,
+        f"Norder{spatial_level}_{spectral_level}",
+        f"Dir{_rounded_spatial_index(spatial_index)}_{_rounded_spectral_index(spectral_index)}",
+        f"Npix{spatial_index}_{spectral_index}.{extension}",
+    )
 
-    rounded_indices = np.unique(_rounded_index(indices))
+
+def make_tile_folders(*, level, indices, output_directory):
+    if isinstance(level, Number):
+        make_tile_folders_2d(
+            level=level,
+            indices=indices,
+            output_directory=output_directory,
+        )
+    else:
+        indices = list(zip(*indices, strict=False))
+        make_tile_folders_3d(
+            spatial_level=level[0],
+            spectral_level=level[1],
+            spatial_indices=np.array(indices[0]),
+            spectral_indices=np.array(indices[1]),
+            output_directory=output_directory,
+        )
+
+
+def make_tile_folders_2d(*, level, indices, output_directory):
+
+    rounded_indices = np.unique(_rounded_spatial_index(indices))
     for index in rounded_indices:
         dirname = os.path.dirname(
             tile_filename(level=level, index=index, output_directory=output_directory, extension="")
@@ -137,6 +256,26 @@ def is_url(directory):
         return False
     else:
         return directory.startswith("http://") or directory.startswith("https://")
+
+
+def make_tile_folders_3d(
+    *, spatial_level, spectral_level, spatial_indices, spectral_indices, output_directory
+):
+    rounded_spatial_indices = np.unique(_rounded_spatial_index(spatial_indices))
+    for spatial_index in rounded_spatial_indices:
+        for spectral_index in np.unique(_rounded_spectral_index(spectral_indices)):
+            dirname = os.path.dirname(
+                tile_filename_3d(
+                    spatial_level=spatial_level,
+                    spectral_level=spectral_level,
+                    spatial_index=spatial_index,
+                    spectral_index=spectral_index,
+                    output_directory=output_directory,
+                    extension="",
+                )
+            )
+            if not os.path.exists(dirname):
+                os.makedirs(dirname)
 
 
 def save_properties(directory, properties):

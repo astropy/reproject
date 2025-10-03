@@ -5,7 +5,7 @@ WCS-related utilities
 """
 
 import numpy as np
-from astropy.coordinates import SkyCoord
+from astropy.coordinates import SkyCoord, SpectralCoord
 from astropy.wcs import WCS
 from astropy.wcs.utils import pixel_to_pixel, proj_plane_pixel_scales
 
@@ -21,6 +21,19 @@ def has_celestial(wcs):
     else:
         for world_axis_class in wcs.low_level_wcs.world_axis_object_classes.values():
             if issubclass(world_axis_class[0], SkyCoord):
+                return True
+        return False
+
+
+def has_spectral(wcs):
+    """
+    Returns `True` if there are spectral coordinates in the WCS.
+    """
+    if isinstance(wcs, WCS):
+        return wcs.has_spectral
+    else:
+        for world_axis_class in wcs.low_level_wcs.world_axis_object_classes.values():
+            if issubclass(world_axis_class[0], SpectralCoord):
                 return True
         return False
 
@@ -53,9 +66,11 @@ def pixel_scale(wcs, shape):
 
     if isinstance(wcs, WCS):
         scales = [
-            abs(s) * u for (s, u) in zip(proj_plane_pixel_scales(wcs), wcs.wcs.cunit, strict=False)
+            abs(s) * u
+            for (s, u) in zip(proj_plane_pixel_scales(wcs.celestial), wcs.wcs.cunit, strict=False)
         ]
     else:
+        # TODO: fix the following for 3D APE-14 WCS
         xp, yp = (shape[1] - 1) / 2, (shape[0] - 1) / 2
         xs = np.array([xp, xp, xp + 1])
         ys = np.array([yp, yp + 1, yp])
