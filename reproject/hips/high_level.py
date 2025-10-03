@@ -199,10 +199,14 @@ def reproject_to_hips(
     else:
         raise Exception("Can only reproject data with 2-d or 3-d WCS")
 
-    if array_in.ndim != ndim:
-        raise Exception(
-            f"Input array dimensionality ({array_in.ndim}) should match WCS dimensionality ({ndim})"
-        )
+    if ndim == 2:
+        if array_in.ndim not in (2, 3):
+            raise Exception("Input array should have 2 or 3 dimensions for 2-dimensional input WCS")
+    else:
+        if array_in.ndim != ndim:
+            raise Exception(
+                f"Input array dimensionality ({array_in.ndim}) should match WCS dimensionality ({ndim})"
+            )
 
     logger = getLogger(__name__)
 
@@ -247,8 +251,8 @@ def reproject_to_hips(
 
     ny, nx = array_in.shape[-2:]
 
-    centers = [(s - 1) / 2 for s in array_in.shape][::-1]
-    edges = sample_array_edges(array_in.shape, n_samples=2)[::-1]
+    centers = [(s - 1) / 2 for s in array_in.shape[-wcs_in.pixel_n_dim:]][::-1]
+    edges = sample_array_edges(array_in.shape[-wcs_in.pixel_n_dim:], n_samples=2)[::-1]
 
     if ndim == 2:
         cen_skycoord = wcs_in.pixel_to_world(*centers)
