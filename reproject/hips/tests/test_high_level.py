@@ -252,14 +252,52 @@ SPECSYS = 'LSRK'
 """
 
 
-EXPECTED_FILES_CUBE = []
+EXPECTED_FILES_CUBE = [
+    "Norder1_9/Dir0_260/Npix3_268.fits",
+    "Norder2_10/Dir0_530/Npix15_536.fits",
+    "Norder3_11/Dir0_1070/Npix60_1073.fits",
+    "Norder4_12/Dir0_2140/Npix240_2147.fits",
+    "Norder4_12/Dir0_2140/Npix241_2147.fits",
+    "Norder5_13/Dir0_4290/Npix961_4294.fits",
+    "Norder5_13/Dir0_4290/Npix964_4294.fits",
+    "Norder6_14/Dir0_8580/Npix3845_8588.fits",
+    "Norder6_14/Dir0_8580/Npix3845_8589.fits",
+    "Norder6_14/Dir0_8580/Npix3856_8588.fits",
+    "Norder6_14/Dir0_8580/Npix3856_8589.fits",
+    "Norder7_15/Dir10000_17170/Npix15381_17177.fits",
+    "Norder7_15/Dir10000_17170/Npix15381_17178.fits",
+    "Norder7_15/Dir10000_17170/Npix15383_17177.fits",
+    "Norder7_15/Dir10000_17170/Npix15383_17178.fits",
+    "Norder7_15/Dir10000_17170/Npix15426_17177.fits",
+    "Norder7_15/Dir10000_17170/Npix15426_17178.fits",
+    "Norder8_16/Dir60000_34350/Npix61527_34355.fits",
+    "Norder8_16/Dir60000_34350/Npix61527_34356.fits",
+    "Norder8_16/Dir60000_34350/Npix61527_34357.fits",
+    "Norder8_16/Dir60000_34350/Npix61532_34355.fits",
+    "Norder8_16/Dir60000_34350/Npix61532_34356.fits",
+    "Norder8_16/Dir60000_34350/Npix61532_34357.fits",
+    "Norder8_16/Dir60000_34350/Npix61533_34355.fits",
+    "Norder8_16/Dir60000_34350/Npix61533_34356.fits",
+    "Norder8_16/Dir60000_34350/Npix61533_34357.fits",
+    "Norder8_16/Dir60000_34350/Npix61534_34355.fits",
+    "Norder8_16/Dir60000_34350/Npix61534_34356.fits",
+    "Norder8_16/Dir60000_34350/Npix61534_34357.fits",
+    "Norder8_16/Dir60000_34350/Npix61535_34355.fits",
+    "Norder8_16/Dir60000_34350/Npix61535_34356.fits",
+    "Norder8_16/Dir60000_34350/Npix61535_34357.fits",
+    "Norder8_16/Dir60000_34350/Npix61704_34355.fits",
+    "Norder8_16/Dir60000_34350/Npix61704_34356.fits",
+    "Norder8_16/Dir60000_34350/Npix61704_34357.fits",
+    "index.html",
+    "properties",
+]
 
 
 def test_reproject_to_hips3d_spectral(tmp_path):
 
-    shape = (100, 200, 300)
+    shape = (15, 16, 17)
 
-    cube_data = np.arange(prod(shape))
+    cube_data = np.arange(prod(shape)).reshape(shape)
     cube_wcs = WCS(Header.fromstring(HEADER_SPECTRAL, sep="\n"))
 
     output_directory = tmp_path / "output"
@@ -269,6 +307,9 @@ def test_reproject_to_hips3d_spectral(tmp_path):
         coord_system_out="equatorial",
         reproject_function=reproject_interp,
         output_directory=output_directory,
+        threads=True,
+        tile_size=16,
+        tile_depth=8,
     )
 
     assert_files_expected(output_directory, EXPECTED_FILES_CUBE)

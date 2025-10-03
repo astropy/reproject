@@ -78,13 +78,13 @@ def map_header(*, level, frame, tile_size):
     return header
 
 
-def tile_header(*, level, index, frame, tile_size):
+def tile_header(*, level, index, frame, tile_dims):
     if isinstance(level, Number):
         return tile_header_2d(
             level=level,
             index=index,
             frame=frame,
-            tile_size=tile_size,
+            tile_size=tile_dims,
         )
     else:
         return tile_header_3d(
@@ -93,8 +93,8 @@ def tile_header(*, level, index, frame, tile_size):
             spectral_level=level[1],
             spectral_index=index[1],
             frame=frame,
-            tile_size=tile_size[0],
-            tile_depth=tile_size[1],
+            tile_size=tile_dims[0],
+            tile_depth=tile_dims[1],
         )
 
 
