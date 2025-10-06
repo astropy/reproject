@@ -339,7 +339,6 @@ def reproject_to_hips(
         tile_dims = tile_size
 
     logger.info(f"Found {len(indices)} tiles (at most) to generate at level {level}")
-    print(f"Found {len(indices)} tiles (at most) to generate at level {level}")
 
     # PERF: the code above may be prohibitive for large numbers of tiles,
     # so we may want to find a way to iterate over these in chunks.
