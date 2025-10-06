@@ -28,19 +28,21 @@ __all__ = [
 
 FREQ_MIN = 1e-18  # Hz
 FREQ_MAX = 1e38  # Hz
-FREQ_MAX_ORDER = 52
+FREQ_MAX_ORDER = 51
 
 
 def spectral_index_to_coord(level, index):
     return SpectralCoord(
-        10 ** (index / 2**level * np.log10(FREQ_MAX / FREQ_MIN) + np.log10(FREQ_MIN)) * u.Hz
+        10 ** (index / 2 ** (level + 1) * np.log10(FREQ_MAX / FREQ_MIN) + np.log10(FREQ_MIN)) * u.Hz
     )
 
 
 def spectral_coord_to_index(level, coord):
     return (
         np.floor(
-            2**level * np.log10(coord.to_value(u.Hz) / FREQ_MIN) / np.log10(FREQ_MAX / FREQ_MIN)
+            2 ** (level + 1)
+            * np.log10(coord.to_value(u.Hz) / FREQ_MIN)
+            / np.log10(FREQ_MAX / FREQ_MIN)
         )
     ).astype(int)
 
@@ -172,7 +174,7 @@ def tile_header_3d(
     header["CRPIX3"] = 1 - spectral_index * tile_depth
     header["CRVAL3"] = FREQ_MIN
     header["CDELT3"] = (
-        FREQ_MIN * np.log(FREQ_MAX / FREQ_MIN) / 2 ** (spectral_level + np.log2(tile_depth))
+        FREQ_MIN * np.log(FREQ_MAX / FREQ_MIN) / 2 ** (spectral_level + 1 + np.log2(tile_depth))
     )
 
     return header

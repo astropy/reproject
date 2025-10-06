@@ -314,7 +314,6 @@ def reproject_to_hips(
 
             for level_depth in range(52):  # FREQ_MAX_ORDER
                 spectral_indices_edges = spectral_coord_to_index(level_depth, cor_spectralcoord)
-                print(np.ptp(spectral_indices_edges), array_in.shape[0])
                 if np.ptp(spectral_indices_edges) > array_in.shape[0]:
                     break
             else:
@@ -578,7 +577,7 @@ def reproject_to_hips(
         "hips_status": "public master clonableOnce",
         "hips_tile_format": tile_format,
         "hips_tile_width": tile_size,
-        "hips_order": level,
+        "hips_order": spatial_level,
         "hips_frame": coord_system_out,
         "hips_builder": "astropy/reproject",
         "hips_initial_ra": cen_icrs.ra.deg,
@@ -591,8 +590,13 @@ def reproject_to_hips(
     else:
         generated_properties["dataproduct_type"] = "spectral-cube"
         generated_properties["hips_order_freq"] = level_depth
+        generated_properties["hips_order_min"] = 0
         generated_properties["hips_tile_depth"] = tile_depth
         generated_properties["hips_tile_depth"] = tile_depth
+        wav = cor_spectralcoord.to_value(u.m)
+        generated_properties["em_min"] = wav.min()
+        generated_properties["em_max"] = wav.max()
+        # generated_properties["obs_restfreq"] = cor_spectralcoord.mean().to_value('Hz')
 
     if tile_format == "fits":
         generated_properties["hips_pixel_bitpix"] = -64
