@@ -163,25 +163,11 @@ def map_coordinates(
         else:
             padding = 10
 
-        # If the target coordinates only cover some of the input array, we can
-        # clip the input array and offset the coordinates
-
-        # slices = []
-        # for idim in range(image.ndim):
-        #     coord_min = max(0, int(coords[idim, :].min() - padding))
-        #     coord_max = min(image.shape[idim], int(coords[idim, :].max()) + padding)
-        #     if coord_min > 0:
-        #         coords[idim, :] -= coord_min
-        #     slices.append(slice(coord_min, coord_max))
-        # image = image[tuple(slices)]
-
         for chunk in iterate_chunks(image.shape, max_chunk_size=max_chunk_size):
 
             include[...] = True
             for idim, slc in enumerate(chunk):
-                include[
-                    (coords[idim] < slc.start) | (coords[idim] >= slc.stop) | np.isnan(coords[idim])
-                ] = False
+                include[(coords[idim] < slc.start) | (coords[idim] >= slc.stop)] = False
 
             if not np.any(include):
                 continue
