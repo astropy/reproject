@@ -4,12 +4,19 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from datetime import datetime
+from itertools import product
 from logging import getLogger
 from pathlib import Path
 
 import numpy as np
 from astropy import units as u
-from astropy.coordinates import ICRS, BarycentricTrueEcliptic, Galactic
+from astropy.coordinates import (
+    ICRS,
+    BarycentricTrueEcliptic,
+    Galactic,
+    SkyCoord,
+    SpectralCoord,
+)
 from astropy.io import fits
 from astropy.nddata import block_reduce
 from astropy_healpix import (
@@ -20,12 +27,14 @@ from astropy_healpix import (
 )
 from PIL import Image
 
+from ..array_utils import sample_array_edges
 from ..utils import as_transparent_rgb, is_jpeg, is_png, parse_input_data
-from ..wcs_utils import has_celestial, pixel_scale
+from ..wcs_utils import has_celestial, has_spectral, pixel_scale
 from .utils import (
     load_properties,
     make_tile_folders,
     save_properties,
+    spectral_coord_to_index,
     tile_filename,
     tile_header,
 )
@@ -49,7 +58,7 @@ INDEX_HTML = """
 <body></body>
 
 <script type="text/javascript">
-    buildLandingPage();
+    buildLandingPage({alScriptURL: 'https://aladin.cds.unistra.fr/AladinLite/api/v3/3.7.2-beta/aladin.js'});
 </script>
 
 </html>
@@ -87,8 +96,10 @@ def reproject_to_hips(
     reproject_function,
     output_directory,
     level=None,
+    level_depth=None,
     hdu_in=0,
     tile_size=512,
+    tile_depth=16,
     progress_bar=None,
     threads=False,
     properties=None,
@@ -125,12 +136,16 @@ def reproject_to_hips(
         The name of the output directory - if this already exists, an error
         will be raised.
     level : int, optional
-        The number of levels of FITS tiles.
+        The number of levels of tiles for celestial coordinates.
+    level_depth : int, optional
+        The number of levels of tiles for the third (e.g. spectral) dimension.
     hdu_in : int or str, optional
         If ``input_data`` is a FITS file or an `~astropy.io.fits.HDUList`
         instance, specifies the HDU to use.
-    tile_size : int, optional
-        The size of each individual tile (defaults to 512).
+    tile_size : int or tuple, optional
+        The size of each individual tile (defaults to 512) for celestial dimensions.
+    tile_depth : int or tuple, optional
+        The depth of each individual tile (defaults to 16) for the third (e.g. spectral) dimension when present.
     progress_bar : callable, optional
         If specified, use this as a progress_bar to track loop iterations over
         data sets.
@@ -162,14 +177,39 @@ def reproject_to_hips(
 
     array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
 
-    if not (
-        has_celestial(wcs_in)
-        and wcs_in.low_level_wcs.pixel_n_dim == 2
-        and wcs_in.low_level_wcs.world_n_dim == 2
-    ):
-        raise NotImplementedError(
-            "Only data with a 2-d celestial WCS can be reprojected to HiPS tiles"
+    if not has_celestial(wcs_in):
+        raise Exception("Only data with a celestial WCS can be reprojected to HiPS tiles")
+
+    if wcs_in.low_level_wcs.pixel_n_dim != wcs_in.low_level_wcs.world_n_dim:
+        raise Exception(
+            f"Number of pixel ({wcs_in.low_level_wcs.pixel_n_dim}) "
+            f"and world ({wcs_in.low_level_wcs.world_n_dim}) "
+            f"dimensions do not match"
         )
+
+    if wcs_in.low_level_wcs.pixel_n_dim == 2:
+        ndim = 2
+    elif wcs_in.low_level_wcs.pixel_n_dim == 3:
+        if has_spectral(wcs_in):
+            ndim = 3
+        else:
+            raise NotImplementedError(
+                "Only 3-d data with a spectral axis are supported at this time"
+            )
+    else:
+        raise Exception("Can only reproject data with 2-d or 3-d WCS")
+
+    if ndim == 2:
+        if array_in.ndim not in (2, 3):
+            raise Exception("Input array should have 2 or 3 dimensions for 2-dimensional input WCS")
+    else:
+        if array_in.ndim != ndim:
+            raise Exception(
+                f"Input array dimensionality ({array_in.ndim}) should match WCS dimensionality ({ndim})"
+            )
+
+    if ndim == 3 and tile_format != "fits":
+        raise ValueError("Only FITS tiles are supported in HiPS3D mode")
 
     logger = getLogger(__name__)
 
@@ -193,10 +233,12 @@ def reproject_to_hips(
     if progress_bar is None:
         progress_bar = lambda x: x
 
+    # Determine celestial level if not specified
+
     if level is None:
         scale = pixel_scale(wcs_in, array_in.shape)
         nside = pixel_resolution_to_nside(scale * tile_size)
-        level = nside_to_level(nside)
+        level = int(nside_to_level(nside))
         logger.info(f"Automatically set the HEALPIX level to {level}")
 
     # Create output directory (and error if it already exists)
@@ -209,15 +251,23 @@ def reproject_to_hips(
 
     ny, nx = array_in.shape[-2:]
 
-    cen_x, cen_y = (nx - 1) / 2, (ny - 1) / 2
+    centers = [(s - 1) / 2 for s in array_in.shape[-wcs_in.pixel_n_dim :]][::-1]
+    edges = sample_array_edges(array_in.shape[-wcs_in.pixel_n_dim :], n_samples=2)[::-1]
 
-    cor_x = np.array([-0.5, -0.5, nx - 0.5, nx - 0.5])
-    cor_y = np.array([-0.5, ny - 0.5, ny - 0.5, -0.5])
+    if ndim == 2:
+        cen_skycoord = wcs_in.pixel_to_world(*centers)
+        cor_skycoord = wcs_in.pixel_to_world(*edges)
+    else:
+        for w in wcs_in.pixel_to_world(*centers):
+            if isinstance(w, SkyCoord):
+                cen_skycoord = w
+        for w in wcs_in.pixel_to_world(*edges):
+            if isinstance(w, SkyCoord):
+                cor_skycoord = w
+            if isinstance(w, SpectralCoord):
+                cor_spectralcoord = w
 
-    cen_world = wcs_in.pixel_to_world(cen_x, cen_y)
-    cor_world = wcs_in.pixel_to_world(cor_x, cor_y)
-
-    separations = cor_world.separation(cen_world)
+    separations = cor_skycoord.separation(cen_skycoord)
 
     if np.any(np.isnan(separations)):
 
@@ -245,7 +295,7 @@ def reproject_to_hips(
     # TODO: in future if astropy-healpix implements polygon searches, we could
     # use that instead
 
-    # Determine all the indices at the highest level
+    # Determine all the celestial indices at the highest level
 
     nside = level_to_nside(level)
     hp = HEALPix(nside=nside, order="nested", frame=frame)
@@ -253,7 +303,40 @@ def reproject_to_hips(
     if radius > 120 * u.deg:
         indices = np.arange(hp.npix)
     else:
-        indices = hp.cone_search_skycoord(cen_world, radius=radius)
+        indices = hp.cone_search_skycoord(cen_skycoord, radius=radius)
+
+    spatial_level = level
+
+    if ndim == 3:
+
+        # If depth level has not been specified, try and determine it
+        if level_depth is None:
+
+            for level_depth in range(52):  # FREQ_MAX_ORDER
+                spectral_indices_edges = spectral_coord_to_index(level_depth, cor_spectralcoord)
+                if np.ptp(spectral_indices_edges) > array_in.shape[0]:
+                    break
+            else:
+                raise Exception(
+                    "Could not determine depth level automatically, specify manually with level_depth="
+                )
+
+            level_depth = max(0, level_depth - int(np.log2(tile_depth)))
+
+            logger.info(f"Automatically set the Spectral level to {level_depth}")
+
+        # Determine all the spectral indices at the highest spectral level
+        spectral_indices_edges = spectral_coord_to_index(level_depth, cor_spectralcoord)
+        spectral_indices = np.arange(spectral_indices_edges.min(), spectral_indices_edges.max())
+        indices = [
+            (int(idx), int(spec_idx)) for (idx, spec_idx) in product(indices, spectral_indices)
+        ]
+        level = (level, level_depth)
+        tile_dims = (tile_size, tile_depth)
+
+    else:
+
+        tile_dims = tile_size
 
     logger.info(f"Found {len(indices)} tiles (at most) to generate at level {level}")
 
@@ -270,7 +353,7 @@ def reproject_to_hips(
         else:
             wcs_in_copy = deepcopy(wcs_in)
 
-        header = tile_header(level=level, index=index, frame=frame, tile_size=tile_size)
+        header = tile_header(level=level, index=index, frame=frame, tile_dims=tile_dims)
 
         if isinstance(header, tuple):
             array_out1, footprint1 = reproject_function(
@@ -288,11 +371,11 @@ def reproject_to_hips(
         else:
             array_out, footprint = reproject_function((array_in, wcs_in_copy), header, **kwargs)
 
-        if tile_format != "png":
-            array_out[np.isnan(array_out)] = 0.0
         if np.all(footprint == 0):
             return None
+
         if tile_format == "fits":
+            array_out[footprint == 0] = np.nan
             fits.writeto(
                 tile_filename(
                     level=level,
@@ -307,6 +390,7 @@ def reproject_to_hips(
             if tile_format == "png":
                 image = as_transparent_rgb(array_out, alpha=footprint[0])
             else:
+                array_out[np.isnan(array_out)] = 0.0
                 image = as_transparent_rgb(array_out).convert("RGB")
             image.save(
                 tile_filename(
@@ -334,60 +418,124 @@ def reproject_to_hips(
             if result is not None:
                 generated_indices.append(result)
 
-    indices = np.array(generated_indices)
+    indices = generated_indices
 
     # Iterate over higher levels and compute lower resolution tiles
 
     half_tile_size = tile_size // 2
+    if ndim == 3:
+        half_tile_depth = tile_depth // 2
 
-    for ilevel in range(level - 1, -1, -1):
+    for sub in range(1, spatial_level + 1):
+
+        if ndim == 2:
+            ilevel = spatial_level - sub
+        else:
+            ilevel = (spatial_level - sub, level_depth - sub)
 
         # Find index of tiles to produce at lower-resolution levels
-        indices = np.sort(np.unique(indices // 4))
+        if ndim == 2:
+            indices = np.sort(np.unique(np.asarray(indices) // 4))
+        else:
+            indices = sorted(
+                set(
+                    [
+                        (spatial_index // 4, spectral_index // 2)
+                        for (spatial_index, spectral_index) in indices
+                    ]
+                )
+            )
 
         make_tile_folders(level=ilevel, indices=indices, output_directory=output_directory)
 
         for index in indices:
 
-            header = tile_header(level=ilevel, index=index, frame=frame, tile_size=tile_size)
+            header = tile_header(level=ilevel, index=index, frame=frame, tile_dims=tile_dims)
 
             if isinstance(header, tuple):
                 header = header[0]
 
-            if tile_format == "fits":
-                array = np.zeros((tile_size, tile_size))
-            elif tile_format == "png":
-                array = np.zeros((tile_size, tile_size, 4), dtype=np.uint8)
-            else:
-                array = np.zeros((tile_size, tile_size, 3), dtype=np.uint8)
+            if ndim == 2:
 
-            for subindex in range(4):
+                if tile_format == "fits":
+                    array = np.zeros((tile_size, tile_size))
+                elif tile_format == "png":
+                    array = np.zeros((tile_size, tile_size, 4), dtype=np.uint8)
+                else:
+                    array = np.zeros((tile_size, tile_size, 3), dtype=np.uint8)
 
-                current_index = 4 * index + subindex
-                subtile_filename = tile_filename(
-                    level=ilevel + 1,
-                    index=current_index,
-                    output_directory=output_directory,
-                    extension=EXTENSION[tile_format],
-                )
+                for subindex in range(4):
 
-                if os.path.exists(subtile_filename):
+                    current_index = 4 * index + subindex
+                    subtile_filename = tile_filename(
+                        level=ilevel + 1,
+                        index=current_index,
+                        output_directory=output_directory,
+                        extension=EXTENSION[tile_format],
+                    )
 
-                    if tile_format == "fits":
-                        data = block_reduce(fits.getdata(subtile_filename), 2, func=np.mean)
-                    else:
-                        data = block_reduce(
-                            np.array(Image.open(subtile_filename))[::-1], (2, 2, 1), func=np.mean
+                    if os.path.exists(subtile_filename):
+
+                        if tile_format == "fits":
+                            data = block_reduce(fits.getdata(subtile_filename), 2, func=np.mean)
+                        else:
+                            data = block_reduce(
+                                np.array(Image.open(subtile_filename))[::-1],
+                                (2, 2, 1),
+                                func=np.mean,
+                            )
+
+                        if subindex == 0:
+                            array[half_tile_size:, :half_tile_size] = data
+                        elif subindex == 2:
+                            array[half_tile_size:, half_tile_size:] = data
+                        elif subindex == 1:
+                            array[:half_tile_size, :half_tile_size] = data
+                        elif subindex == 3:
+                            array[:half_tile_size, half_tile_size:] = data
+
+            elif ndim == 3:
+
+                array = np.ones((tile_depth, tile_size, tile_size)) * np.nan
+
+                for subindex in range(4):
+                    for subindex_spec in range(2):
+
+                        current_index = (4 * index[0] + subindex, 2 * index[1] + subindex_spec)
+                        subtile_filename = tile_filename(
+                            level=(ilevel[0] + 1, ilevel[1] + 1),
+                            index=current_index,
+                            output_directory=output_directory,
+                            extension=EXTENSION[tile_format],
                         )
 
-                    if subindex == 0:
-                        array[half_tile_size:, :half_tile_size] = data
-                    elif subindex == 2:
-                        array[half_tile_size:, half_tile_size:] = data
-                    elif subindex == 1:
-                        array[:half_tile_size, :half_tile_size] = data
-                    elif subindex == 3:
-                        array[:half_tile_size, half_tile_size:] = data
+                        if os.path.exists(subtile_filename):
+
+                            data = block_reduce(fits.getdata(subtile_filename), 2, func=np.mean)
+
+                            if subindex_spec == 0:
+                                subtile_slice = [slice(None, half_tile_depth)]
+                            else:
+                                subtile_slice = [slice(half_tile_depth, None)]
+
+                            if subindex == 0:
+                                subtile_slice.extend(
+                                    [slice(half_tile_size, None), slice(None, half_tile_size)]
+                                )
+                            elif subindex == 2:
+                                subtile_slice.extend(
+                                    [slice(half_tile_size, None), slice(half_tile_size, None)]
+                                )
+                            elif subindex == 1:
+                                subtile_slice.extend(
+                                    [slice(None, half_tile_size), slice(None, half_tile_size)]
+                                )
+                            elif subindex == 3:
+                                subtile_slice.extend(
+                                    [slice(None, half_tile_size), slice(half_tile_size, None)]
+                                )
+
+                            array[tuple(subtile_slice)] = data
 
             if tile_format == "fits":
                 fits.writeto(
@@ -415,7 +563,7 @@ def reproject_to_hips(
 
     # Generate properties file
 
-    cen_icrs = cen_world.icrs
+    cen_icrs = cen_skycoord.icrs
 
     for key in properties:
         if key in RESERVED_PROPERTIES:
@@ -424,19 +572,31 @@ def reproject_to_hips(
     generated_properties = {
         "creator_did": f"ivo://reproject/P/{str(uuid.uuid4())}",
         "obs_title": os.path.dirname(output_directory),
-        "dataproduct_type": "image",
         "hips_version": "1.4",
         "hips_release_date": datetime.now().isoformat(),
         "hips_status": "public master clonableOnce",
         "hips_tile_format": tile_format,
         "hips_tile_width": tile_size,
-        "hips_order": level,
+        "hips_order": spatial_level,
         "hips_frame": coord_system_out,
         "hips_builder": "astropy/reproject",
         "hips_initial_ra": cen_icrs.ra.deg,
         "hips_initial_dec": cen_icrs.dec.deg,
         "hips_initial_fov": radius.deg,
     }
+
+    if ndim == 2:
+        generated_properties["dataproduct_type"] = "image"
+    else:
+        generated_properties["dataproduct_type"] = "spectral-cube"
+        generated_properties["hips_order_freq"] = level_depth
+        generated_properties["hips_order_min"] = 0
+        generated_properties["hips_tile_depth"] = tile_depth
+        generated_properties["hips_tile_depth"] = tile_depth
+        wav = cor_spectralcoord.to_value(u.m)
+        generated_properties["em_min"] = wav.min()
+        generated_properties["em_max"] = wav.max()
+        # generated_properties["obs_restfreq"] = cor_spectralcoord.mean().to_value('Hz')
 
     if tile_format == "fits":
         generated_properties["hips_pixel_bitpix"] = -64

@@ -142,3 +142,13 @@ By default, tiles are computed and written out in a single thread, but it is pos
 to enable multi-threading, either by setting ``threads=True`` (which automatically
 selects the number of threads), or e.g. ``threads=8`` to set the number of threads
 explicitly.
+
+Generating HiPS3D datasets
+==========================
+
+The :func:`~reproject.hips.reproject_to_hips` function can also be used to reproject
+spectral cubes to spectral HiPS3D datasets. When use in this way, the following
+arguments can be used to control the spectral axis:
+
+* ``tile_depth=``: the depth of the tile in pixels, analogous to ``tile_size=``
+* ``level_depth=``: the order of the spectral tile indexing, analogous to ``level=`` for the spatial dimensions

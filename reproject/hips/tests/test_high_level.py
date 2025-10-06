@@ -1,7 +1,9 @@
 import re
+from math import prod
 
 import numpy as np
 import pytest
+from astropy.io.fits import Header
 from astropy.wcs import WCS
 from PIL import Image
 from pyavm import AVM
@@ -227,3 +229,91 @@ def test_reproject_to_hips_alpha(tmp_path, simple_celestial_fits_wcs):
     assert result[:, :, 0].size == 262144
     assert np.all(count[:3] > 50000)
     assert count[3] < 4000
+
+
+HEADER_SPECTRAL = """
+WCSAXES = 3
+CRPIX1  = 10.
+CRPIX2  = 20.
+CRPIX3  = 30.
+CDELT1  = -0.02
+CDELT2  = 0.02
+CDELT3  = 0.1
+CUNIT1  = 'deg'
+CUNIT2  = 'deg'
+CUNIT3  = 'GHz'
+CTYPE1  = 'RA---SIN'
+CTYPE2  = 'DEC--SIN'
+CTYPE3  = 'FREQ'
+CRVAL1  = 50.
+CRVAL2  = 70.
+CRVAL3  = 230.
+SPECSYS = 'LSRK'
+"""
+
+
+EXPECTED_FILES_CUBE = [
+    "Norder0_7/Dir0_130/Npix0_134.fits",
+    "Norder1_8/Dir0_260/Npix3_268.fits",
+    "Norder2_9/Dir0_530/Npix15_536.fits",
+    "Norder3_10/Dir0_1070/Npix60_1073.fits",
+    "Norder4_11/Dir0_2140/Npix240_2147.fits",
+    "Norder4_11/Dir0_2140/Npix241_2147.fits",
+    "Norder5_12/Dir0_4290/Npix961_4294.fits",
+    "Norder5_12/Dir0_4290/Npix964_4294.fits",
+    "Norder6_13/Dir0_8580/Npix3845_8588.fits",
+    "Norder6_13/Dir0_8580/Npix3845_8589.fits",
+    "Norder6_13/Dir0_8580/Npix3856_8588.fits",
+    "Norder6_13/Dir0_8580/Npix3856_8589.fits",
+    "Norder7_14/Dir10000_17170/Npix15381_17177.fits",
+    "Norder7_14/Dir10000_17170/Npix15381_17178.fits",
+    "Norder7_14/Dir10000_17170/Npix15383_17177.fits",
+    "Norder7_14/Dir10000_17170/Npix15383_17178.fits",
+    "Norder7_14/Dir10000_17170/Npix15426_17177.fits",
+    "Norder7_14/Dir10000_17170/Npix15426_17178.fits",
+    "Norder8_15/Dir60000_34350/Npix61527_34355.fits",
+    "Norder8_15/Dir60000_34350/Npix61527_34356.fits",
+    "Norder8_15/Dir60000_34350/Npix61527_34357.fits",
+    "Norder8_15/Dir60000_34350/Npix61532_34355.fits",
+    "Norder8_15/Dir60000_34350/Npix61532_34356.fits",
+    "Norder8_15/Dir60000_34350/Npix61532_34357.fits",
+    "Norder8_15/Dir60000_34350/Npix61533_34355.fits",
+    "Norder8_15/Dir60000_34350/Npix61533_34356.fits",
+    "Norder8_15/Dir60000_34350/Npix61533_34357.fits",
+    "Norder8_15/Dir60000_34350/Npix61534_34355.fits",
+    "Norder8_15/Dir60000_34350/Npix61534_34356.fits",
+    "Norder8_15/Dir60000_34350/Npix61534_34357.fits",
+    "Norder8_15/Dir60000_34350/Npix61535_34355.fits",
+    "Norder8_15/Dir60000_34350/Npix61535_34356.fits",
+    "Norder8_15/Dir60000_34350/Npix61535_34357.fits",
+    "Norder8_15/Dir60000_34350/Npix61704_34355.fits",
+    "Norder8_15/Dir60000_34350/Npix61704_34356.fits",
+    "Norder8_15/Dir60000_34350/Npix61704_34357.fits",
+    "index.html",
+    "properties",
+]
+
+
+def test_reproject_to_hips3d_spectral(tmp_path):
+
+    shape = (15, 16, 17)
+
+    cube_data = np.arange(prod(shape)).reshape(shape)
+    cube_wcs = WCS(Header.fromstring(HEADER_SPECTRAL, sep="\n"))
+
+    output_directory = tmp_path / "output"
+
+    reproject_to_hips(
+        (cube_data, cube_wcs),
+        coord_system_out="equatorial",
+        reproject_function=reproject_interp,
+        output_directory=output_directory,
+        threads=True,
+        tile_size=16,
+        tile_depth=8,
+    )
+
+    assert_files_expected(output_directory, EXPECTED_FILES_CUBE)
+
+
+# TODO: Add tests of different spectral frames
