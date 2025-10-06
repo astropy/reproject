@@ -58,7 +58,7 @@ INDEX_HTML = """
 <body></body>
 
 <script type="text/javascript">
-    buildLandingPage();
+    buildLandingPage({alScriptURL: 'https://aladin.cds.unistra.fr/AladinLite/api/v3/3.7.2-beta/aladin.js'});
 </script>
 
 </html>
