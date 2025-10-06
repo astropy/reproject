@@ -86,7 +86,7 @@ can now visualize the reprojected data and footprint:
 
 .. plot::
    :include-source:
-   :context:
+   :context: close-figs
 
     from astropy.wcs import WCS
     import matplotlib.pyplot as plt

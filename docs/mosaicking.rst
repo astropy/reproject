@@ -322,7 +322,7 @@ without shows vertical striping, especially on the left.
 .. plot::
    :include-source:
    :align: center
-   :context:
+   :context: close-figs
 
     import numpy as np
     import matplotlib.pyplot as plt
