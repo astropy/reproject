@@ -372,11 +372,11 @@ def reproject_to_hips(
         else:
             array_out, footprint = reproject_function((array_in, wcs_in_copy), header, **kwargs)
 
-        if tile_format != "png":
-            array_out[np.isnan(array_out)] = 0.0
         if np.all(footprint == 0):
             return None
+
         if tile_format == "fits":
+            array_out[footprint == 0] = np.nan
             fits.writeto(
                 tile_filename(
                     level=level,
@@ -391,6 +391,7 @@ def reproject_to_hips(
             if tile_format == "png":
                 image = as_transparent_rgb(array_out, alpha=footprint[0])
             else:
+                array_out[np.isnan(array_out)] = 0.0
                 image = as_transparent_rgb(array_out).convert("RGB")
             image.save(
                 tile_filename(
@@ -496,7 +497,7 @@ def reproject_to_hips(
 
             elif ndim == 3:
 
-                array = np.zeros((tile_depth, tile_size, tile_size))
+                array = np.ones((tile_depth, tile_size, tile_size)) * np.nan
 
                 for subindex in range(4):
                     for subindex_spec in range(2):
