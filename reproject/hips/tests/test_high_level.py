@@ -317,3 +317,4 @@ def test_reproject_to_hips3d_spectral(tmp_path):
 
 
 # TODO: Add tests of different spectral frames
+# TODO: Add test of auto level determination for all sky maps in 2D and 3D

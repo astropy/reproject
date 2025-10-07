@@ -280,7 +280,14 @@ def reproject_to_hips(
         ran_x = np.random.uniform(-0.5, nx - 0.5, n_ran)
         ran_y = np.random.uniform(-0.5, nx - 0.5, n_ran)
 
-        ran_world = wcs_in.pixel_to_world(ran_x, ran_y)
+        if ndim == 2:
+            ran_world = wcs_in.pixel_to_world(ran_x, ran_y)
+        elif ndim == 3:
+            # TODO: we should provide a convenience function to extract just celestial
+            for world in wcs_in.pixel_to_world(ran_x, ran_y, np.zeros(n_ran)):
+                if isinstance(world, SkyCoord):
+                    ran_world = world
+                    break
 
         separations = ran_world[:, None].separation(ran_world[None, :])
 
@@ -356,6 +363,7 @@ def reproject_to_hips(
         header = tile_header(level=level, index=index, frame=frame, tile_dims=tile_dims)
 
         if isinstance(header, tuple):
+
             array_out1, footprint1 = reproject_function(
                 (array_in, wcs_in_copy), header[0], **kwargs
             )
@@ -591,7 +599,6 @@ def reproject_to_hips(
         generated_properties["dataproduct_type"] = "spectral-cube"
         generated_properties["hips_order_freq"] = level_depth
         generated_properties["hips_order_min"] = 0
-        generated_properties["hips_tile_depth"] = tile_depth
         generated_properties["hips_tile_depth"] = tile_depth
         wav = cor_spectralcoord.to_value(u.m)
         generated_properties["em_min"] = wav.min()
