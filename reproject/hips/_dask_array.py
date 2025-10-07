@@ -38,7 +38,7 @@ class HiPSArray:
         elif self._properties["dataproduct_type"] == "spectral-cube":
             self.ndim = 3
         else:
-            raise TypeError(f"HiPS type {self._properties["dataproduct_type"]} not recognized")
+            raise TypeError(f"HiPS type {self._properties['dataproduct_type']} not recognized")
 
         self._tile_width = int(self._properties["hips_tile_width"])
         self._order_spatial = int(self._properties["hips_order"])
