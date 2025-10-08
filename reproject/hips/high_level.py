@@ -32,10 +32,10 @@ from .utils import (
     load_properties,
     make_tile_folders,
     save_properties,
+    skycoord_first,
     spectral_coord_to_index,
     tile_filename,
     tile_header,
-    skycoord_first,
 )
 
 __all__ = ["reproject_from_hips", "reproject_to_hips", "coadd_hips"]

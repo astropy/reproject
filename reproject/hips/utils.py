@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 from astropy import units as u
-from astropy.coordinates import SpectralCoord, SkyCoord
+from astropy.coordinates import SkyCoord, SpectralCoord
 from astropy.wcs.utils import celestial_frame_to_wcs
 from astropy_healpix import (
     HEALPix,

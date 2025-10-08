@@ -16,9 +16,9 @@ from .utils import (
     is_url,
     load_properties,
     map_header,
+    skycoord_first,
     spectral_coord_to_index,
     tile_filename,
-    skycoord_first,
 )
 
 __all__ = ["hips_as_dask_array"]
