@@ -1,9 +1,11 @@
 [project]
 name = "reproject"
 authors = [
-    {name = "Thomas Robitaille", email = "thomas.robitaille@gmail.com"},
+    {name = "Thomas Robitaille"},
     {name = "Christoph Deil"},
     {name = "Adam Ginsburg"},
+    {name = "Stuart Mumford"},
+    {name = "Sam Van Kooten"}
 ]
 license = {text = "BSD 3-Clause"}
 description = "Reproject astronomical images"
