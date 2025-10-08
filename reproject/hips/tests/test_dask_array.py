@@ -150,5 +150,7 @@ class TestHIPSDaskArray:
         valid = ~np.isnan(final_array)[:8]
         assert np.sum(valid) > 450000  # similar to 2D test
         np.testing.assert_allclose(
-            final_array[:8][valid], self.original_array_3d[subset][:8][valid], rtol=0.1 if level == 1 else 0.4
+            final_array[:8][valid],
+            self.original_array_3d[subset][:8][valid],
+            rtol=0.1 if level == 1 else 0.4,
         )
