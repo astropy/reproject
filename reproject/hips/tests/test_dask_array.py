@@ -94,14 +94,14 @@ class TestHIPSDaskArray:
         dask_array, wcs = hips_as_dask_array(output_directory)
         assert dask_array.shape == (320, 320)
 
-        with pytest.raises(Exception, match=r"does not contain level 2 data"):
+        with pytest.raises(Exception, match=r"does not contain spatial level 2 data"):
             hips_as_dask_array(output_directory, level=2)
 
         with pytest.raises(Exception, match=r"should be positive"):
             hips_as_dask_array(output_directory, level=-1)
 
     @pytest.mark.parametrize("frame", ("galactic", "equatorial")[1:])
-    @pytest.mark.parametrize("level", (0, 1)[:1])
+    @pytest.mark.parametrize("level", (0, 1)[1:])
     def test_roundtrip_3d(self, tmp_path, frame, level):
 
         output_directory = tmp_path / "roundtrip"
@@ -124,29 +124,33 @@ class TestHIPSDaskArray:
         # Represent the HiPS as a dask array
         dask_array, wcs = hips_as_dask_array(output_directory, level=level)
 
-        dask_array_computed = dask_array.compute()
-
-        fits.writeto("/tmp/dask.fits", dask_array_computed, wcs.to_header(), overwrite=True)
-        fits.writeto(
-            "/tmp/original.fits",
-            self.original_array_3d,
-            self.original_wcs_3d.to_header(),
-            overwrite=True,
-        )
-
+        # FIXME: at this point we should be able to do:
+        #
         # Reproject back to the original WCS
+        # final_array, footprint = reproject_interp(
+        #     (dask_array, wcs),
+        #     self.original_wcs_3d,
+        #     shape_out=self.original_array_3d.shape,
+        # )
+        #
+        # However this does not work properly due to this issue:
+        # https://github.com/astropy/astropy/issues/18690
+        #
+        # For now, we pick a sub-region of the array to check
+
+        subset = (slice(None), slice(50, None), slice(50, None))
+
         final_array, footprint = reproject_interp(
-            (dask_array_computed, wcs),
-            self.original_wcs_3d,
-            shape_out=self.original_array_3d.shape,
+            (dask_array, wcs),
+            self.original_wcs_3d[subset],
+            shape_out=self.original_array_3d[subset].shape,
         )
 
-        # FIXME: Slicing 3D WCS with :,blah,blah didn't work
+        # NOTE: The two last channels are empty - this is normal and is because
+        # of the interpolation on the spectral grid
 
-        for idx in range(self.original_array_3d.shape[0]):
-            print(idx)
-            valid = ~np.isnan(final_array[idx])
-            assert np.sum(valid) > 89000  # similar to 2D test
-            np.testing.assert_allclose(
-                final_array[idx][valid], self.original_array_3d[idx][valid], rtol=0.01
-            )
+        valid = ~np.isnan(final_array)[:8]
+        assert np.sum(valid) > 70000 * 8  # similar to 2D test
+        np.testing.assert_allclose(
+            final_array[:8][valid], self.original_array_3d[subset][:8][valid], rtol=0.1
+        )

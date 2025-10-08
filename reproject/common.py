@@ -183,7 +183,7 @@ def _reproject_dispatcher(
                 array_path, array_in = _dask_to_numpy_memmap(array_in, local_tmp_dir)
                 logger.info(f"Numpy memory-mapped array is now at {array_path}")
 
-            logger.info(f"Calling {reproject_func.__name__} in non-dask mode")
+            logger.debug(f"Calling {reproject_func.__name__} in non-dask mode")
 
             try:
                 return reproject_func(

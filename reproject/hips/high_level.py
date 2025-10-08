@@ -334,7 +334,7 @@ def reproject_to_hips(
 
         # Determine all the spectral indices at the highest spectral level
         spectral_indices_edges = spectral_coord_to_index(level_depth, cor_spectralcoord)
-        spectral_indices = np.arange(spectral_indices_edges.min(), spectral_indices_edges.max())
+        spectral_indices = np.arange(spectral_indices_edges.min(), spectral_indices_edges.max() + 1)
         indices = [
             (int(idx), int(spec_idx)) for (idx, spec_idx) in product(indices, spectral_indices)
         ]

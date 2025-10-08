@@ -91,6 +91,7 @@ def map_header_2d(*, level, frame, tile_size):
     header = map_wcs.to_header()
 
     header["NAXIS"] = 2
+    header["WCSAXES"] = 2
     header["NAXIS1"] = image_size
     header["NAXIS2"] = image_size
 
@@ -114,6 +115,7 @@ def map_header_3d(
 
     # Then modify it to be 3D
     header["NAXIS"] = 3
+    header["WCSAXES"] = 3
     header["NAXIS3"] = tile_depth * 2 ** (spectral_level + 1)
     header["FORDER"] = spectral_level
     header["CTYPE3"] = "FREQ-LOG"
@@ -190,6 +192,7 @@ def tile_header_2d(*, level, index, frame, tile_size):
     header["NPIX"] = index
     header["ORDER"] = level
     header["NAXIS"] = 2
+    header["WCSAXES"] = 2
     header["NAXIS1"] = tile_size
     header["NAXIS2"] = tile_size
 
@@ -225,6 +228,7 @@ def tile_header_3d(
 
         # Then modify it to be 3D
         header["NAXIS"] = 3
+        header["WCSAXES"] = 3
         header["NAXIS3"] = tile_depth
         header["FORDER"] = spectral_level
         header["FPIX"] = spectral_index

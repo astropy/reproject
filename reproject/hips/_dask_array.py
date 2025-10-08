@@ -81,6 +81,7 @@ class HiPSArray:
 
             self._level_depth = None
             self._level = self._level_spatial
+            self._tile_dims = self._tile_width
 
         self._tile_format = self._properties["hips_tile_format"]
         self._frame_str = self._properties["hips_frame"]
@@ -102,7 +103,7 @@ class HiPSArray:
         if self.ndim == 3:
 
             wav_min = SpectralCoord(float(self._properties["em_min"]), u.m)
-            wav_max = SpectralCoord(float(self._properties["em_min"]), u.m)
+            wav_max = SpectralCoord(float(self._properties["em_max"]), u.m)
 
             index_min = spectral_coord_to_index(self._level_depth, wav_min)
             index_max = spectral_coord_to_index(self._level_depth, wav_max)
