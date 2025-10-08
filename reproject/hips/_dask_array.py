@@ -4,7 +4,7 @@ import uuid
 
 import numpy as np
 from astropy import units as u
-from astropy.coordinates import SkyCoord, SpectralCoord
+from astropy.coordinates import SpectralCoord
 from astropy.io import fits
 from astropy.utils.data import download_file
 from astropy.wcs import WCS
@@ -18,6 +18,7 @@ from .utils import (
     map_header,
     spectral_coord_to_index,
     tile_filename,
+    skycoord_first,
 )
 
 __all__ = ["hips_as_dask_array"]
@@ -155,13 +156,7 @@ class HiPSArray:
             coord = self.wcs.pixel_to_world(jmid, imid)
         else:
             kmid = 0.5 * (item[0].start + item[0].stop)
-            coord = self.wcs.pixel_to_world(jmid, imid, kmid)
-            # FIXME: again need to refactor this
-            for w in self.wcs.pixel_to_world(jmid, imid, kmid):
-                if isinstance(w, SkyCoord):
-                    coord = w
-                if isinstance(w, SpectralCoord):
-                    spectral_coord = w
+            coord, spectral_coord = skycoord_first(self.wcs.pixel_to_world(jmid, imid, kmid))
 
         if self._frame_str == "equatorial":
             lon, lat = coord.ra.deg, coord.dec.deg

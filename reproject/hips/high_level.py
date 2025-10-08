@@ -14,8 +14,6 @@ from astropy.coordinates import (
     ICRS,
     BarycentricTrueEcliptic,
     Galactic,
-    SkyCoord,
-    SpectralCoord,
 )
 from astropy.io import fits
 from astropy.nddata import block_reduce
@@ -37,6 +35,7 @@ from .utils import (
     spectral_coord_to_index,
     tile_filename,
     tile_header,
+    skycoord_first,
 )
 
 __all__ = ["reproject_from_hips", "reproject_to_hips", "coadd_hips"]
@@ -258,14 +257,8 @@ def reproject_to_hips(
         cen_skycoord = wcs_in.pixel_to_world(*centers)
         cor_skycoord = wcs_in.pixel_to_world(*edges)
     else:
-        for w in wcs_in.pixel_to_world(*centers):
-            if isinstance(w, SkyCoord):
-                cen_skycoord = w
-        for w in wcs_in.pixel_to_world(*edges):
-            if isinstance(w, SkyCoord):
-                cor_skycoord = w
-            if isinstance(w, SpectralCoord):
-                cor_spectralcoord = w
+        cen_skycoord, _ = skycoord_first(wcs_in.pixel_to_world(*centers))
+        cor_skycoord, cor_spectralcoord = skycoord_first(wcs_in.pixel_to_world(*edges))
 
     separations = cor_skycoord.separation(cen_skycoord)
 
@@ -283,11 +276,7 @@ def reproject_to_hips(
         if ndim == 2:
             ran_world = wcs_in.pixel_to_world(ran_x, ran_y)
         elif ndim == 3:
-            # TODO: we should provide a convenience function to extract just celestial
-            for world in wcs_in.pixel_to_world(ran_x, ran_y, np.zeros(n_ran)):
-                if isinstance(world, SkyCoord):
-                    ran_world = world
-                    break
+            ran_world, _ = skycoord_first(wcs_in.pixel_to_world(ran_x, ran_y, np.zeros(n_ran)))
 
         separations = ran_world[:, None].separation(ran_world[None, :])
 

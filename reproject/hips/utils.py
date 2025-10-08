@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 from astropy import units as u
-from astropy.coordinates import SpectralCoord
+from astropy.coordinates import SpectralCoord, SkyCoord
 from astropy.wcs.utils import celestial_frame_to_wcs
 from astropy_healpix import (
     HEALPix,
@@ -16,19 +16,32 @@ __all__ = [
     "map_header",
     "tile_header",
     "tile_filename",
-    "tile_filename_3d",
     "make_tile_folders",
     "is_url",
     "load_properties",
     "save_properties",
     "spectral_coord_to_index",
     "spectral_index_to_coord",
+    "skycoord_first",
 ]
 
 
 FREQ_MIN = 1e-18  # Hz
 FREQ_MAX = 1e38  # Hz
 FREQ_MAX_ORDER = 51
+
+
+def skycoord_first(worlds):
+    """
+    Convenience function which takes the output of pixel_to_world and puts
+    the SkyCoord first
+    """
+    for w in worlds:
+        if isinstance(w, SkyCoord):
+            yield w
+    for w in worlds:
+        if not isinstance(w, SkyCoord):
+            yield w
 
 
 def spectral_index_to_coord(level, index):
