@@ -112,14 +112,16 @@ class HiPSArray:
             if index_min > index_max:
                 index_min, index_max = index_max, index_min
 
+            index_max += 1
+
             index_min *= self._tile_depth
             index_max *= self._tile_depth
 
-            self.wcs = self.wcs[index_min : index_max + 1]
-            self.shape = (index_max + 1 - index_min,) + self.shape[1:]
+            self.wcs = self.wcs[index_min:index_max]
+            self.shape = (index_max - index_min,) + self.shape[1:]
 
         # FIX following
-        self.dtype = ">f8"
+        self.dtype = float
 
         if self.ndim == 2:
             self.chunksize = (self._tile_width, self._tile_width)
@@ -129,8 +131,6 @@ class HiPSArray:
         self._nan = np.nan * np.ones(self.chunksize, dtype=self.dtype)
 
         self._blank = np.broadcast_to(np.nan, self.shape)
-
-        # Take into account em_min, em_max to avoid making gigantic cube
 
     def __getitem__(self, item):
 
@@ -186,7 +186,7 @@ class HiPSArray:
         else:
             index = spatial_index
 
-        return self._get_tile(level=self._level, index=index)
+        return self._get_tile(level=self._level, index=index).astype(float)
 
     # @functools.lru_cache(maxsize=128)  # noqa: B019
     def _get_tile(self, *, level, index):
