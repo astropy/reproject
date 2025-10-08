@@ -14,8 +14,6 @@ from astropy.coordinates import (
     ICRS,
     BarycentricTrueEcliptic,
     Galactic,
-    SkyCoord,
-    SpectralCoord,
 )
 from astropy.io import fits
 from astropy.nddata import block_reduce
@@ -34,6 +32,7 @@ from .utils import (
     load_properties,
     make_tile_folders,
     save_properties,
+    skycoord_first,
     spectral_coord_to_index,
     tile_filename,
     tile_header,
@@ -258,14 +257,8 @@ def reproject_to_hips(
         cen_skycoord = wcs_in.pixel_to_world(*centers)
         cor_skycoord = wcs_in.pixel_to_world(*edges)
     else:
-        for w in wcs_in.pixel_to_world(*centers):
-            if isinstance(w, SkyCoord):
-                cen_skycoord = w
-        for w in wcs_in.pixel_to_world(*edges):
-            if isinstance(w, SkyCoord):
-                cor_skycoord = w
-            if isinstance(w, SpectralCoord):
-                cor_spectralcoord = w
+        cen_skycoord, _ = skycoord_first(wcs_in.pixel_to_world(*centers))
+        cor_skycoord, cor_spectralcoord = skycoord_first(wcs_in.pixel_to_world(*edges))
 
     separations = cor_skycoord.separation(cen_skycoord)
 
@@ -280,7 +273,10 @@ def reproject_to_hips(
         ran_x = np.random.uniform(-0.5, nx - 0.5, n_ran)
         ran_y = np.random.uniform(-0.5, nx - 0.5, n_ran)
 
-        ran_world = wcs_in.pixel_to_world(ran_x, ran_y)
+        if ndim == 2:
+            ran_world = wcs_in.pixel_to_world(ran_x, ran_y)
+        elif ndim == 3:
+            ran_world, _ = skycoord_first(wcs_in.pixel_to_world(ran_x, ran_y, np.zeros(n_ran)))
 
         separations = ran_world[:, None].separation(ran_world[None, :])
 
@@ -327,7 +323,7 @@ def reproject_to_hips(
 
         # Determine all the spectral indices at the highest spectral level
         spectral_indices_edges = spectral_coord_to_index(level_depth, cor_spectralcoord)
-        spectral_indices = np.arange(spectral_indices_edges.min(), spectral_indices_edges.max())
+        spectral_indices = np.arange(spectral_indices_edges.min(), spectral_indices_edges.max() + 1)
         indices = [
             (int(idx), int(spec_idx)) for (idx, spec_idx) in product(indices, spectral_indices)
         ]
@@ -356,6 +352,7 @@ def reproject_to_hips(
         header = tile_header(level=level, index=index, frame=frame, tile_dims=tile_dims)
 
         if isinstance(header, tuple):
+
             array_out1, footprint1 = reproject_function(
                 (array_in, wcs_in_copy), header[0], **kwargs
             )
@@ -591,7 +588,6 @@ def reproject_to_hips(
         generated_properties["dataproduct_type"] = "spectral-cube"
         generated_properties["hips_order_freq"] = level_depth
         generated_properties["hips_order_min"] = 0
-        generated_properties["hips_tile_depth"] = tile_depth
         generated_properties["hips_tile_depth"] = tile_depth
         wav = cor_spectralcoord.to_value(u.m)
         generated_properties["em_min"] = wav.min()

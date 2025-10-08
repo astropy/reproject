@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 from astropy import units as u
-from astropy.coordinates import SpectralCoord
+from astropy.coordinates import SkyCoord, SpectralCoord
 from astropy.wcs.utils import celestial_frame_to_wcs
 from astropy_healpix import (
     HEALPix,
@@ -16,19 +16,32 @@ __all__ = [
     "map_header",
     "tile_header",
     "tile_filename",
-    "tile_filename_3d",
     "make_tile_folders",
     "is_url",
     "load_properties",
     "save_properties",
     "spectral_coord_to_index",
     "spectral_index_to_coord",
+    "skycoord_first",
 ]
 
 
 FREQ_MIN = 1e-18  # Hz
 FREQ_MAX = 1e38  # Hz
 FREQ_MAX_ORDER = 51
+
+
+def skycoord_first(worlds):
+    """
+    Convenience function which takes the output of pixel_to_world and puts
+    the SkyCoord first
+    """
+    for w in worlds:
+        if isinstance(w, SkyCoord):
+            yield w
+    for w in worlds:
+        if not isinstance(w, SkyCoord):
+            yield w
 
 
 def spectral_index_to_coord(level, index):
@@ -47,7 +60,24 @@ def spectral_coord_to_index(level, coord):
     ).astype(int)
 
 
-def map_header(*, level, frame, tile_size):
+def map_header(*, level, frame, tile_dims):
+    if isinstance(level, Number):
+        return map_header_2d(
+            level=level,
+            frame=frame,
+            tile_size=tile_dims,
+        )
+    else:
+        return map_header_3d(
+            spatial_level=level[0],
+            spectral_level=level[1],
+            frame=frame,
+            tile_size=tile_dims[0],
+            tile_depth=tile_dims[1],
+        )
+
+
+def map_header_2d(*, level, frame, tile_size):
     """
     Return the WCS for a whole map stored as a 2D array in HPX projection
     """
@@ -74,8 +104,40 @@ def map_header(*, level, frame, tile_size):
     header = map_wcs.to_header()
 
     header["NAXIS"] = 2
+    header["WCSAXES"] = 2
     header["NAXIS1"] = image_size
     header["NAXIS2"] = image_size
+
+    return header
+
+
+def map_header_3d(
+    *,
+    spatial_level,
+    spectral_level,
+    frame,
+    tile_size,
+    tile_depth,
+):
+    """
+    Return the WCS for a whole map stored as a 3D array in HPX projection
+    """
+
+    # First get the 2D header
+    header = map_header_2d(level=spatial_level, frame=frame, tile_size=tile_size)
+
+    # Then modify it to be 3D
+    header["NAXIS"] = 3
+    header["WCSAXES"] = 3
+    header["NAXIS3"] = tile_depth * 2 ** (spectral_level + 1)
+    header["FORDER"] = spectral_level
+    header["CTYPE3"] = "FREQ-LOG"
+    header["CUNIT3"] = "Hz"
+    header["CRPIX3"] = 1
+    header["CRVAL3"] = FREQ_MIN
+    header["CDELT3"] = (
+        FREQ_MIN * np.log(FREQ_MAX / FREQ_MIN) / 2 ** (spectral_level + 1 + np.log2(tile_depth))
+    )
 
     return header
 
@@ -143,6 +205,7 @@ def tile_header_2d(*, level, index, frame, tile_size):
     header["NPIX"] = index
     header["ORDER"] = level
     header["NAXIS"] = 2
+    header["WCSAXES"] = 2
     header["NAXIS1"] = tile_size
     header["NAXIS2"] = tile_size
 
@@ -156,28 +219,44 @@ def tile_header_2d(*, level, index, frame, tile_size):
 
 
 def tile_header_3d(
-    *, spatial_level, spatial_index, spectral_level, spectral_index, frame, tile_size, tile_depth
+    *,
+    spatial_level,
+    spatial_index,
+    spectral_level,
+    spectral_index,
+    frame,
+    tile_size,
+    tile_depth,
 ):
 
     # First get the 2D header
-    header = tile_header_2d(
+    headers = tile_header_2d(
         level=spatial_level, index=spatial_index, frame=frame, tile_size=tile_size
     )
 
-    # Then modify it to be 3D
-    header["NAXIS"] = 3
-    header["NAXIS3"] = tile_depth
-    header["FORDER"] = spectral_level
-    header["FPIX"] = spectral_index
-    header["CTYPE3"] = "FREQ-LOG"
-    header["CUNIT3"] = "Hz"
-    header["CRPIX3"] = 1 - spectral_index * tile_depth
-    header["CRVAL3"] = FREQ_MIN
-    header["CDELT3"] = (
-        FREQ_MIN * np.log(FREQ_MAX / FREQ_MIN) / 2 ** (spectral_level + 1 + np.log2(tile_depth))
-    )
+    if not isinstance(headers, tuple):
+        headers = (headers,)
 
-    return header
+    for header in headers:
+
+        # Then modify it to be 3D
+        header["NAXIS"] = 3
+        header["WCSAXES"] = 3
+        header["NAXIS3"] = tile_depth
+        header["FORDER"] = spectral_level
+        header["FPIX"] = spectral_index
+        header["CTYPE3"] = "FREQ-LOG"
+        header["CUNIT3"] = "Hz"
+        header["CRPIX3"] = 1 - spectral_index * tile_depth
+        header["CRVAL3"] = FREQ_MIN
+        header["CDELT3"] = (
+            FREQ_MIN * np.log(FREQ_MAX / FREQ_MIN) / 2 ** (spectral_level + 1 + np.log2(tile_depth))
+        )
+
+    if len(headers) == 1:
+        return headers[0]
+    else:
+        return headers
 
 
 def _rounded_spatial_index(index):
