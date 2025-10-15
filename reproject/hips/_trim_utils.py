@@ -1,7 +1,8 @@
 import numpy as np
 from astropy.io import fits
 
-__all__ = ['fits_writeto_withtrim', 'fits_getdata_untrimmed']
+__all__ = ["fits_writeto_withtrim", "fits_getdata_untrimmed"]
+
 
 def fits_writeto_withtrim(filename, array, header, **kwargs):
 
