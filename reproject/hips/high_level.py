@@ -88,6 +88,32 @@ def reproject_from_hips():
     raise NotImplementedError()
 
 
+def fits_writeto_withtrim(filename, array, header, **kwargs):
+
+    if array.ndim == 3:
+
+        mask = ~np.isnan(array)
+
+        slices = []
+        for axis in range(3):
+            mask_1d = np.any(mask, axis=tuple(a for a in range(3) if a != axis))
+            indices = np.nonzero(mask_1d)[0]
+            if len(indices) == 0:
+                return
+            imin, imax = indices[0], indices[-1]
+            slices.append(slice(imin, imax + 1))
+            fits_axis = 3 - axis
+            header[f'TRIM{fits_axis}'] = imin
+            header[f'CRPIX{fits_axis}'] -= imin
+            header[f'NAXIS{fits_axis}'] = imax + 1 - imin
+        array = array[tuple(slices)]
+
+    array = array.astype(np.float32)
+    header['BITPIX'] = -32
+
+    fits.writeto(filename, array, header, **kwargs)
+
+
 def reproject_to_hips(
     input_data,
     *,
@@ -373,7 +399,7 @@ def reproject_to_hips(
 
         if tile_format == "fits":
             array_out[footprint == 0] = np.nan
-            fits.writeto(
+            fits_writeto_withtrim(
                 tile_filename(
                     level=level,
                     index=index,
@@ -422,6 +448,9 @@ def reproject_to_hips(
     half_tile_size = tile_size // 2
     if ndim == 3:
         half_tile_depth = tile_depth // 2
+
+    # Also keep track of min/max values in all high resolution tiles
+    pixel_min, pixel_max = np.inf, -np.inf
 
     for sub in range(1, spatial_level + 1):
 
@@ -474,7 +503,10 @@ def reproject_to_hips(
                     if os.path.exists(subtile_filename):
 
                         if tile_format == "fits":
-                            data = block_reduce(fits.getdata(subtile_filename), 2, func=np.mean)
+                            tile_data = fits.getdata(subtile_filename)
+                            pixel_min = min(pixel_min, np.nanmin(tile_data))
+                            pixel_max = min(pixel_max, np.nanmax(tile_data))
+                            data = block_reduce(tile_data, 2, func=np.mean)
                         else:
                             data = block_reduce(
                                 np.array(Image.open(subtile_filename))[::-1],
@@ -535,7 +567,7 @@ def reproject_to_hips(
                             array[tuple(subtile_slice)] = data
 
             if tile_format == "fits":
-                fits.writeto(
+                fits_writeto_withtrim(
                     tile_filename(
                         level=ilevel,
                         index=index,
@@ -592,15 +624,11 @@ def reproject_to_hips(
         wav = cor_spectralcoord.to_value(u.m)
         generated_properties["em_min"] = wav.min()
         generated_properties["em_max"] = wav.max()
-        # generated_properties["obs_restfreq"] = cor_spectralcoord.mean().to_value('Hz')
 
     if tile_format == "fits":
         generated_properties["hips_pixel_bitpix"] = -64
-        if "hips_pixel_cut" not in properties:
-            if isinstance(array_in, np.ndarray):
-                generated_properties["hips_pixel_cut"] = (
-                    f"{np.percentile(array_in, 1):g} {np.percentile(array_in, 99):g}"
-                )
+        if not np.isinf(pixel_min) and not np.isinf(pixel_max):
+            properties["hips_pixel_cut"] = (pixel_min, pixel_max)
 
     generated_properties.update(properties)
 
