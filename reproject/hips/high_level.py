@@ -103,15 +103,40 @@ def fits_writeto_withtrim(filename, array, header, **kwargs):
             imin, imax = indices[0], indices[-1]
             slices.append(slice(imin, imax + 1))
             fits_axis = 3 - axis
-            header[f'TRIM{fits_axis}'] = imin
-            header[f'CRPIX{fits_axis}'] -= imin
-            header[f'NAXIS{fits_axis}'] = imax + 1 - imin
+            header[f"TRIM{fits_axis}"] = imin
+            header[f"CRPIX{fits_axis}"] -= imin
+            header[f"NAXIS{fits_axis}"] = imax + 1 - imin
         array = array[tuple(slices)]
 
     array = array.astype(np.float32)
-    header['BITPIX'] = -32
+    header["BITPIX"] = -32
 
     fits.writeto(filename, array, header, **kwargs)
+
+
+def fits_getdata_untrimmed(filename, *, tile_size, tile_depth):
+
+    with fits.open(filename) as hdulist:
+        data = hdulist[0].data
+        header = hdulist[0].header
+
+    pad_before = tuple(header.get(f"TRIM{3 - axis}", 0) for axis in range(3))
+    shape = data.shape
+    pad_after = (
+        tile_depth - shape[0] - pad_before[0],
+        tile_size - shape[1] - pad_before[1],
+        tile_size - shape[2] - pad_before[2],
+    )
+
+    print(shape)
+    print(tile_size, tile_depth)
+    print(pad_before, pad_after)
+
+    data = np.pad(data, list(zip(pad_before, pad_after, strict=False)))
+
+    assert data.shape == (tile_depth, tile_size, tile_size)
+
+    return data
 
 
 def reproject_to_hips(
@@ -443,6 +468,76 @@ def reproject_to_hips(
 
     indices = generated_indices
 
+    pixel_min, pixel_max = compute_lower_resolution_tiles(
+        output_directory=output_directory,
+        ndim=ndim,
+        frame=frame,
+        tile_dims=tile_dims,
+        tile_format=tile_format,
+        tile_size=tile_size,
+        tile_depth=tile_depth,
+        spatial_level=spatial_level,
+        level_depth=level_depth,
+    )
+    generate_properties(
+        output_directory=output_directory,
+        cen_skycoord=cen_skycoord,
+        cor_spectralcoord=cor_spectralcoord if ndim == 3 else None,
+        properties=properties,
+        tile_format=tile_format,
+        tile_size=tile_size,
+        tile_depth=tile_depth,
+        spatial_level=spatial_level,
+        level_depth=level_depth,
+        coord_system_out=coord_system_out,
+        radius=radius,
+        ndim=ndim,
+        pixel_min=pixel_min,
+        pixel_max=pixel_max,
+    )
+    save_index(output_directory)
+
+
+def find_indices(*, output_directory, ndim, spatial_level, level_depth):
+
+    if ndim == 2:
+
+        norder_directory = os.path.join(
+            output_directory,
+            f"Norder{spatial_level}",
+        )
+
+        for _, _, filenames in os.walk(norder_directory):
+            for filename in filenames:
+                yield int(filename.split(".")[0].replace("Npix", ""))
+
+    else:
+
+        norder_directory = os.path.join(
+            output_directory,
+            f"Norder{spatial_level}_{level_depth}",
+        )
+
+        for _, _, filenames in os.walk(norder_directory):
+            for filename in filenames:
+                indices = filename.split(".")[0].replace("Npix", "").split("_")
+                yield int(indices[0]), int(indices[1])
+
+
+def compute_lower_resolution_tiles(
+    *,
+    output_directory,
+    ndim,
+    frame,
+    tile_dims,
+    tile_format,
+    tile_size,
+    tile_depth,
+    spatial_level,
+    level_depth,
+    indices=None,
+):
+
     # Iterate over higher levels and compute lower resolution tiles
 
     half_tile_size = tile_size // 2
@@ -458,6 +553,16 @@ def reproject_to_hips(
             ilevel = spatial_level - sub
         else:
             ilevel = (spatial_level - sub, level_depth - sub)
+
+        if indices is None:
+            indices = list(
+                find_indices(
+                    ndim=ndim,
+                    output_directory=output_directory,
+                    spatial_level=spatial_level,
+                    level_depth=level_depth,
+                )
+            )
 
         # Find index of tiles to produce at lower-resolution levels
         if ndim == 2:
@@ -540,7 +645,15 @@ def reproject_to_hips(
 
                         if os.path.exists(subtile_filename):
 
-                            data = block_reduce(fits.getdata(subtile_filename), 2, func=np.mean)
+                            # TODO: untrim data!
+
+                            data = block_reduce(
+                                fits_getdata_untrimmed(
+                                    subtile_filename, tile_size=tile_size, tile_depth=tile_depth
+                                ),
+                                2,
+                                func=np.mean,
+                            )
 
                             if subindex_spec == 0:
                                 subtile_slice = [slice(None, half_tile_depth)]
@@ -590,6 +703,26 @@ def reproject_to_hips(
                     )
                 )
 
+    return pixel_min, pixel_max
+
+
+def generate_properties(
+    output_directory,
+    cen_skycoord,
+    cor_spectralcoord,
+    properties,
+    tile_format,
+    tile_size,
+    tile_depth,
+    spatial_level,
+    level_depth,
+    coord_system_out,
+    radius,
+    ndim,
+    pixel_min,
+    pixel_max,
+):
+
     # Generate properties file
 
     cen_icrs = cen_skycoord.icrs
@@ -633,8 +766,6 @@ def reproject_to_hips(
     generated_properties.update(properties)
 
     save_properties(output_directory, generated_properties)
-
-    save_index(output_directory)
 
 
 def save_index(directory):
