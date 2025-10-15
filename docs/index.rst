@@ -116,13 +116,13 @@ now in the same projection:
 
    fits.writeto('msx_on_2mass_header.fits', array, hdu1.header, overwrite=True)
 
-Separately, using the :func:`~reproject.reproject_interp` together with the 
-:func:`~reproject.mosaicking.find_optimal_celestial_wcs` function, we could rotate 
+Separately, using the :func:`~reproject.reproject_interp` together with the
+:func:`~reproject.mosaicking.find_optimal_celestial_wcs` function, we could rotate
 an image to align it such that North is up:
 
 .. plot::
    :include-source:
-   :nofigs:   
+   :nofigs:
    :context:
 
    from reproject.mosaicking import find_optimal_celestial_wcs
