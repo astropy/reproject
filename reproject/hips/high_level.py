@@ -374,6 +374,8 @@ def reproject_to_hips(
 
         if tile_format == "fits":
             array_out[footprint == 0] = np.nan
+            pixel_min = np.nanmin(array_out)
+            pixel_max = np.nanmax(array_out)
             fits_writeto_withtrim(
                 tile_filename(
                     level=level,
@@ -384,6 +386,7 @@ def reproject_to_hips(
                 array_out,
                 header,
             )
+
         else:
             if tile_format == "png":
                 image = as_transparent_rgb(array_out, alpha=footprint[0])
@@ -398,8 +401,12 @@ def reproject_to_hips(
                     extension=EXTENSION[tile_format],
                 )
             )
+            pixel_min, pixel_max = None, None
 
-        return index
+        return index, pixel_min, pixel_max
+
+    pixel_min = np.inf
+    pixel_max = -np.inf
 
     if threads:
         generated_indices = []
@@ -408,17 +415,67 @@ def reproject_to_hips(
             for future in progress_bar(futures):
                 result = future.result()
                 if result is not None:
-                    generated_indices.append(result)
+                    generated_indices.append(result[0])
+                    pixel_min = min(pixel_min, result[1])
+                    pixel_max = max(pixel_max, result[2])
     else:
         generated_indices = []
         for index in progress_bar(indices):
             result = process(index)
             if result is not None:
-                generated_indices.append(result)
+                generated_indices.append(result[0])
+                pixel_min = min(pixel_min, result[1])
+                pixel_max = max(pixel_max, result[2])
 
     indices = generated_indices
 
-    pixel_min, pixel_max = compute_lower_resolution_tiles(
+    # Generate properties file
+
+    cen_icrs = cen_skycoord.icrs
+
+    for key in properties:
+        if key in RESERVED_PROPERTIES:
+            raise ValueError(f"Cannot override property {key}")
+
+    generated_properties = {
+        "creator_did": f"ivo://reproject/P/{str(uuid.uuid4())}",
+        "obs_title": os.path.dirname(output_directory),
+        "hips_version": "1.4",
+        "hips_release_date": datetime.now().isoformat(),
+        "hips_status": "public master clonableOnce",
+        "hips_tile_format": tile_format,
+        "hips_tile_width": tile_size,
+        "hips_order": spatial_level,
+        "hips_frame": coord_system_out,
+        "hips_builder": "astropy/reproject",
+        "hips_initial_ra": cen_icrs.ra.deg,
+        "hips_initial_dec": cen_icrs.dec.deg,
+        "hips_initial_fov": radius.deg,
+    }
+
+    if ndim == 2:
+        generated_properties["dataproduct_type"] = "image"
+    else:
+        generated_properties["dataproduct_type"] = "spectral-cube"
+        generated_properties["hips_order_freq"] = level_depth
+        generated_properties["hips_order_min"] = 0
+        generated_properties["hips_tile_depth"] = tile_depth
+        wav = cor_spectralcoord.to_value(u.m)
+        generated_properties["em_min"] = wav.min()
+        generated_properties["em_max"] = wav.max()
+
+    if tile_format == "fits":
+        generated_properties["hips_pixel_bitpix"] = -64
+        if not np.isinf(pixel_min) and not np.isinf(pixel_max):
+            properties["hips_pixel_cut"] = (pixel_min, pixel_max)
+
+    generated_properties.update(properties)
+
+    save_properties(output_directory, generated_properties)
+
+    save_index(output_directory)
+
+    compute_lower_resolution_tiles(
         output_directory=output_directory,
         ndim=ndim,
         frame=frame,
@@ -429,23 +486,6 @@ def reproject_to_hips(
         spatial_level=spatial_level,
         level_depth=level_depth,
     )
-    generate_properties(
-        output_directory=output_directory,
-        cen_skycoord=cen_skycoord,
-        cor_spectralcoord=cor_spectralcoord if ndim == 3 else None,
-        properties=properties,
-        tile_format=tile_format,
-        tile_size=tile_size,
-        tile_depth=tile_depth,
-        spatial_level=spatial_level,
-        level_depth=level_depth,
-        coord_system_out=coord_system_out,
-        radius=radius,
-        ndim=ndim,
-        pixel_min=pixel_min,
-        pixel_max=pixel_max,
-    )
-    save_index(output_directory)
 
 
 def find_indices(*, output_directory, ndim, spatial_level, level_depth):
@@ -493,9 +533,6 @@ def compute_lower_resolution_tiles(
     half_tile_size = tile_size // 2
     if ndim == 3:
         half_tile_depth = tile_depth // 2
-
-    # Also keep track of min/max values in all high resolution tiles
-    pixel_min, pixel_max = np.inf, -np.inf
 
     for sub in range(1, spatial_level + 1):
 
@@ -559,8 +596,6 @@ def compute_lower_resolution_tiles(
 
                         if tile_format == "fits":
                             tile_data = fits.getdata(subtile_filename)
-                            pixel_min = min(pixel_min, np.nanmin(tile_data))
-                            pixel_max = min(pixel_max, np.nanmax(tile_data))
                             data = block_reduce(tile_data, 2, func=np.mean)
                         else:
                             data = block_reduce(
@@ -652,70 +687,6 @@ def compute_lower_resolution_tiles(
                         extension=EXTENSION[tile_format],
                     )
                 )
-
-    return pixel_min, pixel_max
-
-
-def generate_properties(
-    output_directory,
-    cen_skycoord,
-    cor_spectralcoord,
-    properties,
-    tile_format,
-    tile_size,
-    tile_depth,
-    spatial_level,
-    level_depth,
-    coord_system_out,
-    radius,
-    ndim,
-    pixel_min,
-    pixel_max,
-):
-
-    # Generate properties file
-
-    cen_icrs = cen_skycoord.icrs
-
-    for key in properties:
-        if key in RESERVED_PROPERTIES:
-            raise ValueError(f"Cannot override property {key}")
-
-    generated_properties = {
-        "creator_did": f"ivo://reproject/P/{str(uuid.uuid4())}",
-        "obs_title": os.path.dirname(output_directory),
-        "hips_version": "1.4",
-        "hips_release_date": datetime.now().isoformat(),
-        "hips_status": "public master clonableOnce",
-        "hips_tile_format": tile_format,
-        "hips_tile_width": tile_size,
-        "hips_order": spatial_level,
-        "hips_frame": coord_system_out,
-        "hips_builder": "astropy/reproject",
-        "hips_initial_ra": cen_icrs.ra.deg,
-        "hips_initial_dec": cen_icrs.dec.deg,
-        "hips_initial_fov": radius.deg,
-    }
-
-    if ndim == 2:
-        generated_properties["dataproduct_type"] = "image"
-    else:
-        generated_properties["dataproduct_type"] = "spectral-cube"
-        generated_properties["hips_order_freq"] = level_depth
-        generated_properties["hips_order_min"] = 0
-        generated_properties["hips_tile_depth"] = tile_depth
-        wav = cor_spectralcoord.to_value(u.m)
-        generated_properties["em_min"] = wav.min()
-        generated_properties["em_max"] = wav.max()
-
-    if tile_format == "fits":
-        generated_properties["hips_pixel_bitpix"] = -64
-        if not np.isinf(pixel_min) and not np.isinf(pixel_max):
-            properties["hips_pixel_cut"] = (pixel_min, pixel_max)
-
-    generated_properties.update(properties)
-
-    save_properties(output_directory, generated_properties)
 
 
 def save_index(directory):
