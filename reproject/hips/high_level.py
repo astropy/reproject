@@ -630,8 +630,6 @@ def compute_lower_resolution_tiles(
 
                         if os.path.exists(subtile_filename):
 
-                            # TODO: untrim data!
-
                             data = block_reduce(
                                 fits_getdata_untrimmed(
                                     subtile_filename, tile_size=tile_size, tile_depth=tile_depth
