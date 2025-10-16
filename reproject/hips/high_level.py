@@ -405,8 +405,9 @@ def reproject_to_hips(
 
         return index, pixel_min, pixel_max
 
-    pixel_min = np.inf
-    pixel_max = -np.inf
+    if tile_format == "fits":
+        pixel_min = np.inf
+        pixel_max = -np.inf
 
     if threads:
         generated_indices = []
@@ -416,16 +417,18 @@ def reproject_to_hips(
                 result = future.result()
                 if result is not None:
                     generated_indices.append(result[0])
-                    pixel_min = min(pixel_min, result[1])
-                    pixel_max = max(pixel_max, result[2])
+                    if tile_format == "fits":
+                        pixel_min = min(pixel_min, result[1])
+                        pixel_max = max(pixel_max, result[2])
     else:
         generated_indices = []
         for index in progress_bar(indices):
             result = process(index)
             if result is not None:
                 generated_indices.append(result[0])
-                pixel_min = min(pixel_min, result[1])
-                pixel_max = max(pixel_max, result[2])
+                if tile_format == "fits":
+                    pixel_min = min(pixel_min, result[1])
+                    pixel_max = max(pixel_max, result[2])
 
     indices = generated_indices
 
