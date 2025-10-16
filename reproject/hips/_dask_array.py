@@ -12,6 +12,7 @@ from astropy.wcs import WCS
 from astropy_healpix import HEALPix, level_to_nside
 from dask import array as da
 
+from ._trim_utils import fits_getdata_untrimmed
 from .high_level import VALID_COORD_SYSTEM
 from .utils import (
     is_url,
@@ -209,11 +210,14 @@ class HiPSArray:
         else:
             filename = filename_or_url
 
-        with fits.open(filename) as hdulist:
-            hdu = hdulist[0]
-            data = hdu.data
-
-        return data
+        if self.ndim == 2:
+            return fits.getdata(filename)
+        else:
+            return fits_getdata_untrimmed(
+                filename,
+                tile_size=self._tile_width,
+                tile_depth=self._tile_depth,
+            )
 
 
 def hips_as_dask_array(directory_or_url, *, level=None):
