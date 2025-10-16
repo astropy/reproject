@@ -116,6 +116,22 @@ now in the same projection:
 
    fits.writeto('msx_on_2mass_header.fits', array, hdu1.header, overwrite=True)
 
+Separately, using the :func:`~reproject.reproject_interp` together with the
+:func:`~reproject.mosaicking.find_optimal_celestial_wcs` function, we could rotate
+an image to align it such that North is up:
+
+.. plot::
+   :include-source:
+   :nofigs:
+   :context:
+
+   from reproject.mosaicking import find_optimal_celestial_wcs
+
+   # obtain the projection for a north-aligned image
+   wcs_out, shape_out = find_optimal_celestial_wcs(hdu1)
+   # reproject the image to be north-aligned
+   array_north_aligned, _ = reproject_interp(hdu1, wcs_out, shape_out=shape_out)
+
 The *reproject* package supports a number of different algorithms for
 reprojection (interpolation, flux-conserving reprojection, etc.) and
 different types of data (images, spectral cubes, HEALPIX images, etc.). For
