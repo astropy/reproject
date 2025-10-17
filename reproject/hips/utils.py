@@ -50,14 +50,16 @@ def spectral_index_to_coord(level, index):
     )
 
 
-def spectral_coord_to_index(level, coord):
-    return (
-        np.floor(
-            2 ** (level + 1)
-            * np.log10(coord.to_value(u.Hz) / FREQ_MIN)
-            / np.log10(FREQ_MAX / FREQ_MIN)
-        )
-    ).astype(int)
+def spectral_coord_to_index(level, coord, rounded=True):
+    index = (
+        2 ** (level + 1)
+        * np.log10(coord.to_value(u.Hz) / FREQ_MIN)
+        / np.log10(FREQ_MAX / FREQ_MIN)
+    )
+    if rounded:
+        return np.floor(index).astype(int)
+    else:
+        return index
 
 
 def map_header(*, level, frame, tile_dims):
