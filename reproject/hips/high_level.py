@@ -1,6 +1,7 @@
 import os
 import shutil
 import uuid
+import warnings
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from datetime import datetime
@@ -470,7 +471,7 @@ def reproject_to_hips(
     if tile_format == "fits":
         generated_properties["hips_pixel_bitpix"] = -64
         if not np.isinf(pixel_min) and not np.isinf(pixel_max):
-            properties["hips_pixel_cut"] = (pixel_min, pixel_max)
+            properties["hips_pixel_cut"] = f"{pixel_min} {pixel_max}"
 
     generated_properties.update(properties)
 
@@ -482,7 +483,6 @@ def reproject_to_hips(
         output_directory=output_directory,
         ndim=ndim,
         frame=frame,
-        tile_dims=tile_dims,
         tile_format=tile_format,
         tile_size=tile_size,
         tile_depth=tile_depth,
@@ -522,7 +522,6 @@ def compute_lower_resolution_tiles(
     output_directory,
     ndim,
     frame,
-    tile_dims,
     tile_format,
     tile_size,
     tile_depth,
@@ -530,6 +529,11 @@ def compute_lower_resolution_tiles(
     level_depth,
     indices=None,
 ):
+
+    if ndim == 3:
+        tile_dims = tile_size, tile_depth
+    else:
+        tile_dims = tile_size
 
     # Iterate over higher levels and compute lower resolution tiles
 
@@ -599,7 +603,10 @@ def compute_lower_resolution_tiles(
 
                         if tile_format == "fits":
                             tile_data = fits.getdata(subtile_filename)
-                            data = block_reduce(tile_data, 2, func=np.mean)
+                            # np.nanmean can emit warnings, so ignore these
+                            with warnings.catch_warnings():
+                                warnings.simplefilter("ignore")
+                                data = block_reduce(tile_data, 2, func=np.nanmean)
                         else:
                             data = block_reduce(
                                 np.array(Image.open(subtile_filename))[::-1],
@@ -633,13 +640,16 @@ def compute_lower_resolution_tiles(
 
                         if os.path.exists(subtile_filename):
 
-                            data = block_reduce(
-                                fits_getdata_untrimmed(
-                                    subtile_filename, tile_size=tile_size, tile_depth=tile_depth
-                                ),
-                                2,
-                                func=np.mean,
-                            )
+                            # np.nanmean can emit warnings, so ignore these
+                            with warnings.catch_warnings():
+                                warnings.simplefilter("ignore")
+                                data = block_reduce(
+                                    fits_getdata_untrimmed(
+                                        subtile_filename, tile_size=tile_size, tile_depth=tile_depth
+                                    ),
+                                    2,
+                                    func=np.nanmean,
+                                )
 
                             if subindex_spec == 0:
                                 subtile_slice = [slice(None, half_tile_depth)]
