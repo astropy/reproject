@@ -32,7 +32,7 @@ class HiPSArray:
 
         # We strip any trailing slashes since we then assume in the rest of the
         # code that we need to add a slash (and double slashes cause issues for URLs)
-        self._directory_or_url = directory_or_url.rstrip("/")
+        self._directory_or_url = str(directory_or_url).rstrip("/")
 
         self._is_url = is_url(self._directory_or_url)
 
