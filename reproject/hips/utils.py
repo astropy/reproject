@@ -52,9 +52,7 @@ def spectral_index_to_coord(level, index):
 
 def spectral_coord_to_index(level, coord, rounded=True):
     index = (
-        2 ** (level + 1)
-        * np.log10(coord.to_value(u.Hz) / FREQ_MIN)
-        / np.log10(FREQ_MAX / FREQ_MIN)
+        2 ** (level + 1) * np.log10(coord.to_value(u.Hz) / FREQ_MIN) / np.log10(FREQ_MAX / FREQ_MIN)
     )
     if rounded:
         return np.floor(index).astype(int)

@@ -573,8 +573,7 @@ def compute_lower_resolution_tiles(
 
         make_tile_folders(level=ilevel, indices=indices, output_directory=output_directory)
 
-        from tqdm import tqdm
-        for index in tqdm(indices):
+        for index in indices:
 
             header = tile_header(level=ilevel, index=index, frame=frame, tile_dims=tile_dims)
 
