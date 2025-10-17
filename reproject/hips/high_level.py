@@ -470,7 +470,7 @@ def reproject_to_hips(
     if tile_format == "fits":
         generated_properties["hips_pixel_bitpix"] = -64
         if not np.isinf(pixel_min) and not np.isinf(pixel_max):
-            properties["hips_pixel_cut"] = (pixel_min, pixel_max)
+            properties["hips_pixel_cut"] = f"{pixel_min} {pixel_max}"
 
     generated_properties.update(properties)
 
@@ -522,7 +522,6 @@ def compute_lower_resolution_tiles(
     output_directory,
     ndim,
     frame,
-    tile_dims,
     tile_format,
     tile_size,
     tile_depth,
@@ -530,6 +529,11 @@ def compute_lower_resolution_tiles(
     level_depth,
     indices=None,
 ):
+
+    if ndim == 3:
+        tile_dims = tile_size, tile_depth
+    else:
+        tile_dims = tile_size
 
     # Iterate over higher levels and compute lower resolution tiles
 
@@ -569,7 +573,8 @@ def compute_lower_resolution_tiles(
 
         make_tile_folders(level=ilevel, indices=indices, output_directory=output_directory)
 
-        for index in indices:
+        from tqdm import tqdm
+        for index in tqdm(indices):
 
             header = tile_header(level=ilevel, index=index, frame=frame, tile_dims=tile_dims)
 
@@ -599,7 +604,7 @@ def compute_lower_resolution_tiles(
 
                         if tile_format == "fits":
                             tile_data = fits.getdata(subtile_filename)
-                            data = block_reduce(tile_data, 2, func=np.mean)
+                            data = block_reduce(tile_data, 2, func=np.nanmean)
                         else:
                             data = block_reduce(
                                 np.array(Image.open(subtile_filename))[::-1],
@@ -638,7 +643,7 @@ def compute_lower_resolution_tiles(
                                     subtile_filename, tile_size=tile_size, tile_depth=tile_depth
                                 ),
                                 2,
-                                func=np.mean,
+                                func=np.nanmean,
                             )
 
                             if subindex_spec == 0:
