@@ -30,11 +30,13 @@ class HiPSArray:
 
     def __init__(self, directory_or_url, level=None, level_depth=None):
 
-        self._directory_or_url = directory_or_url
+        # We strip any trailing slashes since we then assume in the rest of the
+        # code that we need to add a slash (and double slashes cause issues for URLs)
+        self._directory_or_url = str(directory_or_url).rstrip("/")
 
-        self._is_url = is_url(directory_or_url)
+        self._is_url = is_url(self._directory_or_url)
 
-        self._properties = load_properties(directory_or_url)
+        self._properties = load_properties(self._directory_or_url)
 
         if self._properties["dataproduct_type"] == "image":
             self.ndim = 2
@@ -51,7 +53,7 @@ class HiPSArray:
         else:
             if level > self._order_spatial:
                 raise ValueError(
-                    f"HiPS dataset at {directory_or_url} does not contain spatial level {level} data"
+                    f"HiPS dataset at {self._directory_or_url} does not contain spatial level {level} data"
                 )
             elif level < 0:
                 raise ValueError("level should be positive")
@@ -70,7 +72,7 @@ class HiPSArray:
             else:
                 if level_depth > self._order_depth:
                     raise ValueError(
-                        f"HiPS dataset at {directory_or_url} does not contain spectral level {level_depth} data"
+                        f"HiPS dataset at {self._directory_or_url} does not contain spectral level {level_depth} data"
                     )
                 elif level_depth < 0:
                     raise ValueError("level_depth should be positive")
