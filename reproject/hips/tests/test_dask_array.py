@@ -31,6 +31,7 @@ class TestHIPSDaskArray:
 
     @pytest.mark.parametrize("frame", ("galactic", "equatorial"))
     @pytest.mark.parametrize("level", (0, 1))
+    @pytest.mark.remote_data
     def test_roundtrip(self, tmp_path, frame, level):
 
         output_directory = tmp_path / "roundtrip"
@@ -72,6 +73,7 @@ class TestHIPSDaskArray:
         assert np.sum(valid) > 90000
         np.testing.assert_allclose(final_array[valid], self.original_array[valid], rtol=0.01)
 
+    @pytest.mark.remote_data
     def test_level_validation(self, tmp_path):
 
         output_directory = tmp_path / "levels"
@@ -102,6 +104,7 @@ class TestHIPSDaskArray:
 
     @pytest.mark.parametrize("frame", ("galactic", "equatorial"))
     @pytest.mark.parametrize("level", (0, 1))
+    @pytest.mark.remote_data
     def test_roundtrip_3d(self, tmp_path, frame, level):
 
         output_directory = tmp_path / "roundtrip"
