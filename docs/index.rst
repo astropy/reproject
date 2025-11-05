@@ -156,15 +156,4 @@ that you want to reproject.
    mosaicking
    performance
    performance_mosaicking
-
-Reference/API
-=============
-
-.. automodapi:: reproject
-   :no-inheritance-diagram:
-
-.. automodapi:: reproject.hips
-   :no-inheritance-diagram:
-
-.. automodapi:: reproject.mosaicking
-   :no-inheritance-diagram:
+   api/reproject
