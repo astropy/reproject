@@ -156,4 +156,4 @@ that you want to reproject.
    mosaicking
    performance
    performance_mosaicking
-   api/reproject
+   api/modules
