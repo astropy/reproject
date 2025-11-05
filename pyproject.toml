@@ -44,6 +44,7 @@ testall = [
 ]
 docs = [
     "sphinx-astropy",
+    "sphinx-autoapi",
     "pyvo",
     "matplotlib",
     "tqdm",
