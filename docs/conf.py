@@ -14,9 +14,17 @@ extensions.append("sphinx.ext.autodoc")
 extensions.append("autoapi.extension")
 
 autoapi_dirs = ["../reproject"]
-autoapi_options = ["members", "imported-members", "inherited-members", "show-inheritance", "undoc-members"]
-autoapi_own_page_level = 'function'
-autoapi_ignore = ["**/tests/**", "**/tests/", "**/conftest.py"]
+autoapi_options = [
+    "members",
+    "imported-members",
+    "inherited-members",
+    "show-inheritance",
+    "undoc-members",
+]
+autoapi_own_page_level = "function"
+autoapi_ignore = ["**/tests/**", "**/tests/", "**/conftest.py", "**/version.py"]
+
+suppress_warnings.append("autoapi.python_import_resolution")
 
 # -- General configuration ----------------------------------------------------
 
