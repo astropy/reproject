@@ -10,11 +10,11 @@ except ImportError:
     print("ERROR: the documentation requires the sphinx-astropy package to be installed")
     sys.exit(1)
 
-extensions.append('sphinx.ext.autodoc')
-extensions.append('autoapi.extension')
+extensions.append("sphinx.ext.autodoc")
+extensions.append("autoapi.extension")
 
-autoapi_dirs = ['../reproject']
-autoapi_options = ['members', 'imported-members', 'inherited-members', 'show-inheritance']
+autoapi_dirs = ["../reproject"]
+autoapi_options = ["members", "imported-members", "inherited-members", "show-inheritance"]
 
 # -- General configuration ----------------------------------------------------
 
