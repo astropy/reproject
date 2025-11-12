@@ -137,7 +137,7 @@ def _reproject_dispatcher(
 
     if dask_method is None:
         dask_method = "memmap"
-    elif dask_method not in ("memmap", "none"):
+    elif dask_method not in ("memmap", "none", "native"):
         raise ValueError("dask_method should be set to 'memmap' or 'none'")
 
     if reproject_func_kwargs is None:

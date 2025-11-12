@@ -1,6 +1,8 @@
 import numpy as np
 
-__all__ = ["map_coordinates", "sample_array_edges"]
+from dask_image.ndinterp import map_coordinates as dask_image_map_coordinates
+
+__all__ = ["map_coordinates", "dask_map_coordinates", "sample_array_edges"]
 
 
 def find_chunk_shape(shape, max_chunk_size=None):
@@ -107,6 +109,34 @@ def memory_efficient_access(array, chunk):
         return array[chunk]
 
 
+def _clip_coords(image, coords):
+
+    shape = image.shape
+
+    coords = coords.copy()
+    for i in range(coords.shape[0]):
+        coords[i][(coords[i] < 0) & (coords[i] >= -0.5)] = 0
+        coords[i][(coords[i] < shape[i] - 0.5) & (coords[i] >= shape[i] - 1)] = shape[i] - 1
+
+    return coords
+
+
+def dask_map_coordinates(image, coords, output=None, **kwargs):
+
+    # Thin wrapper around dask-image's map_coordinates which ensures that we can
+    # interpolate right to the edge of the image, and also implement the output
+    # keyword argument
+
+    coords = _clip_coords(image, coords)
+
+    if output is None:
+        output = np.zeros(coords.shape[1])
+
+    output[:] = dask_image_map_coordinates(image, coords, **kwargs).compute()
+
+    return output
+
+
 def map_coordinates(
     image, coords, max_chunk_size=None, output=None, optimize_memory=False, **kwargs
 ):
@@ -138,12 +168,7 @@ def map_coordinates(
     # We copy the coordinates array as we then modify it in-place below to clip
     # to the edges of the array.
 
-    coords = coords.copy()
-    for i in range(coords.shape[0]):
-        coords[i][(coords[i] < 0) & (coords[i] >= -0.5)] = 0
-        coords[i][(coords[i] < original_shape[i] - 0.5) & (coords[i] >= original_shape[i] - 1)] = (
-            original_shape[i] - 1
-        )
+    coords = _clip_coords(image, coords)
 
     # If the data type is native and we are not doing spline interpolation,
     # then scipy_map_coordinates deals properly with memory maps, so we can use

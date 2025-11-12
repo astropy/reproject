@@ -1,14 +1,17 @@
+import pytest
+
 import numpy as np
 from numpy.testing import assert_allclose
 from scipy.ndimage import map_coordinates as scipy_map_coordinates
 
-from reproject.array_utils import map_coordinates
+from reproject.array_utils import map_coordinates, dask_map_coordinates
 
 
-def test_custom_map_coordinates():
+@pytest.mark.parametrize('dtype', ('>f4', '>f8', '<f4', '<f8'))
+def test_custom_map_coordinates(dtype):
     np.random.seed(1249)
 
-    data = np.random.random((3, 4))
+    data = np.random.random((3, 4)).astype(dtype)
 
     coords = np.random.uniform(-2, 6, (2, 10000))
 
@@ -37,3 +40,13 @@ def test_custom_map_coordinates():
     )
 
     assert_allclose(result, expected)
+
+    result2 = dask_map_coordinates(
+        data,
+        coords,
+        order=1,
+        cval=np.nan,
+        mode="constant",
+    )
+
+    assert_allclose(result2, expected)

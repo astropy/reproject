@@ -4,9 +4,7 @@ import numpy as np
 from astropy.wcs import WCS
 from astropy.wcs.utils import pixel_to_pixel
 
-from dask_image.ndinterp import map_coordinates as dask_image_map_coordinates
-
-from ..array_utils import map_coordinates
+from ..array_utils import map_coordinates, dask_map_coordinates
 from ..wcs_utils import has_celestial, pixel_to_pixel_with_roundtrip
 
 
@@ -122,7 +120,7 @@ def _reproject_full(
     for i in range(len(array)):
         # Interpolate array on to the pixels coordinates in pixel_in
         if dask_method == "native":
-            dask_image_map_coordinates(
+            dask_map_coordinates(
                 array[i],
                 pixel_in,
                 order=order,
