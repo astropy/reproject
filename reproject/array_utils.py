@@ -1,8 +1,8 @@
 import numpy as np
-
 from dask_image.ndinterp import map_coordinates as dask_image_map_coordinates
+from dask_image.ndinterp import spline_filter
 
-__all__ = ["map_coordinates", "dask_map_coordinates", "sample_array_edges"]
+__all__ = ["map_coordinates", "dask_map_coordinates", "sample_array_edges", "ArrayWrapper"]
 
 
 def find_chunk_shape(shape, max_chunk_size=None):
@@ -132,7 +132,16 @@ def dask_map_coordinates(image, coords, output=None, **kwargs):
     if output is None:
         output = np.zeros(coords.shape[1])
 
-    output[:] = dask_image_map_coordinates(image, coords, **kwargs).compute()
+    # At the time of writing, dask-image is not able to correctly handle
+    # prefiltering, instead doing it per-chunk which can give subtly different
+    # results
+    if kwargs["order"] >= 2:
+        image = spline_filter(image, order=kwargs["order"], mode="constant")
+
+    # At the time of writing, dask-image's map_coordinates prefilter is False
+    # by default, we hard-code this here to guard against any changes in
+    # defaults in future.
+    output[:] = dask_image_map_coordinates(image, coords, prefilter=False, **kwargs).compute()
 
     return output
 
@@ -173,6 +182,7 @@ def map_coordinates(
     # If the data type is native and we are not doing spline interpolation,
     # then scipy_map_coordinates deals properly with memory maps, so we can use
     # it without chunking. Otherwise, we need to iterate over data chunks.
+    # if image.dtype.isnative and "order" in kwargs and kwargs["order"] <= 1:
     if image.dtype.isnative and "order" in kwargs and kwargs["order"] <= 1:
         values = scipy_map_coordinates(at_least_float32(image), coords, output=output, **kwargs)
     else:
@@ -248,3 +258,15 @@ def sample_array_edges(shape, *, n_samples):
             all_positions.append(positions)
     positions = np.unique(np.vstack(all_positions), axis=0).T
     return positions
+
+
+class ArrayWrapper:
+
+    def __init__(self, array):
+        self._array = array
+        self.ndim = array.ndim
+        self.shape = array.shape
+        self.dtype = array.dtype
+
+    def __getitem__(self, item):
+        return self._array[item]

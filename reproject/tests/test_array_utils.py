@@ -1,24 +1,24 @@
-import pytest
-
 import numpy as np
+import pytest
 from numpy.testing import assert_allclose
 from scipy.ndimage import map_coordinates as scipy_map_coordinates
 
-from reproject.array_utils import map_coordinates, dask_map_coordinates
+from reproject.array_utils import dask_map_coordinates, map_coordinates
 
 
-@pytest.mark.parametrize('dtype', ('>f4', '>f8', '<f4', '<f8'))
-def test_custom_map_coordinates(dtype):
+@pytest.mark.parametrize("order", [0, 1, 2, 3])
+@pytest.mark.parametrize("dtype", (">f4", ">f8", "<f4", "<f8"))
+def test_custom_map_coordinates(order, dtype):
     np.random.seed(1249)
 
-    data = np.random.random((3, 4)).astype(dtype)
+    data = np.random.random((30, 40)).astype(dtype)
 
-    coords = np.random.uniform(-2, 6, (2, 10000))
+    coords = np.random.uniform(-2, 60, (2, 100000))
 
     expected = scipy_map_coordinates(
         np.pad(data, 1, mode="edge"),
         coords + 1,
-        order=1,
+        order=order,
         cval=np.nan,
         mode="constant",
     )
@@ -31,22 +31,25 @@ def test_custom_map_coordinates(dtype):
 
     expected[reset] = np.nan
 
-    result = map_coordinates(
+    result1 = map_coordinates(
         data,
         coords,
-        order=1,
+        order=order,
         cval=np.nan,
         mode="constant",
     )
 
-    assert_allclose(result, expected)
+    # If order >= 2, the padding we used in the reference result will give
+    # subtly different results, so no point in comparing this.
+    if order < 2:
+        assert_allclose(result1, expected)
 
     result2 = dask_map_coordinates(
         data,
         coords,
-        order=1,
+        order=order,
         cval=np.nan,
         mode="constant",
     )
 
-    assert_allclose(result2, expected)
+    assert_allclose(result1, result2)

@@ -1,10 +1,11 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
+import dask.array as da
 import numpy as np
 from astropy.wcs import WCS
 from astropy.wcs.utils import pixel_to_pixel
 
-from ..array_utils import map_coordinates, dask_map_coordinates
+from ..array_utils import dask_map_coordinates, map_coordinates
 from ..wcs_utils import has_celestial, pixel_to_pixel_with_roundtrip
 
 
@@ -55,7 +56,6 @@ def _reproject_full(
     return_footprint=True,
     roundtrip_coords=True,
     output_footprint=None,
-    dask_method=None,
 ):
     """
     Reproject n-dimensional data to a new projection using interpolation.
@@ -76,6 +76,8 @@ def _reproject_full(
     # shape_out must be exactly a tuple type
     shape_out = tuple(shape_out)
     _validate_wcs(wcs_in, wcs_out, array.shape, shape_out)
+
+    is_dask_array = isinstance(array, da.Array)
 
     if array_out is None:
         array_out = np.empty(shape_out)
@@ -119,7 +121,7 @@ def _reproject_full(
     # computed transformation each time
     for i in range(len(array)):
         # Interpolate array on to the pixels coordinates in pixel_in
-        if dask_method == "native":
+        if is_dask_array:
             dask_map_coordinates(
                 array[i],
                 pixel_in,

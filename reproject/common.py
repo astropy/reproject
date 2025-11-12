@@ -11,6 +11,7 @@ from astropy.wcs.wcsapi import BaseHighLevelWCS, SlicedLowLevelWCS
 from astropy.wcs.wcsapi.high_level_wcs_wrapper import HighLevelWCSWrapper
 from dask import delayed
 
+from .array_utils import ArrayWrapper
 from .utils import _dask_to_numpy_memmap
 
 __all__ = ["_reproject_dispatcher"]
@@ -114,7 +115,7 @@ def _reproject_dispatcher(
         Keyword arguments to pass through to ``reproject_func``
     return_type : {'numpy', 'dask' }, optional
         Whether to return numpy or dask arrays.
-    dask_method : {'memmap', 'none', 'native'}, optional
+    dask_method : {'memmap', 'none'}, optional
         Method to use when input array is a dask array. The methods are:
             * ``'memmap'``: write out the entire input dask array to a temporary
               memory-mapped array. This requires enough disk space to store
@@ -137,7 +138,7 @@ def _reproject_dispatcher(
 
     if dask_method is None:
         dask_method = "memmap"
-    elif dask_method not in ("memmap", "none", "native"):
+    elif dask_method not in ("memmap", "none"):
         raise ValueError("dask_method should be set to 'memmap' or 'none'")
 
     if reproject_func_kwargs is None:
@@ -194,7 +195,6 @@ def _reproject_dispatcher(
                     array_out=array_out,
                     return_footprint=return_footprint,
                     output_footprint=output_footprint,
-                    dask_method=dask_method,
                     **reproject_func_kwargs,
                 )
             finally:
@@ -311,7 +311,6 @@ def _reproject_dispatcher(
                 wcs_out_sub,
                 shape_out=shape_out,
                 array_out=np.zeros(shape_out),
-                dask_method=dask_method,
                 **reproject_func_kwargs,
             )
 
@@ -328,17 +327,6 @@ def _reproject_dispatcher(
                     )
                     array_in = array_in.rechunk(block_size)
             else:
-
-                class ArrayWrapper:
-
-                    def __init__(self, array):
-                        self._array = array
-                        self.ndim = array.ndim
-                        self.shape = array.shape
-                        self.dtype = array.dtype
-
-                    def __getitem__(self, item):
-                        return self._array[item]
 
                 array_in = da.asarray(
                     ArrayWrapper(array_in), name=str(uuid.uuid4()), chunks=block_size
@@ -369,7 +357,7 @@ def _reproject_dispatcher(
                     "offset": array_in.offset,
                 }
             elif isinstance(array_in, da.core.Array) or return_type == "dask":
-                if return_type == "memmap":
+                if dask_method == "memmap":
                     if return_type == "dask":
                         # We should use a temporary directory that will persist beyond
                         # the call to the reproject function.
