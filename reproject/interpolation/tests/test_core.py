@@ -1085,7 +1085,7 @@ def test_reproject_order_method(order):
             header_out,
             return_footprint=False,
             order=order,
-            block_size=(100, 100),
+            block_size=(10, 10),
             dask_method="memmap",
         )
 
