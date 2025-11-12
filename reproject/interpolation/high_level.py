@@ -114,14 +114,9 @@ def reproject_interp(
         Method to use when input array is a dask array. The methods are:
             * ``'memmap'``: write out the entire input dask array to a temporary
               memory-mapped array. This requires enough disk space to store
-              the entire input array, but should avoid accidentally loading
-              the entire array into memory.
-            * ``'none'``: load the dask array into memory as needed. This may
-              result in the entire array being loaded into memory. However,
-              this can be efficient under two conditions: if the array easily
-              fits into memory (as this will then be faster than ``'memmap'``),
-              and when the data contains more dimensions than the input WCS and
-              the block_size is chosen to iterate over the extra dimensions.
+              the entire input array.
+            * ``'none'`` (default): use native dask interpolation, which avoids
+              having to write the array to disk.
 
     Returns
     -------
@@ -132,6 +127,9 @@ def reproject_interp(
         no coverage or valid values in the input image, while values of 1
         indicate valid values.
     """
+
+    if dask_method is None:
+        dask_method = "none"
 
     array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
     wcs_out, shape_out = parse_output_projection(
