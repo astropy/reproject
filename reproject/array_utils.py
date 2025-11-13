@@ -212,7 +212,6 @@ def map_coordinates(
     # If the data type is native and we are not doing spline interpolation,
     # then scipy_map_coordinates deals properly with memory maps, so we can use
     # it without chunking. Otherwise, we need to iterate over data chunks.
-    # if image.dtype.isnative and "order" in kwargs and kwargs["order"] <= 1:
     if image.dtype.isnative and "order" in kwargs and kwargs["order"] <= 1:
         values = scipy_map_coordinates(at_least_float32(image), coords, output=output, **kwargs)
     else:
