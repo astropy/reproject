@@ -1,6 +1,7 @@
 import numpy as np
 from dask_image.ndinterp import map_coordinates as dask_image_map_coordinates
 from dask_image.ndinterp import spline_filter
+from scipy.ndimage import spline_filter as scipy_spline_filter
 
 __all__ = ["map_coordinates", "dask_map_coordinates", "sample_array_edges", "ArrayWrapper"]
 
@@ -123,6 +124,8 @@ def _clip_coords(image, coords):
 
 def dask_map_coordinates(image, coords, output=None, **kwargs):
 
+    cval = kwargs.get("cval", 0.0)
+
     original_shape = image.shape
 
     # Thin wrapper around dask-image's map_coordinates which ensures that we can
@@ -132,15 +135,23 @@ def dask_map_coordinates(image, coords, output=None, **kwargs):
     coords = _clip_coords(image, coords)
 
     if output is None:
-        output = np.zeros(coords.shape[1]) * np.nan
+        output = np.ones(coords.shape[1]) * cval
     else:
-        output[:] = np.nan
+        output[:] = cval
 
     # At the time of writing, dask-image is not able to correctly handle
     # prefiltering, instead doing it per-chunk which can give subtly different
     # results
     if kwargs["order"] >= 2:
-        image = spline_filter(image, order=kwargs["order"], mode="constant")
+        try:
+            image = spline_filter(image, order=kwargs["order"], mode="constant")
+        except ValueError as exc:
+            # If arrays are too small, spline_filter can fail, so we catch this
+            # case and call the scipy version if so
+            if "The overlapping depth" in str(exc):
+                image = scipy_spline_filter(image, order=kwargs["order"], mode="constant")
+            else:
+                raise exc
 
     # dask-image's map_coordinates will crash if NaN values are passed in
     # coords, so we filter these out (this is a good idea anyway for performance)
@@ -150,7 +161,9 @@ def dask_map_coordinates(image, coords, output=None, **kwargs):
     # by default, we hard-code this here to guard against any changes in
     # default
 
-    output[keep] = dask_image_map_coordinates(image, coords[:, keep], prefilter=False, **kwargs).compute()
+    output[keep] = dask_image_map_coordinates(
+        image, coords[:, keep], prefilter=False, **kwargs
+    ).compute()
 
     reset = np.zeros(coords.shape[1], dtype=bool)
 
@@ -158,7 +171,7 @@ def dask_map_coordinates(image, coords, output=None, **kwargs):
         reset |= coords[i] < -0.5
         reset |= coords[i] > original_shape[i] - 0.5
 
-    output[reset] = kwargs.get("cval", 0.0)
+    output[reset] = cval
 
     return output
 
