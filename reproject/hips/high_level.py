@@ -471,7 +471,7 @@ def reproject_to_hips(
     if tile_format == "fits":
         generated_properties["hips_pixel_bitpix"] = -64
         if not np.isinf(pixel_min) and not np.isinf(pixel_max):
-            properties["hips_pixel_cut"] = f"{pixel_min} {pixel_max}"
+            generated_properties["hips_pixel_cut"] = f"{pixel_min} {pixel_max}"
 
     generated_properties.update(properties)
 
