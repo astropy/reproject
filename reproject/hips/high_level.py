@@ -583,7 +583,7 @@ def compute_lower_resolution_tiles(
             if ndim == 2:
 
                 if tile_format == "fits":
-                    array = np.zeros((tile_size, tile_size))
+                    array = np.zeros((tile_size, tile_size)) * np.nan
                 elif tile_format == "png":
                     array = np.zeros((tile_size, tile_size, 4), dtype=np.uint8)
                 else:

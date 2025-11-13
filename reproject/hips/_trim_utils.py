@@ -44,7 +44,12 @@ def fits_getdata_untrimmed(filename, *, tile_size, tile_depth):
         tile_size - shape[2] - pad_before[2],
     )
 
-    data = np.pad(data, list(zip(pad_before, pad_after, strict=False)))
+    data = np.pad(
+        data,
+        list(zip(pad_before, pad_after, strict=False)),
+        mode="constant",
+        constant_values=np.nan,
+    )
 
     assert data.shape == (tile_depth, tile_size, tile_size)
 
