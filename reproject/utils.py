@@ -304,7 +304,7 @@ def is_png(filename):
 
 def is_jpeg(filename):
     with open(filename, "rb") as f:
-        return f.read(4) == b"\xff\xd8\xff\xe0"
+        return f.read(3) == b"\xff\xd8\xff"
 
 
 def as_transparent_rgb(data, alpha=None):
