@@ -12,6 +12,7 @@ from astropy.wcs.wcs import FITSFixedWarning
 from astropy.wcs.wcsapi import HighLevelWCSWrapper, SlicedLowLevelWCS
 from numpy.testing import assert_allclose
 
+from reproject.array_utils import ArrayWrapper
 from reproject.interpolation.high_level import reproject_interp
 from reproject.tests.helpers import array_footprint_to_hdulist
 
@@ -1059,3 +1060,42 @@ def test_reproject_parallel_broadcasting(caplog, dask_method):
             return_type="dask",
             dask_method=dask_method,
         )
+
+
+@pytest.mark.parametrize("order", ["nearest-neighbor", "bilinear", "biquadratic", "bicubic"])
+def test_reproject_order_method(order):
+
+    # Make sure that the dask-image and scipy map_coordinates implementations
+    # end up producing the same results
+
+    with fits.open(get_pkg_data_filename("data/galactic_2d.fits", package="reproject.tests")) as pf:
+
+        hdu_in = pf[0]
+
+        header_out = hdu_in.header.copy()
+        header_out["CTYPE1"] = "RA---TAN"
+        header_out["CTYPE2"] = "DEC--TAN"
+        header_out["CRVAL1"] = 266.39311
+        header_out["CRVAL2"] = -28.939779
+
+        data = da.from_array(ArrayWrapper(hdu_in.data), name="test")
+
+        array_out_memmap = reproject_interp(
+            (data, hdu_in.header),
+            header_out,
+            return_footprint=False,
+            order=order,
+            block_size=(10, 10),
+            dask_method="memmap",
+        )
+
+        array_out_none = reproject_interp(
+            (data, hdu_in.header),
+            header_out,
+            return_footprint=False,
+            order=order,
+            block_size=(10, 10),
+            dask_method="none",
+        )
+
+        assert_allclose(array_out_memmap, array_out_none)

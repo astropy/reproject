@@ -29,6 +29,7 @@ class TestHIPSDaskArray:
         self.original_wcs_3d.wcs.crpix[2] = 1
         self.original_wcs_3d._naxis = list(self.original_array_3d.shape[::-1])
 
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     @pytest.mark.parametrize("frame", ("galactic", "equatorial"))
     @pytest.mark.parametrize("level", (0, 1))
     @pytest.mark.remote_data
@@ -102,6 +103,7 @@ class TestHIPSDaskArray:
         with pytest.raises(Exception, match=r"should be positive"):
             hips_as_dask_array(output_directory, level=-1)
 
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     @pytest.mark.parametrize("frame", ("galactic", "equatorial"))
     @pytest.mark.parametrize("level", (0, 1))
     @pytest.mark.remote_data

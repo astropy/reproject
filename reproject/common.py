@@ -11,6 +11,7 @@ from astropy.wcs.wcsapi import BaseHighLevelWCS, SlicedLowLevelWCS
 from astropy.wcs.wcsapi.high_level_wcs_wrapper import HighLevelWCSWrapper
 from dask import delayed
 
+from .array_utils import ArrayWrapper
 from .utils import _dask_to_numpy_memmap
 
 __all__ = ["_reproject_dispatcher"]
@@ -327,17 +328,6 @@ def _reproject_dispatcher(
                     array_in = array_in.rechunk(block_size)
             else:
 
-                class ArrayWrapper:
-
-                    def __init__(self, array):
-                        self._array = array
-                        self.ndim = array.ndim
-                        self.shape = array.shape
-                        self.dtype = array.dtype
-
-                    def __getitem__(self, item):
-                        return self._array[item]
-
                 array_in = da.asarray(
                     ArrayWrapper(array_in), name=str(uuid.uuid4()), chunks=block_size
                 )
@@ -367,7 +357,7 @@ def _reproject_dispatcher(
                     "offset": array_in.offset,
                 }
             elif isinstance(array_in, da.core.Array) or return_type == "dask":
-                if return_type == "memmap":
+                if dask_method == "memmap":
                     if return_type == "dask":
                         # We should use a temporary directory that will persist beyond
                         # the call to the reproject function.

@@ -1,6 +1,9 @@
 import numpy as np
+from dask_image.ndinterp import map_coordinates as dask_image_map_coordinates
+from dask_image.ndinterp import spline_filter
+from scipy.ndimage import spline_filter as scipy_spline_filter
 
-__all__ = ["map_coordinates", "sample_array_edges"]
+__all__ = ["map_coordinates", "dask_map_coordinates", "sample_array_edges", "ArrayWrapper"]
 
 
 def find_chunk_shape(shape, max_chunk_size=None):
@@ -107,6 +110,72 @@ def memory_efficient_access(array, chunk):
         return array[chunk]
 
 
+def _clip_coords(image, coords):
+
+    shape = image.shape
+
+    coords = coords.copy()
+    for i in range(coords.shape[0]):
+        coords[i][(coords[i] < 0) & (coords[i] >= -0.5)] = 0
+        coords[i][(coords[i] < shape[i] - 0.5) & (coords[i] >= shape[i] - 1)] = shape[i] - 1
+
+    return coords
+
+
+def dask_map_coordinates(image, coords, output=None, **kwargs):
+
+    cval = kwargs.get("cval", 0.0)
+
+    original_shape = image.shape
+
+    # Thin wrapper around dask-image's map_coordinates which ensures that we can
+    # interpolate right to the edge of the image, and also implement the output
+    # keyword argument
+
+    coords = _clip_coords(image, coords)
+
+    if output is None:
+        output = np.ones(coords.shape[1]) * cval
+    else:
+        output[:] = cval
+
+    # At the time of writing, dask-image is not able to correctly handle
+    # prefiltering, instead doing it per-chunk which can give subtly different
+    # results
+    if kwargs["order"] >= 2:
+        try:
+            image = spline_filter(image, order=kwargs["order"], mode="constant")
+        except ValueError as exc:
+            # If arrays are too small, spline_filter can fail, so we catch this
+            # case and call the scipy version if so
+            if "The overlapping depth" in str(exc):
+                image = scipy_spline_filter(image, order=kwargs["order"], mode="constant")
+            else:
+                raise exc
+
+    # dask-image's map_coordinates will crash if NaN values are passed in
+    # coords, so we filter these out (this is a good idea anyway for performance)
+    keep = ~np.any(np.isnan(coords), axis=0)
+
+    # At the time of writing, dask-image's map_coordinates prefilter is False
+    # by default, we hard-code this here to guard against any changes in
+    # default
+
+    output[keep] = dask_image_map_coordinates(
+        image, coords[:, keep], prefilter=False, **kwargs
+    ).compute()
+
+    reset = np.zeros(coords.shape[1], dtype=bool)
+
+    for i in range(coords.shape[0]):
+        reset |= coords[i] < -0.5
+        reset |= coords[i] > original_shape[i] - 0.5
+
+    output[reset] = cval
+
+    return output
+
+
 def map_coordinates(
     image, coords, max_chunk_size=None, output=None, optimize_memory=False, **kwargs
 ):
@@ -138,12 +207,7 @@ def map_coordinates(
     # We copy the coordinates array as we then modify it in-place below to clip
     # to the edges of the array.
 
-    coords = coords.copy()
-    for i in range(coords.shape[0]):
-        coords[i][(coords[i] < 0) & (coords[i] >= -0.5)] = 0
-        coords[i][(coords[i] < original_shape[i] - 0.5) & (coords[i] >= original_shape[i] - 1)] = (
-            original_shape[i] - 1
-        )
+    coords = _clip_coords(image, coords)
 
     # If the data type is native and we are not doing spline interpolation,
     # then scipy_map_coordinates deals properly with memory maps, so we can use
@@ -223,3 +287,15 @@ def sample_array_edges(shape, *, n_samples):
             all_positions.append(positions)
     positions = np.unique(np.vstack(all_positions), axis=0).T
     return positions
+
+
+class ArrayWrapper:
+
+    def __init__(self, array):
+        self._array = array
+        self.ndim = array.ndim
+        self.shape = array.shape
+        self.dtype = array.dtype
+
+    def __getitem__(self, item):
+        return self._array[item]

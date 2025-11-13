@@ -1,10 +1,11 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
+import dask.array as da
 import numpy as np
 from astropy.wcs import WCS
 from astropy.wcs.utils import pixel_to_pixel
 
-from ..array_utils import map_coordinates
+from ..array_utils import dask_map_coordinates, map_coordinates
 from ..wcs_utils import has_celestial, pixel_to_pixel_with_roundtrip
 
 
@@ -76,6 +77,8 @@ def _reproject_full(
     shape_out = tuple(shape_out)
     _validate_wcs(wcs_in, wcs_out, array.shape, shape_out)
 
+    is_dask_array = isinstance(array, da.Array)
+
     if array_out is None:
         array_out = np.empty(shape_out)
 
@@ -118,15 +121,25 @@ def _reproject_full(
     # computed transformation each time
     for i in range(len(array)):
         # Interpolate array on to the pixels coordinates in pixel_in
-        map_coordinates(
-            array[i],
-            pixel_in,
-            order=order,
-            cval=np.nan,
-            mode="constant",
-            output=array_out_loopable[i].ravel(),
-            max_chunk_size=256 * 1024**2,
-        )
+        if is_dask_array:
+            dask_map_coordinates(
+                array[i],
+                pixel_in,
+                order=order,
+                cval=np.nan,
+                mode="constant",
+                output=array_out_loopable[i].ravel(),
+            )
+        else:
+            map_coordinates(
+                array[i],
+                pixel_in,
+                order=order,
+                cval=np.nan,
+                mode="constant",
+                output=array_out_loopable[i].ravel(),
+                max_chunk_size=256 * 1024**2,
+            )
 
     # n.b. We write the reprojected data into array_out_loopable, but array_out
     # also contains this data and has the user's desired output shape.
