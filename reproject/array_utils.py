@@ -123,6 +123,8 @@ def _clip_coords(image, coords):
 
 def dask_map_coordinates(image, coords, output=None, **kwargs):
 
+    original_shape = image.shape
+
     # Thin wrapper around dask-image's map_coordinates which ensures that we can
     # interpolate right to the edge of the image, and also implement the output
     # keyword argument
@@ -130,7 +132,9 @@ def dask_map_coordinates(image, coords, output=None, **kwargs):
     coords = _clip_coords(image, coords)
 
     if output is None:
-        output = np.zeros(coords.shape[1])
+        output = np.zeros(coords.shape[1]) * np.nan
+    else:
+        output[:] = np.nan
 
     # At the time of writing, dask-image is not able to correctly handle
     # prefiltering, instead doing it per-chunk which can give subtly different
@@ -138,10 +142,23 @@ def dask_map_coordinates(image, coords, output=None, **kwargs):
     if kwargs["order"] >= 2:
         image = spline_filter(image, order=kwargs["order"], mode="constant")
 
+    # dask-image's map_coordinates will crash if NaN values are passed in
+    # coords, so we filter these out (this is a good idea anyway for performance)
+    keep = ~np.any(np.isnan(coords), axis=0)
+
     # At the time of writing, dask-image's map_coordinates prefilter is False
     # by default, we hard-code this here to guard against any changes in
-    # defaults in future.
-    output[:] = dask_image_map_coordinates(image, coords, prefilter=False, **kwargs).compute()
+    # default
+
+    output[keep] = dask_image_map_coordinates(image, coords[:, keep], prefilter=False, **kwargs).compute()
+
+    reset = np.zeros(coords.shape[1], dtype=bool)
+
+    for i in range(coords.shape[0]):
+        reset |= coords[i] < -0.5
+        reset |= coords[i] > original_shape[i] - 0.5
+
+    output[reset] = kwargs.get("cval", 0.0)
 
     return output
 

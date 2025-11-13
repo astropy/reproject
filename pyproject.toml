@@ -17,7 +17,7 @@ dependencies = [
     "astropy-healpix>=1.0",
     "scipy>=1.9",
     "dask[array]>=2021.8",
-    "dask-image @ git+https://github.com/dask/dask-image@v2025.11.0rc1",
+    "dask-image>=2025.11.0",
     "zarr>=2.11.0",
     "fsspec>=2021.8",
     "pillow>=10.0",
