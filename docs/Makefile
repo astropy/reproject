@@ -38,6 +38,7 @@ help:
 clean:
 	-rm -rf $(BUILDDIR)
 	-rm -rf api
+	-rm -r autoapi
 	-rm -rf generated
 
 html:
