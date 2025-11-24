@@ -21,13 +21,16 @@ jobs:
         - macos: py311-test-oldestdeps
         - macos: py312-test
         - macos: py313-test
+        - macos: py314-test-devdeps
         - linux: py311-test-oldestdeps
         - linux: py312-test
           runs-on: ubuntu-24.04-arm
-        - linux: py313-test-devdeps
+        - linux: py313-test
+        - linux: py314-test-devdeps
         - windows: py311-test-oldestdeps
         - windows: py312-test
         - windows: py313-test
+        - windows: py314-test
       libraries: |
         apt:
           - libopenblas-dev
