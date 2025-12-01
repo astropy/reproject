@@ -52,7 +52,7 @@ repos:
         exclude: ".*(data.*|extern.*|cextern)$"
 
   - repo: https://github.com/psf/black-pre-commit-mirror
-    rev: 25.9.0
+    rev: 25.11.0
     hooks:
       - id: black
 
@@ -64,7 +64,7 @@ repos:
         exclude: ".*(tests.*)$"
 
   - repo: https://github.com/scientific-python/cookie
-    rev: 2025.10.20
+    rev: 2025.11.21
     hooks:
       - id: sp-repo-review
 
@@ -78,7 +78,7 @@ repos:
         exclude: '.*\.(asdf)$'
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: "v0.14.3"
+    rev: "v0.14.7"
     hooks:
       - id: ruff-check
         args: ["--fix", "--show-fixes"]
