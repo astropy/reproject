@@ -662,8 +662,8 @@ def test_broadcast_reprojection(input_extra_dims, output_shape, input_as_wcs, ou
     # Test both single and multiple dimensions being broadcast
     if input_extra_dims == 2:
         image_stack = image_stack.reshape((2, 2, *image_stack.shape[-2:]))
-        array_ref.shape = image_stack.shape
-        footprint_ref.shape = image_stack.shape
+        array_ref = array_ref.reshape(image_stack.shape)
+        footprint_ref = footprint_ref.reshape(image_stack.shape)
 
     # Test different ways of providing the output shape
     if output_shape == "single":
@@ -706,8 +706,8 @@ def test_blocked_broadcast_reprojection(input_extra_dims, output_shape, parallel
     # Test both single and multiple dimensions being broadcast
     if input_extra_dims == 2:
         image_stack = image_stack.reshape((2, 2, *image_stack.shape[-2:]))
-        array_ref.shape = image_stack.shape
-        footprint_ref.shape = image_stack.shape
+        array_ref = array_ref.reshape(image_stack.shape)
+        footprint_ref = footprint_ref.reshape(image_stack.shape)
 
     # Test different ways of providing the output shape
     if output_shape == "single":

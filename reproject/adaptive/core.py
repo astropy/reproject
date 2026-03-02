@@ -177,7 +177,7 @@ def _reproject_adaptive_2d(
         bad_fill_value=bad_fill_value,
     )
 
-    array_out.shape = shape_out
+    array_out = array_out.reshape(shape_out)
 
     if return_footprint:
         output_footprint[:] = (~np.isnan(array_out)).astype(float)
