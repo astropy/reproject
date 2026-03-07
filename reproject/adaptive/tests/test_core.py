@@ -62,6 +62,45 @@ def test_reproject_adaptive_2d(wcsapi, center_jacobian, roundtrip_coords):
     return array_footprint_to_hdulist(array_out, footprint_out, header_out)
 
 
+def test_reproject_adaptive_dtypes():
+    # Set up initial array with pattern
+    data_in = np.zeros((256, 256))
+    data_in[::20, :] = 1
+    data_in[:, ::20] = 1
+    data_in[10::20, 10::20] = 1
+
+    # Define a simple input WCS
+    wcs_in = WCS(naxis=2)
+    wcs_in.wcs.crpix = 128.5, 128.5
+    wcs_in.wcs.cdelt = -0.01, 0.01
+
+    # Define a lower resolution output WCS
+    wcs_out = WCS(naxis=2)
+    wcs_out.wcs.crpix = 30.5, 30.5
+    wcs_out.wcs.cdelt = -0.0427, 0.0427
+
+    header_out = wcs_out.to_header()
+
+    # Run with double-precision inputs and outputs
+    array_out, footprint_out = reproject_adaptive(
+        (data_in, wcs_in),
+        wcs_out,
+        shape_out=(60, 60),
+    )
+
+    # Run with single precision
+    array_out_32bit = np.empty_like(array_out, dtype=np.float32)
+    _, footprint_out = reproject_adaptive(
+        (data_in.astype(np.float32), wcs_in),
+        wcs_out,
+        shape_out=(60, 60),
+        output_array=array_out_32bit,
+    )
+
+    # Check that the results are similar
+    assert_allclose(array_out, array_out_32bit, rtol=1e-6)
+
+
 @pytest.mark.parametrize("axis", ("x", "y"))
 @pytest.mark.parametrize("center_jacobian", (True, False))
 def test_reproject_adaptive_despike_jacobian(axis, center_jacobian):
