@@ -117,8 +117,10 @@ def _reproject_adaptive_2d(
     "broadcast" across those images.
     """
 
-    # Make sure image is floating point
-    array_in = np.asarray(array, dtype=float)
+    # Make sure image is floating point, but preserve the floating-point precision if it's floating point already
+    array_in = np.asarray(array)
+    if not np.issubdtype(array.dtype, np.floating):
+        array_in = np.asarray(array, dtype=float)
     shape_out = tuple(shape_out)
 
     # Check dimensionality of WCS and shape_out
