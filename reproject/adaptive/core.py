@@ -26,7 +26,7 @@ class CoordinateTransformer:
 
 
 def _reproject_adaptive_2d(
-    array,
+    array_in,
     wcs_in,
     wcs_out,
     shape_out,
@@ -123,9 +123,8 @@ def _reproject_adaptive_2d(
     # input---the input is more likely to have weirdness (e.g. the wrong endianness, which Cython can't handle), and
     # the output type is either a safe default, if the user didn't provide an output array, or it has a user-specified
     # type.
-    array_in = np.asarray(array)
-    if array_out is not None and array_in.dtype != array_out.dtype:
-        array_in = np.asarray(array, dtype=array_out.dtype)
+    if not isinstance(array_in, np.ndarray) or (array_out is not None and array_in.dtype != array_out.dtype):
+        array_in = np.asarray(array_in, dtype=array_out.dtype if array_out is not None else float)
     shape_out = tuple(shape_out)
 
     # Check dimensionality of WCS and shape_out
