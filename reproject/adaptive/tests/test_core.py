@@ -79,8 +79,6 @@ def test_reproject_adaptive_dtypes():
     wcs_out.wcs.crpix = 30.5, 30.5
     wcs_out.wcs.cdelt = -0.0427, 0.0427
 
-    header_out = wcs_out.to_header()
-
     # Run with double-precision inputs and outputs
     array_out, footprint_out = reproject_adaptive(
         (data_in, wcs_in),
