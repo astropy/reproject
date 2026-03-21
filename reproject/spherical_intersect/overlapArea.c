@@ -75,6 +75,104 @@ void RemoveDups(int *nv, Vec *V);
 int printDir(char *point, char *vector, int dir);
 
 /*
+ * 2D polygon helpers for the planar approximation path.
+ */
+
+static double cross2d(double ax, double ay, double bx, double by) {
+  return ax * by - ay * bx;
+}
+
+static double polyArea2D(const double *x, const double *y, int n) {
+  int i, j;
+  double area = 0;
+  for (i = 0; i < n; ++i) {
+    j = (i + 1) % n;
+    area += x[i] * y[j] - x[j] * y[i];
+  }
+  return fabs(area) / 2.0;
+}
+
+static void ensureCCW2D(double *x, double *y, int n) {
+  int i, j;
+  double area = 0;
+  double tmp;
+  for (i = 0; i < n; ++i) {
+    j = (i + 1) % n;
+    area += x[i] * y[j] - x[j] * y[i];
+  }
+  if (area < 0) {
+    for (i = 0; i < n / 2; ++i) {
+      j = n - 1 - i;
+      tmp = x[i]; x[i] = x[j]; x[j] = tmp;
+      tmp = y[i]; y[i] = y[j]; y[j] = tmp;
+    }
+  }
+}
+
+/*
+ * Sutherland-Hodgman polygon clipping in 2D.
+ * Clips subject polygon (sx, sy, sn) against clip polygon (cx, cy, cn).
+ * Both must be convex and counter-clockwise.
+ * Returns the number of output vertices in (ox, oy).
+ */
+static int clipPolygon2D(
+    const double *sx, const double *sy, int sn,
+    const double *cx, const double *cy, int cn,
+    double *ox, double *oy) {
+  double tmpx[2][16], tmpy[2][16];
+  int cur = 0, nxt, n, nout, i, j, jnext, inext;
+  double ex, ey, s1, s2, t;
+
+  for (i = 0; i < sn; ++i) {
+    tmpx[0][i] = sx[i];
+    tmpy[0][i] = sy[i];
+  }
+  n = sn;
+
+  for (j = 0; j < cn; ++j) {
+    if (n == 0)
+      break;
+    jnext = (j + 1) % cn;
+    ex = cx[jnext] - cx[j];
+    ey = cy[jnext] - cy[j];
+    nxt = 1 - cur;
+    nout = 0;
+
+    for (i = 0; i < n; ++i) {
+      inext = (i + 1) % n;
+      s1 = cross2d(ex, ey, tmpx[cur][i] - cx[j], tmpy[cur][i] - cy[j]);
+      s2 = cross2d(ex, ey, tmpx[cur][inext] - cx[j], tmpy[cur][inext] - cy[j]);
+
+      if (s1 >= 0) {
+        tmpx[nxt][nout] = tmpx[cur][i];
+        tmpy[nxt][nout] = tmpy[cur][i];
+        ++nout;
+        if (s2 < 0) {
+          t = s1 / (s1 - s2);
+          tmpx[nxt][nout] = tmpx[cur][i] + t * (tmpx[cur][inext] - tmpx[cur][i]);
+          tmpy[nxt][nout] = tmpy[cur][i] + t * (tmpy[cur][inext] - tmpy[cur][i]);
+          ++nout;
+        }
+      } else if (s2 > 0) {
+        t = s1 / (s1 - s2);
+        tmpx[nxt][nout] = tmpx[cur][i] + t * (tmpx[cur][inext] - tmpx[cur][i]);
+        tmpy[nxt][nout] = tmpy[cur][i] + t * (tmpy[cur][inext] - tmpy[cur][i]);
+        ++nout;
+      }
+    }
+
+    cur = nxt;
+    n = nout;
+  }
+
+  for (i = 0; i < n; ++i) {
+    ox[i] = tmpx[cur][i];
+    oy[i] = tmpy[cur][i];
+  }
+  return n;
+}
+
+/*
  * Sets up the polygons, runs the overlap computation, and returns the area of overlap.
  */
 double computeOverlap(double *ilon, double *ilat, double *olon, double *olat,
@@ -122,6 +220,85 @@ double computeOverlap(double *ilon, double *ilat, double *olon, double *olat,
     Q[i].x = cos(olon[i]) * cos(olat[i]);
     Q[i].y = sin(olon[i]) * cos(olat[i]);
     Q[i].z = sin(olat[i]);
+  }
+
+  // For small pixels, the spherical intersection and Girard's theorem both
+  // suffer from numerical precision loss. Instead, project onto a local
+  // tangent plane and do the entire overlap computation in 2D.
+  {
+    Vec centroid;
+    double max_dist_sq, dx, dy, dz, d2;
+
+    centroid.x = centroid.y = centroid.z = 0;
+    for (i = 0; i < 4; ++i) {
+      centroid.x += P[i].x + Q[i].x;
+      centroid.y += P[i].y + Q[i].y;
+      centroid.z += P[i].z + Q[i].z;
+    }
+    Normalize(&centroid);
+
+    max_dist_sq = 0;
+    for (i = 0; i < 4; ++i) {
+      dx = P[i].x - centroid.x;
+      dy = P[i].y - centroid.y;
+      dz = P[i].z - centroid.z;
+      d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 > max_dist_sq)
+        max_dist_sq = d2;
+      dx = Q[i].x - centroid.x;
+      dy = Q[i].y - centroid.y;
+      dz = Q[i].z - centroid.z;
+      d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 > max_dist_sq)
+        max_dist_sq = d2;
+    }
+
+    // For unit vectors, |V - C|^2 = 2(1 - cos(theta)) ~ theta^2.
+    // Threshold of 1e-6 corresponds to theta ~ 1e-3 rad (~3.4 arcmin),
+    // where the planar approximation error is ~1e-6 relative.
+    if (max_dist_sq < 1e-6) {
+      Vec east, north;
+      double px[4], py[4], qx[4], qy[4];
+      double ox[16], oy[16];
+      int noverlap;
+
+      if (fabs(centroid.z) < 0.9) {
+        east.x = -centroid.y;
+        east.y = centroid.x;
+        east.z = 0.0;
+      } else {
+        east.x = 0.0;
+        east.y = centroid.z;
+        east.z = -centroid.y;
+      }
+      Normalize(&east);
+      Cross(&centroid, &east, &north);
+      Normalize(&north);
+
+      for (i = 0; i < 4; ++i) {
+        px[i] = Dot(&P[i], &east);
+        py[i] = Dot(&P[i], &north);
+        qx[i] = Dot(&Q[i], &east);
+        qy[i] = Dot(&Q[i], &north);
+      }
+
+      ensureCCW2D(px, py, 4);
+      ensureCCW2D(qx, qy, 4);
+
+      if (energyMode) {
+        *areaRatio = polyArea2D(px, py, 4) / refArea;
+      }
+
+      noverlap = clipPolygon2D(px, py, 4, qx, qy, 4, ox, oy);
+
+      if (DEBUG >= 4) {
+        printf("computeOverlap(): using planar approximation, "
+               "noverlap = %d\n", noverlap);
+        fflush(stdout);
+      }
+
+      return polyArea2D(ox, oy, noverlap);
+    }
   }
 
   EnsureCounterClockWise(P);

@@ -91,10 +91,8 @@ def test_reproject_precision_warning():
         array = np.zeros((19, 19))
         array[9, 9] = 1
 
-        if res < 1e-3 / 3600:
-            with pytest.warns(
-                UserWarning, match="The reproject_exact function currently has precision"
-            ):
+        if res < 1e-6 / 3600:
+            with pytest.warns(UserWarning, match="The reproject_exact function may have precision"):
                 reproject_exact((array, wcs1), wcs2, shape_out=(5, 5))
         else:
             with warnings.catch_warnings(record=True) as w:
@@ -102,7 +100,7 @@ def test_reproject_precision_warning():
             assert len(w) == 0
 
 
-@pytest.mark.parametrize("res", [0.01, 0.001])
+@pytest.mark.parametrize("res", [0.01, 0.001, 1e-4])
 def test_reproject_flux_conservation(res):
     """Regression test for https://github.com/astropy/reproject/issues/199"""
     res = res / 3600  # convert to degrees
