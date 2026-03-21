@@ -100,8 +100,11 @@ def test_reproject_precision_warning():
             assert len(w) == 0
 
 
-@pytest.mark.parametrize("res", [0.01, 0.001, 1e-4])
-def test_reproject_flux_conservation(res):
+@pytest.mark.parametrize(
+    "res,rtol",
+    [(0.01, 1e-6), (0.001, 1e-6), (1e-4, 1e-6), (1e-5, 1e-4)],
+)
+def test_reproject_flux_conservation(res, rtol):
     """Regression test for https://github.com/astropy/reproject/issues/199"""
     res = res / 3600  # convert to degrees
 
@@ -123,8 +126,9 @@ def test_reproject_flux_conservation(res):
     result, _ = reproject_exact((array, wcs1), wcs2, shape_out=(5, 5))
 
     # The output pixel area is 9x the input, so the ratio of sums
-    # should be 1/9.
-    assert_allclose(9 * np.nansum(result), np.nansum(array), rtol=1e-4)
+    # should be 1/9. Tolerance is looser at extreme resolutions due to
+    # floating-point limits in WCS coordinate transformations.
+    assert_allclose(9 * np.nansum(result), np.nansum(array), rtol=rtol)
 
 
 def _setup_for_broadcast_test():
