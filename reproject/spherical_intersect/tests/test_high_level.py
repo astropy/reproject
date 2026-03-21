@@ -75,7 +75,7 @@ def test_identity():
 
 
 def test_reproject_precision_warning():
-    for res in [0.1 / 3600, 0.01 / 3600]:
+    for res in [0.1 / 3600, 0.01 / 3600, 1e-4 / 3600]:
         wcs1 = WCS()
         wcs1.wcs.ctype = "RA---TAN", "DEC--TAN"
         wcs1.wcs.crval = 13, 80
@@ -91,7 +91,7 @@ def test_reproject_precision_warning():
         array = np.zeros((19, 19))
         array[9, 9] = 1
 
-        if res < 0.05 / 3600:
+        if res < 1e-3 / 3600:
             with pytest.warns(
                 UserWarning, match="The reproject_exact function currently has precision"
             ):
@@ -100,6 +100,33 @@ def test_reproject_precision_warning():
             with warnings.catch_warnings(record=True) as w:
                 reproject_exact((array, wcs1), wcs2, shape_out=(5, 5))
             assert len(w) == 0
+
+
+@pytest.mark.parametrize("res", [0.01, 0.001])
+def test_reproject_flux_conservation(res):
+    """Regression test for https://github.com/astropy/reproject/issues/199"""
+    res = res / 3600  # convert to degrees
+
+    wcs1 = WCS(naxis=2)
+    wcs1.wcs.ctype = "RA---TAN", "DEC--TAN"
+    wcs1.wcs.crval = 13, 20
+    wcs1.wcs.crpix = 10.0, 10.0
+    wcs1.wcs.cdelt = res, res
+
+    wcs2 = WCS(naxis=2)
+    wcs2.wcs.ctype = "RA---TAN", "DEC--TAN"
+    wcs2.wcs.crval = 13, 20
+    wcs2.wcs.crpix = 3, 3
+    wcs2.wcs.cdelt = 3 * res, 3 * res
+
+    array = np.zeros((19, 19))
+    array[9, 9] = 1
+
+    result, _ = reproject_exact((array, wcs1), wcs2, shape_out=(5, 5))
+
+    # The output pixel area is 9x the input, so the ratio of sums
+    # should be 1/9.
+    assert_allclose(9 * np.nansum(result), np.nansum(array), rtol=1e-4)
 
 
 def _setup_for_broadcast_test():

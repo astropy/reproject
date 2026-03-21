@@ -919,6 +919,77 @@ double Girard(int nv, Vec *V) {
   if (nv < 3)
     return 0;
 
+  // For very small polygons, Girard's theorem suffers from catastrophic
+  // cancellation: area = sum_of_angles - (N-2)*pi, and for tiny polygons
+  // the sum is extremely close to (N-2)*pi. Instead, project onto a local
+  // tangent plane and use the shoelace formula (planar approximation).
+
+  {
+    Vec centroid;
+    double max_dist_sq, dx, dy, dz, dist_sq;
+
+    centroid.x = centroid.y = centroid.z = 0;
+    for (i = 0; i < nv; ++i) {
+      centroid.x += V[i].x;
+      centroid.y += V[i].y;
+      centroid.z += V[i].z;
+    }
+    Normalize(&centroid);
+
+    max_dist_sq = 0;
+    for (i = 0; i < nv; ++i) {
+      dx = V[i].x - centroid.x;
+      dy = V[i].y - centroid.y;
+      dz = V[i].z - centroid.z;
+      dist_sq = dx * dx + dy * dy + dz * dz;
+      if (dist_sq > max_dist_sq)
+        max_dist_sq = dist_sq;
+    }
+
+    // For unit vectors, |V - C|^2 = 2(1 - cos(theta)) ~ theta^2 for small
+    // theta. Threshold of 1e-6 corresponds to theta ~ 1e-3 rad (~3.4 arcmin),
+    // where the planar approximation error is ~1e-6 relative.
+    if (max_dist_sq < 1e-6) {
+      Vec east, north;
+      double px[16], py[16];
+
+      // Build orthonormal basis on tangent plane at centroid
+      if (fabs(centroid.z) < 0.9) {
+        east.x = -centroid.y;
+        east.y = centroid.x;
+        east.z = 0.0;
+      } else {
+        east.x = 0.0;
+        east.y = centroid.z;
+        east.z = -centroid.y;
+      }
+      Normalize(&east);
+
+      Cross(&centroid, &east, &north);
+      Normalize(&north);
+
+      for (i = 0; i < nv; ++i) {
+        px[i] = Dot(&V[i], &east);
+        py[i] = Dot(&V[i], &north);
+      }
+
+      area = 0.0;
+      for (i = 0; i < nv; ++i) {
+        j = (i + 1) % nv;
+        area += px[i] * py[j] - px[j] * py[i];
+      }
+      area = fabs(area) / 2.0;
+
+      if (DEBUG >= 4) {
+        printf("\nGirard(): using planar approximation, area = %13.6e [%d]\n\n",
+               area, nv);
+        fflush(stdout);
+      }
+
+      return area;
+    }
+  }
+
   for (i = 0; i < nv; ++i) {
     Normalize(&side[i]);
   }
