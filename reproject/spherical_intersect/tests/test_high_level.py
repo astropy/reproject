@@ -75,7 +75,7 @@ def test_identity():
 
 
 def test_reproject_precision_warning():
-    for res in [0.1 / 3600, 0.01 / 3600, 1e-4 / 3600]:
+    for res in [0.1 / 3600, 0.01 / 3600, 1e-4 / 3600, 1e-7 / 3600]:
         wcs1 = WCS()
         wcs1.wcs.ctype = "RA---TAN", "DEC--TAN"
         wcs1.wcs.crval = 13, 80
