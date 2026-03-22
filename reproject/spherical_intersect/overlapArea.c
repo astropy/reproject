@@ -1124,9 +1124,10 @@ double Girard(int nv, Vec *V) {
         max_dist_sq = dist_sq;
     }
 
-    // For unit vectors, |V - C|^2 = 2(1 - cos(theta)) ~ theta^2 for small
-    // theta. Threshold of 1e-6 corresponds to theta ~ 1e-3 rad (~3.4 arcmin),
-    // where the planar approximation error is ~1e-6 relative.
+    // For unit vectors, |V - C|^2 = 2(1 - cos(theta)) ~ theta^2.
+    // Threshold of 1e-8 corresponds to theta ~ 1e-4 rad (~20 arcsec),
+    // the crossover point where the planar approximation becomes more
+    // accurate than Girard's theorem in double precision.
     if (max_dist_sq < 1e-8) {
       Vec east, north;
       double px[16], py[16];
