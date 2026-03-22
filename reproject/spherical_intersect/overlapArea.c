@@ -110,6 +110,80 @@ static void ensureCCW2D(double *x, double *y, int n) {
 }
 
 /*
+ * Build an orthonormal tangent plane basis at a point on the unit sphere,
+ * then project vertices onto that plane.
+ *
+ * center: unit vector defining the tangent point
+ * V:      array of nv unit vectors to project
+ * nv:     number of vertices
+ * px, py: output arrays for the 2D projected coordinates (must have room for nv)
+ */
+static void projectToTangentPlane(Vec *center, Vec *V, int nv,
+                                  double *px, double *py) {
+  int i;
+  Vec east, north;
+
+  if (fabs(center->z) < 0.9) {
+    east.x = -center->y;
+    east.y = center->x;
+    east.z = 0.0;
+  } else {
+    east.x = 0.0;
+    east.y = center->z;
+    east.z = -center->y;
+  }
+  Normalize(&east);
+  Cross(center, &east, &north);
+  Normalize(&north);
+
+  for (i = 0; i < nv; ++i) {
+    px[i] = Dot(&V[i], &east);
+    py[i] = Dot(&V[i], &north);
+  }
+}
+
+/*
+ * Check if all vertices are close enough to use the planar approximation,
+ * and if so, compute the polygon area via tangent plane projection + shoelace.
+ * Returns 1 if the planar path was used (result stored in *area), 0 otherwise.
+ */
+static int planarArea(int nv, Vec *V, double *area) {
+  int i;
+  Vec centroid;
+  double max_dist_sq, dx, dy, dz, d2;
+  double px[16], py[16];
+
+  centroid.x = centroid.y = centroid.z = 0;
+  for (i = 0; i < nv; ++i) {
+    centroid.x += V[i].x;
+    centroid.y += V[i].y;
+    centroid.z += V[i].z;
+  }
+  Normalize(&centroid);
+
+  max_dist_sq = 0;
+  for (i = 0; i < nv; ++i) {
+    dx = V[i].x - centroid.x;
+    dy = V[i].y - centroid.y;
+    dz = V[i].z - centroid.z;
+    d2 = dx * dx + dy * dy + dz * dz;
+    if (d2 > max_dist_sq)
+      max_dist_sq = d2;
+  }
+
+  // For unit vectors, |V - C|^2 = 2(1 - cos(theta)) ~ theta^2.
+  // Threshold of 1e-8 corresponds to theta ~ 1e-4 rad (~20 arcsec),
+  // the crossover point where the planar approximation becomes more
+  // accurate than Girard's theorem in double precision.
+  if (max_dist_sq >= 1e-8)
+    return 0;
+
+  projectToTangentPlane(&centroid, V, nv, px, py);
+  *area = polyArea2D(px, py, nv);
+  return 1;
+}
+
+/*
  * Sutherland-Hodgman polygon clipping in 2D.
  * Clips subject polygon (sx, sy, sn) against clip polygon (cx, cy, cn).
  * Both must be convex and counter-clockwise.
@@ -226,62 +300,39 @@ double computeOverlap(double *ilon, double *ilat, double *olon, double *olat,
   // suffer from numerical precision loss. Instead, project onto a local
   // tangent plane and do the entire overlap computation in 2D.
   {
+    Vec all[8];
     Vec centroid;
     double max_dist_sq, dx, dy, dz, d2;
 
-    centroid.x = centroid.y = centroid.z = 0;
     for (i = 0; i < 4; ++i) {
-      centroid.x += P[i].x + Q[i].x;
-      centroid.y += P[i].y + Q[i].y;
-      centroid.z += P[i].z + Q[i].z;
+      all[i] = P[i];
+      all[i + 4] = Q[i];
+    }
+    centroid.x = centroid.y = centroid.z = 0;
+    for (i = 0; i < 8; ++i) {
+      centroid.x += all[i].x;
+      centroid.y += all[i].y;
+      centroid.z += all[i].z;
     }
     Normalize(&centroid);
 
     max_dist_sq = 0;
-    for (i = 0; i < 4; ++i) {
-      dx = P[i].x - centroid.x;
-      dy = P[i].y - centroid.y;
-      dz = P[i].z - centroid.z;
-      d2 = dx * dx + dy * dy + dz * dz;
-      if (d2 > max_dist_sq)
-        max_dist_sq = d2;
-      dx = Q[i].x - centroid.x;
-      dy = Q[i].y - centroid.y;
-      dz = Q[i].z - centroid.z;
+    for (i = 0; i < 8; ++i) {
+      dx = all[i].x - centroid.x;
+      dy = all[i].y - centroid.y;
+      dz = all[i].z - centroid.z;
       d2 = dx * dx + dy * dy + dz * dz;
       if (d2 > max_dist_sq)
         max_dist_sq = d2;
     }
 
-    // For unit vectors, |V - C|^2 = 2(1 - cos(theta)) ~ theta^2.
-    // Threshold of 1e-8 corresponds to theta ~ 1e-4 rad (~20 arcsec),
-    // the crossover point where the planar approximation becomes more
-    // accurate than Girard's theorem in double precision.
     if (max_dist_sq < 1e-8) {
-      Vec east, north;
       double px[4], py[4], qx[4], qy[4];
       double ox[16], oy[16];
       int noverlap;
 
-      if (fabs(centroid.z) < 0.9) {
-        east.x = -centroid.y;
-        east.y = centroid.x;
-        east.z = 0.0;
-      } else {
-        east.x = 0.0;
-        east.y = centroid.z;
-        east.z = -centroid.y;
-      }
-      Normalize(&east);
-      Cross(&centroid, &east, &north);
-      Normalize(&north);
-
-      for (i = 0; i < 4; ++i) {
-        px[i] = Dot(&P[i], &east);
-        py[i] = Dot(&P[i], &north);
-        qx[i] = Dot(&Q[i], &east);
-        qy[i] = Dot(&Q[i], &north);
-      }
+      projectToTangentPlane(&centroid, P, 4, px, py);
+      projectToTangentPlane(&centroid, Q, 4, qx, qy);
 
       ensureCCW2D(px, py, 4);
       ensureCCW2D(qx, qy, 4);
@@ -1102,71 +1153,13 @@ double Girard(int nv, Vec *V) {
   // the sum is extremely close to (N-2)*pi. Instead, project onto a local
   // tangent plane and use the shoelace formula (planar approximation).
 
-  {
-    Vec centroid;
-    double max_dist_sq, dx, dy, dz, dist_sq;
-
-    centroid.x = centroid.y = centroid.z = 0;
-    for (i = 0; i < nv; ++i) {
-      centroid.x += V[i].x;
-      centroid.y += V[i].y;
-      centroid.z += V[i].z;
+  if (planarArea(nv, V, &area)) {
+    if (DEBUG >= 4) {
+      printf("\nGirard(): using planar approximation, area = %13.6e [%d]\n\n",
+             area, nv);
+      fflush(stdout);
     }
-    Normalize(&centroid);
-
-    max_dist_sq = 0;
-    for (i = 0; i < nv; ++i) {
-      dx = V[i].x - centroid.x;
-      dy = V[i].y - centroid.y;
-      dz = V[i].z - centroid.z;
-      dist_sq = dx * dx + dy * dy + dz * dz;
-      if (dist_sq > max_dist_sq)
-        max_dist_sq = dist_sq;
-    }
-
-    // For unit vectors, |V - C|^2 = 2(1 - cos(theta)) ~ theta^2.
-    // Threshold of 1e-8 corresponds to theta ~ 1e-4 rad (~20 arcsec),
-    // the crossover point where the planar approximation becomes more
-    // accurate than Girard's theorem in double precision.
-    if (max_dist_sq < 1e-8) {
-      Vec east, north;
-      double px[16], py[16];
-
-      // Build orthonormal basis on tangent plane at centroid
-      if (fabs(centroid.z) < 0.9) {
-        east.x = -centroid.y;
-        east.y = centroid.x;
-        east.z = 0.0;
-      } else {
-        east.x = 0.0;
-        east.y = centroid.z;
-        east.z = -centroid.y;
-      }
-      Normalize(&east);
-
-      Cross(&centroid, &east, &north);
-      Normalize(&north);
-
-      for (i = 0; i < nv; ++i) {
-        px[i] = Dot(&V[i], &east);
-        py[i] = Dot(&V[i], &north);
-      }
-
-      area = 0.0;
-      for (i = 0; i < nv; ++i) {
-        j = (i + 1) % nv;
-        area += px[i] * py[j] - px[j] * py[i];
-      }
-      area = fabs(area) / 2.0;
-
-      if (DEBUG >= 4) {
-        printf("\nGirard(): using planar approximation, area = %13.6e [%d]\n\n",
-               area, nv);
-        fflush(stdout);
-      }
-
-      return area;
-    }
+    return area;
   }
 
   for (i = 0; i < nv; ++i) {
