@@ -51,9 +51,9 @@ class TestReprojectExact:
             (self.array_in, self.header_in), self.header_out, parallel=4
         )
 
-        np.testing.assert_allclose(array1, array2, rtol=1.0e-5)
+        np.testing.assert_allclose(array1, array2, rtol=1.0e-10)
 
-        np.testing.assert_allclose(footprint1, footprint2, rtol=3.0e-5)
+        np.testing.assert_allclose(footprint1, footprint2, rtol=1.0e-10)
 
 
 def test_identity():
@@ -102,7 +102,7 @@ def test_reproject_precision_warning():
 
 @pytest.mark.parametrize(
     "res,rtol",
-    [(0.01, 1e-6), (0.001, 1e-6), (1e-4, 1e-6), (1e-5, 1e-4)],
+    [(0.01, 1e-7), (0.001, 1e-7), (1e-4, 1e-6), (1e-5, 5e-5)],
 )
 def test_reproject_flux_conservation(res, rtol):
     """Regression test for https://github.com/astropy/reproject/issues/199"""
