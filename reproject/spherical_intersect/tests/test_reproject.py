@@ -104,8 +104,8 @@ def test_reproject_flipping():
     array3, footprint3 = _reproject_celestial(DATA, wcs_in, wcs_out_flipped, (4, 4))
     array3, footprint3 = array3[:, ::-1], footprint3[:, ::-1]
 
-    np.testing.assert_allclose(array1, array2, rtol=1.0e-5)
-    np.testing.assert_allclose(array1, array3, rtol=1.0e-5)
+    np.testing.assert_allclose(array1, array2, rtol=1.0e-10)
+    np.testing.assert_allclose(array1, array3, rtol=1.0e-10)
 
-    np.testing.assert_allclose(footprint1, footprint2, rtol=3.0e-5)
-    np.testing.assert_allclose(footprint1, footprint3, rtol=3.0e-5)
+    np.testing.assert_allclose(footprint1, footprint2, rtol=1.0e-10)
+    np.testing.assert_allclose(footprint1, footprint3, rtol=1.0e-10)

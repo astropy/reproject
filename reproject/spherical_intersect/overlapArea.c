@@ -75,6 +75,178 @@ void RemoveDups(int *nv, Vec *V);
 int printDir(char *point, char *vector, int dir);
 
 /*
+ * 2D polygon helpers for the planar approximation path.
+ */
+
+static double cross2d(double ax, double ay, double bx, double by) {
+  return ax * by - ay * bx;
+}
+
+static double polyArea2D(const double *x, const double *y, int n) {
+  int i, j;
+  double area = 0;
+  for (i = 0; i < n; ++i) {
+    j = (i + 1) % n;
+    area += x[i] * y[j] - x[j] * y[i];
+  }
+  return fabs(area) / 2.0;
+}
+
+static void ensureCCW2D(double *x, double *y, int n) {
+  int i, j;
+  double area = 0;
+  double tmp;
+  for (i = 0; i < n; ++i) {
+    j = (i + 1) % n;
+    area += x[i] * y[j] - x[j] * y[i];
+  }
+  if (area < 0) {
+    for (i = 0; i < n / 2; ++i) {
+      j = n - 1 - i;
+      tmp = x[i]; x[i] = x[j]; x[j] = tmp;
+      tmp = y[i]; y[i] = y[j]; y[j] = tmp;
+    }
+  }
+}
+
+/*
+ * Build an orthonormal tangent plane basis at a point on the unit sphere,
+ * then project vertices onto that plane.
+ *
+ * center: unit vector defining the tangent point
+ * V:      array of nv unit vectors to project
+ * nv:     number of vertices
+ * px, py: output arrays for the 2D projected coordinates (must have room for nv)
+ */
+static void projectToTangentPlane(Vec *center, Vec *V, int nv,
+                                  double *px, double *py) {
+  int i;
+  Vec east, north;
+
+  if (fabs(center->z) < 0.9) {
+    east.x = -center->y;
+    east.y = center->x;
+    east.z = 0.0;
+  } else {
+    east.x = 0.0;
+    east.y = center->z;
+    east.z = -center->y;
+  }
+  Normalize(&east);
+  Cross(center, &east, &north);
+  Normalize(&north);
+
+  for (i = 0; i < nv; ++i) {
+    px[i] = Dot(&V[i], &east);
+    py[i] = Dot(&V[i], &north);
+  }
+}
+
+/*
+ * Check if all vertices are close enough to use the planar approximation,
+ * and if so, compute the polygon area via tangent plane projection + shoelace.
+ * Returns 1 if the planar path was used (result stored in *area), 0 otherwise.
+ */
+static int planarArea(int nv, Vec *V, double *area) {
+  int i;
+  Vec centroid;
+  double max_dist_sq, dx, dy, dz, d2;
+  double px[16], py[16];
+
+  centroid.x = centroid.y = centroid.z = 0;
+  for (i = 0; i < nv; ++i) {
+    centroid.x += V[i].x;
+    centroid.y += V[i].y;
+    centroid.z += V[i].z;
+  }
+  Normalize(&centroid);
+
+  max_dist_sq = 0;
+  for (i = 0; i < nv; ++i) {
+    dx = V[i].x - centroid.x;
+    dy = V[i].y - centroid.y;
+    dz = V[i].z - centroid.z;
+    d2 = dx * dx + dy * dy + dz * dz;
+    if (d2 > max_dist_sq)
+      max_dist_sq = d2;
+  }
+
+  // For unit vectors, |V - C|^2 = 2(1 - cos(theta)) ~ theta^2.
+  // Threshold of 1e-8 corresponds to theta ~ 1e-4 rad (~20 arcsec),
+  // the crossover point where the planar approximation becomes more
+  // accurate than Girard's theorem in double precision.
+  if (max_dist_sq >= 1e-8)
+    return 0;
+
+  projectToTangentPlane(&centroid, V, nv, px, py);
+  *area = polyArea2D(px, py, nv);
+  return 1;
+}
+
+/*
+ * Sutherland-Hodgman polygon clipping in 2D.
+ * Clips subject polygon (sx, sy, sn) against clip polygon (cx, cy, cn).
+ * Both must be convex and counter-clockwise.
+ * Returns the number of output vertices in (ox, oy).
+ */
+static int clipPolygon2D(
+    const double *sx, const double *sy, int sn,
+    const double *cx, const double *cy, int cn,
+    double *ox, double *oy) {
+  double tmpx[2][16], tmpy[2][16];
+  int cur = 0, nxt, n, nout, i, j, jnext, inext;
+  double ex, ey, s1, s2, t;
+
+  for (i = 0; i < sn; ++i) {
+    tmpx[0][i] = sx[i];
+    tmpy[0][i] = sy[i];
+  }
+  n = sn;
+
+  for (j = 0; j < cn; ++j) {
+    if (n == 0)
+      break;
+    jnext = (j + 1) % cn;
+    ex = cx[jnext] - cx[j];
+    ey = cy[jnext] - cy[j];
+    nxt = 1 - cur;
+    nout = 0;
+
+    for (i = 0; i < n; ++i) {
+      inext = (i + 1) % n;
+      s1 = cross2d(ex, ey, tmpx[cur][i] - cx[j], tmpy[cur][i] - cy[j]);
+      s2 = cross2d(ex, ey, tmpx[cur][inext] - cx[j], tmpy[cur][inext] - cy[j]);
+
+      if (s1 >= 0) {
+        tmpx[nxt][nout] = tmpx[cur][i];
+        tmpy[nxt][nout] = tmpy[cur][i];
+        ++nout;
+        if (s2 < 0) {
+          t = s1 / (s1 - s2);
+          tmpx[nxt][nout] = tmpx[cur][i] + t * (tmpx[cur][inext] - tmpx[cur][i]);
+          tmpy[nxt][nout] = tmpy[cur][i] + t * (tmpy[cur][inext] - tmpy[cur][i]);
+          ++nout;
+        }
+      } else if (s2 > 0) {
+        t = s1 / (s1 - s2);
+        tmpx[nxt][nout] = tmpx[cur][i] + t * (tmpx[cur][inext] - tmpx[cur][i]);
+        tmpy[nxt][nout] = tmpy[cur][i] + t * (tmpy[cur][inext] - tmpy[cur][i]);
+        ++nout;
+      }
+    }
+
+    cur = nxt;
+    n = nout;
+  }
+
+  for (i = 0; i < n; ++i) {
+    ox[i] = tmpx[cur][i];
+    oy[i] = tmpy[cur][i];
+  }
+  return n;
+}
+
+/*
  * Sets up the polygons, runs the overlap computation, and returns the area of overlap.
  */
 double computeOverlap(double *ilon, double *ilat, double *olon, double *olat,
@@ -122,6 +294,63 @@ double computeOverlap(double *ilon, double *ilat, double *olon, double *olat,
     Q[i].x = cos(olon[i]) * cos(olat[i]);
     Q[i].y = sin(olon[i]) * cos(olat[i]);
     Q[i].z = sin(olat[i]);
+  }
+
+  // For small pixels, the spherical intersection and Girard's theorem both
+  // suffer from numerical precision loss. Instead, project onto a local
+  // tangent plane and do the entire overlap computation in 2D.
+  {
+    Vec all[8];
+    Vec centroid;
+    double max_dist_sq, dx, dy, dz, d2;
+
+    for (i = 0; i < 4; ++i) {
+      all[i] = P[i];
+      all[i + 4] = Q[i];
+    }
+    centroid.x = centroid.y = centroid.z = 0;
+    for (i = 0; i < 8; ++i) {
+      centroid.x += all[i].x;
+      centroid.y += all[i].y;
+      centroid.z += all[i].z;
+    }
+    Normalize(&centroid);
+
+    max_dist_sq = 0;
+    for (i = 0; i < 8; ++i) {
+      dx = all[i].x - centroid.x;
+      dy = all[i].y - centroid.y;
+      dz = all[i].z - centroid.z;
+      d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 > max_dist_sq)
+        max_dist_sq = d2;
+    }
+
+    if (max_dist_sq < 1e-8) {
+      double px[4], py[4], qx[4], qy[4];
+      double ox[16], oy[16];
+      int noverlap;
+
+      projectToTangentPlane(&centroid, P, 4, px, py);
+      projectToTangentPlane(&centroid, Q, 4, qx, qy);
+
+      ensureCCW2D(px, py, 4);
+      ensureCCW2D(qx, qy, 4);
+
+      if (energyMode) {
+        *areaRatio = polyArea2D(px, py, 4) / refArea;
+      }
+
+      noverlap = clipPolygon2D(px, py, 4, qx, qy, 4, ox, oy);
+
+      if (DEBUG >= 4) {
+        printf("computeOverlap(): using planar approximation, "
+               "noverlap = %d\n", noverlap);
+        fflush(stdout);
+      }
+
+      return polyArea2D(ox, oy, noverlap);
+    }
   }
 
   EnsureCounterClockWise(P);
@@ -918,6 +1147,20 @@ double Girard(int nv, Vec *V) {
 
   if (nv < 3)
     return 0;
+
+  // For very small polygons, Girard's theorem suffers from catastrophic
+  // cancellation: area = sum_of_angles - (N-2)*pi, and for tiny polygons
+  // the sum is extremely close to (N-2)*pi. Instead, project onto a local
+  // tangent plane and use the shoelace formula (planar approximation).
+
+  if (planarArea(nv, V, &area)) {
+    if (DEBUG >= 4) {
+      printf("\nGirard(): using planar approximation, area = %13.6e [%d]\n\n",
+             area, nv);
+      fflush(stdout);
+    }
+    return area;
+  }
 
   for (i = 0; i < nv; ++i) {
     Normalize(&side[i]);

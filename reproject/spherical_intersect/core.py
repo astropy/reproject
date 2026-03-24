@@ -25,16 +25,16 @@ def _reproject_celestial(
     if output_footprint is None:
         output_footprint = np.empty(shape_out)
 
-    # There are currently precision issues below certain resolutions, so we
-    # emit a warning if this is the case. For more details, see:
-    # https://github.com/astropy/reproject/issues/199
-    area_threshold = (0.05 / 3600) ** 2
+    # There may be precision issues at extremely small resolutions due to
+    # floating-point limits in WCS coordinate transformations. For more
+    # details, see: https://github.com/astropy/reproject/issues/199
+    area_threshold = (1e-6 / 3600) ** 2
     if (isinstance(wcs_in, WCS) and proj_plane_pixel_area(wcs_in) < area_threshold) or (
         isinstance(wcs_out, WCS) and proj_plane_pixel_area(wcs_out) < area_threshold
     ):
         warnings.warn(
-            "The reproject_exact function currently has precision "
-            "issues with images that have resolutions below ~0.05 "
+            "The reproject_exact function may have precision "
+            "issues with images that have resolutions below ~1e-6 "
             "arcsec, so the results may not be accurate.",
             UserWarning,
             stacklevel=2,
