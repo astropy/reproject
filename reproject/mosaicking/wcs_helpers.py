@@ -203,15 +203,24 @@ def find_optimal_celestial_wcs(
 
     # We now stack the coordinates - however the frame classes can't do this
     # so we have to use the high-level SkyCoord class.
-    corners = SkyCoord(corners)
-    references = SkyCoord(references)
+    try:
+        corners = SkyCoord(corners)
+        references = SkyCoord(references)
+    except Exception:
+        # In some cases the stacking may fail - in this case we proceed with
+        # corners and references as being lists of SkyCoord
+        pass
 
     # If no reference coordinate has been passed in for the final header, we
     # determine the reference coordinate as the mean of all the reference
     # positions. This choice is as good as any and if the user really cares,
-    # they can set  it manually.
+    # they can set  it manually. If we weren't able to stack the coordinates
+    # to a single SkyCoord, we just use the first reference value.
     if reference is None:
-        reference = SkyCoord(references.data.mean(), frame=references.frame)
+        if isinstance(references, SkyCoord):
+            reference = SkyCoord(references.data.mean(), frame=references.frame)
+        else:
+            reference = references[0]
 
     # In any case, we need to convert the reference coordinate (either
     # specified or automatically determined) to the requested final frame.
@@ -265,7 +274,13 @@ def find_optimal_celestial_wcs(
 
     # Find pixel coordinates of all corners in the final WCS projection. We use
     # origin=1 since we are trying to determine crpix values.
-    xp, yp = skycoord_to_pixel(corners, wcs_final, origin=1)
+    if isinstance(corners, SkyCoord):
+        xp, yp = skycoord_to_pixel(corners, wcs_final, origin=1)
+    else:
+        xp, yp = map(
+            np.array,
+            zip(*[skycoord_to_pixel(c, wcs_final, origin=1) for c in corners], strict=True),
+        )
 
     if auto_rotate:
         # Use shapely to represent the points and find the minimum rotated
