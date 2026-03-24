@@ -4,6 +4,7 @@
 # packagename.test
 
 import os
+from pathlib import Path
 
 import dask.array as da
 import numpy as np
@@ -16,6 +17,32 @@ from astropy.wcs.wcsapi import HighLevelWCSMixin, SlicedLowLevelWCS
 from pyavm import AVM
 
 from .utils import as_transparent_rgb
+
+# Backward-compatibility shim modules emit AstropyDeprecationWarning on
+# import, which causes collection errors under "filterwarnings = error".
+# Exclude them from pytest doctest collection.
+_pkg = Path(__file__).parent
+collect_ignore = [
+    str(_pkg / "array_utils.py"),
+    str(_pkg / "common.py"),
+    str(_pkg / "wcs_utils.py"),
+    str(_pkg / "adaptive" / "core.py"),
+    str(_pkg / "adaptive" / "high_level.py"),
+    str(_pkg / "interpolation" / "core.py"),
+    str(_pkg / "interpolation" / "high_level.py"),
+    str(_pkg / "spherical_intersect" / "core.py"),
+    str(_pkg / "spherical_intersect" / "high_level.py"),
+    str(_pkg / "spherical_intersect" / "overlap.py"),
+    str(_pkg / "healpix" / "core.py"),
+    str(_pkg / "healpix" / "high_level.py"),
+    str(_pkg / "healpix" / "utils.py"),
+    str(_pkg / "hips" / "high_level.py"),
+    str(_pkg / "hips" / "utils.py"),
+    str(_pkg / "mosaicking" / "coadd.py"),
+    str(_pkg / "mosaicking" / "wcs_helpers.py"),
+    str(_pkg / "mosaicking" / "background.py"),
+    str(_pkg / "mosaicking" / "subset_array.py"),
+]
 
 try:
     from pytest_astropy_header.display import PYTEST_HEADER_MODULES, TESTED_VERSIONS

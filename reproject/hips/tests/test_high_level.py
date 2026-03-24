@@ -9,7 +9,7 @@ from PIL import Image
 from pyavm import AVM
 
 from ... import reproject_interp
-from ..high_level import reproject_to_hips
+from .._high_level import reproject_to_hips
 
 EXPECTED_FILES = [
     "Norder0/Dir0/Npix0.fits",

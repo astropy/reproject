@@ -11,7 +11,7 @@ from numpy.testing import assert_allclose, assert_equal
 
 from reproject.tests.helpers import assert_wcs_allclose
 
-from ..wcs_helpers import find_optimal_celestial_wcs
+from .._wcs_helpers import find_optimal_celestial_wcs
 
 try:
     import shapely  # noqa

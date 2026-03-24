@@ -3,6 +3,7 @@
 Backward-compatibility shim. The common module is now private.
 Import from reproject directly or use reproject._common.
 """
+
 import warnings
 
 from astropy.utils.exceptions import AstropyDeprecationWarning

@@ -9,7 +9,7 @@ from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
 from numpy.testing import assert_allclose
 
-from ..high_level import reproject_exact
+from .._high_level import reproject_exact
 
 
 class TestReprojectExact:

@@ -3,6 +3,7 @@
 Backward-compatibility shim. The array_utils module is now private.
 Import from reproject directly or use reproject._array_utils.
 """
+
 import warnings
 
 from astropy.utils.exceptions import AstropyDeprecationWarning
