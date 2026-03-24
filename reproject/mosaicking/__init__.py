@@ -1,2 +1,2 @@
-from .coadd import *  # noqa
-from .wcs_helpers import *  # noqa
+from ._coadd import *  # noqa
+from ._wcs_helpers import *  # noqa

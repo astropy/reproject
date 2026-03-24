@@ -15,8 +15,8 @@ from astropy.wcs.utils import (
 )
 from astropy.wcs.wcsapi import BaseHighLevelWCS, BaseLowLevelWCS
 
+from .._wcs_utils import pixel_scale
 from ..utils import parse_input_shape
-from ..wcs_utils import pixel_scale
 
 __all__ = ["find_optimal_celestial_wcs"]
 

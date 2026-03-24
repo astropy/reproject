@@ -1,9 +1,9 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
 
-from ..common import _reproject_dispatcher
+from .._common import _reproject_dispatcher
 from ..utils import parse_input_data, parse_output_projection
-from .core import _reproject_full
+from ._core import _reproject_full
 
 __all__ = ["reproject_interp"]
 

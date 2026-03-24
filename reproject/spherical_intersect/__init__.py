@@ -3,4 +3,4 @@
 Routines to compute pixel overlap areas.
 """
 
-from .high_level import *  # noqa
+from ._high_level import *  # noqa

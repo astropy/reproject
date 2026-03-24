@@ -3,7 +3,7 @@ from itertools import product
 import numpy as np
 import pytest
 
-from ..overlap import compute_overlap
+from .._overlap_wrapper import compute_overlap
 
 
 def test_full_overlap():

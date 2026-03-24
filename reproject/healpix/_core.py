@@ -2,7 +2,7 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy_healpix import HEALPix, npix_to_nside
 
-from reproject.array_utils import map_coordinates
+from reproject._array_utils import map_coordinates
 
 __all__ = ["healpix_to_image", "image_to_healpix"]
 

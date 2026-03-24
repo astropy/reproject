@@ -12,9 +12,9 @@ from astropy.wcs import WCS
 from astropy_healpix import HEALPix, level_to_nside
 from dask import array as da
 
+from ._high_level import VALID_COORD_SYSTEM
 from ._trim_utils import fits_getdata_untrimmed
-from .high_level import VALID_COORD_SYSTEM
-from .utils import (
+from ._utils import (
     is_url,
     load_properties,
     map_header,

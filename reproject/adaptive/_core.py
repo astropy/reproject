@@ -3,7 +3,7 @@
 import numpy as np
 from astropy.wcs.utils import pixel_to_pixel
 
-from ..wcs_utils import pixel_to_pixel_with_roundtrip
+from .._wcs_utils import pixel_to_pixel_with_roundtrip
 from .deforest import map_coordinates
 
 __all__ = ["_reproject_adaptive_2d"]

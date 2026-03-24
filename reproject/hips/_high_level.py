@@ -26,11 +26,11 @@ from astropy_healpix import (
 )
 from PIL import Image
 
-from ..array_utils import sample_array_edges
+from .._array_utils import sample_array_edges
+from .._wcs_utils import has_celestial, has_spectral, pixel_scale
 from ..utils import as_transparent_rgb, is_jpeg, is_png, parse_input_data
-from ..wcs_utils import has_celestial, has_spectral, pixel_scale
 from ._trim_utils import fits_getdata_untrimmed, fits_writeto_withtrim
-from .utils import (
+from ._utils import (
     load_properties,
     make_tile_folders,
     save_properties,

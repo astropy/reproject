@@ -3,7 +3,7 @@ import pytest
 from numpy.testing import assert_allclose
 from scipy.ndimage import map_coordinates as scipy_map_coordinates
 
-from reproject.array_utils import dask_map_coordinates, map_coordinates
+from reproject._array_utils import dask_map_coordinates, map_coordinates
 
 
 @pytest.mark.parametrize("cval", [3, np.nan])

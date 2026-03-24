@@ -3,7 +3,7 @@ import pytest
 from astropy.coordinates import FK5, Galactic
 from astropy.io import fits
 
-from reproject.healpix.utils import parse_coord_system, parse_input_healpix_data
+from reproject.healpix._utils import parse_coord_system, parse_input_healpix_data
 
 
 def test_parse_coord_system():

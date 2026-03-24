@@ -5,8 +5,8 @@ import numpy as np
 from astropy.wcs import WCS
 from astropy.wcs.utils import pixel_to_pixel
 
-from ..array_utils import dask_map_coordinates, map_coordinates
-from ..wcs_utils import has_celestial, pixel_to_pixel_with_roundtrip
+from .._array_utils import dask_map_coordinates, map_coordinates
+from .._wcs_utils import has_celestial, pixel_to_pixel_with_roundtrip
 
 
 def _validate_wcs(wcs_in, wcs_out, shape_in, shape_out):

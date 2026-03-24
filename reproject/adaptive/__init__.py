@@ -1,1 +1,1 @@
-from .high_level import reproject_adaptive  # noqa
+from ._high_level import reproject_adaptive  # noqa

@@ -10,11 +10,11 @@ from astropy.wcs import WCS
 from astropy.wcs.utils import pixel_to_pixel
 from astropy.wcs.wcsapi import SlicedLowLevelWCS
 
-from ..array_utils import iterate_chunks, sample_array_edges
-from ..interpolation.core import _validate_wcs
+from .._array_utils import iterate_chunks, sample_array_edges
+from ..interpolation._core import _validate_wcs
 from ..utils import parse_input_data, parse_input_weights, parse_output_projection
-from .background import determine_offset_matrix, solve_corrections_sgd
-from .subset_array import ReprojectedArraySubset
+from ._background import determine_offset_matrix, solve_corrections_sgd
+from ._subset_array import ReprojectedArraySubset
 
 __all__ = ["reproject_and_coadd"]
 
