@@ -4,8 +4,8 @@ import warnings
 from astropy.utils.exceptions import AstropyDeprecationWarning
 
 warnings.warn(
-    "reproject.adaptive.core is a private module and should not be imported "
-    "directly. Please use the public API from reproject.adaptive instead.",
+    "reproject.adaptive.core is a private module and will be removed in a future "
+    "version.  Please use the public API from reproject.adaptive instead.",
     AstropyDeprecationWarning,
     stacklevel=2,
 )

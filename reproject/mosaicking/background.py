@@ -4,8 +4,8 @@ import warnings
 from astropy.utils.exceptions import AstropyDeprecationWarning
 
 warnings.warn(
-    "reproject.mosaicking.background is a private module and should not be imported "
-    "directly. Please use the public API from reproject.mosaicking instead.",
+    "reproject.mosaicking.background is a private module and will be removed in a future "
+    "version.  Please use the public API from reproject.mosaicking instead.",
     AstropyDeprecationWarning,
     stacklevel=2,
 )

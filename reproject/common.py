@@ -8,8 +8,8 @@ import warnings
 from astropy.utils.exceptions import AstropyDeprecationWarning
 
 warnings.warn(
-    "reproject.common is a private module and should not be imported "
-    "directly. Please use the public API from reproject instead.",
+    "reproject.common is a private module and will be removed in a future "
+    "version.  Please use the public API from reproject instead.",
     AstropyDeprecationWarning,
     stacklevel=2,
 )

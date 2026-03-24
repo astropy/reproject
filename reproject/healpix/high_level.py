@@ -4,8 +4,8 @@ import warnings
 from astropy.utils.exceptions import AstropyDeprecationWarning
 
 warnings.warn(
-    "reproject.healpix.high_level is a private module and should not be imported "
-    "directly. Please use the public API from reproject.healpix instead.",
+    "reproject.healpix.high_level is a private module and will be removed in a future "
+    "version.  Please use the public API from reproject.healpix instead.",
     AstropyDeprecationWarning,
     stacklevel=2,
 )

@@ -4,8 +4,8 @@ import warnings
 from astropy.utils.exceptions import AstropyDeprecationWarning
 
 warnings.warn(
-    "reproject.hips.utils is a private module and should not be imported "
-    "directly. Please use the public API from reproject.hips instead.",
+    "reproject.hips.utils is a private module and will be removed in a future "
+    "version.  Please use the public API from reproject.hips instead.",
     AstropyDeprecationWarning,
     stacklevel=2,
 )
