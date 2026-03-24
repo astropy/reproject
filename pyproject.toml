@@ -52,7 +52,7 @@ docs = [
 
 [dependency-groups]
 dev = [
-    {include-group = "test"},
+    "reproject[test]"
 ]
 
 [build-system]
