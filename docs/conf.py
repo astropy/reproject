@@ -10,6 +10,28 @@ except ImportError:
     print("ERROR: the documentation requires the sphinx-astropy package to be installed")
     sys.exit(1)
 
+extensions.append("sphinx.ext.apidoc")
+
+extensions.remove("sphinx_automodapi.automodapi")
+extensions.remove("sphinx_automodapi.smart_resolver")
+
+apidoc_modules = [
+    {
+        "path": "../reproject",
+        "destination": "api/",
+        "exclude_patterns": ["**/tests/**", "**/conftest.py", "**/*version.py"],
+        "max_depth": 1,
+        "follow_links": False,
+        "separate_modules": False,
+        "include_private": False,
+        "no_headings": False,
+        "module_first": False,
+        "implicit_namespaces": False,
+        "automodule_options": {"members", "show-inheritance", "undoc-members", "imported-members"},
+    },
+]
+
+
 # -- General configuration ----------------------------------------------------
 
 # By default, highlight as Python 3.
