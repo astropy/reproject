@@ -16,13 +16,3 @@ warnings.warn(
 )
 
 from ._array_utils import *  # noqa: E402, F401, F403
-from ._array_utils import (  # noqa: E402, F401
-    ArrayWrapper,
-    at_least_float32,
-    dask_map_coordinates,
-    find_chunk_shape,
-    iterate_chunks,
-    map_coordinates,
-    memory_efficient_access,
-    sample_array_edges,
-)
