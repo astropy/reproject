@@ -7,7 +7,7 @@ from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
 
 from ...interpolation.tests.test_core import as_high_level_wcs
-from ..core import _reproject_celestial
+from .._core import _reproject_celestial
 
 
 def test_reproject_celestial_slices_2d():

@@ -5,6 +5,7 @@ from astropy.io import fits
 from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
 
+from reproject._wcs_utils import has_celestial
 from reproject.conftest import set_wcs_array_shape
 from reproject.tests.helpers import assert_wcs_allclose
 from reproject.utils import (
@@ -13,7 +14,6 @@ from reproject.utils import (
     parse_input_shape,
     parse_output_projection,
 )
-from reproject.wcs_utils import has_celestial
 
 
 @pytest.mark.filterwarnings("ignore:unclosed file:ResourceWarning")

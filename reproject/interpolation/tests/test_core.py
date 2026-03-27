@@ -12,8 +12,8 @@ from astropy.wcs.wcs import FITSFixedWarning
 from astropy.wcs.wcsapi import HighLevelWCSWrapper, SlicedLowLevelWCS
 from numpy.testing import assert_allclose
 
-from reproject.array_utils import ArrayWrapper
-from reproject.interpolation.high_level import reproject_interp
+from reproject._array_utils import ArrayWrapper
+from reproject.interpolation._high_level import reproject_interp
 from reproject.tests.helpers import array_footprint_to_hdulist
 
 # TODO: add reference comparisons

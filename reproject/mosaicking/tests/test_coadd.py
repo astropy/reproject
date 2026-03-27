@@ -11,7 +11,7 @@ from astropy.wcs import WCS
 from numpy.testing import assert_allclose
 
 from reproject import reproject_exact, reproject_interp
-from reproject.mosaicking.coadd import reproject_and_coadd
+from reproject.mosaicking._coadd import reproject_and_coadd
 from reproject.tests.helpers import array_footprint_to_hdulist
 
 ATOL = 1.0e-9

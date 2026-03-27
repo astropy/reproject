@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_equal
 
-from ..subset_array import ReprojectedArraySubset
+from .._subset_array import ReprojectedArraySubset
 
 
 class TestReprojectedArraySubset:

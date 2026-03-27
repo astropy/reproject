@@ -11,7 +11,7 @@ from astropy.wcs.wcsapi import HighLevelWCSWrapper, SlicedLowLevelWCS
 from numpy.testing import assert_allclose
 
 from ...tests.helpers import array_footprint_to_hdulist
-from ..high_level import reproject_adaptive
+from .._high_level import reproject_adaptive
 
 
 def as_high_level_wcs(wcs):

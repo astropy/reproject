@@ -1,0 +1,161 @@
+# Licensed under a 3-clause BSD style license - see LICENSE.rst
+
+
+from .._common import _reproject_dispatcher
+from ..utils import parse_input_data, parse_output_projection
+from ._core import _reproject_full
+
+__all__ = ["reproject_interp"]
+
+ORDER = {}
+ORDER["nearest-neighbor"] = 0
+ORDER["bilinear"] = 1
+ORDER["biquadratic"] = 2
+ORDER["bicubic"] = 3
+
+
+def reproject_interp(
+    input_data,
+    output_projection,
+    shape_out=None,
+    hdu_in=0,
+    order="bilinear",
+    roundtrip_coords=True,
+    output_array=None,
+    output_footprint=None,
+    return_footprint=True,
+    block_size=None,
+    parallel=False,
+    return_type=None,
+    dask_method=None,
+):
+    """
+    Reproject data to a new projection using interpolation (this is typically
+    the fastest way to reproject an image).
+
+    Parameters
+    ----------
+    input_data : object
+        The input data to reproject. This can be:
+
+            * The name of a FITS file as a `str` or a `pathlib.Path` object
+            * An `~astropy.io.fits.HDUList` object
+            * An image HDU object such as a `~astropy.io.fits.PrimaryHDU`,
+              `~astropy.io.fits.ImageHDU`, or `~astropy.io.fits.CompImageHDU`
+              instance
+            * A tuple where the first element is a `~numpy.ndarray` and the
+              second element is either a
+              `~astropy.wcs.wcsapi.BaseLowLevelWCS`,
+              `~astropy.wcs.wcsapi.BaseHighLevelWCS`, or a
+              `~astropy.io.fits.Header` object
+            * An `~astropy.nddata.NDData` object from which the ``.data`` and
+              ``.wcs`` attributes will be used as the input data.
+            * The name of a PNG or JPEG file with AVM metadata
+
+        If the data array contains more dimensions than are described by the
+        input header or WCS, the extra dimensions (assumed to be the first
+        dimensions) are taken to represent multiple images with the same
+        coordinate information. The coordinate transformation will be computed
+        once and then each image will be reprojected, offering a speedup over
+        reprojecting each image individually.
+    output_projection : `~astropy.wcs.wcsapi.BaseLowLevelWCS` or `~astropy.wcs.wcsapi.BaseHighLevelWCS` or `~astropy.io.fits.Header`
+        The output projection, which can be either a
+        `~astropy.wcs.wcsapi.BaseLowLevelWCS`,
+        `~astropy.wcs.wcsapi.BaseHighLevelWCS`, or a `~astropy.io.fits.Header`
+        instance.
+    shape_out : tuple, optional
+        If ``output_projection`` is a WCS instance, the shape of the output
+        data should be specified separately.
+    hdu_in : int or str, optional
+        If ``input_data`` is a FITS file or an `~astropy.io.fits.HDUList`
+        instance, specifies the HDU to use.
+    order : int or str, optional
+        The order of the interpolation. This can be any of the
+        following strings:
+
+            * 'nearest-neighbor'
+            * 'bilinear'
+            * 'biquadratic'
+            * 'bicubic'
+
+        or an integer. A value of ``0`` indicates nearest neighbor
+        interpolation.
+    roundtrip_coords : bool
+        Whether to verify that coordinate transformations are defined in both
+        directions.
+    output_array : None or `~numpy.ndarray`
+        An array in which to store the reprojected data.  This can be any numpy
+        array including a memory map, which may be helpful when dealing with
+        extremely large files.
+    output_footprint : `~numpy.ndarray`, optional
+        An array in which to store the footprint of reprojected data.  This can be
+        any numpy array including a memory map, which may be helpful when dealing with
+        extremely large files.
+    return_footprint : bool
+        Whether to return the footprint in addition to the output array.
+    block_size : tuple or 'auto', optional
+        The size of blocks in terms of output array pixels that each block will handle
+        reprojecting. Extending out from (0,0) coords positively, block sizes
+        are clamped to output space edges when a block would extend past edge.
+        Specifying ``'auto'`` means that reprojection will be done in blocks with
+        the block size automatically determined. If ``block_size`` is not
+        specified or set to `None`, the reprojection will not be carried out in
+        blocks.
+    parallel : bool or int or str, optional
+        If `True`, the reprojection is carried out in parallel, and if a
+        positive integer, this specifies the number of threads to use.
+        The reprojection will be parallelized over output array blocks specified
+        by ``block_size`` (if the block size is not set, it will be determined
+        automatically). To use the currently active dask scheduler (e.g.
+        dask.distributed), set this to ``'current-scheduler'``.
+    return_type : {'numpy', 'dask'}, optional
+        Whether to return numpy or dask arrays.
+    dask_method : {'memmap', 'none'}, optional
+        Method to use when input array is a dask array. The methods are:
+            * ``'memmap'``: write out the entire input dask array to a temporary
+              memory-mapped array. This requires enough disk space to store
+              the entire input array.
+            * ``'none'`` (default): use native dask interpolation, which avoids
+              having to write the array to disk.
+
+    Returns
+    -------
+    array_new : `~numpy.ndarray`
+        The reprojected array.
+    footprint : `~numpy.ndarray`
+        Footprint of the input array in the output array. Values of 0 indicate
+        no coverage or valid values in the input image, while values of 1
+        indicate valid values.
+    """
+
+    if dask_method is None:
+        dask_method = "none"
+
+    array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
+    wcs_out, shape_out = parse_output_projection(
+        output_projection, shape_in=array_in.shape, shape_out=shape_out, output_array=output_array
+    )
+
+    if isinstance(order, str):
+        order = ORDER[order]
+
+    # TODO: add tests that actually ensure that order and roundtrip_coords work
+
+    return _reproject_dispatcher(
+        _reproject_full,
+        array_in=array_in,
+        wcs_in=wcs_in,
+        wcs_out=wcs_out,
+        shape_out=shape_out,
+        array_out=output_array,
+        parallel=parallel,
+        block_size=block_size,
+        return_footprint=return_footprint,
+        output_footprint=output_footprint,
+        reproject_func_kwargs=dict(
+            order=order,
+            roundtrip_coords=roundtrip_coords,
+        ),
+        return_type=return_type,
+        dask_method=dask_method,
+    )

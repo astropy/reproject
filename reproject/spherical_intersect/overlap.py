@@ -1,34 +1,13 @@
-import numpy as np
+# Licensed under a 3-clause BSD style license - see LICENSE.rst
+import warnings
 
-from ._overlap import _compute_overlap
+from astropy.utils.exceptions import AstropyDeprecationWarning
 
-__all__ = ["compute_overlap"]
+warnings.warn(
+    "reproject.spherical_intersect.overlap is a private module and will be removed in a future "
+    "version.  Please use the public API from reproject.spherical_intersect instead.",
+    AstropyDeprecationWarning,
+    stacklevel=2,
+)
 
-
-def compute_overlap(ilon, ilat, olon, olat):
-    """Compute the overlap between two 'pixels' in spherical coordinates.
-
-    Parameters
-    ----------
-    ilon : np.ndarray with shape (N, 4)
-        The longitudes (in radians) defining the four corners of the input pixel
-    ilat : np.ndarray with shape (N, 4)
-        The latitudes (in radians) defining the four corners of the input pixel
-    olon : np.ndarray with shape (N, 4)
-        The longitudes (in radians) defining the four corners of the output pixel
-    olat : np.ndarray with shape (N, 4)
-        The latitudes (in radians) defining the four corners of the output pixel
-
-    Returns
-    -------
-    overlap : np.ndarray of length N
-        Pixel overlap solid angle in steradians
-    area_ratio : np.ndarray of length N
-        TODO
-    """
-    ilon = np.ascontiguousarray(ilon, dtype=np.float64)
-    ilat = np.ascontiguousarray(ilat, dtype=np.float64)
-    olon = np.ascontiguousarray(olon, dtype=np.float64)
-    olat = np.ascontiguousarray(olat, dtype=np.float64)
-
-    return _compute_overlap(ilon, ilat, olon, olat)
+from ._overlap_wrapper import *  # noqa: E402, F401, F403

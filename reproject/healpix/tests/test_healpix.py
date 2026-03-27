@@ -11,8 +11,8 @@ from astropy_healpix import nside_to_npix
 
 from ...interpolation.tests.test_core import as_high_level_wcs
 from ...tests.test_high_level import ALL_DTYPES
-from ..high_level import reproject_from_healpix, reproject_to_healpix
-from ..utils import parse_coord_system
+from .._high_level import reproject_from_healpix, reproject_to_healpix
+from .._utils import parse_coord_system
 
 DATA = os.path.join(os.path.dirname(__file__), "data")
 
