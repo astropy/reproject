@@ -15,7 +15,7 @@ concurrency:
 jobs:
 
   tests:
-    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@e97344095b099e1d729fe97429078c9975921d8a  # v2.6.2
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@2835f0cacddf3f8de198db9afdb5354a5cebe0ef  # v2.6.3
     with:
       envs: |
         - macos: py311-test-oldestdeps
@@ -38,7 +38,7 @@ jobs:
 
   publish:
     needs: tests
-    uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish.yml@e97344095b099e1d729fe97429078c9975921d8a  # v2.6.2
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish.yml@2835f0cacddf3f8de198db9afdb5354a5cebe0ef  # v2.6.3
     with:
       test_extras: test
       test_command: pytest -p no:warnings --pyargs reproject --log-cli-level=INFO
