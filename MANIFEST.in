@@ -3,9 +3,6 @@ include CHANGES.md
 include LICENSE
 
 include pyproject.toml
-include setup.cfg
-
-include pyproject.toml
 
 recursive-include reproject *.pyx *.c
 recursive-include docs *
