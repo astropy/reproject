@@ -44,7 +44,7 @@ testall = [
     "pyvo",
 ]
 docs = [
-    "sphinx-astropy",
+    "sphinx-astropy[confv3]>=1.11",
     "pyvo",
     "matplotlib",
     "tqdm",
