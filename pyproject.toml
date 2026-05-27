@@ -203,6 +203,3 @@ lint.select = [
 
 [tool.ruff.lint.extend-per-file-ignores]
 "docs/conf.py" = ["F405"]  # Sphinx injects variables into namespace
-
-[tool.distutils.bdist_wheel]
-py-limited-api = "cp311"

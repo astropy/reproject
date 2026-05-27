@@ -51,6 +51,8 @@ jobs:
         - cp*-macosx_x86_64
         - cp*-macosx_arm64
         - cp*-win_amd64
+      env: |
+        EXTENSION_HELPERS_PY_LIMITED_API: 'cp311'
 
       # Developer wheels
       upload_to_anaconda: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
