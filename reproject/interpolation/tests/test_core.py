@@ -1,6 +1,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
 import itertools
+import logging
 
 import dask.array as da
 import numpy as np
@@ -1001,6 +1002,10 @@ def test_reproject_parallel_broadcasting(caplog, dask_method):
 
     # Unit test for reprojecting using parallelization along broadcasted
     # dimensions
+
+    # Ensure caplog captures INFO regardless of the global pytest log
+    # configuration, since this test relies on it.
+    caplog.set_level(logging.INFO, logger="reproject._common")
 
     array_in = np.ones((350, 250, 150))
     wcs_in = WCS(naxis=2)
