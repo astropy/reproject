@@ -15,7 +15,7 @@ concurrency:
 jobs:
 
   tests:
-    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@2835f0cacddf3f8de198db9afdb5354a5cebe0ef  # v2.6.3
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@4193751d511425d4edc1d5657c24b2128d49b017  # v2.6.4
     with:
       envs: |
         - macos: py311-test-oldestdeps
@@ -38,7 +38,7 @@ jobs:
 
   build:
     needs: tests
-    uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish.yml@2835f0cacddf3f8de198db9afdb5354a5cebe0ef  # v2.6.3
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish.yml@4193751d511425d4edc1d5657c24b2128d49b017  # v2.6.4
     with:
       upload_to_pypi: false
       save_artifacts: true
