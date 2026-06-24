@@ -4,7 +4,7 @@ import uuid
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 from itertools import product
 from logging import getLogger
 from pathlib import Path
@@ -443,9 +443,9 @@ def reproject_to_hips(
 
     generated_properties = {
         "creator_did": f"ivo://reproject/P/{str(uuid.uuid4())}",
-        "obs_title": os.path.dirname(output_directory),
+        "obs_title": os.path.basename(os.path.normpath(output_directory)),
         "hips_version": "1.4",
-        "hips_release_date": datetime.now().isoformat(),
+        "hips_release_date": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ"),
         "hips_status": "public master clonableOnce",
         "hips_tile_format": tile_format,
         "hips_tile_width": tile_size,
@@ -469,7 +469,7 @@ def reproject_to_hips(
         generated_properties["em_max"] = wav.max()
 
     if tile_format == "fits":
-        generated_properties["hips_pixel_bitpix"] = -64
+        generated_properties["hips_pixel_bitpix"] = -32
         if not np.isinf(pixel_min) and not np.isinf(pixel_max):
             generated_properties["hips_pixel_cut"] = f"{pixel_min} {pixel_max}"
 
@@ -541,31 +541,55 @@ def compute_lower_resolution_tiles(
     if ndim == 3:
         half_tile_depth = tile_depth // 2
 
+    if indices is None:
+        indices = list(
+            find_indices(
+                ndim=ndim,
+                output_directory=output_directory,
+                spatial_level=spatial_level,
+                level_depth=level_depth,
+            )
+        )
+
+    # If no tiles were generated at the deepest level there is nothing to
+    # build lower-resolution tiles from.
+    if len(indices) == 0:
+        warnings.warn(
+            "No tiles were generated at the deepest level, so no "
+            "lower-resolution tiles will be produced"
+        )
+        return
+
     for sub in range(1, spatial_level + 1):
 
         if ndim == 2:
             ilevel = spatial_level - sub
         else:
-            ilevel = (spatial_level - sub, level_depth - sub)
-
-        if indices is None:
-            indices = list(
-                find_indices(
-                    ndim=ndim,
-                    output_directory=output_directory,
-                    spatial_level=spatial_level,
-                    level_depth=level_depth,
-                )
-            )
+            # The spectral order is tied to the spatial order and decreases by
+            # one at each step, but is clamped at 0: once the coarsest spectral
+            # order is reached, lower-resolution tiles only degrade spatially.
+            prev_spectral_level = max(0, level_depth - (sub - 1))
+            spectral_level = max(0, level_depth - sub)
+            spectral_changed = spectral_level != prev_spectral_level
+            ilevel = (spatial_level - sub, spectral_level)
 
         # Find index of tiles to produce at lower-resolution levels
         if ndim == 2:
             indices = np.sort(np.unique(np.asarray(indices) // 4))
-        else:
+        elif spectral_changed:
             indices = sorted(
                 set(
                     [
                         (spatial_index // 4, spectral_index // 2)
+                        for (spatial_index, spectral_index) in indices
+                    ]
+                )
+            )
+        else:
+            indices = sorted(
+                set(
+                    [
+                        (spatial_index // 4, spectral_index)
                         for (spatial_index, spectral_index) in indices
                     ]
                 )
@@ -627,12 +651,21 @@ def compute_lower_resolution_tiles(
 
                 array = np.ones((tile_depth, tile_size, tile_size)) * np.nan
 
-                for subindex in range(4):
-                    for subindex_spec in range(2):
+                # When the spectral order is unchanged (clamped at 0) we only
+                # combine the four spatial sub-tiles and reduce spatially.
+                spec_subindices = range(2) if spectral_changed else range(1)
 
-                        current_index = (4 * index[0] + subindex, 2 * index[1] + subindex_spec)
+                for subindex in range(4):
+                    for subindex_spec in spec_subindices:
+
+                        if spectral_changed:
+                            current_spectral_index = 2 * index[1] + subindex_spec
+                        else:
+                            current_spectral_index = index[1]
+
+                        current_index = (4 * index[0] + subindex, current_spectral_index)
                         subtile_filename = tile_filename(
-                            level=(ilevel[0] + 1, ilevel[1] + 1),
+                            level=(ilevel[0] + 1, prev_spectral_level),
                             index=current_index,
                             output_directory=output_directory,
                             extension=EXTENSION[tile_format],
@@ -647,11 +680,13 @@ def compute_lower_resolution_tiles(
                                     fits_getdata_untrimmed(
                                         subtile_filename, tile_size=tile_size, tile_depth=tile_depth
                                     ),
-                                    2,
+                                    2 if spectral_changed else (1, 2, 2),
                                     func=np.nanmean,
                                 )
 
-                            if subindex_spec == 0:
+                            if not spectral_changed:
+                                subtile_slice = [slice(None)]
+                            elif subindex_spec == 0:
                                 subtile_slice = [slice(None, half_tile_depth)]
                             else:
                                 subtile_slice = [slice(half_tile_depth, None)]
