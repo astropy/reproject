@@ -1,15 +1,20 @@
+import os
 import re
 from math import prod
 
 import numpy as np
 import pytest
+from astropy.coordinates import ICRS
+from astropy.io import fits
 from astropy.io.fits import Header
 from astropy.wcs import WCS
 from PIL import Image
 from pyavm import AVM
 
 from ... import reproject_interp
-from .._high_level import reproject_to_hips
+from .._high_level import compute_lower_resolution_tiles, reproject_to_hips
+from .._trim_utils import fits_getdata_untrimmed, fits_writeto_withtrim
+from .._utils import load_properties, make_tile_folders, tile_filename, tile_header_3d
 
 EXPECTED_FILES = [
     "Norder0/Dir0/Npix0.fits",
@@ -323,6 +328,168 @@ def test_reproject_to_hips3d_spectral(tmp_path):
     )
 
     assert_files_expected(output_directory, EXPECTED_FILES_CUBE)
+
+
+def test_properties_regressions(tmp_path, simple_celestial_fits_wcs):
+    # Regression tests for the HiPS properties file:
+    #  - obs_title should be the dataset directory name, not its parent
+    #  - hips_pixel_bitpix should match the float32 tiles that are written
+    #  - hips_release_date should follow the ISO 8601 YYYY-mm-ddTHH:MMZ form
+    output_directory = tmp_path / "some" / "nested" / "my_survey"
+
+    reproject_to_hips(
+        (np.ones((30, 40)), simple_celestial_fits_wcs),
+        coord_system_out="equatorial",
+        level=3,
+        reproject_function=reproject_interp,
+        output_directory=output_directory,
+    )
+
+    properties = load_properties(output_directory)
+
+    assert properties["obs_title"] == "my_survey"
+    assert properties["hips_pixel_bitpix"] == "-32"
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z", properties["hips_release_date"])
+
+    tile = next(output_directory.glob("Norder3/*/*.fits"))
+    assert fits.getheader(tile)["BITPIX"] == -32
+
+
+def test_trimmed_tiles_store_original_size(tmp_path):
+    # Regression test: trimmed 3D tiles must record their original (untrimmed)
+    # size via ONAXIS1/2/3 so that a reader can reconstruct the full tile.
+    tile_size, tile_depth = 16, 8
+    header = tile_header_3d(
+        spatial_level=2,
+        spatial_index=0,
+        spectral_level=2,
+        spectral_index=0,
+        frame=ICRS(),
+        tile_size=tile_size,
+        tile_depth=tile_depth,
+    )
+    if isinstance(header, tuple):
+        header = header[0]
+    crpix_before = (header["CRPIX1"], header["CRPIX2"], header["CRPIX3"])
+
+    array = np.full((tile_depth, tile_size, tile_size), np.nan)
+    array[2:5, 3:10, 4:12] = 1.0  # off-centre block so every axis is trimmed
+
+    filename = str(tmp_path / "tile.fits")
+    fits_writeto_withtrim(filename, array, header)
+
+    written = fits.getheader(filename)
+    # The original full size is preserved in ONAXISn ...
+    assert (written["ONAXIS1"], written["ONAXIS2"], written["ONAXIS3"]) == (
+        tile_size,
+        tile_size,
+        tile_depth,
+    )
+    # ... while NAXISn and the reference pixel reflect the trimmed, stored data
+    assert (written["NAXIS1"], written["NAXIS2"], written["NAXIS3"]) == (8, 7, 3)
+    assert (written["TRIM1"], written["TRIM2"], written["TRIM3"]) == (4, 3, 2)
+    # The reference pixel on each axis is shifted by the leading trim
+    assert written["CRPIX1"] == crpix_before[0] - 4
+    assert written["CRPIX2"] == crpix_before[1] - 3
+    assert written["CRPIX3"] == crpix_before[2] - 2
+
+    # The reader restores the full tile, relying on ONAXISn even without hints
+    restored = fits_getdata_untrimmed(filename, tile_size=1, tile_depth=1)
+    assert restored.shape == (tile_depth, tile_size, tile_size)
+    np.testing.assert_array_equal(
+        np.nan_to_num(restored), np.nan_to_num(array.astype(np.float32))
+    )
+
+
+def test_compute_lower_resolution_clamps_spectral_order(tmp_path):
+    # Regression test: when the spectral (Lmax) order is smaller than the
+    # spatial (Kmax) order, lower-resolution tiles must clamp the spectral
+    # order at 0 (never negative) and keep degrading spatially.
+    frame = ICRS()
+    tile_size, tile_depth = 8, 4
+    spatial_level, level_depth = 4, 2  # Kmax > Lmax forces the clamp
+    output_directory = tmp_path / "cube"
+    os.makedirs(output_directory)
+
+    deepest_indices = [(si, fi) for si in range(4) for fi in range(2)]
+    make_tile_folders(
+        level=(spatial_level, level_depth),
+        indices=deepest_indices,
+        output_directory=output_directory,
+    )
+    for spatial_index, spectral_index in deepest_indices:
+        header = tile_header_3d(
+            spatial_level=spatial_level,
+            spatial_index=spatial_index,
+            spectral_level=level_depth,
+            spectral_index=spectral_index,
+            frame=frame,
+            tile_size=tile_size,
+            tile_depth=tile_depth,
+        )
+        if isinstance(header, tuple):
+            header = header[0]
+        fits_writeto_withtrim(
+            tile_filename(
+                level=(spatial_level, level_depth),
+                index=(spatial_index, spectral_index),
+                output_directory=output_directory,
+                extension="fits",
+            ),
+            np.ones((tile_depth, tile_size, tile_size)),
+            header,
+        )
+
+    compute_lower_resolution_tiles(
+        output_directory=output_directory,
+        ndim=3,
+        frame=frame,
+        tile_format="fits",
+        tile_size=tile_size,
+        tile_depth=tile_depth,
+        spatial_level=spatial_level,
+        level_depth=level_depth,
+    )
+
+    pairs = sorted(
+        tuple(int(value) for value in path.name.replace("Norder", "").split("_"))
+        for path in output_directory.glob("Norder*")
+    )
+
+    # Orders follow L = max(0, Lmax - (Kmax - K)), clamped at 0, down to spatial 0
+    expected = sorted(
+        {(spatial_level - sub, max(0, level_depth - sub)) for sub in range(spatial_level + 1)}
+    )
+    assert pairs == expected
+    assert all(spectral_order >= 0 for _, spectral_order in pairs)
+    assert min(spatial_order for spatial_order, _ in pairs) == 0
+    assert min(spectral_order for _, spectral_order in pairs) == 0
+
+    # Clamped lower-resolution tiles still carry the propagated data
+    clamped = list(output_directory.glob("Norder0_0/*/*.fits"))
+    assert clamped
+    assert np.isfinite(fits.getdata(clamped[0])).any()
+
+
+def test_compute_lower_resolution_no_tiles_warns(tmp_path):
+    # Regression test: if no tiles were generated at the deepest level, the
+    # lower-resolution step should warn and return rather than raise.
+    output_directory = tmp_path / "empty"
+    os.makedirs(output_directory / "Norder4_2")
+
+    with pytest.warns(UserWarning, match="No tiles were generated"):
+        compute_lower_resolution_tiles(
+            output_directory=output_directory,
+            ndim=3,
+            frame=ICRS(),
+            tile_format="fits",
+            tile_size=8,
+            tile_depth=4,
+            spatial_level=4,
+            level_depth=2,
+        )
+
+    assert list(output_directory.glob("Norder*")) == [output_directory / "Norder4_2"]
 
 
 # TODO: Add tests of different spectral frames
