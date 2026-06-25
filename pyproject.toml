@@ -22,6 +22,7 @@ dependencies = [
     "fsspec>=2021.9",
     "pillow>=10.0",
     "pyavm>=0.9.6",
+    "mocpy>=0.20",
 ]
 dynamic = ["version"]
 

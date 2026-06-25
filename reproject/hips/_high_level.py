@@ -29,6 +29,7 @@ from PIL import Image
 from .._array_utils import sample_array_edges
 from .._wcs_utils import has_celestial, has_spectral, pixel_scale
 from ..utils import as_transparent_rgb, is_jpeg, is_png, parse_input_data
+from ._moc import save_moc
 from ._trim_utils import fits_getdata_untrimmed, fits_writeto_withtrim
 from ._utils import (
     load_properties,
@@ -104,6 +105,7 @@ def reproject_to_hips(
     progress_bar=None,
     threads=False,
     properties=None,
+    generate_moc=True,
     **kwargs,
 ):
     """
@@ -159,6 +161,10 @@ def reproject_to_hips(
         file inside the HiPS dataset. At list of properties and their meanings
         can be found in the `HiPS 1.0 <https://www.ivoa.net/documents/HiPS/20170406/PR-HIPS-1.0-20170406.pdf>`_
         description.
+    generate_moc : bool, optional
+        Whether to write a ``Moc.fits`` coverage file at the root of the HiPS
+        dataset (a spatial MOC for 2-d data and a space-frequency MOC for 3-d
+        data), as recommended by the HiPS standard. Defaults to `True`.
     **kwargs
         Keyword arguments to be passed to the reprojection function.
 
@@ -478,6 +484,15 @@ def reproject_to_hips(
     save_properties(output_directory, generated_properties)
 
     save_index(output_directory)
+
+    if generate_moc:
+        save_moc(
+            output_directory=output_directory,
+            indices=indices,
+            coord_system=coord_system_out,
+            spatial_level=spatial_level,
+            level_depth=level_depth if ndim == 3 else None,
+        )
 
     compute_lower_resolution_tiles(
         output_directory=output_directory,

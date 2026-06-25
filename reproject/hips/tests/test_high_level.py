@@ -17,6 +17,7 @@ from .._trim_utils import fits_getdata_untrimmed, fits_writeto_withtrim
 from .._utils import load_properties, tile_header_3d
 
 EXPECTED_FILES = [
+    "Moc.fits",
     "Norder0/Dir0/Npix0.fits",
     "Norder1/Dir0/Npix2.fits",
     "Norder2/Dir0/Npix9.fits",
@@ -67,9 +68,9 @@ def test_reproject_to_hips(tmp_path, valid_celestial_input_data):
     )
 
     if str(input_value).endswith("png"):
-        expected = [filename.replace(".fits", ".png") for filename in EXPECTED_FILES]
+        expected = [f.replace(".fits", ".png") if f.startswith("Norder") else f for f in EXPECTED_FILES]
     elif str(input_value).endswith("jpg"):
-        expected = [filename.replace(".fits", ".jpg") for filename in EXPECTED_FILES]
+        expected = [f.replace(".fits", ".jpg") if f.startswith("Norder") else f for f in EXPECTED_FILES]
     else:
         expected = EXPECTED_FILES
 
@@ -77,6 +78,7 @@ def test_reproject_to_hips(tmp_path, valid_celestial_input_data):
 
 
 EXPECTED_FILES_GALACTIC = [
+    "Moc.fits",
     "Norder0/Dir0/Npix9.fits",
     "Norder1/Dir0/Npix39.fits",
     "Norder2/Dir0/Npix156.fits",
@@ -149,6 +151,7 @@ def test_reproject_to_hips_invalid_parameters(tmp_path, simple_celestial_fits_wc
 
 
 EXPECTED_FILES_AUTO_1 = [
+    "Moc.fits",
     "Norder0/Dir0/Npix0.fits",
     "Norder1/Dir0/Npix2.fits",
     "Norder2/Dir0/Npix9.fits",
@@ -158,6 +161,7 @@ EXPECTED_FILES_AUTO_1 = [
 
 
 EXPECTED_FILES_AUTO_2 = [
+    "Moc.fits",
     "Norder0/Dir0/Npix0.fits",
     "Norder1/Dir0/Npix2.fits",
     "Norder2/Dir0/Npix9.fits",
@@ -258,6 +262,7 @@ SPECSYS = 'LSRK'
 
 
 EXPECTED_FILES_CUBE = [
+    "Moc.fits",
     "Norder0_7/Dir0_130/Npix0_134.fits",
     "Norder1_8/Dir0_260/Npix3_268.fits",
     "Norder2_9/Dir0_530/Npix15_536.fits",
@@ -487,6 +492,92 @@ def test_compute_lower_resolution_no_tiles_warns(tmp_path):
         )
 
     assert list(output_directory.glob("Norder*")) == [output_directory / "Norder4_2"]
+
+
+def test_moc_2d(tmp_path, simple_celestial_fits_wcs):
+    # A spatial MOC (Moc.fits) is written for a 2D HiPS and its coverage matches
+    # the generated tiles.
+    from mocpy import MOC
+
+    from .._high_level import find_indices
+
+    output_directory = tmp_path / "output"
+    reproject_to_hips(
+        (np.ones((30, 40)), simple_celestial_fits_wcs),
+        coord_system_out="equatorial",
+        level=4,
+        reproject_function=reproject_interp,
+        output_directory=output_directory,
+    )
+
+    moc_path = output_directory / "Moc.fits"
+    assert moc_path.exists()
+    assert fits.getheader(moc_path, 1)["COORDSYS"] == "C"
+
+    tiles = sorted(find_indices(output_directory=output_directory, ndim=2, spatial_level=4, level_depth=None))
+    expected = MOC.from_healpix_cells(
+        ipix=np.array(tiles), depth=np.full(len(tiles), 4), max_depth=4
+    )
+    assert MOC.from_fits(moc_path) == expected
+
+
+def test_moc_2d_galactic_coordsys(tmp_path, simple_celestial_fits_wcs):
+    # The MOC COORDSYS keyword reflects the HiPS frame.
+    output_directory = tmp_path / "output"
+    reproject_to_hips(
+        (np.ones((30, 40)), simple_celestial_fits_wcs),
+        coord_system_out="galactic",
+        level=4,
+        reproject_function=reproject_interp,
+        output_directory=output_directory,
+    )
+    assert fits.getheader(output_directory / "Moc.fits", 1)["COORDSYS"] == "G"
+
+
+def test_moc_3d(tmp_path):
+    # A space-frequency MOC (SF-MOC) is written for a 3D HiPS3D dataset.
+    from mocpy import SFMOC
+
+    level, level_depth = 4, 1
+    nz = 8
+    cdelt3 = 1e9 * np.log(10**4) / (nz - 1)
+    header = Header.fromstring(CUBE_CLAMP_HEADER.format(cdelt3=cdelt3), sep="\n")
+    cube = np.arange(nz * 32 * 32).reshape(nz, 32, 32).astype(float)
+
+    output_directory = tmp_path / "cube"
+    reproject_to_hips(
+        (cube, WCS(header)),
+        coord_system_out="equatorial",
+        reproject_function=reproject_interp,
+        output_directory=output_directory,
+        tile_size=16,
+        tile_depth=8,
+        level=level,
+        level_depth=level_depth,
+    )
+
+    moc_path = output_directory / "Moc.fits"
+    assert moc_path.exists()
+    moc_header = fits.getheader(moc_path, 1)
+    assert moc_header["MOCDIM"] == "FREQUENCY.SPACE"
+    assert moc_header["MOCORD_S"] == level
+    assert moc_header["MOCORD_F"] == level_depth
+    # The file is a valid SF-MOC that mocpy can read back
+    SFMOC.from_fits(moc_path)
+
+
+def test_moc_disabled(tmp_path, simple_celestial_fits_wcs):
+    # No Moc.fits is written when generate_moc=False.
+    output_directory = tmp_path / "output"
+    reproject_to_hips(
+        (np.ones((30, 40)), simple_celestial_fits_wcs),
+        coord_system_out="equatorial",
+        level=4,
+        reproject_function=reproject_interp,
+        output_directory=output_directory,
+        generate_moc=False,
+    )
+    assert not (output_directory / "Moc.fits").exists()
 
 
 # TODO: Add tests of different spectral frames
