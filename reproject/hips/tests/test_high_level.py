@@ -68,9 +68,13 @@ def test_reproject_to_hips(tmp_path, valid_celestial_input_data):
     )
 
     if str(input_value).endswith("png"):
-        expected = [f.replace(".fits", ".png") if f.startswith("Norder") else f for f in EXPECTED_FILES]
+        expected = [
+            f.replace(".fits", ".png") if f.startswith("Norder") else f for f in EXPECTED_FILES
+        ]
     elif str(input_value).endswith("jpg"):
-        expected = [f.replace(".fits", ".jpg") if f.startswith("Norder") else f for f in EXPECTED_FILES]
+        expected = [
+            f.replace(".fits", ".jpg") if f.startswith("Norder") else f for f in EXPECTED_FILES
+        ]
     else:
         expected = EXPECTED_FILES
 
@@ -514,7 +518,9 @@ def test_moc_2d(tmp_path, simple_celestial_fits_wcs):
     assert moc_path.exists()
     assert fits.getheader(moc_path, 1)["COORDSYS"] == "C"
 
-    tiles = sorted(find_indices(output_directory=output_directory, ndim=2, spatial_level=4, level_depth=None))
+    tiles = sorted(
+        find_indices(output_directory=output_directory, ndim=2, spatial_level=4, level_depth=None)
+    )
     expected = MOC.from_healpix_cells(
         ipix=np.array(tiles), depth=np.full(len(tiles), 4), max_depth=4
     )

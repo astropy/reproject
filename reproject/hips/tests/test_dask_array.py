@@ -6,8 +6,8 @@ from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
 
 from reproject import reproject_interp
-from reproject.hips import reproject_to_hips
 from reproject.hips import _dask_array as dask_array_module
+from reproject.hips import reproject_to_hips
 from reproject.hips._dask_array import HiPSArray, hips_as_dask_array
 from reproject.hips._high_level import find_indices
 
@@ -227,7 +227,9 @@ def test_dask_array_uses_moc_2d(tmp_path):
     array = HiPSArray(output_directory)
     assert type(array._moc).__name__ == "MOC"
 
-    covered = sorted(find_indices(output_directory=output_directory, ndim=2, spatial_level=5, level_depth=None))
+    covered = sorted(
+        find_indices(output_directory=output_directory, ndim=2, spatial_level=5, level_depth=None)
+    )
     far = (int(covered[0]) + 6000) % (12 * 4**5)
 
     assert array._in_coverage(int(covered[0])) is True
@@ -244,7 +246,9 @@ def test_dask_array_uses_moc_3d(tmp_path):
     array = HiPSArray(output_directory)
     assert type(array._moc).__name__ == "SFMOC"
 
-    covered = sorted(find_indices(output_directory=output_directory, ndim=3, spatial_level=4, level_depth=1))
+    covered = sorted(
+        find_indices(output_directory=output_directory, ndim=3, spatial_level=4, level_depth=1)
+    )
     far = ((covered[0][0] + 5000) % (12 * 4**4), covered[0][1])
 
     assert array._in_coverage(covered[0]) is True
@@ -257,7 +261,9 @@ def test_dask_array_moc_skips_filesystem(tmp_path, monkeypatch):
     output_directory = _make_2d_hips(tmp_path)
     array = HiPSArray(output_directory)
 
-    covered = sorted(find_indices(output_directory=output_directory, ndim=2, spatial_level=5, level_depth=None))
+    covered = sorted(
+        find_indices(output_directory=output_directory, ndim=2, spatial_level=5, level_depth=None)
+    )
     far = (int(covered[0]) + 6000) % (12 * 4**5)
 
     calls = []
