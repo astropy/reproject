@@ -1,12 +1,15 @@
 import numpy as np
 import pytest
 from astropy.io import fits
+from astropy.io.fits import Header
 from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
 
 from reproject import reproject_interp
 from reproject.hips import reproject_to_hips
-from reproject.hips._dask_array import hips_as_dask_array
+from reproject.hips import _dask_array as dask_array_module
+from reproject.hips._dask_array import HiPSArray, hips_as_dask_array
+from reproject.hips._high_level import find_indices
 
 
 class TestHIPSDaskArray:
@@ -159,3 +162,124 @@ class TestHIPSDaskArray:
             self.original_array_3d[subset][:8][valid],
             rtol=0.1 if level == 1 else 0.4,
         )
+
+
+CUBE_HEADER = """
+WCSAXES = 3
+CRPIX1  = 16.
+CRPIX2  = 16.
+CRPIX3  = 1.
+CDELT1  = -0.15
+CDELT2  = 0.15
+CDELT3  = {cdelt3}
+CUNIT1  = 'deg'
+CUNIT2  = 'deg'
+CUNIT3  = 'Hz'
+CTYPE1  = 'RA---SIN'
+CTYPE2  = 'DEC--SIN'
+CTYPE3  = 'FREQ-LOG'
+CRVAL1  = 50.
+CRVAL2  = 70.
+CRVAL3  = 1.e9
+SPECSYS = 'LSRK'
+"""
+
+
+def _make_2d_hips(tmp_path):
+    wcs = WCS(naxis=2)
+    wcs.wcs.ctype = "RA---TAN", "DEC--TAN"
+    wcs.wcs.crpix = 15, 15
+    wcs.wcs.crval = 50, 70
+    wcs.wcs.cdelt = -0.01, 0.01
+    output_directory = tmp_path / "h2d"
+    reproject_to_hips(
+        (np.ones((30, 40)), wcs),
+        coord_system_out="equatorial",
+        level=5,
+        reproject_function=reproject_interp,
+        output_directory=output_directory,
+    )
+    return output_directory
+
+
+def _make_3d_hips(tmp_path):
+    nz = 8
+    cdelt3 = 1e9 * np.log(10**4) / (nz - 1)
+    header = Header.fromstring(CUBE_HEADER.format(cdelt3=cdelt3), sep="\n")
+    cube = np.arange(nz * 32 * 32).reshape(nz, 32, 32).astype(float)
+    output_directory = tmp_path / "h3d"
+    reproject_to_hips(
+        (cube, WCS(header)),
+        coord_system_out="equatorial",
+        reproject_function=reproject_interp,
+        output_directory=output_directory,
+        tile_size=16,
+        tile_depth=8,
+        level=4,
+        level_depth=1,
+    )
+    return output_directory
+
+
+def test_dask_array_uses_moc_2d(tmp_path):
+    output_directory = _make_2d_hips(tmp_path)
+
+    array = HiPSArray(output_directory)
+    assert type(array._moc).__name__ == "MOC"
+
+    covered = sorted(find_indices(output_directory=output_directory, ndim=2, spatial_level=5, level_depth=None))
+    far = (int(covered[0]) + 6000) % (12 * 4**5)
+
+    assert array._in_coverage(int(covered[0])) is True
+    assert array._in_coverage(far) is False
+
+    # An out-of-coverage tile returns the blank (NaN) tile, an in-coverage one has data
+    assert np.all(np.isnan(array._get_tile(level=array._level, index=far)))
+    assert np.any(np.isfinite(array._get_tile(level=array._level, index=int(covered[0]))))
+
+
+def test_dask_array_uses_moc_3d(tmp_path):
+    output_directory = _make_3d_hips(tmp_path)
+
+    array = HiPSArray(output_directory)
+    assert type(array._moc).__name__ == "SFMOC"
+
+    covered = sorted(find_indices(output_directory=output_directory, ndim=3, spatial_level=4, level_depth=1))
+    far = ((covered[0][0] + 5000) % (12 * 4**4), covered[0][1])
+
+    assert array._in_coverage(covered[0]) is True
+    assert array._in_coverage(far) is False
+    assert np.all(np.isnan(array._get_tile(level=array._level, index=far)))
+
+
+def test_dask_array_moc_skips_filesystem(tmp_path, monkeypatch):
+    # Out-of-coverage tiles should be skipped without any attempt to read them.
+    output_directory = _make_2d_hips(tmp_path)
+    array = HiPSArray(output_directory)
+
+    covered = sorted(find_indices(output_directory=output_directory, ndim=2, spatial_level=5, level_depth=None))
+    far = (int(covered[0]) + 6000) % (12 * 4**5)
+
+    calls = []
+    real_getdata = dask_array_module.fits.getdata
+    monkeypatch.setattr(
+        dask_array_module.fits, "getdata", lambda *a, **k: calls.append(a) or real_getdata(*a, **k)
+    )
+
+    # Out-of-coverage: no data is read from disk
+    array._get_tile(level=array._level, index=far)
+    assert calls == []
+
+    # In-coverage: the tile is actually read
+    array._get_tile(level=array._level, index=int(covered[0]))
+    assert len(calls) == 1
+
+
+def test_dask_array_without_moc(tmp_path):
+    # If there is no Moc.fits, the reader still works (coverage check disabled).
+    output_directory = _make_2d_hips(tmp_path)
+    (output_directory / "Moc.fits").unlink()
+
+    array = HiPSArray(output_directory)
+    assert array._moc is None
+    assert array._in_coverage(0) is True

@@ -22,6 +22,7 @@ from ._utils import (
     map_header,
     skycoord_first,
     spectral_coord_to_index,
+    spectral_index_to_coord,
     tile_filename,
 )
 
@@ -146,6 +147,20 @@ class HiPSArray:
         # in parallel each thread needs to use its own copy of the WCS.
         self._local = threading.local()
 
+        # If the HiPS provides a MOC coverage file, load it so that we can avoid
+        # trying to load tiles that are known to be out of coverage (which is
+        # particularly useful for remote datasets). This is optional, so any
+        # failure to read it just disables the optimization.
+        self._moc = None
+        moc_path = f"{self._directory_or_url}/Moc.fits"
+        if self._is_url or os.path.exists(moc_path):
+            from mocpy import MOC, SFMOC
+
+            try:
+                self._moc = (MOC if self.ndim == 2 else SFMOC).from_fits(moc_path)
+            except Exception:
+                self._moc = None
+
     @property
     def _thread_wcs(self):
         # Return a copy of the WCS that is unique to the calling thread.
@@ -157,6 +172,39 @@ class HiPSArray:
                 wcs = copy.deepcopy(self.wcs)
             self._local.wcs = wcs
         return wcs
+
+    @functools.lru_cache(maxsize=1024)  # noqa: B019
+    def _in_coverage(self, index):
+        # Return whether the tile at the given index falls within the MOC
+        # coverage. If there is no MOC, we conservatively assume it might.
+        if self._moc is None:
+            return True
+
+        from mocpy import MOC, SFMOC
+
+        if self.ndim == 2:
+            cell = MOC.from_healpix_cells(
+                ipix=np.array([index]),
+                depth=np.array([self._level_spatial]),
+                max_depth=self._level_spatial,
+            )
+            return not cell.intersection(self._moc).empty()
+        else:
+            spatial_index, spectral_index = index
+            cell = MOC.from_healpix_cells(
+                ipix=np.array([spatial_index]),
+                depth=np.array([self._level_spatial]),
+                max_depth=self._level_spatial,
+            )
+            freq_min = spectral_index_to_coord(self._level_depth, spectral_index).to_value(u.Hz)
+            freq_max = spectral_index_to_coord(self._level_depth, spectral_index + 1).to_value(u.Hz)
+            tile = SFMOC.from_spatial_coverages(
+                np.array([freq_min]) * u.Hz,
+                np.array([freq_max]) * u.Hz,
+                [cell],
+                max_order_frequency=self._level_depth,
+            )
+            return not self._moc.intersection(tile).is_empty()
 
     def __getitem__(self, item):
 
@@ -219,6 +267,11 @@ class HiPSArray:
 
     @functools.lru_cache(maxsize=128)  # noqa: B019
     def _get_tile(self, *, level, index):
+
+        # Skip tiles that the MOC coverage says do not exist, to avoid an
+        # unnecessary (and for remote datasets, slow) attempt to load them.
+        if not self._in_coverage(index):
+            return self._nan
 
         filename_or_url = tile_filename(
             level=self._level,
