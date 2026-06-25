@@ -14,7 +14,7 @@ from pyavm import AVM
 from ... import reproject_interp
 from .._high_level import compute_lower_resolution_tiles, reproject_to_hips
 from .._trim_utils import fits_getdata_untrimmed, fits_writeto_withtrim
-from .._utils import load_properties, make_tile_folders, tile_filename, tile_header_3d
+from .._utils import load_properties, tile_header_3d
 
 EXPECTED_FILES = [
     "Norder0/Dir0/Npix0.fits",
@@ -401,53 +401,54 @@ def test_trimmed_tiles_store_original_size(tmp_path):
     )
 
 
-def test_compute_lower_resolution_clamps_spectral_order(tmp_path):
+CUBE_CLAMP_HEADER = """
+WCSAXES = 3
+CRPIX1  = 16.
+CRPIX2  = 16.
+CRPIX3  = 1.
+CDELT1  = -0.15
+CDELT2  = 0.15
+CDELT3  = {cdelt3}
+CUNIT1  = 'deg'
+CUNIT2  = 'deg'
+CUNIT3  = 'Hz'
+CTYPE1  = 'RA---SIN'
+CTYPE2  = 'DEC--SIN'
+CTYPE3  = 'FREQ-LOG'
+CRVAL1  = 50.
+CRVAL2  = 70.
+CRVAL3  = 1.e9
+SPECSYS = 'LSRK'
+"""
+
+
+def test_reproject_to_hips3d_clamps_spectral_order(tmp_path):
     # Regression test: when the spectral (Lmax) order is smaller than the
     # spatial (Kmax) order, lower-resolution tiles must clamp the spectral
     # order at 0 (never negative) and keep degrading spatially.
-    frame = ICRS()
-    tile_size, tile_depth = 8, 4
-    spatial_level, level_depth = 4, 2  # Kmax > Lmax forces the clamp
+    #
+    # This needs Lmax < Kmax, which means a low spectral order. Because the
+    # frequency grid spans FREQ_MIN=1e-18 to FREQ_MAX=1e38 Hz, a low order only
+    # arises for a band covering many decades, so we use a coarse spatial grid
+    # (small Kmax) together with a wide, log-sampled spectral axis (small Lmax).
+    level, level_depth = 4, 1  # Kmax > Lmax forces the clamp
+
+    nz = 8
+    # CDELT3 for the -LOG algorithm so the nz channels span ~4 decades
+    cdelt3 = 1e9 * np.log(10**4) / (nz - 1)
+    header = Header.fromstring(CUBE_CLAMP_HEADER.format(cdelt3=cdelt3), sep="\n")
+    cube = np.arange(nz * 32 * 32).reshape(nz, 32, 32).astype(float)
+
     output_directory = tmp_path / "cube"
-    os.makedirs(output_directory)
 
-    deepest_indices = [(si, fi) for si in range(4) for fi in range(2)]
-    make_tile_folders(
-        level=(spatial_level, level_depth),
-        indices=deepest_indices,
+    reproject_to_hips(
+        (cube, WCS(header)),
+        coord_system_out="equatorial",
+        reproject_function=reproject_interp,
         output_directory=output_directory,
-    )
-    for spatial_index, spectral_index in deepest_indices:
-        header = tile_header_3d(
-            spatial_level=spatial_level,
-            spatial_index=spatial_index,
-            spectral_level=level_depth,
-            spectral_index=spectral_index,
-            frame=frame,
-            tile_size=tile_size,
-            tile_depth=tile_depth,
-        )
-        if isinstance(header, tuple):
-            header = header[0]
-        fits_writeto_withtrim(
-            tile_filename(
-                level=(spatial_level, level_depth),
-                index=(spatial_index, spectral_index),
-                output_directory=output_directory,
-                extension="fits",
-            ),
-            np.ones((tile_depth, tile_size, tile_size)),
-            header,
-        )
-
-    compute_lower_resolution_tiles(
-        output_directory=output_directory,
-        ndim=3,
-        frame=frame,
-        tile_format="fits",
-        tile_size=tile_size,
-        tile_depth=tile_depth,
-        spatial_level=spatial_level,
+        tile_size=16,
+        tile_depth=8,
+        level=level,
         level_depth=level_depth,
     )
 
@@ -457,9 +458,7 @@ def test_compute_lower_resolution_clamps_spectral_order(tmp_path):
     )
 
     # Orders follow L = max(0, Lmax - (Kmax - K)), clamped at 0, down to spatial 0
-    expected = sorted(
-        {(spatial_level - sub, max(0, level_depth - sub)) for sub in range(spatial_level + 1)}
-    )
+    expected = sorted({(level - sub, max(0, level_depth - sub)) for sub in range(level + 1)})
     assert pairs == expected
     assert all(spectral_order >= 0 for _, spectral_order in pairs)
     assert min(spatial_order for spatial_order, _ in pairs) == 0
