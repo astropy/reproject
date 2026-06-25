@@ -396,9 +396,7 @@ def test_trimmed_tiles_store_original_size(tmp_path):
     # The reader restores the full tile, relying on ONAXISn even without hints
     restored = fits_getdata_untrimmed(filename, tile_size=1, tile_depth=1)
     assert restored.shape == (tile_depth, tile_size, tile_size)
-    np.testing.assert_array_equal(
-        np.nan_to_num(restored), np.nan_to_num(array.astype(np.float32))
-    )
+    np.testing.assert_array_equal(np.nan_to_num(restored), np.nan_to_num(array.astype(np.float32)))
 
 
 CUBE_CLAMP_HEADER = """
