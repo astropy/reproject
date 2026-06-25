@@ -461,7 +461,7 @@ def reproject_to_hips(
         generated_properties["dataproduct_type"] = "image"
     else:
         generated_properties["dataproduct_type"] = "spectral-cube"
-        generated_properties["hips_order_freq"] = level_depth
+        generated_properties["hips_order_axis2"] = level_depth
         generated_properties["hips_order_min"] = 0
         generated_properties["hips_tile_depth"] = tile_depth
         wav = cor_spectralcoord.to_value(u.m)

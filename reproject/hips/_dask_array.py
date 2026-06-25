@@ -65,7 +65,11 @@ class HiPSArray:
             # TODO: here need to check consistency, maybe actually don't allow spectral level to be passed in
 
             self._tile_depth = int(self._properties["hips_tile_depth"])
-            self._order_depth = int(self._properties["hips_order_freq"])
+            try:
+                self._order_depth = int(self._properties["hips_order_axis2"])
+            except KeyError:
+                # This property was originally called hips_order_freq, so try that for backward-compatibility
+                self._order_depth = int(self._properties["hips_order_freq"])
 
             if level_depth is None:
                 self._level_depth = self._order_depth - (self._order_spatial - self._level_spatial)
