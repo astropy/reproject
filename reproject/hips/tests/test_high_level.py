@@ -566,6 +566,29 @@ def test_moc_3d(tmp_path):
     SFMOC.from_fits(moc_path)
 
 
+def test_moc_3d_extreme_frequency_index(tmp_path):
+    # The SF-MOC is built directly from integer FMOC indices, so even the
+    # highest frequency cell (whose upper edge is FREQ_MAX) is handled without
+    # error - converting it to a frequency in Hz would overflow the allowed range.
+    from mocpy import SFMOC
+
+    from .._moc import save_moc
+
+    level_depth = 4
+    topmost = 2 ** (level_depth + 1) - 1  # last valid FMOC cell at this order
+    save_moc(
+        output_directory=tmp_path,
+        indices=[(10, 0), (10, topmost)],
+        coord_system="equatorial",
+        spatial_level=3,
+        level_depth=level_depth,
+    )
+
+    moc_path = tmp_path / "Moc.fits"
+    assert moc_path.exists()
+    SFMOC.from_fits(moc_path)
+
+
 def test_moc_disabled(tmp_path, simple_celestial_fits_wcs):
     # No Moc.fits is written when generate_moc=False.
     output_directory = tmp_path / "output"

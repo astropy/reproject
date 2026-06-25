@@ -22,7 +22,6 @@ from ._utils import (
     map_header,
     skycoord_first,
     spectral_coord_to_index,
-    spectral_index_to_coord,
     tile_filename,
 )
 
@@ -191,18 +190,11 @@ class HiPSArray:
             return not cell.intersection(self._moc).empty()
         else:
             spatial_index, spectral_index = index
-            cell = MOC.from_healpix_cells(
-                ipix=np.array([spatial_index]),
-                depth=np.array([self._level_spatial]),
-                max_depth=self._level_spatial,
-            )
-            freq_min = spectral_index_to_coord(self._level_depth, spectral_index).to_value(u.Hz)
-            freq_max = spectral_index_to_coord(self._level_depth, spectral_index + 1).to_value(u.Hz)
-            tile = SFMOC.from_spatial_coverages(
-                np.array([freq_min]) * u.Hz,
-                np.array([freq_max]) * u.Hz,
-                [cell],
-                max_order_frequency=self._level_depth,
+            # Build the single (frequency, space) cell directly from the integer
+            # FMOC and HEALPix indices and test it against the coverage.
+            tile = SFMOC.from_string(
+                f"f{self._level_depth}/{spectral_index} s{self._level_spatial}/{spatial_index}",
+                format="ascii",
             )
             return not self._moc.intersection(tile).is_empty()
 

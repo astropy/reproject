@@ -1,9 +1,6 @@
 import os
 
 import numpy as np
-from astropy import units as u
-
-from ._utils import spectral_index_to_coord
 
 __all__ = ["save_moc"]
 
@@ -61,33 +58,22 @@ def save_moc(*, output_directory, indices, coord_system, spatial_level, level_de
 
     else:
 
-        # Group the spatial cells by the frequency cell they belong to, so that
-        # each frequency range maps to the spatial coverage observed within it.
+        # Group the spatial cells by the frequency cell they belong to. The
+        # frequency (FMOC) and spatial (HEALPix) tile indices are already exactly
+        # the cell indices needed for the space-frequency MOC, so we build it
+        # directly from those integers via the MOC ASCII serialization rather
+        # than round-tripping through frequencies in Hz.
         spatial_by_spectral = {}
         for spatial_index, spectral_index in indices:
             spatial_by_spectral.setdefault(spectral_index, []).append(spatial_index)
 
-        frequencies_min = []
-        frequencies_max = []
-        spatial_coverages = []
+        elements = []
         for spectral_index in sorted(spatial_by_spectral):
-            ipix = np.array(sorted(spatial_by_spectral[spectral_index]), dtype=np.int64)
-            spatial_coverages.append(
-                MOC.from_healpix_cells(
-                    ipix=ipix, depth=np.full(ipix.size, spatial_level), max_depth=spatial_level
-                )
-            )
-            # The frequency tile covers the FMOC cell at the deepest spectral
-            # order, i.e. the range between this index and the next.
-            frequencies_min.append(spectral_index_to_coord(level_depth, spectral_index).to_value(u.Hz))
-            frequencies_max.append(
-                spectral_index_to_coord(level_depth, spectral_index + 1).to_value(u.Hz)
+            spatial_indices = sorted(spatial_by_spectral[spectral_index])
+            elements.append(
+                f"f{level_depth}/{spectral_index} s{spatial_level}/"
+                + " ".join(str(index) for index in spatial_indices)
             )
 
-        sfmoc = SFMOC.from_spatial_coverages(
-            np.array(frequencies_min) * u.Hz,
-            np.array(frequencies_max) * u.Hz,
-            spatial_coverages,
-            max_order_frequency=level_depth,
-        )
+        sfmoc = SFMOC.from_string(" ".join(elements), format="ascii")
         sfmoc.save(filename, format="fits", overwrite=True, fits_keywords=fits_keywords)
