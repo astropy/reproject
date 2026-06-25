@@ -42,13 +42,15 @@ def get_reference_header(overscan=1, oversample=2, nside=1):
 
 @pytest.mark.parametrize(
     "nside,nested,healpix_system,image_system,dtype,order",
-    itertools.product(
-        [1, 2, 4, 8, 16, 32, 64],
-        [True, False],
-        "C",
-        "C",
-        ALL_DTYPES,
-        ["bilinear", "nearest-neighbor"],
+    list(
+        itertools.product(
+            [1, 2, 4, 8, 16, 32, 64],
+            [True, False],
+            ["C"],
+            ["C"],
+            ALL_DTYPES,
+            ["bilinear", "nearest-neighbor"],
+        )
     ),
 )
 def test_reproject_healpix_to_image_footprint(
@@ -88,7 +90,11 @@ def test_reproject_healpix_to_image_footprint(
 
 @pytest.mark.parametrize(
     "wcsapi,nside,nested,healpix_system,image_system,dtype",
-    itertools.product([True, False], [1, 2, 4, 8, 16, 32, 64], [True, False], "C", "C", ALL_DTYPES),
+    list(
+        itertools.product(
+            [True, False], [1, 2, 4, 8, 16, 32, 64], [True, False], ["C"], ["C"], ALL_DTYPES
+        )
+    ),
 )
 def test_reproject_healpix_to_image_round_trip(
     wcsapi, nside, nested, healpix_system, image_system, dtype

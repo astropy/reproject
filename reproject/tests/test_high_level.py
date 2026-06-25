@@ -122,7 +122,7 @@ LATPOLE =                 90.0 / [deg] Native latitude of celestial pole
 
 
 @pytest.mark.filterwarnings("ignore::FutureWarning")
-@pytest.mark.parametrize("projection_type, dtype", itertools.product(ALL_MODES, ALL_DTYPES))
+@pytest.mark.parametrize("projection_type, dtype", list(itertools.product(ALL_MODES, ALL_DTYPES)))
 def test_surface_brightness(projection_type, dtype):
     header_in = fits.Header.fromstring(INPUT_HDR, sep="\n")
     header_in["NAXIS"] = 2

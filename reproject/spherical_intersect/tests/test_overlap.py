@@ -26,7 +26,7 @@ def test_partial_overlap():
     np.testing.assert_allclose(area_ratio, 1, rtol=1e-7)
 
 
-@pytest.mark.parametrize(("clockwise1", "clockwise2"), product([False, True], [False, True]))
+@pytest.mark.parametrize(("clockwise1", "clockwise2"), list(product([False, True], [False, True])))
 def test_overlap_direction(clockwise1, clockwise2):
     # Regression test for a bug that caused the calculation to fail if one or
     # both of the polygons were clockwise
