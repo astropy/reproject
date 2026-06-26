@@ -1,5 +1,6 @@
 #include "overlapArea.h"
 #include "reproject_slice_c.h"
+#include "mNaN.h"
 
 #if defined(_MSC_VER)
   #define INLINE _inline
@@ -114,11 +115,15 @@ void _reproject_slice_c(int startx, int endx, int starty, int endy, int nx_out, 
                     _compute_overlap(&overlap,&area_ratio,ilon,ilat,olon,olat);
                     _compute_overlap(&original,&area_ratio,olon,olat,olon,olat);
 
-                    // Write into array_new and weights.
-                    *GETPTR2(array_new,col_new,jj,ii) += *GETPTR2(array,col_array,j,i) *
-                                                                     (overlap / original);
-
-                    *GETPTR2(weights,col_new,jj,ii) += (overlap / original);
+                    // Write into array_new and weights. Skip output pixels
+                    // whose self-overlap (original) is non-positive -- which
+                    // would divide by zero -- or where the overlap came back
+                    // non-finite; degenerate geometry otherwise injects NaN/Inf.
+                    if (original > 0. && !(mNaN(overlap))) {
+                        double frac = overlap / original;
+                        *GETPTR2(array_new,col_new,jj,ii) += *GETPTR2(array,col_array,j,i) * frac;
+                        *GETPTR2(weights,col_new,jj,ii) += frac;
+                    }
                 }
             }
         }
