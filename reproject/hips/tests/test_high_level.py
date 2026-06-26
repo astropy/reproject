@@ -1,5 +1,6 @@
 import os
 import re
+import warnings
 from math import prod
 
 import numpy as np
@@ -18,9 +19,13 @@ from .._utils import load_properties, tile_header_3d
 
 EXPECTED_FILES = [
     "Moc.fits",
+    "Norder0/Allsky.fits",
     "Norder0/Dir0/Npix0.fits",
+    "Norder1/Allsky.fits",
     "Norder1/Dir0/Npix2.fits",
+    "Norder2/Allsky.fits",
     "Norder2/Dir0/Npix9.fits",
+    "Norder3/Allsky.fits",
     "Norder3/Dir0/Npix38.fits",
     "Norder4/Dir0/Npix152.fits",
     "Norder4/Dir0/Npix153.fits",
@@ -83,10 +88,14 @@ def test_reproject_to_hips(tmp_path, valid_celestial_input_data):
 
 EXPECTED_FILES_GALACTIC = [
     "Moc.fits",
+    "Norder0/Allsky.fits",
     "Norder0/Dir0/Npix9.fits",
+    "Norder1/Allsky.fits",
     "Norder1/Dir0/Npix39.fits",
+    "Norder2/Allsky.fits",
     "Norder2/Dir0/Npix156.fits",
     "Norder2/Dir0/Npix157.fits",
+    "Norder3/Allsky.fits",
     "Norder3/Dir0/Npix627.fits",
     "Norder3/Dir0/Npix630.fits",
     "Norder4/Dir0/Npix2511.fits",
@@ -156,8 +165,11 @@ def test_reproject_to_hips_invalid_parameters(tmp_path, simple_celestial_fits_wc
 
 EXPECTED_FILES_AUTO_1 = [
     "Moc.fits",
+    "Norder0/Allsky.fits",
     "Norder0/Dir0/Npix0.fits",
+    "Norder1/Allsky.fits",
     "Norder1/Dir0/Npix2.fits",
+    "Norder2/Allsky.fits",
     "Norder2/Dir0/Npix9.fits",
     "index.html",
     "properties",
@@ -166,9 +178,13 @@ EXPECTED_FILES_AUTO_1 = [
 
 EXPECTED_FILES_AUTO_2 = [
     "Moc.fits",
+    "Norder0/Allsky.fits",
     "Norder0/Dir0/Npix0.fits",
+    "Norder1/Allsky.fits",
     "Norder1/Dir0/Npix2.fits",
+    "Norder2/Allsky.fits",
     "Norder2/Dir0/Npix9.fits",
+    "Norder3/Allsky.fits",
     "Norder3/Dir0/Npix38.fits",
     "Norder4/Dir0/Npix153.fits",
     "Norder5/Dir0/Npix612.fits",
@@ -612,6 +628,102 @@ def test_moc_disabled(tmp_path, simple_celestial_fits_wcs):
         generate_moc=False,
     )
     assert not (output_directory / "Moc.fits").exists()
+
+
+def test_allsky_2d(tmp_path, simple_celestial_fits_wcs):
+    # An Allsky preview is written for each low order (0-3), packing all the
+    # tiles of that order into a single downsampled mosaic.
+    from astropy.nddata import block_reduce
+
+    output_directory = tmp_path / "output"
+    reproject_to_hips(
+        (np.arange(30 * 40).reshape(30, 40).astype(float), simple_celestial_fits_wcs),
+        coord_system_out="equatorial",
+        level=5,
+        tile_size=128,
+        reproject_function=reproject_interp,
+        output_directory=output_directory,
+    )
+
+    # Allsky files exist for orders 0-3 only (not for the deeper orders 4-5)
+    for order in range(4):
+        assert (output_directory / f"Norder{order}" / "Allsky.fits").exists()
+    for order in (4, 5):
+        assert not (output_directory / f"Norder{order}" / "Allsky.fits").exists()
+
+    # The order-3 mosaic has the standard layout: width = floor(sqrt(768)) = 27
+    # columns of 64-pixel tiles (128 downsampled by 2)
+    allsky = fits.getdata(output_directory / "Norder3" / "Allsky.fits")
+    assert allsky.shape == (29 * 64, 27 * 64)
+
+    # Each generated tile appears, downsampled, in its mosaic cell
+    tile_path = next((output_directory / "Norder3").glob("Dir*/Npix*.fits"))
+    index = int(tile_path.name[:-5].replace("Npix", ""))
+    row, col = divmod(index, 27)
+    cell = allsky[row * 64 : (row + 1) * 64, col * 64 : (col + 1) * 64]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)  # all-NaN blocks in nanmean
+        expected = block_reduce(fits.getdata(tile_path), 2, func=np.nanmean)
+    mask = np.isfinite(expected) & np.isfinite(cell)
+    assert mask.any()
+    np.testing.assert_allclose(cell[mask], expected[mask])
+
+
+@pytest.mark.parametrize(("tile_format", "extension"), [("png", "png"), ("jpeg", "jpg")])
+def test_allsky_image_formats(tmp_path, simple_celestial_fits_wcs, tile_format, extension):
+    # Allsky previews are also written for PNG/JPEG image HiPS, with the same
+    # mosaic layout as the FITS case.
+    layer = (np.arange(120 * 120).reshape(120, 120) % 256).astype(np.uint8)
+    original = tmp_path / f"original.{extension}"
+    tagged = tmp_path / f"tagged.{extension}"
+    Image.fromarray(np.dstack([layer, layer, layer])).save(original)
+    AVM.from_wcs(simple_celestial_fits_wcs, shape=(120, 120)).embed(original, tagged)
+
+    output_directory = tmp_path / "output"
+    reproject_to_hips(
+        tagged,
+        coord_system_out="equatorial",
+        level=3,
+        tile_size=128,
+        reproject_function=reproject_interp,
+        output_directory=output_directory,
+    )
+
+    for order in range(4):
+        assert (output_directory / f"Norder{order}" / f"Allsky.{extension}").exists()
+
+    channels = 4 if tile_format == "png" else 3
+    allsky = np.asarray(Image.open(output_directory / "Norder3" / f"Allsky.{extension}"))
+    assert allsky.shape == (29 * 64, 27 * 64, channels)
+
+    # A generated tile appears, downsampled, in its mosaic cell
+    tile_path = next((output_directory / "Norder3").glob(f"Dir*/Npix*.{extension}"))
+    index = int(tile_path.name.replace("Npix", "").split(".")[0])
+    row, col = divmod(index, 27)
+    cell = allsky[row * 64 : (row + 1) * 64, col * 64 : (col + 1) * 64]
+    tile = np.asarray(
+        Image.open(tile_path).convert("RGBA" if tile_format == "png" else "RGB").reduce(2)
+    )
+    if tile_format == "png":
+        np.testing.assert_array_equal(cell, tile)  # lossless
+    else:
+        # JPEG is lossy (and the Allsky re-compresses), so the cell should
+        # broadly match the downsampled tile rather than be pixel-exact
+        assert np.abs(cell.astype(int) - tile.astype(int)).mean() < 10
+
+
+def test_allsky_disabled(tmp_path, simple_celestial_fits_wcs):
+    # No Allsky files are written when allsky=False.
+    output_directory = tmp_path / "output"
+    reproject_to_hips(
+        (np.ones((30, 40)), simple_celestial_fits_wcs),
+        coord_system_out="equatorial",
+        level=4,
+        reproject_function=reproject_interp,
+        output_directory=output_directory,
+        allsky=False,
+    )
+    assert not list(output_directory.glob("Norder*/Allsky.*"))
 
 
 # TODO: Add tests of different spectral frames
