@@ -349,7 +349,12 @@ double computeOverlap(double *ilon, double *ilat, double *olon, double *olat,
         fflush(stdout);
       }
 
-      return polyArea2D(ox, oy, noverlap);
+      {
+        double parea = polyArea2D(ox, oy, noverlap);
+        if (mNaN(parea) || parea < 0.)
+          parea = 0.;
+        return parea;
+      }
     }
   }
 
@@ -1154,6 +1159,8 @@ double Girard(int nv, Vec *V) {
   // tangent plane and use the shoelace formula (planar approximation).
 
   if (planarArea(nv, V, &area)) {
+    if (mNaN(area) || area < 0.)
+      area = 0.;
     if (DEBUG >= 4) {
       printf("\nGirard(): using planar approximation, area = %13.6e [%d]\n\n",
              area, nv);
