@@ -568,6 +568,11 @@ def test_moc_3d(tmp_path):
     assert moc_header["MOCDIM"] == "FREQUENCY.SPACE"
     assert moc_header["MOCORD_S"] == level
     assert moc_header["MOCORD_F"] == level_depth
+    # The range column is named so that generic FITS table readers can open it -
+    # mocpy/CDS otherwise omit TTYPE1, which makes the table unreadable.
+    assert moc_header["TTYPE1"] == "RANGE"
+    with fits.open(moc_path) as hdulist:
+        assert len(hdulist[1].data) > 0
     # The file is a valid SF-MOC that mocpy can read back
     SFMOC.from_fits(moc_path)
 

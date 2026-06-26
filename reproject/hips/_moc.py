@@ -76,4 +76,16 @@ def save_moc(*, output_directory, indices, coord_system, spatial_level, level_de
             )
 
         sfmoc = SFMOC.from_string(" ".join(elements), format="ascii")
-        sfmoc.save(filename, format="fits", overwrite=True, fits_keywords=fits_keywords)
+        # mocpy/moc-rs writes the SF-MOC range column without a TTYPE1 name and
+        # labels it as MOC version 2.0, which makes the file unreadable by
+        # generic FITS table readers (e.g. astropy.io.fits, fv). We add the
+        # column name (matching the spatial MOC convention) so the file can be
+        # read anywhere, and mark it as version 2.1 - the version that defines
+        # the FREQUENCY.SPACE dimension - to match the files produced by the CDS
+        # tools. Neither change affects reading by mocpy or Aladin.
+        sfmoc.save(
+            filename,
+            format="fits",
+            overwrite=True,
+            fits_keywords={**fits_keywords, "TTYPE1": "RANGE", "MOCVERS": "2.1"},
+        )
