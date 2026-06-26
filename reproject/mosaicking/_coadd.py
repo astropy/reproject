@@ -243,10 +243,15 @@ def reproject_and_coadd(
             # convex in the output projection), and transforming every edge pixel,
             # which provides a lot of redundant information.
 
-            edges = sample_array_edges(
-                array_in.shape[-wcs_in.low_level_wcs.pixel_n_dim :], n_samples=11
-            )[::-1]
-            edges_out = pixel_to_pixel(wcs_in, wcs_out, *edges)[::-1]
+            # TODO: ignore non-repreojected dims here and slice WCS
+
+            try:
+                edges = sample_array_edges(
+                    array_in.shape[-wcs_in.low_level_wcs.pixel_n_dim :], n_samples=11
+                )[::-1]
+                edges_out = pixel_to_pixel(wcs_in, wcs_out, *edges)[::-1]
+            except:
+                edges_out = np.array([np.nan])
 
             # Determine the cutout parameters
 
@@ -257,7 +262,7 @@ def reproject_and_coadd(
             ndim_out = len(shape_out)
 
             # Determine how many extra broadcasted dimensions are present
-            n_broadcasted = len(shape_out) - wcs_in.low_level_wcs.pixel_n_dim
+            n_broadcasted = len(shape_out) - wcs_out.low_level_wcs.pixel_n_dim
 
             skip_data = False
             if np.any(np.isnan(edges_out)):
