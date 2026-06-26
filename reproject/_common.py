@@ -245,30 +245,36 @@ def _reproject_dispatcher(
                 "Input shape should match output shape for non-reprojected dimensions"
             )
 
-        if len(block_size) > len(shape_out):
-            raise ValueError(
-                f"block_size {block_size} cannot have more elements "
-                f"than the dimensionality of the output ({len(shape_out)})"
-            )
-
-        if len(block_size) != n_dim_reproject and len(block_size) != len(shape_out):
-            raise ValueError(
-                f"block_size {block_size} should have either "
-                f"{n_dim_reproject} or {len(shape_out)} elements"
-            )
-
-        if len(block_size) == n_dim_reproject:
-            block_size = (-1,) * (len(shape_out) - n_dim_reproject) + tuple(block_size)
-
-        block_size = [
-            (block_size[i] if block_size[i] != -1 else shape_out[i])
-            for i in range(len(block_size))
-        ]
-
-        block_size = tuple(block_size)
         shape_out = tuple(shape_out)
 
-        # TODO: replace block size of -1 by actual value for logic below to work
+        # If an explicit block size was passed, normalize it to have the same
+        # number of elements as shape_out, expanding it if it only covers the
+        # reprojected dimensions and replacing any -1 values by the full size
+        # along the corresponding dimension. If block_size is None or 'auto',
+        # the chunking is determined automatically further below.
+
+        if block_size is not None and block_size != "auto":
+
+            if len(block_size) > len(shape_out):
+                raise ValueError(
+                    f"block_size {block_size} cannot have more elements "
+                    f"than the dimensionality of the output ({len(shape_out)})"
+                )
+
+            if len(block_size) != n_dim_reproject and len(block_size) != len(shape_out):
+                raise ValueError(
+                    f"block_size {block_size} should have either "
+                    f"{n_dim_reproject} or {len(shape_out)} elements"
+                )
+
+            if len(block_size) == n_dim_reproject:
+                block_size = (-1,) * (len(shape_out) - n_dim_reproject) + tuple(block_size)
+
+            block_size = tuple(
+                block_size[i] if block_size[i] != -1 else shape_out[i]
+                for i in range(len(block_size))
+            )
+
         # TODO: re-implement block_size auto
 
         # Check block size and determine whether block size indicates we should
@@ -281,7 +287,7 @@ def _reproject_dispatcher(
         # don't make any assumptions for now and assume a single chunk in the
         # missing dimensions.
         broadcasted_parallelization = False
-        if broadcasting and block_size is not None:
+        if broadcasting and block_size is not None and block_size != "auto":
             if block_size[-n_dim_reproject:] == shape_out[-n_dim_reproject:]:
                 # TODO: maybe error if block_size was given in full and is wrong
                 broadcasted_parallelization = True
@@ -344,8 +350,8 @@ def _reproject_dispatcher(
                     slices_in.append(slice(None))
                     slices_out.append(slice(*block_info[None]["array-location"][idx + 1]))
 
-            slices_in = slices_in[-wcs_in.pixel_n_dim]
-            slices_out = slices_out[-wcs_out.pixel_n_dim]
+            slices_in = slices_in[-wcs_in.low_level_wcs.pixel_n_dim :]
+            slices_out = slices_out[-wcs_out.low_level_wcs.pixel_n_dim :]
 
             if broadcasted_parallelization:
                 if isinstance(wcs_in_cp, BaseHighLevelWCS):
