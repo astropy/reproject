@@ -29,6 +29,7 @@ from PIL import Image
 from .._array_utils import sample_array_edges
 from .._wcs_utils import has_celestial, has_spectral, pixel_scale
 from ..utils import as_transparent_rgb, is_jpeg, is_png, parse_input_data
+from ._allsky import save_allsky
 from ._moc import save_moc
 from ._trim_utils import fits_getdata_untrimmed, fits_writeto_withtrim
 from ._utils import (
@@ -106,6 +107,7 @@ def reproject_to_hips(
     threads=False,
     properties=None,
     generate_moc=True,
+    allsky=True,
     **kwargs,
 ):
     """
@@ -165,6 +167,10 @@ def reproject_to_hips(
         Whether to write a ``Moc.fits`` coverage file at the root of the HiPS
         dataset (a spatial MOC for 2-d data and a space-frequency MOC for 3-d
         data), as recommended by the HiPS standard. Defaults to `True`.
+    allsky : bool, optional
+        Whether to write ``Allsky`` preview files for the low orders (0 to 3) of
+        a 2-d image HiPS, as described by the HiPS standard. Ignored for 3-d
+        data. Defaults to `True`.
     **kwargs
         Keyword arguments to be passed to the reprojection function.
 
@@ -504,6 +510,15 @@ def reproject_to_hips(
         spatial_level=spatial_level,
         level_depth=level_depth,
     )
+
+    if allsky and ndim == 2:
+        save_allsky(
+            output_directory=output_directory,
+            tile_format=tile_format,
+            extension=EXTENSION[tile_format],
+            tile_size=tile_size,
+            spatial_level=spatial_level,
+        )
 
 
 def find_indices(*, output_directory, ndim, spatial_level, level_depth):
