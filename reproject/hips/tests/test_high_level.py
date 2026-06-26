@@ -669,6 +669,49 @@ def test_allsky_2d(tmp_path, simple_celestial_fits_wcs):
     np.testing.assert_allclose(cell[mask], expected[mask])
 
 
+@pytest.mark.parametrize(("tile_format", "extension"), [("png", "png"), ("jpeg", "jpg")])
+def test_allsky_image_formats(tmp_path, simple_celestial_fits_wcs, tile_format, extension):
+    # Allsky previews are also written for PNG/JPEG image HiPS, with the same
+    # mosaic layout as the FITS case.
+    layer = (np.arange(120 * 120).reshape(120, 120) % 256).astype(np.uint8)
+    original = tmp_path / f"original.{extension}"
+    tagged = tmp_path / f"tagged.{extension}"
+    Image.fromarray(np.dstack([layer, layer, layer])).save(original)
+    AVM.from_wcs(simple_celestial_fits_wcs, shape=(120, 120)).embed(original, tagged)
+
+    output_directory = tmp_path / "output"
+    reproject_to_hips(
+        tagged,
+        coord_system_out="equatorial",
+        level=3,
+        tile_size=128,
+        reproject_function=reproject_interp,
+        output_directory=output_directory,
+    )
+
+    for order in range(4):
+        assert (output_directory / f"Norder{order}" / f"Allsky.{extension}").exists()
+
+    channels = 4 if tile_format == "png" else 3
+    allsky = np.asarray(Image.open(output_directory / "Norder3" / f"Allsky.{extension}"))
+    assert allsky.shape == (29 * 64, 27 * 64, channels)
+
+    # A generated tile appears, downsampled, in its mosaic cell
+    tile_path = next((output_directory / "Norder3").glob(f"Dir*/Npix*.{extension}"))
+    index = int(tile_path.name.replace("Npix", "").split(".")[0])
+    row, col = divmod(index, 27)
+    cell = allsky[row * 64 : (row + 1) * 64, col * 64 : (col + 1) * 64]
+    tile = np.asarray(
+        Image.open(tile_path).convert("RGBA" if tile_format == "png" else "RGB").reduce(2)
+    )
+    if tile_format == "png":
+        np.testing.assert_array_equal(cell, tile)  # lossless
+    else:
+        # JPEG is lossy (and the Allsky re-compresses), so the cell should
+        # broadly match the downsampled tile rather than be pixel-exact
+        assert np.abs(cell.astype(int) - tile.astype(int)).mean() < 10
+
+
 def test_allsky_disabled(tmp_path, simple_celestial_fits_wcs):
     # No Allsky files are written when allsky=False.
     output_directory = tmp_path / "output"
