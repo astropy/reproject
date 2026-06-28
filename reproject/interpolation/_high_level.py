@@ -25,6 +25,7 @@ def reproject_interp(
     output_footprint=None,
     return_footprint=True,
     block_size=None,
+    non_reprojected_dims=None,
     parallel=False,
     return_type=None,
     dask_method=None,
@@ -101,6 +102,16 @@ def reproject_interp(
         the block size automatically determined. If ``block_size`` is not
         specified or set to `None`, the reprojection will not be carried out in
         blocks.
+    non_reprojected_dims : tuple, optional
+        Leading dimensions of the data that should not be reprojected but for
+        which a one-to-one mapping between input and output pixels is assumed.
+        This makes it possible to broadcast a reprojection over these dimensions
+        even when the input and output WCS have the same number of dimensions as
+        the data. The dimensions must be the leading ones, given as a tuple of
+        sequential integers starting from zero (e.g. ``(0,)`` or ``(0, 1)``).
+        This currently requires parallelizing over the non-reprojected
+        dimensions, i.e. setting ``parallel`` and using a ``block_size`` that
+        matches the output shape along the reprojected dimensions.
     parallel : bool or int or str, optional
         If `True`, the reprojection is carried out in parallel, and if a
         positive integer, this specifies the number of threads to use.
@@ -150,6 +161,7 @@ def reproject_interp(
         array_out=output_array,
         parallel=parallel,
         block_size=block_size,
+        non_reprojected_dims=non_reprojected_dims,
         return_footprint=return_footprint,
         output_footprint=output_footprint,
         reproject_func_kwargs=dict(
