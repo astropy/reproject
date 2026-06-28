@@ -397,61 +397,79 @@ def reproject_and_coadd(
                     return_footprint=False,
                     **kwargs,
                 )
-                reset = np.isnan(array) | np.isnan(weights)
-            else:
-                reset = np.isnan(array)
-
-            # For the purposes of mosaicking, we mask out NaN values from the array
-            # and set the footprint to 0 at these locations.
-            array[reset] = 0.0
-            footprint[reset] = 0.0
-
-            # Combine weights and footprint
-            if weights_in is not None:
-                weights[reset] = 0.0
-                footprint *= weights
-
-                if intermediate_memmap:
-                    # Remove the reference to the memmap before trying to remove the file itself
-                    logger.info("Removing memory-mapped weight array")
-                    weights = None
-                    try:
-                        os.remove(weights_path)
-                    except PermissionError:
-                        pass
-
-            array = ReprojectedArraySubset(array, footprint, bounds)
-
-            # TODO: make sure we gracefully handle the case where the
-            # output image is empty (due e.g. to no overlap).
-
             if on_the_fly:
-                logger.info("Adding reprojected array to final array")
-                # By default, values outside of the footprint are set to NaN
-                # but we set these to 0 here to avoid getting NaNs in the
-                # means/sums.
-                array.array[array.footprint == 0] = 0
-                output_footprint[array.view_in_original_array] += array.footprint
-                # We now need to do output[view] += array * footprint but to avoid
-                # the temporary array allocation from array * footprint we modify
-                # array inplace, which we can do as the array will be discarded at
-                # the end of the loop.
-                array.array *= array.footprint
-                output_array[array.view_in_original_array] += array.array
+                # Add this reprojected image to the output arrays one chunk at a
+                # time. This keeps peak memory usage set by the chunk size rather
+                # than by the (potentially large) size of each reprojected image,
+                # which matters in particular when there are many non-reprojected
+                # dimensions (e.g. spectral channels).
+                logger.info("Adding reprojected array to final array in chunks")
+                for chunk in iterate_chunks(shape_out_indiv, max_chunk_size=256 * 1024**2):
+                    output_chunk = tuple(
+                        slice(
+                            bounds[idim][0] + chunk[idim].start, bounds[idim][0] + chunk[idim].stop
+                        )
+                        for idim in range(len(bounds))
+                    )
+                    array_chunk = np.array(array[chunk])
+                    footprint_chunk = np.array(footprint[chunk])
+                    # Mask out NaN values from the array and set the footprint to
+                    # 0 at these locations.
+                    reset = np.isnan(array_chunk)
+                    if weights_in is not None:
+                        weights_chunk = np.array(weights[chunk])
+                        reset |= np.isnan(weights_chunk)
+                    array_chunk[reset] = 0.0
+                    footprint_chunk[reset] = 0.0
+                    if weights_in is not None:
+                        weights_chunk[reset] = 0.0
+                        footprint_chunk *= weights_chunk
+                    # Values outside of the footprint are set to NaN by default
+                    # but we set these to 0 here to avoid NaNs in the means/sums.
+                    array_chunk[footprint_chunk == 0] = 0.0
+                    output_footprint[output_chunk] += footprint_chunk
+                    output_array[output_chunk] += array_chunk * footprint_chunk
 
                 if intermediate_memmap:
-                    # Remove the references to the memmaps themesleves before
-                    # trying to remove the files thermselves.
                     logger.info("Removing memory-mapped array and footprint arrays")
                     array = None
                     footprint = None
-                    try:
-                        os.remove(array_path)
-                        os.remove(footprint_path)
-                    except PermissionError:
-                        pass
+                    for path in (array_path, footprint_path):
+                        try:
+                            os.remove(path)
+                        except PermissionError:
+                            pass
+                    if weights_in is not None:
+                        weights = None
+                        try:
+                            os.remove(weights_path)
+                        except PermissionError:
+                            pass
 
             else:
+
+                # For the purposes of mosaicking, we mask out NaN values from the
+                # array and set the footprint to 0 at these locations.
+                if weights_in is not None:
+                    reset = np.isnan(array) | np.isnan(weights)
+                else:
+                    reset = np.isnan(array)
+
+                array[reset] = 0.0
+                footprint[reset] = 0.0
+
+                if weights_in is not None:
+                    weights[reset] = 0.0
+                    footprint *= weights
+                    if intermediate_memmap:
+                        logger.info("Removing memory-mapped weight array")
+                        weights = None
+                        try:
+                            os.remove(weights_path)
+                        except PermissionError:
+                            pass
+
+                array = ReprojectedArraySubset(array, footprint, bounds)
                 logger.info("Adding reprojected array to list to combine later")
                 arrays.append(array)
 
