@@ -519,3 +519,67 @@ def test_coadd_solar_map():
     header_out = wcs_out.to_header()
 
     return array_footprint_to_hdulist(array, footprint, header_out)
+
+
+def _spectral_cube_wcs(naxis, crpix_ra, crpix_dec, crval_freq=1e9):
+    wcs = WCS(naxis=naxis)
+    if naxis == 3:
+        wcs.wcs.ctype = ["RA---TAN", "DEC--TAN", "FREQ"]
+        wcs.wcs.crpix = [crpix_ra, crpix_dec, 1]
+        wcs.wcs.crval = [40.0, 0.0, crval_freq]
+        wcs.wcs.cdelt = [-0.01, 0.01, 1e6]
+    else:
+        wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
+        wcs.wcs.crpix = [crpix_ra, crpix_dec]
+        wcs.wcs.crval = [40.0, 0.0]
+        wcs.wcs.cdelt = [-0.01, 0.01]
+    return wcs
+
+
+@pytest.mark.parametrize("combine_function", ["mean", "sum"])
+def test_coadd_non_reprojected_dims(combine_function):
+    # Co-add cubes where the input and output WCS have the same dimensionality
+    # as the data, treating the leading (spectral) axis as non-reprojected. The
+    # result should match co-adding each spectral plane independently with a 2D
+    # WCS, and in particular should not be affected by the (deliberately
+    # different) spectral part of each input WCS.
+
+    n_spectral = 4
+    shape_out = (n_spectral, 50, 50)
+    wcs_out = _spectral_cube_wcs(3, 25, 25)
+
+    rng = np.random.default_rng(12345)
+    data1 = rng.random((n_spectral, 20, 20))
+    wcs1 = _spectral_cube_wcs(3, 10, 10, crval_freq=1e9 + 3e6)
+    data2 = rng.random((n_spectral, 20, 20))
+    wcs2 = _spectral_cube_wcs(3, 38, 36, crval_freq=1e9 - 5e6)
+
+    array, footprint = reproject_and_coadd(
+        [(data1, wcs1), (data2, wcs2)],
+        wcs_out,
+        shape_out=shape_out,
+        reproject_function=reproject_interp,
+        combine_function=combine_function,
+        non_reprojected_dims=(0,),
+        parallel=True,
+        block_size=(1,) + shape_out[1:],
+        roundtrip_coords=False,
+        intermediate_memmap=True,
+    )
+
+    reference = np.zeros(shape_out)
+    reference_footprint = np.zeros(shape_out)
+    for islice in range(n_spectral):
+        ref, ref_fp = reproject_and_coadd(
+            [(data1[islice], wcs1.celestial), (data2[islice], wcs2.celestial)],
+            wcs_out.celestial,
+            shape_out=shape_out[1:],
+            reproject_function=reproject_interp,
+            combine_function=combine_function,
+            roundtrip_coords=False,
+        )
+        reference[islice] = ref
+        reference_footprint[islice] = ref_fp
+
+    assert_allclose(array, reference, atol=ATOL)
+    assert_allclose(footprint, reference_footprint, atol=ATOL)
