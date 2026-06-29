@@ -298,10 +298,6 @@ def _reproject_dispatcher(
                 for i in range(len(block_size))
             )
 
-        # TODO: support block_size="auto" together with non_reprojected_dims
-        # (it currently falls through to the generic auto-chunking path below and
-        # cannot parallelize over the non-reprojected dimensions).
-
         # Check block size and determine whether block size indicates we should
         # parallelize over broadcasted dimension. The logic is as follows: if
         # the block size and output shape are the same size, then either the
@@ -330,6 +326,10 @@ def _reproject_dispatcher(
             f"broadcasted dimension ({block_size=}, {shape_out=})"
         )
 
+        # TODO: support block_size="auto" (and the default of None) together
+        # with non_reprojected_dims so that this does not have to raise; "auto"
+        # currently falls through to the generic auto-chunking path further
+        # below, which cannot parallelize over the non-reprojected dimensions.
         if wcs_slicing_required and not broadcasted_parallelization:
             raise NotImplementedError(
                 "Reprojecting fewer dimensions than the input or output WCS "
