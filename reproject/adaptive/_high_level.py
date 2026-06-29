@@ -208,15 +208,14 @@ def reproject_adaptive(
         blocks.
     non_reprojected_dims : tuple, optional
         Leading dimensions of the data that should not be reprojected but for
-        which a one-to-one mapping between input and output pixels is assumed
-        (see the ``reproject_interp`` documentation for details). This makes it
-        possible to broadcast a reprojection over these dimensions even when the
-        input and output WCS have the same number of dimensions as the data. The
-        dimensions must be the leading ones, given as a tuple of sequential
-        integers starting from zero (e.g. ``(0,)`` or ``(0, 1)``). This
-        currently requires passing a ``block_size`` whose entries along the
-        reprojected dimensions match ``shape_out`` (optionally combined with
-        ``parallel`` to compute the blocks concurrently).
+        which a one-to-one mapping between input and output pixels is assumed.
+        This makes it possible to broadcast a reprojection over these dimensions
+        even when the input and output WCS have the same number of dimensions as
+        the data. The dimensions must be the leading ones, given as a tuple of
+        sequential integers starting from zero (e.g. ``(0,)`` or ``(0, 1)``).
+        This currently requires passing a ``block_size`` whose entries along
+        the reprojected dimensions match ``shape_out`` (optionally combined
+        with ``parallel`` to compute the blocks concurrently).
     parallel : bool or int or str, optional
         If `True`, the reprojection is carried out in parallel, and if a
         positive integer, this specifies the number of threads to use.
