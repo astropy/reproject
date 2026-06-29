@@ -145,3 +145,45 @@ def test_non_reprojected_dims_time_varying_wcs(reproject_function):
     # Make sure the drift is actually exercised (otherwise the test would pass
     # trivially even if a single WCS were reused for all slices).
     assert not np.allclose(np.nan_to_num(reference[0]), np.nan_to_num(reference[-1]))
+
+
+@pytest.mark.filterwarnings("ignore::erfa.ErfaWarning")
+def test_non_reprojected_dims_matches_full_reproject():
+    # The full N-D reproject transforms the TIME axis through world coordinates,
+    # which emits an incidental ERFA "dubious year" warning for this synthetic
+    # epoch; that is unrelated to what we are checking here.
+    # Cross-check the non_reprojected_dims fast path against a full N-D reproject
+    # (with no non_reprojected_dims), which is a completely independent code path.
+    # Because the time axis maps one-to-one between the input and output WCS, the
+    # two must agree. This only applies to reproject_interp, since
+    # reproject_adaptive does not support a full N-D reproject of a cube with a
+    # coupled WCS (it is celestial-2D only).
+    n_time = 5
+    shape_out = (n_time, 30, 30)
+    wcs_in = _drifting_cube_wcs(drift=0.6)
+    wcs_out = _drifting_cube_wcs(drift=0.0)
+
+    data = np.random.default_rng(0).random((n_time, 30, 30))
+
+    array_out, _ = reproject_interp(
+        (data, wcs_in),
+        wcs_out,
+        shape_out=shape_out,
+        non_reprojected_dims=(0,),
+        parallel=True,
+        block_size=(30, 30),
+    )
+
+    reference_full, _ = reproject_interp((data, wcs_in), wcs_out, shape_out=shape_out)
+
+    assert_allclose(array_out, reference_full, equal_nan=True, atol=1e-8)
+
+
+def test_non_reprojected_dims_all_dimensions(reproject_function):
+    # Marking every dimension as non-reprojected leaves nothing to reproject and
+    # should raise a clear error rather than failing obscurely further down.
+    data = np.ones((20, 20))
+    wcs = WCS(naxis=2)
+    wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
+    with pytest.raises(ValueError, match="at least one dimension"):
+        reproject_function((data, wcs), wcs, shape_out=(20, 20), non_reprojected_dims=(0, 1))
