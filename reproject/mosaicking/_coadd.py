@@ -20,7 +20,11 @@ __all__ = ["reproject_and_coadd"]
 
 
 IS_WIN = sys.platform == "win32"
-MAX_CHUNK_SIZE = 256 * 1024**2
+
+# Maximum number of array elements (not bytes) to process per chunk when
+# co-adding. Around 1e6 gives near-optimal throughput while keeping peak memory
+# low -- larger chunks are actually slower due to CPU cache effects.
+MAX_CHUNK_SIZE = 1_000_000
 
 
 def _noop(iterable):

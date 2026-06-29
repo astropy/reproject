@@ -120,7 +120,7 @@ class ReprojectedArraySubset:
 
     def as_chunks(self, max_chunk_size=None):
 
-        for chunk in iterate_chunks(self.shape, max_chunk_size=max_chunk_size or 256 * 1024**2):
+        for chunk in iterate_chunks(self.shape, max_chunk_size=max_chunk_size or 1_000_000):
 
             bounds_chunk = tuple(
                 (self.bounds[idim][0] + chunk[idim].start, self.bounds[idim][0] + chunk[idim].stop)
