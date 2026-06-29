@@ -60,12 +60,10 @@ def _combine_array_into_output(combine_function, array, output_array, output_foo
                     chunk.array > output_array[chunk.view_in_original_array]
                 )
 
-            output_footprint[chunk.view_in_original_array] = np.where(
-                mask, chunk.footprint, output_footprint[chunk.view_in_original_array]
-            )
-            output_array[chunk.view_in_original_array] = np.where(
-                mask, chunk.array, output_array[chunk.view_in_original_array]
-            )
+            # Update only the selected pixels in place, which avoids allocating
+            # and rewriting the whole chunk as np.where would.
+            np.copyto(output_footprint[chunk.view_in_original_array], chunk.footprint, where=mask)
+            np.copyto(output_array[chunk.view_in_original_array], chunk.array, where=mask)
 
 
 def reproject_and_coadd(
