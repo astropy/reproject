@@ -33,6 +33,7 @@ def _safe_remove(path):
     except PermissionError:
         pass
 
+
 def _combine_array_into_output(combine_function, array, output_array, output_footprint):
     for chunk in array.as_chunks():
         # Values outside of the footprint are set to NaN by default
