@@ -55,6 +55,11 @@ os.environ["MPLBACKEND"] = "Agg"
 
 
 def pytest_configure(config):
+
+    from astropy.utils.iers import conf
+
+    conf.auto_download = False
+
     if ASTROPY_HEADER:
         config.option.astropy_header = True
 
