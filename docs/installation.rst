@@ -13,7 +13,7 @@ This package has the following dependencies:
 
 * `Numpy <http://www.numpy.org/>`__ 1.20 or later
 
-* `Astropy <http://www.astropy.org/>`__ 5.0 or later
+* `Astropy <http://www.astropy.org/>`__ 6.0 or later
 
 * `Scipy <http://www.scipy.org/>`__ 1.5 or later
 
