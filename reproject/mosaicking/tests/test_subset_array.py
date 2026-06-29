@@ -119,6 +119,5 @@ class TestReprojectedArraySubset:
         combined_footprint = np.zeros_like(self.array1, dtype=int)
 
         for chunk in self.subset1.as_chunks(max_chunk_size=10):
-            print(chunk.size, chunk.view_in_original_array)
             combined_array[chunk.view_in_original_array] += chunk.array
             combined_footprint[chunk.view_in_original_array] += chunk.footprint

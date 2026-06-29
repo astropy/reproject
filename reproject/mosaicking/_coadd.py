@@ -33,6 +33,35 @@ def _safe_remove(path):
     except PermissionError:
         pass
 
+def _combine_array_into_output(combine_function, array, output_array, output_footprint):
+    for chunk in array.as_chunks():
+        # Values outside of the footprint are set to NaN by default
+        # but we set these to 0 here to avoid NaNs in the means/sums.
+        if combine_function in ("mean", "sum"):
+            chunk.array[chunk.footprint == 0] = 0.0
+            output_footprint[chunk.view_in_original_array] += chunk.footprint
+            output_array[chunk.view_in_original_array] += chunk.array * chunk.footprint
+        elif combine_function in ("first", "last", "min", "max"):
+            if combine_function == "first":
+                mask = output_footprint[chunk.view_in_original_array] == 0
+            elif combine_function == "last":
+                mask = chunk.footprint > 0
+            elif combine_function == "min":
+                mask = (chunk.footprint > 0) & (
+                    chunk.array < output_array[chunk.view_in_original_array]
+                )
+            elif combine_function == "max":
+                mask = (chunk.footprint > 0) & (
+                    chunk.array > output_array[chunk.view_in_original_array]
+                )
+
+            output_footprint[chunk.view_in_original_array] = np.where(
+                mask, chunk.footprint, output_footprint[chunk.view_in_original_array]
+            )
+            output_array[chunk.view_in_original_array] = np.where(
+                mask, chunk.array, output_array[chunk.view_in_original_array]
+            )
+
 
 def reproject_and_coadd(
     input_data,
@@ -445,33 +474,7 @@ def reproject_and_coadd(
                 # dimensions (e.g. spectral channels). Note that these are just
                 # chunks over Numpy arrays, not e.g. dask chunks.
                 logger.info("Adding reprojected array to final array in chunks")
-                for chunk in array.as_chunks():
-                    # Values outside of the footprint are set to NaN by default
-                    # but we set these to 0 here to avoid NaNs in the means/sums.
-                    if combine_function in ("mean", "sum"):
-                        chunk.array[chunk.footprint == 0] = 0.0
-                        output_footprint[chunk.view_in_original_array] += chunk.footprint
-                        output_array[chunk.view_in_original_array] += chunk.array * chunk.footprint
-                    elif combine_function in ("first", "last", "min", "max"):
-                        if combine_function == "first":
-                            mask = output_footprint[chunk.view_in_original_array] == 0
-                        elif combine_function == "last":
-                            mask = chunk.footprint > 0
-                        elif combine_function == "min":
-                            mask = (chunk.footprint > 0) & (
-                                chunk.array < output_array[chunk.view_in_original_array]
-                            )
-                        elif combine_function == "max":
-                            mask = (chunk.footprint > 0) & (
-                                chunk.array > output_array[chunk.view_in_original_array]
-                            )
-
-                        output_footprint[chunk.view_in_original_array] = np.where(
-                            mask, chunk.footprint, output_footprint[chunk.view_in_original_array]
-                        )
-                        output_array[chunk.view_in_original_array] = np.where(
-                            mask, chunk.array, output_array[chunk.view_in_original_array]
-                        )
+                _combine_array_into_output(combine_function, array, output_array, output_footprint)
 
                 if intermediate_memmap:
                     logger.info("Removing memory-mapped array and footprint arrays")
@@ -495,22 +498,16 @@ def reproject_and_coadd(
             for array, correction in zip(arrays, corrections, strict=True):
                 array.array -= correction
 
-        if combine_function in ("mean", "sum"):
-            if match_background:
-                logger.info(f"Combining reprojected arrays with function {combine_function}")
-                # if we're not matching the background, this part has already been done
-                for array in arrays:
-                    # By default, values outside of the footprint are set to NaN
-                    # but we set these to 0 here to avoid getting NaNs in the
-                    # means/sums.
-                    array.array[array.footprint == 0] = 0
-                    output_array[array.view_in_original_array] += array.array * array.footprint
-                    output_footprint[array.view_in_original_array] += array.footprint
+        if match_background:
+            logger.info(f"Combining reprojected arrays with function {combine_function}")
+            # if we're not matching the background, this part has already been done
+            for array in arrays:
+                _combine_array_into_output(combine_function, array, output_array, output_footprint)
 
-            if combine_function == "mean":
-                logger.info("Handle normalization of output array")
-                with np.errstate(invalid="ignore"):
-                    output_array /= output_footprint
+        if combine_function == "mean":
+            logger.info("Handle normalization of output array")
+            with np.errstate(invalid="ignore"):
+                output_array /= output_footprint
 
         # Avoid keeping any references to the memory-mapped arrays so that the
         # files get cleaned up once we exit the context manager.
