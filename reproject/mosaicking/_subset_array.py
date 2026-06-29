@@ -1,6 +1,9 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
 import operator
+from math import prod
+
+from .._array_utils import iterate_chunks
 
 __all__ = ["ReprojectedArraySubset"]
 
@@ -16,6 +19,21 @@ class ReprojectedArraySubset:
     # cutouts.
 
     def __init__(self, array, footprint, bounds):
+
+        if array.shape != footprint.shape:
+            raise ValueError(
+                f"array and footprint shapes should match "
+                f"(got {array.shape} and {footprint.shape} respectively)"
+            )
+
+        bounds_shape = tuple(bounds[idim][1] - bounds[idim][0] for idim in range(len(bounds)))
+
+        if array.shape != bounds_shape:
+            raise ValueError(
+                f"array and bounds shapes should match "
+                f"(got {array.shape} and {bounds_shape} respectively)"
+            )
+
         self.array = array
         self.footprint = footprint
         self.bounds = bounds
@@ -31,6 +49,10 @@ class ReprojectedArraySubset:
     @property
     def shape(self):
         return tuple((imax - imin) for (imin, imax) in self.bounds)
+
+    @property
+    def size(self):
+        return prod(self.shape)
 
     def overlaps(self, other):
         # Note that the use of <= or >= instead of < and > is due to
@@ -95,3 +117,18 @@ class ReprojectedArraySubset:
         footprint = (self_footprint > 0) & (other_footprint > 0)
 
         return ReprojectedArraySubset(array, footprint, overlap_bounds)
+
+    def as_chunks(self, max_chunk_size=None):
+
+        for chunk in iterate_chunks(self.shape, max_chunk_size=max_chunk_size or 256 * 1024**2):
+
+            bounds_chunk = tuple(
+                (self.bounds[idim][0] + chunk[idim].start, self.bounds[idim][0] + chunk[idim].stop)
+                for idim in range(len(self.bounds))
+            )
+
+            yield ReprojectedArraySubset(
+                array=self.array[chunk],
+                footprint=self.footprint[chunk],
+                bounds=bounds_chunk,
+            )
