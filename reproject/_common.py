@@ -334,9 +334,9 @@ def _reproject_dispatcher(
             raise NotImplementedError(
                 "Reprojecting fewer dimensions than the input or output WCS "
                 "(for example using non_reprojected_dims) currently requires "
-                "parallelizing over the non-reprojected dimensions: use "
-                "parallel=True with a block_size that matches the output shape "
-                "along the reprojected dimensions"
+                "passing a block_size whose entries along the reprojected "
+                "dimensions match the output shape (optionally with parallel=True "
+                "to compute the blocks concurrently)"
             )
 
         if output_footprint is None and return_footprint:
