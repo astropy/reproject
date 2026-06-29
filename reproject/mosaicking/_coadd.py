@@ -20,10 +20,18 @@ __all__ = ["reproject_and_coadd"]
 
 
 IS_WIN = sys.platform == "win32"
+MAX_CHUNK_SIZE = 256 * 1024**2
 
 
 def _noop(iterable):
     return iterable
+
+
+def _safe_remove(path):
+    try:
+        os.remove(path)
+    except PermissionError:
+        pass
 
 
 def reproject_and_coadd(
@@ -187,11 +195,10 @@ def reproject_and_coadd(
 
     logger.info(f"Output mosaic will have shape {shape_out}")
 
-    # Define 'on-the-fly' mode: in the case where we don't need to match
-    # the backgrounds and we are combining with 'mean' or 'sum', we don't
-    # have to keep track of the intermediate arrays and can just modify
-    # the output array on-the-fly
-    on_the_fly = not match_background and combine_function in ("mean", "sum")
+    # Define 'on-the-fly' mode: in the case where we don't need to match the
+    # backgrounds, we don't have to keep track of the intermediate arrays and
+    # can just modify the output array on-the-fly
+    on_the_fly = not match_background
 
     on_the_fly_prefix = "Using" if on_the_fly else "Not using"
     logger.info(
@@ -202,6 +209,11 @@ def reproject_and_coadd(
 
     if not on_the_fly:
         arrays = []
+
+    if combine_function == "min":
+        output_array[...] = np.inf
+    elif combine_function == "max":
+        output_array[...] = -np.inf
 
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=IS_WIN) as local_tmp_dir:
 
@@ -397,79 +409,79 @@ def reproject_and_coadd(
                     return_footprint=False,
                     **kwargs,
                 )
+
+            # For the purposes of mosaicking, we mask out NaN values from the array
+            # and set the footprint to 0 at these locations. We do this in chunks
+            # to avoid excessive memory usage.
+            for chunk in iterate_chunks(array.shape, max_chunk_size=MAX_CHUNK_SIZE):
+
+                # Determine location of NaNs
+                reset = np.isnan(array[chunk])
+                if weights_in is not None:
+                    reset |= np.isnan(weights[chunk])
+
+                # Mask them in-place in the arrays
+                array[chunk][reset] = 0.0
+                footprint[chunk][reset] = 0.0
+
+                # Combine weights and footprint
+                if weights_in is not None:
+                    weights[chunk][reset] = 0.0
+                    footprint[chunk] *= weights[chunk]
+
+            if weights_in is not None and intermediate_memmap:
+                # Remove the reference to the memmap before trying to remove the file itself
+                logger.info("Removing memory-mapped weight array")
+                weights = None
+                _safe_remove(weights_path)
+
+            array = ReprojectedArraySubset(array, footprint, bounds)
+
             if on_the_fly:
                 # Add this reprojected image to the output arrays one chunk at a
                 # time. This keeps peak memory usage set by the chunk size rather
                 # than by the (potentially large) size of each reprojected image,
                 # which matters in particular when there are many non-reprojected
-                # dimensions (e.g. spectral channels).
+                # dimensions (e.g. spectral channels). Note that these are just
+                # chunks over Numpy arrays, not e.g. dask chunks.
                 logger.info("Adding reprojected array to final array in chunks")
-                for chunk in iterate_chunks(shape_out_indiv, max_chunk_size=256 * 1024**2):
-                    output_chunk = tuple(
-                        slice(
-                            bounds[idim][0] + chunk[idim].start, bounds[idim][0] + chunk[idim].stop
-                        )
-                        for idim in range(len(bounds))
-                    )
-                    array_chunk = np.array(array[chunk])
-                    footprint_chunk = np.array(footprint[chunk])
-                    # Mask out NaN values from the array and set the footprint to
-                    # 0 at these locations.
-                    reset = np.isnan(array_chunk)
-                    if weights_in is not None:
-                        weights_chunk = np.array(weights[chunk])
-                        reset |= np.isnan(weights_chunk)
-                    array_chunk[reset] = 0.0
-                    footprint_chunk[reset] = 0.0
-                    if weights_in is not None:
-                        weights_chunk[reset] = 0.0
-                        footprint_chunk *= weights_chunk
+                for chunk in array.as_chunks():
                     # Values outside of the footprint are set to NaN by default
                     # but we set these to 0 here to avoid NaNs in the means/sums.
-                    array_chunk[footprint_chunk == 0] = 0.0
-                    output_footprint[output_chunk] += footprint_chunk
-                    output_array[output_chunk] += array_chunk * footprint_chunk
+                    if combine_function in ("mean", "sum"):
+                        chunk.array[chunk.footprint == 0] = 0.0
+                        output_footprint[chunk.view_in_original_array] += chunk.footprint
+                        output_array[chunk.view_in_original_array] += chunk.array * chunk.footprint
+                    elif combine_function in ("first", "last", "min", "max"):
+                        if combine_function == "first":
+                            mask = output_footprint[chunk.view_in_original_array] == 0
+                        elif combine_function == "last":
+                            mask = chunk.footprint > 0
+                        elif combine_function == "min":
+                            mask = (chunk.footprint > 0) & (
+                                chunk.array < output_array[chunk.view_in_original_array]
+                            )
+                        elif combine_function == "max":
+                            mask = (chunk.footprint > 0) & (
+                                chunk.array > output_array[chunk.view_in_original_array]
+                            )
+
+                        output_footprint[chunk.view_in_original_array] = np.where(
+                            mask, chunk.footprint, output_footprint[chunk.view_in_original_array]
+                        )
+                        output_array[chunk.view_in_original_array] = np.where(
+                            mask, chunk.array, output_array[chunk.view_in_original_array]
+                        )
 
                 if intermediate_memmap:
                     logger.info("Removing memory-mapped array and footprint arrays")
                     array = None
                     footprint = None
                     for path in (array_path, footprint_path):
-                        try:
-                            os.remove(path)
-                        except PermissionError:
-                            pass
-                    if weights_in is not None:
-                        weights = None
-                        try:
-                            os.remove(weights_path)
-                        except PermissionError:
-                            pass
+                        _safe_remove(path)
 
             else:
 
-                # For the purposes of mosaicking, we mask out NaN values from the
-                # array and set the footprint to 0 at these locations.
-                if weights_in is not None:
-                    reset = np.isnan(array) | np.isnan(weights)
-                else:
-                    reset = np.isnan(array)
-
-                array[reset] = 0.0
-                footprint[reset] = 0.0
-
-                if weights_in is not None:
-                    weights[reset] = 0.0
-                    footprint *= weights
-                    if intermediate_memmap:
-                        logger.info("Removing memory-mapped weight array")
-                        weights = None
-                        try:
-                            os.remove(weights_path)
-                        except PermissionError:
-                            pass
-
-                array = ReprojectedArraySubset(array, footprint, bounds)
                 logger.info("Adding reprojected array to list to combine later")
                 arrays.append(array)
 
@@ -500,34 +512,6 @@ def reproject_and_coadd(
                 with np.errstate(invalid="ignore"):
                     output_array /= output_footprint
 
-        elif combine_function in ("first", "last", "min", "max"):
-            logger.info(f"Combining reprojected arrays with function {combine_function}")
-            if combine_function == "min":
-                output_array[...] = np.inf
-            elif combine_function == "max":
-                output_array[...] = -np.inf
-
-            for array in arrays:
-                if combine_function == "first":
-                    mask = output_footprint[array.view_in_original_array] == 0
-                elif combine_function == "last":
-                    mask = array.footprint > 0
-                elif combine_function == "min":
-                    mask = (array.footprint > 0) & (
-                        array.array < output_array[array.view_in_original_array]
-                    )
-                elif combine_function == "max":
-                    mask = (array.footprint > 0) & (
-                        array.array > output_array[array.view_in_original_array]
-                    )
-
-                output_footprint[array.view_in_original_array] = np.where(
-                    mask, array.footprint, output_footprint[array.view_in_original_array]
-                )
-                output_array[array.view_in_original_array] = np.where(
-                    mask, array.array, output_array[array.view_in_original_array]
-                )
-
         # Avoid keeping any references to the memory-mapped arrays so that the
         # files get cleaned up once we exit the context manager.
         if intermediate_memmap:
@@ -538,7 +522,7 @@ def reproject_and_coadd(
     # We need to avoid potentially large memory allocation from output == 0 so
     # we operate in chunks.
     logger.info(f"Resetting invalid pixels to {blank_pixel_value}")
-    for chunk in iterate_chunks(output_array.shape, max_chunk_size=256 * 1024**2):
+    for chunk in iterate_chunks(output_array.shape, max_chunk_size=MAX_CHUNK_SIZE):
         output_array[chunk][output_footprint[chunk] == 0] = blank_pixel_value
 
     return output_array, output_footprint
