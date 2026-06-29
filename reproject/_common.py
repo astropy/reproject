@@ -95,11 +95,15 @@ def _reproject_dispatcher(
         the block size automatically determined. If ``block_size`` is not
         specified or set to `None`, the reprojection will not be carried out in
         blocks.
-    non_reprojected_dims : tuple
-        Dimensions that should not be reprojected but instead for which a
-        1-to-1 mapping between input and output pixel space should be assumed.
-        By default, this is any leading extra dimensions if the input WCS has
-        fewer dimensions than the input data.
+    non_reprojected_dims : tuple, optional
+        Leading dimensions of the data that should not be reprojected but for
+        which a one-to-one mapping between input and output pixels is assumed,
+        given as a tuple of sequential integers starting from zero (e.g.
+        ``(0,)`` or ``(0, 1)``). If `None` (the default), any leading dimensions
+        for which the WCS has fewer dimensions than the data are treated this
+        way. Reprojecting fewer dimensions than the WCS currently requires a
+        ``block_size`` that matches the output shape along the reprojected
+        dimensions.
     array_out : `~numpy.ndarray`, optional
         An array in which to store the reprojected data.  This can be any numpy
         array including a memory map, which may be helpful when dealing with
@@ -175,6 +179,10 @@ def _reproject_dispatcher(
                     f"non_reprojected_dims ({len(non_reprojected_dims)})"
                 )
         n_dim_reproject = len(shape_out) - len(non_reprojected_dims)
+        if n_dim_reproject < 1:
+            raise ValueError(
+                "non_reprojected_dims should leave at least one dimension to be " "reprojected"
+            )
 
     # If we are reprojecting fewer dimensions than the input or output WCS has,
     # the WCS needs to be sliced down to the reprojected dimensions for each
@@ -264,11 +272,10 @@ def _reproject_dispatcher(
         # (broadcasted) dimensions.
 
         shape_in = array_in.shape
+        shape_out = tuple(shape_out)
 
         if shape_out[:-n_dim_reproject] != shape_in[:-n_dim_reproject]:
             raise ValueError("Input shape should match output shape for non-reprojected dimensions")
-
-        shape_out = tuple(shape_out)
 
         # If an explicit block size was passed, normalize it to have the same
         # number of elements as shape_out, expanding it if it only covers the
