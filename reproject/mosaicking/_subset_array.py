@@ -7,6 +7,11 @@ from .._array_utils import iterate_chunks
 
 __all__ = ["ReprojectedArraySubset"]
 
+# Default maximum number of array elements (not bytes) to process per chunk when
+# iterating over a subset. Around 1e6 gives near-optimal throughput while keeping
+# peak memory low -- larger chunks are actually slower due to CPU cache effects.
+DEFAULT_MAX_CHUNK_SIZE = 1_000_000
+
 
 class ReprojectedArraySubset:
     # The aim of this class is to represent a subset of an array and
@@ -120,7 +125,9 @@ class ReprojectedArraySubset:
 
     def as_chunks(self, max_chunk_size=None):
 
-        for chunk in iterate_chunks(self.shape, max_chunk_size=max_chunk_size or 1_000_000):
+        for chunk in iterate_chunks(
+            self.shape, max_chunk_size=max_chunk_size or DEFAULT_MAX_CHUNK_SIZE
+        ):
 
             bounds_chunk = tuple(
                 (self.bounds[idim][0] + chunk[idim].start, self.bounds[idim][0] + chunk[idim].stop)

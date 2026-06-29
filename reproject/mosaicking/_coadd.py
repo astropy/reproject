@@ -14,17 +14,12 @@ from .._array_utils import iterate_chunks, sample_array_edges
 from ..interpolation._core import _validate_wcs
 from ..utils import parse_input_data, parse_input_weights, parse_output_projection
 from ._background import determine_offset_matrix, solve_corrections_sgd
-from ._subset_array import ReprojectedArraySubset
+from ._subset_array import DEFAULT_MAX_CHUNK_SIZE, ReprojectedArraySubset
 
 __all__ = ["reproject_and_coadd"]
 
 
 IS_WIN = sys.platform == "win32"
-
-# Maximum number of array elements (not bytes) to process per chunk when
-# co-adding. Around 1e6 gives near-optimal throughput while keeping peak memory
-# low -- larger chunks are actually slower due to CPU cache effects.
-MAX_CHUNK_SIZE = 1_000_000
 
 
 def _noop(iterable):
@@ -48,7 +43,7 @@ def _combine_array_into_output(combine_function, array, output_array, output_foo
             output_array[chunk.view_in_original_array] += chunk.array * chunk.footprint
         elif combine_function in ("first", "last", "min", "max"):
             if combine_function == "first":
-                mask = output_footprint[chunk.view_in_original_array] == 0
+                mask = (chunk.footprint > 0) & (output_footprint[chunk.view_in_original_array] == 0)
             elif combine_function == "last":
                 mask = chunk.footprint > 0
             elif combine_function == "min":
@@ -64,6 +59,8 @@ def _combine_array_into_output(combine_function, array, output_array, output_foo
             # and rewriting the whole chunk as np.where would.
             np.copyto(output_footprint[chunk.view_in_original_array], chunk.footprint, where=mask)
             np.copyto(output_array[chunk.view_in_original_array], chunk.array, where=mask)
+        else:
+            raise ValueError(f"Unexpected combine_function: {combine_function}")
 
 
 def reproject_and_coadd(
@@ -445,7 +442,7 @@ def reproject_and_coadd(
             # For the purposes of mosaicking, we mask out NaN values from the array
             # and set the footprint to 0 at these locations. We do this in chunks
             # to avoid excessive memory usage.
-            for chunk in iterate_chunks(array.shape, max_chunk_size=MAX_CHUNK_SIZE):
+            for chunk in iterate_chunks(array.shape, max_chunk_size=DEFAULT_MAX_CHUNK_SIZE):
 
                 # Determine location of NaNs
                 reset = np.isnan(array[chunk])
@@ -522,7 +519,7 @@ def reproject_and_coadd(
     # We need to avoid potentially large memory allocation from output == 0 so
     # we operate in chunks.
     logger.info(f"Resetting invalid pixels to {blank_pixel_value}")
-    for chunk in iterate_chunks(output_array.shape, max_chunk_size=MAX_CHUNK_SIZE):
+    for chunk in iterate_chunks(output_array.shape, max_chunk_size=DEFAULT_MAX_CHUNK_SIZE):
         output_array[chunk][output_footprint[chunk] == 0] = blank_pixel_value
 
     return output_array, output_footprint
