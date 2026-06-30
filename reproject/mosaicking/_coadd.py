@@ -1,5 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 import os
+import shutil
 import sys
 import tempfile
 import uuid
@@ -29,8 +30,12 @@ def _noop(iterable):
 
 def _safe_remove(path):
     try:
-        os.remove(path)
-    except PermissionError:
+        if os.path.isdir(path):
+            # zarr stores are directories rather than single files
+            shutil.rmtree(path, ignore_errors=True)
+        else:
+            os.remove(path)
+    except (PermissionError, FileNotFoundError):
         pass
 
 
@@ -413,10 +418,9 @@ def reproject_and_coadd(
 
             if intermediate_memmap == "zarr":
 
+                array_zarr_path = os.path.join(local_tmp_dir, f"array_{uuid.uuid4()}.zarr")
                 extra_kwargs["return_type"] = "zarr"
-                extra_kwargs["zarr_path"] = os.path.join(
-                    local_tmp_dir, f"array_{uuid.uuid4()}.zarr"
-                )
+                extra_kwargs["zarr_path"] = array_zarr_path
 
             elif intermediate_memmap:
 
@@ -467,10 +471,9 @@ def reproject_and_coadd(
 
                 if intermediate_memmap == "zarr":
 
+                    weights_zarr_path = os.path.join(local_tmp_dir, f"weights_{uuid.uuid4()}.zarr")
                     extra_kwargs["return_type"] = "zarr"
-                    extra_kwargs["zarr_path"] = os.path.join(
-                        local_tmp_dir, f"weights_{uuid.uuid4()}.zarr"
-                    )
+                    extra_kwargs["zarr_path"] = weights_zarr_path
 
                 elif intermediate_memmap:
 
@@ -559,6 +562,16 @@ def reproject_and_coadd(
                     footprint = None
                     for path in (array_path, footprint_path):
                         _safe_remove(path)
+                elif intermediate_memmap == "zarr":
+                    # The array and footprint share a single zarr store, and the
+                    # footprint may lazily reference the weights zarr, so these
+                    # can only be removed now that the arrays have been combined.
+                    logger.info("Removing intermediate zarr arrays")
+                    array = None
+                    footprint = None
+                    _safe_remove(array_zarr_path)
+                    if weights_in is not None:
+                        _safe_remove(weights_zarr_path)
 
             else:
 
