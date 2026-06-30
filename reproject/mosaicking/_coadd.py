@@ -5,6 +5,7 @@ import tempfile
 import uuid
 from logging import getLogger
 
+import dask.array as da
 import numpy as np
 from astropy.wcs import WCS
 from astropy.wcs.utils import pixel_to_pixel
@@ -217,7 +218,7 @@ def reproject_and_coadd(
     if progress_bar is None:
         progress_bar = _noop
 
-    if match_background and intermediate_memmap == 'zarr':
+    if match_background and intermediate_memmap == "zarr":
         raise ValueError("Cannot use intermediate_memmap='zarr' when match_background=True")
 
     # Parse the output projection to avoid having to do it for each
@@ -410,10 +411,12 @@ def reproject_and_coadd(
             extra_kwargs = {}
             array = footprint = None
 
-            if intermediate_memmap == 'zarr':
+            if intermediate_memmap == "zarr":
 
-                extra_kwargs['return_type'] = 'zarr'
-                extra_kwargs['zarr_path'] = os.path.join(local_tmp_dir, f"array_{uuid.uuid4()}.zarr")
+                extra_kwargs["return_type"] = "zarr"
+                extra_kwargs["zarr_path"] = os.path.join(
+                    local_tmp_dir, f"array_{uuid.uuid4()}.zarr"
+                )
 
             elif intermediate_memmap:
 
@@ -462,10 +465,12 @@ def reproject_and_coadd(
                 extra_kwargs = {}
                 weights = None
 
-                if intermediate_memmap == 'zarr':
+                if intermediate_memmap == "zarr":
 
-                    extra_kwargs['return_type'] = 'zarr'
-                    extra_kwargs['zarr_path'] = os.path.join(local_tmp_dir, f"weights_{uuid.uuid4()}.zarr")
+                    extra_kwargs["return_type"] = "zarr"
+                    extra_kwargs["zarr_path"] = os.path.join(
+                        local_tmp_dir, f"weights_{uuid.uuid4()}.zarr"
+                    )
 
                 elif intermediate_memmap:
 
@@ -498,23 +503,37 @@ def reproject_and_coadd(
                 )
 
             # For the purposes of mosaicking, we mask out NaN values from the array
-            # and set the footprint to 0 at these locations. We do this in chunks
-            # to avoid excessive memory usage.
-            for chunk in iterate_chunks(array.shape, max_chunk_size=DEFAULT_MAX_CHUNK_SIZE):
-
-                # Determine location of NaNs
-                reset = np.isnan(array[chunk])
+            # and set the footprint to 0 at these locations, and fold any weights
+            # into the footprint.
+            if isinstance(array, da.core.Array):
+                # When intermediate_memmap='zarr' the arrays are dask arrays which
+                # do not support in-place assignment, so build the masked arrays
+                # lazily instead; the masking is then applied chunk by chunk when
+                # the arrays are combined below.
+                reset = da.isnan(array)
                 if weights_in is not None:
-                    reset |= np.isnan(weights[chunk])
+                    reset = reset | da.isnan(weights)
+                    footprint = da.where(reset, 0.0, footprint * weights)
+                else:
+                    footprint = da.where(reset, 0.0, footprint)
+                array = da.where(reset, 0.0, array)
+            else:
+                # We do this in chunks to avoid excessive memory usage.
+                for chunk in iterate_chunks(array.shape, max_chunk_size=DEFAULT_MAX_CHUNK_SIZE):
 
-                # Mask them in-place in the arrays
-                array[chunk][reset] = 0.0
-                footprint[chunk][reset] = 0.0
+                    # Determine location of NaNs
+                    reset = np.isnan(array[chunk])
+                    if weights_in is not None:
+                        reset |= np.isnan(weights[chunk])
 
-                # Combine weights and footprint
-                if weights_in is not None:
-                    weights[chunk][reset] = 0.0
-                    footprint[chunk] *= weights[chunk]
+                    # Mask them in-place in the arrays
+                    array[chunk][reset] = 0.0
+                    footprint[chunk][reset] = 0.0
+
+                    # Combine weights and footprint
+                    if weights_in is not None:
+                        weights[chunk][reset] = 0.0
+                        footprint[chunk] *= weights[chunk]
 
             if weights_in is not None and intermediate_memmap is True:
                 # Remove the reference to the memmap before trying to remove the file itself

@@ -25,7 +25,7 @@ def reproject_function(request):
     return request.param
 
 
-@pytest.fixture(params=[False, True, 'zarr'])
+@pytest.fixture(params=[False, True, "zarr"])
 def intermediate_memmap(request):
     return request.param
 
@@ -120,6 +120,34 @@ class TestReprojectAndCoAdd:
 
         assert_allclose(array, self.array, atol=ATOL)
 
+    def test_coadd_zarr_interior_nan(self, reproject_function, monkeypatch):
+        # Regression test: with intermediate_memmap='zarr' the reprojected arrays
+        # are dask arrays, which do not support in-place assignment, so NaN values
+        # inside the footprint have to be masked out lazily. We force a small
+        # chunk size so the masking spans more than one chunk, which previously
+        # silently failed for dask arrays and left NaNs in the output.
+        monkeypatch.setattr("reproject.mosaicking._coadd.DEFAULT_MAX_CHUNK_SIZE", 100)
+
+        # Two identical full-frame tiles so every pixel is covered twice, with
+        # NaNs in one tile that must be ignored in favor of the other.
+        input_data = [
+            (self.array.copy(), self.wcs.deepcopy()),
+            (self.array.copy(), self.wcs.deepcopy()),
+        ]
+        input_data[0][0][:20, :20] = np.nan
+
+        array, footprint = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=self.array.shape,
+            combine_function="mean",
+            reproject_function=reproject_function,
+            intermediate_memmap="zarr",
+        )
+
+        assert not np.any(np.isnan(array))
+        assert_allclose(array, self.array, atol=ATOL)
+
     def test_coadd_with_outputs(self, tmp_path, reproject_function, intermediate_memmap):
         # Test the options to specify output array/footprint
 
@@ -203,7 +231,7 @@ class TestReprojectAndCoAdd:
             shape_out=self.array.shape,
             combine_function="mean",
             reproject_function=reproject_function,
-            intermediate_memmap=intermediate_memmap_nozarr
+            intermediate_memmap=intermediate_memmap_nozarr,
         )
 
         assert not np.allclose(array, self.array, atol=ATOL)
@@ -217,7 +245,7 @@ class TestReprojectAndCoAdd:
             combine_function="mean",
             reproject_function=reproject_function,
             match_background=True,
-            intermediate_memmap=intermediate_memmap_nozarr
+            intermediate_memmap=intermediate_memmap_nozarr,
         )
 
         # The absolute values of the two arrays will be offset since any
@@ -225,7 +253,9 @@ class TestReprojectAndCoAdd:
 
         assert_allclose(array - np.mean(array), self.array - np.mean(self.array), atol=ATOL)
 
-    def test_coadd_background_matching_one_array(self, reproject_function, intermediate_memmap_nozarr):
+    def test_coadd_background_matching_one_array(
+        self, reproject_function, intermediate_memmap_nozarr
+    ):
         # Test that background matching doesn't affect the output when there's
         # only one input image.
 
@@ -318,7 +348,9 @@ class TestReprojectAndCoAdd:
         np.testing.assert_allclose(footprint_match, footprint_nomatch, atol=ATOL)
         np.testing.assert_allclose(array_match, array_nomatch, atol=ATOL)
 
-    def test_coadd_background_matching_with_nan(self, reproject_function, intermediate_memmap_nozarr):
+    def test_coadd_background_matching_with_nan(
+        self, reproject_function, intermediate_memmap_nozarr
+    ):
         # Test out the background matching when NaN values are present. We do
         # this by using three arrays with the same footprint but with different
         # parts masked.
