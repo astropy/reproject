@@ -34,6 +34,7 @@ def reproject_adaptive(
     parallel=False,
     return_type=None,
     dask_method=None,
+    zarr_path=None,
 ):
     """
     Reproject a 2D array from one WCS to another using the DeForest (2004)
@@ -284,4 +285,5 @@ def reproject_adaptive(
             bad_fill_value=bad_fill_value,
         ),
         return_type=return_type,
+        zarr_path=zarr_path,
     )

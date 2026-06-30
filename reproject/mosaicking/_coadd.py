@@ -169,9 +169,11 @@ def reproject_and_coadd(
     blank_pixel_value : float, optional
         Value to use for areas of the resulting mosaic that do not have input
         data.
-    intermediate_memmap : bool, optional
+    intermediate_memmap : {'False', 'True', 'zarr'}, optional
         If `True`, use `numpy.memmap` to store intermediate output arrays for
-        reprojected data.
+        reprojected data. If `'zarr'`, intermediate output arrays will be
+        written to zarr arrays on disk. The latter should be more efficient,
+        but can only be used if ``match_background`` is `False`.
 
     **kwargs
         Keyword arguments to be passed to the reprojection function.
@@ -214,6 +216,9 @@ def reproject_and_coadd(
 
     if progress_bar is None:
         progress_bar = _noop
+
+    if match_background and intermediate_memmap == 'zarr':
+        raise ValueError("Cannot use intermediate_memmap='zarr' when match_background=True")
 
     # Parse the output projection to avoid having to do it for each
 
@@ -402,7 +407,15 @@ def reproject_and_coadd(
             # able to handle weights, and make the footprint become the combined
             # footprint + weight map
 
-            if intermediate_memmap:
+            extra_kwargs = {}
+            array = footprint = None
+
+            if intermediate_memmap == 'zarr':
+
+                extra_kwargs['return_type'] = 'zarr'
+                extra_kwargs['zarr_path'] = os.path.join(local_tmp_dir, f"array_{uuid.uuid4()}.zarr")
+
+            elif intermediate_memmap:
 
                 array_path = os.path.join(local_tmp_dir, f"array_{uuid.uuid4()}.np")
 
@@ -430,10 +443,6 @@ def reproject_and_coadd(
                     dtype=float,
                 )
 
-            else:
-
-                array = footprint = None
-
             logger.info(f"Calling {reproject_function.__name__} with shape_out={shape_out_indiv}")
 
             array, footprint = reproject_function(
@@ -445,11 +454,20 @@ def reproject_and_coadd(
                 output_footprint=footprint,
                 block_size=block_size,
                 **kwargs,
+                **extra_kwargs,
             )
 
             if weights_in is not None:
 
-                if intermediate_memmap:
+                extra_kwargs = {}
+                weights = None
+
+                if intermediate_memmap == 'zarr':
+
+                    extra_kwargs['return_type'] = 'zarr'
+                    extra_kwargs['zarr_path'] = os.path.join(local_tmp_dir, f"weights_{uuid.uuid4()}.zarr")
+
+                elif intermediate_memmap:
 
                     weights_path = os.path.join(local_tmp_dir, f"weights_{uuid.uuid4()}.np")
 
@@ -464,10 +482,6 @@ def reproject_and_coadd(
                         dtype=float,
                     )
 
-                else:
-
-                    weights = None
-
                 logger.info(
                     f"Calling {reproject_function.__name__} with shape_out={shape_out_indiv} for weights"
                 )
@@ -480,6 +494,7 @@ def reproject_and_coadd(
                     output_array=weights,
                     return_footprint=False,
                     **kwargs,
+                    **extra_kwargs,
                 )
 
             # For the purposes of mosaicking, we mask out NaN values from the array
@@ -501,7 +516,7 @@ def reproject_and_coadd(
                     weights[chunk][reset] = 0.0
                     footprint[chunk] *= weights[chunk]
 
-            if weights_in is not None and intermediate_memmap:
+            if weights_in is not None and intermediate_memmap is True:
                 # Remove the reference to the memmap before trying to remove the file itself
                 logger.info("Removing memory-mapped weight array")
                 weights = None
@@ -519,7 +534,7 @@ def reproject_and_coadd(
                 logger.info("Adding reprojected array to final array in chunks")
                 _combine_array_into_output(combine_function, array, output_array, output_footprint)
 
-                if intermediate_memmap:
+                if intermediate_memmap is True:
                     logger.info("Removing memory-mapped array and footprint arrays")
                     array = None
                     footprint = None

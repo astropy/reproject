@@ -29,6 +29,7 @@ def reproject_interp(
     parallel=False,
     return_type=None,
     dask_method=None,
+    zarr_path=None,
 ):
     """
     Reproject data to a new projection using interpolation (this is typically
@@ -170,4 +171,5 @@ def reproject_interp(
         ),
         return_type=return_type,
         dask_method=dask_method,
+        zarr_path=zarr_path,
     )

@@ -25,8 +25,13 @@ def reproject_function(request):
     return request.param
 
 
-@pytest.fixture(params=[False, True])
+@pytest.fixture(params=[False, True, 'zarr'])
 def intermediate_memmap(request):
+    return request.param
+
+
+@pytest.fixture(params=[False, True])
+def intermediate_memmap_nozarr(request):
     return request.param
 
 
@@ -92,6 +97,7 @@ class TestReprojectAndCoAdd:
             shape_out=self.array.shape,
             combine_function=combine_function,
             reproject_function=reproject_function,
+            intermediate_memmap=intermediate_memmap,
         )
 
         assert_allclose(array, self.array, atol=ATOL)
@@ -109,6 +115,7 @@ class TestReprojectAndCoAdd:
             shape_out=self.array.shape,
             combine_function="mean",
             reproject_function=reproject_function,
+            intermediate_memmap=intermediate_memmap,
         )
 
         assert_allclose(array, self.array, atol=ATOL)
@@ -133,6 +140,7 @@ class TestReprojectAndCoAdd:
             reproject_function=reproject_function,
             output_array=output_array,
             output_footprint=output_footprint,
+            intermediate_memmap=intermediate_memmap,
         )
 
         assert_allclose(output_array, self.array, atol=ATOL)
@@ -179,7 +187,7 @@ class TestReprojectAndCoAdd:
             assert_allclose(output_values, (i + 7) % 20)
             array[view] = np.nan
 
-    def test_coadd_background_matching(self, reproject_function, intermediate_memmap):
+    def test_coadd_background_matching(self, reproject_function, intermediate_memmap_nozarr):
         # Test out the background matching
 
         input_data = self._get_tiles(self._overlapping_views)
@@ -195,6 +203,7 @@ class TestReprojectAndCoAdd:
             shape_out=self.array.shape,
             combine_function="mean",
             reproject_function=reproject_function,
+            intermediate_memmap=intermediate_memmap_nozarr
         )
 
         assert not np.allclose(array, self.array, atol=ATOL)
@@ -208,6 +217,7 @@ class TestReprojectAndCoAdd:
             combine_function="mean",
             reproject_function=reproject_function,
             match_background=True,
+            intermediate_memmap=intermediate_memmap_nozarr
         )
 
         # The absolute values of the two arrays will be offset since any
@@ -215,7 +225,7 @@ class TestReprojectAndCoAdd:
 
         assert_allclose(array - np.mean(array), self.array - np.mean(self.array), atol=ATOL)
 
-    def test_coadd_background_matching_one_array(self, reproject_function, intermediate_memmap):
+    def test_coadd_background_matching_one_array(self, reproject_function, intermediate_memmap_nozarr):
         # Test that background matching doesn't affect the output when there's
         # only one input image.
 
@@ -228,6 +238,7 @@ class TestReprojectAndCoAdd:
             combine_function="mean",
             reproject_function=reproject_function,
             match_background=True,
+            intermediate_memmap=intermediate_memmap_nozarr,
         )
 
         array, footprint = reproject_and_coadd(
@@ -237,6 +248,7 @@ class TestReprojectAndCoAdd:
             combine_function="mean",
             reproject_function=reproject_function,
             match_background=False,
+            intermediate_memmap=intermediate_memmap_nozarr,
         )
         np.testing.assert_allclose(array, array_matched)
         np.testing.assert_allclose(footprint, footprint_matched)
@@ -306,7 +318,7 @@ class TestReprojectAndCoAdd:
         np.testing.assert_allclose(footprint_match, footprint_nomatch, atol=ATOL)
         np.testing.assert_allclose(array_match, array_nomatch, atol=ATOL)
 
-    def test_coadd_background_matching_with_nan(self, reproject_function, intermediate_memmap):
+    def test_coadd_background_matching_with_nan(self, reproject_function, intermediate_memmap_nozarr):
         # Test out the background matching when NaN values are present. We do
         # this by using three arrays with the same footprint but with different
         # parts masked.
@@ -329,6 +341,7 @@ class TestReprojectAndCoAdd:
             combine_function="mean",
             reproject_function=reproject_function,
             match_background=True,
+            intermediate_memmap=intermediate_memmap_nozarr,
         )
 
         # The absolute values of the two arrays will be offset since any
@@ -374,6 +387,7 @@ class TestReprojectAndCoAdd:
             input_weights=input_weights,
             reproject_function=reproject_function,
             match_background=False,
+            intermediate_memmap=intermediate_memmap,
         )
 
         expected = self.array + (2 * (weight1 / weight1.max()) - 1)
@@ -408,6 +422,7 @@ class TestReprojectAndCoAdd:
             input_weights=input_weights,
             reproject_function=reproject_function,
             match_background=False,
+            intermediate_memmap=intermediate_memmap,
         )
 
         weights1_reprojected = reproject_function(
@@ -456,6 +471,7 @@ class TestReprojectAndCoAdd:
             shape_out=(3,) + self.array.shape,
             combine_function="mean",
             reproject_function=reproject_function,
+            intermediate_memmap=intermediate_memmap,
             **kwargs,
         )
 
