@@ -13,6 +13,7 @@ from numpy.testing import assert_allclose
 from reproject import reproject_exact, reproject_interp
 from reproject.mosaicking._coadd import reproject_and_coadd
 from reproject.tests.helpers import array_footprint_to_hdulist
+from reproject.tests.test_non_reprojected_dims import _drifting_cube_wcs
 
 ATOL = 1.0e-9
 
@@ -521,41 +522,24 @@ def test_coadd_solar_map():
     return array_footprint_to_hdulist(array, footprint, header_out)
 
 
-def _spectral_cube_wcs(naxis, crpix_ra, crpix_dec, crval_freq=1e9):
-    wcs = WCS(naxis=naxis)
-    if naxis == 3:
-        wcs.wcs.ctype = ["RA---TAN", "DEC--TAN", "FREQ"]
-        wcs.wcs.crpix = [crpix_ra, crpix_dec, 1]
-        wcs.wcs.crval = [40.0, 0.0, crval_freq]
-        wcs.wcs.cdelt = [-0.01, 0.01, 1e6]
-    else:
-        wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
-        wcs.wcs.crpix = [crpix_ra, crpix_dec]
-        wcs.wcs.crval = [40.0, 0.0]
-        wcs.wcs.cdelt = [-0.01, 0.01]
-    return wcs
-
-
 @pytest.mark.parametrize("combine_function", ["mean", "sum"])
 def test_coadd_non_reprojected_dims(combine_function):
-    # Co-add cubes where the input and output WCS have the same dimensionality
-    # as the data, treating the leading (spectral) axis as non-reprojected. The
-    # result should match co-adding each spectral plane independently with a 2D
-    # WCS, and in particular should not be affected by the (deliberately
-    # different) spectral part of each input WCS.
+    # Co-add cubes whose celestial coordinates drift along the non-reprojected
+    # (time) axis, treating that axis as non-reprojected. The result should
+    # match co-adding each time slice independently with the WCS sliced at that
+    # time.
 
-    n_spectral = 4
-    shape_out = (n_spectral, 50, 50)
-    wcs_out = _spectral_cube_wcs(3, 25, 25)
+    n_time = 5
+    shape_out = (n_time, 30, 30)
+    wcs_in = _drifting_cube_wcs(drift=0.6)
+    wcs_out = _drifting_cube_wcs(drift=0.0)
 
     rng = np.random.default_rng(12345)
-    data1 = rng.random((n_spectral, 20, 20))
-    wcs1 = _spectral_cube_wcs(3, 10, 10, crval_freq=1e9 + 3e6)
-    data2 = rng.random((n_spectral, 20, 20))
-    wcs2 = _spectral_cube_wcs(3, 38, 36, crval_freq=1e9 - 5e6)
+    data1 = rng.random((n_time, 30, 30))
+    data2 = rng.random((n_time, 30, 30))
 
     array, footprint = reproject_and_coadd(
-        [(data1, wcs1), (data2, wcs2)],
+        [(data1, wcs_in), (data2, wcs_in)],
         wcs_out,
         shape_out=shape_out,
         reproject_function=reproject_interp,
@@ -569,17 +553,17 @@ def test_coadd_non_reprojected_dims(combine_function):
 
     reference = np.zeros(shape_out)
     reference_footprint = np.zeros(shape_out)
-    for islice in range(n_spectral):
+    for itime in range(n_time):
         ref, ref_fp = reproject_and_coadd(
-            [(data1[islice], wcs1.celestial), (data2[islice], wcs2.celestial)],
-            wcs_out.celestial,
+            [(data1[itime], wcs_in[itime]), (data2[itime], wcs_in[itime])],
+            wcs_out[itime],
             shape_out=shape_out[1:],
             reproject_function=reproject_interp,
             combine_function=combine_function,
             roundtrip_coords=False,
         )
-        reference[islice] = ref
-        reference_footprint[islice] = ref_fp
+        reference[itime] = ref
+        reference_footprint[itime] = ref_fp
 
     assert_allclose(array, reference, atol=ATOL)
     assert_allclose(footprint, reference_footprint, atol=ATOL)
