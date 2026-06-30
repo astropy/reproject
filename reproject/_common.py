@@ -61,6 +61,7 @@ def _reproject_dispatcher(
     shape_out,
     wcs_out,
     block_size=None,
+    non_reprojected_dims=None,
     array_out=None,
     return_footprint=True,
     output_footprint=None,
@@ -94,6 +95,15 @@ def _reproject_dispatcher(
         the block size automatically determined. If ``block_size`` is not
         specified or set to `None`, the reprojection will not be carried out in
         blocks.
+    non_reprojected_dims : tuple, optional
+        Leading dimensions of the data that should not be reprojected but for
+        which a one-to-one mapping between input and output pixels is assumed,
+        given as a tuple of sequential integers starting from zero (e.g.
+        ``(0,)`` or ``(0, 1)``). If `None` (the default), any leading dimensions
+        for which the WCS has fewer dimensions than the data are treated this
+        way. Reprojecting fewer dimensions than the WCS currently requires a
+        ``block_size`` that matches the output shape along the reprojected
+        dimensions.
     array_out : `~numpy.ndarray`, optional
         An array in which to store the reprojected data.  This can be any numpy
         array including a memory map, which may be helpful when dealing with
@@ -144,6 +154,50 @@ def _reproject_dispatcher(
     if reproject_func_kwargs is None:
         reproject_func_kwargs = {}
 
+    # For now, we are quite restrictive in what non_reprojected_dims can
+    # be, but it is designed so that if we wanted we could support more use
+    # cases in future. For now, it has to be a tuple where each element is
+    # sequential from zero, e.g. (0,) or (0, 1) or (0, 1, 2)
+
+    if non_reprojected_dims is None:
+        n_dim_reproject = min(wcs_in.low_level_wcs.pixel_n_dim, wcs_out.low_level_wcs.pixel_n_dim)
+    else:
+        if non_reprojected_dims != tuple(range(len(non_reprojected_dims))):
+            raise ValueError(
+                "non_reprojected_dims should be a tuple with values increasing sequentially from zero"
+            )
+        # If either WCS already has fewer dimensions than the data, the missing
+        # dimensions are implicitly non-reprojected, so the shortfall has to be
+        # consistent with the number of non_reprojected_dims requested.
+        for label, wcs in (("input", wcs_in), ("output", wcs_out)):
+            n_dim_missing = len(shape_out) - wcs.low_level_wcs.pixel_n_dim
+            if n_dim_missing > 0 and n_dim_missing != len(non_reprojected_dims):
+                raise ValueError(
+                    f"The {label} WCS has {wcs.low_level_wcs.pixel_n_dim} pixel dimensions "
+                    f"which is fewer than the {len(shape_out)} data dimensions, but the "
+                    f"difference ({n_dim_missing}) does not match the number of "
+                    f"non_reprojected_dims ({len(non_reprojected_dims)})"
+                )
+        n_dim_reproject = len(shape_out) - len(non_reprojected_dims)
+        if n_dim_reproject < 1:
+            raise ValueError(
+                "non_reprojected_dims should leave at least one dimension to be " "reprojected"
+            )
+
+    # If we are reprojecting fewer dimensions than the input or output WCS has,
+    # the WCS needs to be sliced down to the reprojected dimensions for each
+    # non-reprojected slice. This is currently only done when parallelizing over
+    # the non-reprojected (broadcasted) dimensions, so any other code path would
+    # silently reproject the dimensions that should have been left untouched.
+    # This is gated on non_reprojected_dims being set since that is the only way
+    # to opt into reprojecting fewer dimensions than the WCS; a plain mismatch
+    # between the input and output WCS dimensionality is instead a validation
+    # error raised by the underlying reprojection function.
+    wcs_slicing_required = non_reprojected_dims is not None and (
+        n_dim_reproject < wcs_in.low_level_wcs.pixel_n_dim
+        or n_dim_reproject < wcs_out.low_level_wcs.pixel_n_dim
+    )
+
     # We set up a global temporary directory since this will be used e.g. to
     # store memory mapped Numpy arrays and zarr arrays.
 
@@ -168,7 +222,7 @@ def _reproject_dispatcher(
         # If neither parallel nor blocked reprojection are requested, we simply
         # call the underlying core reproject function with the full arrays.
 
-        if block_size is None and parallel is False:
+        if block_size is None and parallel is False and not wcs_slicing_required:
             # If a dask array was passed as input, we first convert this to a
             # Numpy memory mapped array
 
@@ -207,9 +261,49 @@ def _reproject_dispatcher(
         # shape_out will be the full size of the output array as this is updated
         # in parse_output_projection, even if shape_out was originally passed in as
         # the shape of a single image.
-        broadcasting = wcs_in.low_level_wcs.pixel_n_dim < len(shape_out)
+        broadcasting = n_dim_reproject < len(shape_out)
 
-        logger.info(f"Broadcasting is {'' if broadcasting else 'not '}being used")
+        logger.info(
+            f"Broadcasting is {'' if broadcasting else 'not '}being used, "
+            f"reprojecting last {n_dim_reproject} axes"
+        )
+
+        # The output shape must match the input shape along any non-reprojected
+        # (broadcasted) dimensions.
+
+        shape_in = array_in.shape
+        shape_out = tuple(shape_out)
+
+        if shape_out[:-n_dim_reproject] != shape_in[:-n_dim_reproject]:
+            raise ValueError("Input shape should match output shape for non-reprojected dimensions")
+
+        # If an explicit block size was passed, normalize it to have the same
+        # number of elements as shape_out, expanding it if it only covers the
+        # reprojected dimensions and replacing any -1 values by the full size
+        # along the corresponding dimension. If block_size is None or 'auto',
+        # the chunking is determined automatically further below.
+
+        if block_size is not None and block_size != "auto":
+
+            if len(block_size) > len(shape_out):
+                raise ValueError(
+                    f"block_size {block_size} cannot have more elements "
+                    f"than the dimensionality of the output ({len(shape_out)})"
+                )
+
+            if len(block_size) != n_dim_reproject and len(block_size) != len(shape_out):
+                raise ValueError(
+                    f"block_size {block_size} should have either "
+                    f"{n_dim_reproject} or {len(shape_out)} elements"
+                )
+
+            if len(block_size) == n_dim_reproject:
+                block_size = (-1,) * (len(shape_out) - n_dim_reproject) + tuple(block_size)
+
+            block_size = tuple(
+                block_size[i] if block_size[i] != -1 else shape_out[i]
+                for i in range(len(block_size))
+            )
 
         # Check block size and determine whether block size indicates we should
         # parallelize over broadcasted dimension. The logic is as follows: if
@@ -222,41 +316,38 @@ def _reproject_dispatcher(
         # missing dimensions.
         broadcasted_parallelization = False
         if broadcasting and block_size is not None and block_size != "auto":
-            if len(block_size) == len(shape_out):
-                if (
-                    block_size[-wcs_in.low_level_wcs.pixel_n_dim :]
-                    == shape_out[-wcs_in.low_level_wcs.pixel_n_dim :]
-                ):
-                    broadcasted_parallelization = True
-                    block_size = (
-                        block_size[: -wcs_in.low_level_wcs.pixel_n_dim]
-                        + (-1,) * wcs_in.low_level_wcs.pixel_n_dim
-                    )
-                else:
-                    for i in range(len(shape_out) - wcs_in.low_level_wcs.pixel_n_dim):
-                        if block_size[i] != -1 and block_size[i] != shape_out[i]:
-                            raise ValueError(
-                                "block shape should either match output data shape along broadcasted dimension or non-broadcasted dimensions"
-                            )
-            elif len(block_size) < len(shape_out):
-                block_size = [-1] * (len(shape_out) - len(block_size)) + list(block_size)
-            else:
+            if block_size[-n_dim_reproject:] == shape_out[-n_dim_reproject:]:
+                # TODO: maybe error if block_size was given in full and is wrong
+                broadcasted_parallelization = True
+                block_size = (1,) * (len(shape_out) - n_dim_reproject) + block_size[
+                    -n_dim_reproject:
+                ]
+            elif block_size[:-n_dim_reproject] != shape_out[:-n_dim_reproject]:
                 raise ValueError(
-                    f"block_size {len(block_size)} cannot have more elements "
-                    f"than the dimensionality of the output ({len(shape_out)})"
+                    "block shape should either match output data shape along "
+                    "reprojected dimensions or non-reprojected dimensions"
                 )
-
-            # TODO: check for shape_out not matching shape_in along broadcasted dimensions
 
         logger.info(
             f"{'P' if broadcasted_parallelization else 'Not p'}arallelizing along "
             f"broadcasted dimension ({block_size=}, {shape_out=})"
         )
 
+        # TODO: support block_size="auto" (and the default of None) together
+        # with non_reprojected_dims so that this does not have to raise; "auto"
+        # currently falls through to the generic auto-chunking path further
+        # below, which cannot parallelize over the non-reprojected dimensions.
+        if wcs_slicing_required and not broadcasted_parallelization:
+            raise NotImplementedError(
+                "Reprojecting fewer dimensions than the input or output WCS "
+                "(for example using non_reprojected_dims) currently requires "
+                "passing a block_size whose entries along the reprojected "
+                "dimensions match the output shape (optionally with parallel=True "
+                "to compute the blocks concurrently)"
+            )
+
         if output_footprint is None and return_footprint:
             output_footprint = np.zeros(shape_out, dtype=float)
-
-        shape_in = array_in.shape
 
         def reproject_single_block(a, array_or_path, block_info=None):
 
@@ -271,6 +362,8 @@ def _reproject_dispatcher(
             if isinstance(array_or_path, str) and array_or_path == "from-dict":
                 array_or_path = dask_arrays["array"]
 
+            shape_out = block_info[None]["chunk-shape"][1:]
+
             # The WCS class from astropy is not thread-safe, see e.g.
             # https://github.com/astropy/astropy/issues/16244
             # https://github.com/astropy/astropy/issues/16245
@@ -282,16 +375,41 @@ def _reproject_dispatcher(
             wcs_in_cp = wcs_in.deepcopy() if isinstance(wcs_in, WCS) else wcs_in
             wcs_out_cp = wcs_out.deepcopy() if isinstance(wcs_out, WCS) else wcs_out
 
-            slices = [
-                slice(*x) for x in block_info[None]["array-location"][-wcs_out_cp.pixel_n_dim :]
-            ]
+            slices_in = []
+            slices_out = []
+            for idx in range(len(shape_out)):
+                interval = block_info[None]["array-location"][idx + 1]
+                if broadcasted_parallelization and idx < len(shape_out) - n_dim_reproject:
+                    if interval[1] - interval[0] != 1:
+                        raise RuntimeError(
+                            f"Expected a chunk of width 1 along dimension {idx} "
+                            f"(got {interval[1] - interval[0]})"
+                        )
+                    slices_in.append(interval[0])
+                    slices_out.append(interval[0])
+                else:
+                    slices_in.append(slice(None))
+                    slices_out.append(slice(*block_info[None]["array-location"][idx + 1]))
 
-            if isinstance(wcs_out, BaseHighLevelWCS):
-                low_level_wcs = SlicedLowLevelWCS(wcs_out_cp.low_level_wcs, slices=slices)
+            slices_in = slices_in[-wcs_in.low_level_wcs.pixel_n_dim :]
+            slices_out = slices_out[-wcs_out.low_level_wcs.pixel_n_dim :]
+
+            if broadcasted_parallelization:
+                if isinstance(wcs_in_cp, BaseHighLevelWCS):
+                    low_level_wcs_in = SlicedLowLevelWCS(wcs_in_cp.low_level_wcs, slices=slices_in)
+                else:
+                    low_level_wcs_in = SlicedLowLevelWCS(wcs_in_cp, slices=slices_in)
+
+                wcs_in_sub = HighLevelWCSWrapper(low_level_wcs_in)
             else:
-                low_level_wcs = SlicedLowLevelWCS(wcs_out_cp, slices=slices)
+                wcs_in_sub = wcs_in_cp
 
-            wcs_out_sub = HighLevelWCSWrapper(low_level_wcs)
+            if isinstance(wcs_out_cp, BaseHighLevelWCS):
+                low_level_wcs_out = SlicedLowLevelWCS(wcs_out_cp.low_level_wcs, slices=slices_out)
+            else:
+                low_level_wcs_out = SlicedLowLevelWCS(wcs_out_cp, slices=slices_out)
+
+            wcs_out_sub = HighLevelWCSWrapper(low_level_wcs_out)
 
             if isinstance(array_or_path, tuple):
                 array_in = np.memmap(array_or_path[0], **array_or_path[1], mode="r")
@@ -303,11 +421,9 @@ def _reproject_dispatcher(
             if array_or_path is None:
                 raise RuntimeError("array_or_path is not set")
 
-            shape_out = block_info[None]["chunk-shape"][1:]
-
             array, footprint = reproject_func(
                 array_in,
-                wcs_in_cp,
+                wcs_in_sub,
                 wcs_out_sub,
                 shape_out=shape_out,
                 array_out=np.zeros(shape_out),
@@ -319,17 +435,17 @@ def _reproject_dispatcher(
         if broadcasted_parallelization:
 
             array_out_dask = da.empty(shape_out, chunks=block_size)
-            if isinstance(array_in, da.core.Array):
-                if array_in.chunksize != block_size:
-                    logger.info(
-                        f"Rechunking input dask array as chunks ({array_in.chunksize}) "
-                        "do not match block size ({block_size})"
-                    )
-                    array_in = array_in.rechunk(block_size)
-            else:
 
+            # The input is reprojected in full for each output block, so it must
+            # not be chunked along the reprojected dimensions (which can have a
+            # different size from the output); only the broadcasted dimensions are
+            # chunked, matching array_out_dask block for block.
+            input_chunks = (1,) * (array_in.ndim - n_dim_reproject) + (-1,) * n_dim_reproject
+            if isinstance(array_in, da.core.Array):
+                array_in = array_in.rechunk(input_chunks)
+            else:
                 array_in = da.asarray(
-                    ArrayWrapper(array_in), name=str(uuid.uuid4()), chunks=block_size
+                    ArrayWrapper(array_in), name=str(uuid.uuid4()), chunks=input_chunks
                 )
 
             result = da.map_blocks(
@@ -380,8 +496,8 @@ def _reproject_dispatcher(
                 array_out_dask = da.empty(shape_out, chunks=block_size)
             else:
                 if broadcasting:
-                    chunks = (-1,) * (len(shape_out) - wcs_in.low_level_wcs.pixel_n_dim)
-                    chunks += ("auto",) * wcs_in.low_level_wcs.pixel_n_dim
+                    chunks = (-1,) * (len(shape_out) - n_dim_reproject)
+                    chunks += ("auto",) * n_dim_reproject
                     rechunk_kwargs = {"chunks": chunks}
                 else:
                     rechunk_kwargs = {}
