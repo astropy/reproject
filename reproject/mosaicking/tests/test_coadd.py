@@ -617,3 +617,50 @@ def test_coadd_non_reprojected_dims(combine_function):
 
     assert_allclose(array, reference, atol=ATOL)
     assert_allclose(footprint, reference_footprint, atol=ATOL)
+
+
+@pytest.mark.parametrize("combine_function", ["mean", "sum"])
+def test_coadd_non_reprojected_dims_celestial_output(combine_function):
+    # Co-add a drifting cube into a celestial-only (2D) output WCS, treating the
+    # leading axis as non-reprojected. Here the input WCS has more pixel
+    # dimensions than the output WCS, so computing each tile's footprint requires
+    # relating only the reprojected (celestial) sub-space of the input WCS to the
+    # output. The result should match co-adding each time slice independently
+    # with the input WCS sliced at that time.
+    n_time = 5
+    shape_out = (n_time, 30, 30)
+    wcs_in = _drifting_cube_wcs(drift=0.6)
+    wcs_out = _drifting_cube_wcs(drift=0.0).celestial
+
+    rng = np.random.default_rng(12345)
+    data1 = rng.random((n_time, 30, 30))
+    data2 = rng.random((n_time, 30, 30))
+
+    array, footprint = reproject_and_coadd(
+        [(data1, wcs_in), (data2, wcs_in)],
+        wcs_out,
+        shape_out=shape_out,
+        reproject_function=reproject_interp,
+        combine_function=combine_function,
+        non_reprojected_dims=(0,),
+        parallel=True,
+        block_size=(1,) + shape_out[1:],
+        roundtrip_coords=False,
+    )
+
+    reference = np.zeros(shape_out)
+    reference_footprint = np.zeros(shape_out)
+    for itime in range(n_time):
+        ref, ref_fp = reproject_and_coadd(
+            [(data1[itime], wcs_in[itime]), (data2[itime], wcs_in[itime])],
+            wcs_out,
+            shape_out=shape_out[1:],
+            reproject_function=reproject_interp,
+            combine_function=combine_function,
+            roundtrip_coords=False,
+        )
+        reference[itime] = ref
+        reference_footprint[itime] = ref_fp
+
+    assert_allclose(array, reference, atol=ATOL)
+    assert_allclose(footprint, reference_footprint, atol=ATOL)
