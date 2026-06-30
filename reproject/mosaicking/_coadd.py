@@ -681,7 +681,7 @@ def _coadd_numpy(
             extra_kwargs = {}
             array = footprint = None
 
-            if intermediate_memmap == 'zarr':
+            if intermediate_memmap == "zarr":
 
                 array_zarr_path = os.path.join(local_tmp_dir, f"array_{uuid.uuid4()}.zarr")
                 extra_kwargs["return_type"] = "zarr"
@@ -740,7 +740,7 @@ def _coadd_numpy(
                 extra_kwargs = {}
                 weights = None
 
-                if intermediate_memmap == 'zarr':
+                if intermediate_memmap == "zarr":
 
                     weights_zarr_path = os.path.join(local_tmp_dir, f"weights_{uuid.uuid4()}.zarr")
                     extra_kwargs["return_type"] = "zarr"
@@ -828,7 +828,7 @@ def _coadd_numpy(
                     array = None
                     footprint = None
                     _safe_remove(array_zarr_path)
-                    if weights_in is not None:
+                    if cutout.weights_in is not None:
                         _safe_remove(weights_zarr_path)
 
             else:
@@ -1199,7 +1199,7 @@ def reproject_and_coadd(
                 f"the output shape {shape_out}"
             )
 
-    if match_background and intermediate_memmap == 'zarr':
+    if match_background and intermediate_memmap == "zarr":
         raise ValueError("Cannot use intermediate_memmap='zarr' when match_background=True")
 
     logger.info(f"Output mosaic will have shape {shape_out}")

@@ -127,7 +127,7 @@ class ReprojectedArraySubset:
 
     def as_chunks(self, max_chunk_size=None):
 
-        # TOOD: do we want to use the native dask chunking when possible
+        # TODO: do we want to use the native dask chunking when possible
 
         for chunk in iterate_chunks(
             self.shape, max_chunk_size=max_chunk_size or DEFAULT_MAX_CHUNK_SIZE
