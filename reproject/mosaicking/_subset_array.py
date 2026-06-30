@@ -3,7 +3,9 @@
 import operator
 from math import prod
 
+import dask.array as da
 import numpy as np
+from dask.array.core import slices_from_chunks
 
 from .._array_utils import iterate_chunks
 
@@ -127,11 +129,19 @@ class ReprojectedArraySubset:
 
     def as_chunks(self, max_chunk_size=None):
 
-        # TOOD: do we want to use the native dask chunking when possible
+        if isinstance(self.array, da.core.Array):
+            # For dask-backed arrays (e.g. when reprojected output was written to
+            # a zarr array), iterate over the native chunks so that each on-disk
+            # chunk is read and decompressed exactly once, rather than slicing
+            # across chunk boundaries which would re-read chunks many times. The
+            # chunk size was already chosen so that a single block fits in memory.
+            chunks = slices_from_chunks(self.array.chunks)
+        else:
+            chunks = iterate_chunks(
+                self.shape, max_chunk_size=max_chunk_size or DEFAULT_MAX_CHUNK_SIZE
+            )
 
-        for chunk in iterate_chunks(
-            self.shape, max_chunk_size=max_chunk_size or DEFAULT_MAX_CHUNK_SIZE
-        ):
+        for chunk in chunks:
 
             bounds_chunk = tuple(
                 (self.bounds[idim][0] + chunk[idim].start, self.bounds[idim][0] + chunk[idim].stop)
