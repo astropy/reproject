@@ -522,6 +522,7 @@ def test_coadd_solar_map():
     return array_footprint_to_hdulist(array, footprint, header_out)
 
 
+@pytest.mark.filterwarnings("ignore::erfa.ErfaWarning")
 @pytest.mark.parametrize("combine_function", ["mean", "sum"])
 def test_coadd_non_reprojected_dims(combine_function):
     # Co-add cubes whose celestial coordinates drift along the non-reprojected
@@ -538,6 +539,7 @@ def test_coadd_non_reprojected_dims(combine_function):
     data1 = rng.random((n_time, 30, 30))
     data2 = rng.random((n_time, 30, 30))
 
+    # Run with non-reprojected dims
     array, footprint = reproject_and_coadd(
         [(data1, wcs_in), (data2, wcs_in)],
         wcs_out,
@@ -551,19 +553,19 @@ def test_coadd_non_reprojected_dims(combine_function):
         intermediate_memmap=True,
     )
 
-    reference = np.zeros(shape_out)
-    reference_footprint = np.zeros(shape_out)
-    for itime in range(n_time):
-        ref, ref_fp = reproject_and_coadd(
-            [(data1[itime], wcs_in[itime]), (data2[itime], wcs_in[itime])],
-            wcs_out[itime],
-            shape_out=shape_out[1:],
-            reproject_function=reproject_interp,
-            combine_function=combine_function,
-            roundtrip_coords=False,
-        )
-        reference[itime] = ref
-        reference_footprint[itime] = ref_fp
+    # Run without non-reprojected dims (non_reprojected_dims is an optimization
+    # but shouldn't give a different answer)
+    reference, reference_footprint = reproject_and_coadd(
+        [(data1, wcs_in), (data2, wcs_in)],
+        wcs_out,
+        shape_out=shape_out,
+        reproject_function=reproject_interp,
+        combine_function=combine_function,
+        parallel=True,
+        block_size=(1,) + shape_out[1:],
+        roundtrip_coords=False,
+        intermediate_memmap=True,
+    )
 
     assert_allclose(array, reference, atol=ATOL)
     assert_allclose(footprint, reference_footprint, atol=ATOL)
