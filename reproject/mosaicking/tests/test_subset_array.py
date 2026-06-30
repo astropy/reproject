@@ -89,3 +89,35 @@ class TestReprojectedArraySubset:
             ValueError, match=("Mismatch in number of dimensions, expected 2 dimensions and got 3")
         ):
             self.subset1 - self.subset4
+
+    def test_array_footprint_shape_mismatch(self):
+
+        with pytest.raises(ValueError, match="array and footprint shapes should match"):
+            ReprojectedArraySubset(
+                self.array1[20:88, 34:40],
+                self.footprint1[20:87, 34:40],
+                [(20, 88), (34, 40)],
+            )
+
+    def test_array_bounds_shape_mismatch(self):
+
+        with pytest.raises(ValueError, match="array and bounds shapes should match"):
+            ReprojectedArraySubset(
+                self.array1[20:88, 34:40],
+                self.footprint1[20:88, 34:40],
+                [(20, 87), (34, 40)],
+            )
+
+    def test_as_chunks(self):
+
+        reference_array = np.zeros_like(self.array1)
+        reference_array[self.subset1.view_in_original_array] = self.subset1.array
+        reference_footprint = np.zeros_like(self.array1, dtype=int)
+        reference_footprint[self.subset1.view_in_original_array] = self.subset1.footprint
+
+        combined_array = np.zeros_like(self.array1)
+        combined_footprint = np.zeros_like(self.array1, dtype=int)
+
+        for chunk in self.subset1.as_chunks(max_chunk_size=10):
+            combined_array[chunk.view_in_original_array] += chunk.array
+            combined_footprint[chunk.view_in_original_array] += chunk.footprint

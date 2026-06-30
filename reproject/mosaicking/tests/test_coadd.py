@@ -271,7 +271,39 @@ class TestReprojectAndCoAdd:
             match_background=match_background,
         )
 
+        # The inputs do overlap the output, so there should be coverage --
+        # asserting this makes the test non-vacuous (a fully blank output would
+        # otherwise satisfy the check below trivially).
+        assert np.any(footprint > 0)
         assert np.all((array != 0) == (footprint > 0))
+
+    @pytest.mark.parametrize("combine_function", ["mean", "sum", "first", "last", "min", "max"])
+    def test_background_matching_consistent_tiles(self, reproject_function, combine_function):
+        # When the input tiles are mutually consistent (here cut from a single
+        # array), background matching computes essentially zero corrections, so
+        # enabling it must not change the output. This exercises background
+        # matching together with every combine function -- in particular
+        # first/last/min/max, which must still combine the (corrected) images
+        # rather than producing a blank output.
+        input_data = self._get_tiles(self._overlapping_views)
+
+        kwargs = dict(
+            shape_out=self.array.shape,
+            combine_function=combine_function,
+            reproject_function=reproject_function,
+        )
+        array_nomatch, footprint_nomatch = reproject_and_coadd(
+            input_data, self.wcs, match_background=False, **kwargs
+        )
+        array_match, footprint_match = reproject_and_coadd(
+            input_data, self.wcs, match_background=True, **kwargs
+        )
+
+        # The matched output must actually have coverage and agree with the
+        # unmatched output.
+        assert np.any(footprint_match > 0)
+        np.testing.assert_allclose(footprint_match, footprint_nomatch, atol=ATOL)
+        np.testing.assert_allclose(array_match, array_nomatch, atol=ATOL)
 
     def test_coadd_background_matching_with_nan(self, reproject_function, intermediate_memmap):
         # Test out the background matching when NaN values are present. We do
