@@ -20,6 +20,7 @@ def reproject_exact(
     parallel=False,
     return_type=None,
     dask_method=None,
+    zarr_path=None,
 ):
     """
     Reproject data to a new projection using flux-conserving spherical
@@ -130,6 +131,7 @@ def reproject_exact(
             output_footprint=output_footprint,
             return_type=return_type,
             dask_method=dask_method,
+            zarr_path=zarr_path,
         )
     else:
         raise NotImplementedError(
