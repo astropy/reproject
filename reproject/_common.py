@@ -128,7 +128,9 @@ def _reproject_dispatcher(
         Whether to return numpy or dask arrays or whether to dump the result to
         a zarr array on disk. If 'zarr', then the ``zarr_path`` keyword has to
         also be specified, and the function will return dask arrays constructed
-        from the zarr array.
+        from the zarr array. In this case the reprojection is always carried out
+        in blocks (using dask, on the synchronous scheduler when ``parallel`` is
+        `False`), and ``block_size`` defaults to ``'auto'`` when not specified.
     dask_method : {'memmap', 'none'}, optional
         Method to use when input array is a dask array. The methods are:
             * ``'memmap'``: write out the entire input dask array to a temporary
