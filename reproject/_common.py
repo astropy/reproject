@@ -165,11 +165,11 @@ def _reproject_dispatcher(
     if reproject_func_kwargs is None:
         reproject_func_kwargs = {}
 
-    if return_type == 'zarr':
+    if return_type == "zarr":
         if zarr_path is None:
             raise ValueError("zarr_path needs to be set if return_type is 'zarr'")
         elif os.path.exists(zarr_path):
-            raise Exception("Path {zarr_path} already exists")
+            raise ValueError(f"Path {zarr_path} already exists")
 
     # For now, we are quite restrictive in what non_reprojected_dims can
     # be, but it is designed so that if we wanted we could support more use
@@ -572,7 +572,7 @@ def _reproject_dispatcher(
 
         # We now convert the dask arrays back to Numpy arrays
 
-        if parallel or return_type == 'zarr':
+        if parallel or return_type == "zarr":
             # As discussed in https://github.com/dask/dask/issues/9556, da.store
             # will not work well in parallel mode when the destination is a
             # Numpy array. Instead, in this case we save the dask array to a zarr
@@ -581,7 +581,7 @@ def _reproject_dispatcher(
             # 'synchronous' scheduler since that is I/O limited so does not need
             # to be done in parallel.
 
-            if return_type != 'zarr':
+            if return_type != "zarr":
                 zarr_path = os.path.join(local_tmp_dir, f"{uuid.uuid4()}.zarr")
 
             logger.info(f"Computing output array directly to zarr array at {zarr_path}")
@@ -609,7 +609,7 @@ def _reproject_dispatcher(
 
             result = da.from_zarr(zarr_path)
 
-            if return_type == 'zarr':
+            if return_type == "zarr":
                 if return_footprint:
                     return result[0], result[1]
                 else:
