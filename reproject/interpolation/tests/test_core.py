@@ -946,7 +946,7 @@ def test_auto_block_size(dask_method):
     wcs_out = WCS(naxis=2)
 
     # When block size and parallel aren't specified, can't return as dask arrays
-    with pytest.raises(ValueError, match="Output cannot be returned as dask arrays"):
+    with pytest.raises(ValueError, match="Output cannot be returned as dask or zarr arrays"):
         reproject_interp(
             (array_in, wcs_in),
             wcs_out,
