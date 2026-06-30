@@ -219,6 +219,14 @@ def reproject_and_coadd(
 
     wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
 
+    # Extracting per-image cutouts below slices the output WCS, which requires it
+    # to know its array shape. Older astropy versions do not infer this for WCS
+    # objects created without one (so slicing an N-d WCS raises an IndexError),
+    # so set it explicitly here on a copy to avoid mutating the user's WCS.
+    if isinstance(wcs_out, WCS) and wcs_out.array_shape is None:
+        wcs_out = wcs_out.deepcopy()
+        wcs_out.array_shape = shape_out[-wcs_out.low_level_wcs.pixel_n_dim :]
+
     if output_array is None:
         output_array = np.zeros(shape_out)
     elif output_array.shape != shape_out:
