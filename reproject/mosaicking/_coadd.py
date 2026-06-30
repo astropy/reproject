@@ -77,6 +77,7 @@ def reproject_and_coadd(
     output_array=None,
     output_footprint=None,
     block_sizes=None,
+    non_reprojected_dims=None,
     progress_bar=None,
     blank_pixel_value=0,
     intermediate_memmap=False,
@@ -155,6 +156,13 @@ def reproject_and_coadd(
     block_sizes : list of tuples or None
         The block size to use for each dataset.  Could also be a single tuple
         if you want the same block size for all data sets.
+    non_reprojected_dims : tuple, optional
+        Leading dimensions of the data that should not be reprojected but for
+        which a one-to-one mapping between input and output pixels is assumed
+        (see the ``reproject_interp`` documentation for details). This makes it
+        possible to co-add cubes where the input and output WCS have the same
+        number of dimensions as the data, broadcasting the co-addition over
+        these dimensions. It is passed through to ``reproject_function``.
     progress_bar : callable, optional
         If specified, use this as a progress_bar to track loop iterations over
         data sets.
@@ -199,12 +207,25 @@ def reproject_and_coadd(
             raise ValueError("Cannot specify block_sizes= and block_size= at the same time")
         block_sizes = kwargs.pop("block_size")
 
+    # non_reprojected_dims is used below to size the cutouts correctly and is
+    # also forwarded to reproject_function for each individual reprojection.
+    if non_reprojected_dims is not None:
+        kwargs["non_reprojected_dims"] = non_reprojected_dims
+
     if progress_bar is None:
         progress_bar = _noop
 
     # Parse the output projection to avoid having to do it for each
 
     wcs_out, shape_out = parse_output_projection(output_projection, shape_out=shape_out)
+
+    # Extracting per-image cutouts below slices the output WCS, which requires it
+    # to know its array shape. Older astropy versions do not infer this for WCS
+    # objects created without one (so slicing an N-d WCS raises an IndexError),
+    # so set it explicitly here on a copy to avoid mutating the user's WCS.
+    if isinstance(wcs_out, WCS) and wcs_out.array_shape is None:
+        wcs_out = wcs_out.deepcopy()
+        wcs_out.array_shape = shape_out[-wcs_out.low_level_wcs.pixel_n_dim :]
 
     if output_array is None:
         output_array = np.zeros(shape_out)
@@ -284,10 +305,16 @@ def reproject_and_coadd(
             # convex in the output projection), and transforming every edge pixel,
             # which provides a lot of redundant information.
 
-            edges = sample_array_edges(
-                array_in.shape[-wcs_in.low_level_wcs.pixel_n_dim :], n_samples=11
-            )[::-1]
-            edges_out = pixel_to_pixel(wcs_in, wcs_out, *edges)[::-1]
+            try:
+                edges = sample_array_edges(
+                    array_in.shape[-wcs_in.low_level_wcs.pixel_n_dim :], n_samples=11
+                )[::-1]
+                edges_out = pixel_to_pixel(wcs_in, wcs_out, *edges)[::-1]
+            except Exception:
+                # If the edge coordinates cannot be transformed (for example if
+                # they fall outside the validity region of the WCS), fall back to
+                # assuming no predicted overlap so the full output is considered.
+                edges_out = np.array([np.nan])
 
             # Determine the cutout parameters
 
@@ -297,8 +324,18 @@ def reproject_and_coadd(
 
             ndim_out = len(shape_out)
 
-            # Determine how many extra broadcasted dimensions are present
-            n_broadcasted = len(shape_out) - wcs_in.low_level_wcs.pixel_n_dim
+            # Determine how many leading dimensions are broadcasted (i.e. not
+            # reprojected). If non_reprojected_dims is set these are given
+            # explicitly; otherwise they are the dimensions for which the output
+            # WCS has fewer pixel dimensions than the data.
+            if non_reprojected_dims is not None:
+                n_broadcasted = len(non_reprojected_dims)
+            else:
+                n_broadcasted = len(shape_out) - wcs_out.low_level_wcs.pixel_n_dim
+            n_dim_reproject = len(shape_out) - n_broadcasted
+            # Number of leading dimensions that the output WCS does not itself
+            # describe and which therefore have to be skipped when slicing it.
+            n_wcs_out_extra = len(shape_out) - wcs_out.low_level_wcs.pixel_n_dim
 
             skip_data = False
             if np.any(np.isnan(edges_out)):
@@ -308,10 +345,15 @@ def reproject_and_coadd(
                 if n_broadcasted > 0:
                     for idim in range(n_broadcasted):
                         bounds.append((0, shape_out[idim]))
-                for idim in range(len(edges_out)):
-                    imin = max(0, int(np.floor(edges_out[idim].min() + 0.5)))
+                # Only the reprojected (trailing) dimensions get a cutout; the
+                # corresponding edge coordinates are the trailing components of
+                # edges_out (which has one entry per input WCS pixel dimension).
+                edges_out_reproject = edges_out[-n_dim_reproject:]
+                for idim in range(len(edges_out_reproject)):
+                    imin = max(0, int(np.floor(edges_out_reproject[idim].min() + 0.5)))
                     imax = min(
-                        shape_out[n_broadcasted + idim], int(np.ceil(edges_out[idim].max() + 0.5))
+                        shape_out[n_broadcasted + idim],
+                        int(np.ceil(edges_out_reproject[idim].max() + 0.5)),
                     )
                     bounds.append((imin, imax))
                     if imax <= imin:
@@ -324,7 +366,7 @@ def reproject_and_coadd(
                 )
                 continue
 
-            slice_out = tuple([slice(imin, imax) for (imin, imax) in bounds[n_broadcasted:]])
+            slice_out = tuple([slice(imin, imax) for (imin, imax) in bounds[n_wcs_out_extra:]])
 
             if isinstance(wcs_out, WCS):
                 wcs_out_indiv = wcs_out[slice_out]
@@ -343,15 +385,16 @@ def reproject_and_coadd(
             else:
                 global_block_size = None
 
-            # If the block size matches the non-broadcasted shape of the final
-            # cube, we need to update the non-broadcasted shape to then match
-            # the subset size.
-            if (
-                global_block_size
-                and global_block_size[-wcs_in.low_level_wcs.pixel_n_dim]
-                == shape_out[-wcs_in.low_level_wcs.pixel_n_dim]
+            # If the block size matches the output shape along the reprojected
+            # dimensions, we need to shrink those entries to match this cutout's
+            # size (keeping the broadcasted entries) so that the per-image
+            # reprojection parallelizes over the broadcasted dimensions.
+            if global_block_size and tuple(global_block_size[-n_dim_reproject:]) == tuple(
+                shape_out[-n_dim_reproject:]
             ):
-                block_size = global_block_size[:n_broadcasted] + shape_out_indiv[n_broadcasted:]
+                block_size = tuple(global_block_size[:n_broadcasted]) + tuple(
+                    shape_out_indiv[n_broadcasted:]
+                )
             else:
                 block_size = global_block_size
 

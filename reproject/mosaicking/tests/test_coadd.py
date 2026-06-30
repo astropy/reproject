@@ -13,6 +13,7 @@ from numpy.testing import assert_allclose
 from reproject import reproject_exact, reproject_interp
 from reproject.mosaicking._coadd import reproject_and_coadd
 from reproject.tests.helpers import array_footprint_to_hdulist
+from reproject.tests.test_non_reprojected_dims import _drifting_cube_wcs
 
 ATOL = 1.0e-9
 
@@ -519,3 +520,52 @@ def test_coadd_solar_map():
     header_out = wcs_out.to_header()
 
     return array_footprint_to_hdulist(array, footprint, header_out)
+
+
+@pytest.mark.filterwarnings("ignore::erfa.ErfaWarning")
+@pytest.mark.parametrize("combine_function", ["mean", "sum"])
+def test_coadd_non_reprojected_dims(combine_function):
+    # Co-add cubes whose celestial coordinates drift along the non-reprojected
+    # (time) axis, treating that axis as non-reprojected. The result should
+    # match co-adding each time slice independently with the WCS sliced at that
+    # time.
+
+    n_time = 5
+    shape_out = (n_time, 30, 30)
+    wcs_in = _drifting_cube_wcs(drift=0.6)
+    wcs_out = _drifting_cube_wcs(drift=0.0)
+
+    rng = np.random.default_rng(12345)
+    data1 = rng.random((n_time, 30, 30))
+    data2 = rng.random((n_time, 30, 30))
+
+    # Run with non-reprojected dims
+    array, footprint = reproject_and_coadd(
+        [(data1, wcs_in), (data2, wcs_in)],
+        wcs_out,
+        shape_out=shape_out,
+        reproject_function=reproject_interp,
+        combine_function=combine_function,
+        non_reprojected_dims=(0,),
+        parallel=True,
+        block_size=(1,) + shape_out[1:],
+        roundtrip_coords=False,
+        intermediate_memmap=True,
+    )
+
+    # Run without non-reprojected dims (non_reprojected_dims is an optimization
+    # but shouldn't give a different answer)
+    reference, reference_footprint = reproject_and_coadd(
+        [(data1, wcs_in), (data2, wcs_in)],
+        wcs_out,
+        shape_out=shape_out,
+        reproject_function=reproject_interp,
+        combine_function=combine_function,
+        parallel=True,
+        block_size=(1,) + shape_out[1:],
+        roundtrip_coords=False,
+        intermediate_memmap=True,
+    )
+
+    assert_allclose(array, reference, atol=ATOL)
+    assert_allclose(footprint, reference_footprint, atol=ATOL)
