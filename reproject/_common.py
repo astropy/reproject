@@ -11,7 +11,7 @@ from astropy.wcs.wcsapi import BaseHighLevelWCS, SlicedLowLevelWCS
 from astropy.wcs.wcsapi.high_level_wcs_wrapper import HighLevelWCSWrapper
 from dask import delayed
 
-from ._array_utils import ArrayWrapper
+from ._array_utils import ArrayWrapper, iterate_chunks
 from .utils import _dask_to_numpy_memmap
 
 __all__ = ["_reproject_dispatcher"]
@@ -69,6 +69,7 @@ def _reproject_dispatcher(
     reproject_func_kwargs=None,
     return_type=None,
     dask_method=None,
+    zarr_path=None,
 ):
     """
     Main function that handles either calling the core algorithms directly or
@@ -101,9 +102,10 @@ def _reproject_dispatcher(
         given as a tuple of sequential integers starting from zero (e.g.
         ``(0,)`` or ``(0, 1)``). If `None` (the default), any leading dimensions
         for which the WCS has fewer dimensions than the data are treated this
-        way. Reprojecting fewer dimensions than the WCS currently requires a
-        ``block_size`` that matches the output shape along the reprojected
-        dimensions.
+        way. Reprojecting fewer dimensions than the WCS currently requires an
+        explicit ``block_size``; its entries along the reprojected dimensions
+        may either match the output shape or be smaller, in which case each
+        plane is reprojected in sub-tiles of that size.
     array_out : `~numpy.ndarray`, optional
         An array in which to store the reprojected data.  This can be any numpy
         array including a memory map, which may be helpful when dealing with
@@ -123,8 +125,13 @@ def _reproject_dispatcher(
         dask.distributed), set this to ``'current-scheduler'``.
     reproject_func_kwargs : dict, optional
         Keyword arguments to pass through to ``reproject_func``
-    return_type : {'numpy', 'dask' }, optional
-        Whether to return numpy or dask arrays.
+    return_type : {'numpy', 'dask', 'zarr'}, optional
+        Whether to return numpy or dask arrays or whether to dump the result to
+        a zarr array on disk. If 'zarr', then the ``zarr_path`` keyword has to
+        also be specified, and the function will return dask arrays constructed
+        from the zarr array. In this case the reprojection is always carried out
+        in blocks (using dask, on the synchronous scheduler when ``parallel`` is
+        `False`), and ``block_size`` defaults to ``'auto'`` when not specified.
     dask_method : {'memmap', 'none'}, optional
         Method to use when input array is a dask array. The methods are:
             * ``'memmap'``: write out the entire input dask array to a temporary
@@ -137,14 +144,20 @@ def _reproject_dispatcher(
               fits into memory (as this will then be faster than ``'memmap'``),
               and when the data contains more dimensions than the input WCS and
               the block_size is chosen to iterate over the extra dimensions.
+    zarr_path : str, optional
+        If return_type is 'zarr', this specifies the path to use for the zarr
+        array. This should be a non-existent path.
     """
 
     logger = logging.getLogger(__name__)
 
     if return_type is None:
         return_type = "numpy"
-    elif return_type not in ("numpy", "dask"):
-        raise ValueError("return_type should be set to 'numpy' or 'dask'")
+    elif return_type not in ("numpy", "dask", "zarr"):
+        raise ValueError("return_type should be set to 'numpy', 'dask', or 'zarr'")
+
+    if return_type == "zarr" and block_size is None:
+        block_size = "auto"
 
     if dask_method is None:
         dask_method = "memmap"
@@ -153,6 +166,12 @@ def _reproject_dispatcher(
 
     if reproject_func_kwargs is None:
         reproject_func_kwargs = {}
+
+    if return_type == "zarr":
+        if zarr_path is None:
+            raise ValueError("zarr_path needs to be set if return_type is 'zarr'")
+        elif os.path.exists(zarr_path):
+            raise ValueError(f"Path {zarr_path} already exists")
 
     # For now, we are quite restrictive in what non_reprojected_dims can
     # be, but it is designed so that if we wanted we could support more use
@@ -203,7 +222,7 @@ def _reproject_dispatcher(
 
     with tempfile.TemporaryDirectory() as local_tmp_dir:
         if array_out is None:
-            if return_type != "dask":
+            if return_type == "numpy":
                 array_out = np.zeros(shape_out, dtype=float)
         elif array_out.shape != tuple(shape_out):
             raise ValueError(
@@ -226,9 +245,9 @@ def _reproject_dispatcher(
             # If a dask array was passed as input, we first convert this to a
             # Numpy memory mapped array
 
-            if return_type == "dask":
+            if return_type in ("dask", "zarr"):
                 raise ValueError(
-                    "Output cannot be returned as dask arrays "
+                    "Output cannot be returned as dask or zarr arrays "
                     "when parallel=False and no block size has "
                     "been specified"
                 )
@@ -315,11 +334,30 @@ def _reproject_dispatcher(
         # don't make any assumptions for now and assume a single chunk in the
         # missing dimensions.
         broadcasted_parallelization = False
+        # When sub-tiling the reprojected dimensions within each broadcasted block
+        # (see below), this holds the shape of each sub-tile; otherwise it is None
+        # and each block is reprojected in one go.
+        sub_tile_shape = None
         if broadcasting and block_size is not None and block_size != "auto":
             if block_size[-n_dim_reproject:] == shape_out[-n_dim_reproject:]:
                 # TODO: maybe error if block_size was given in full and is wrong
                 broadcasted_parallelization = True
                 block_size = (1,) * (len(shape_out) - n_dim_reproject) + block_size[
+                    -n_dim_reproject:
+                ]
+            elif wcs_slicing_required:
+                # A block smaller than the output along the reprojected dimensions
+                # is only meaningful when the WCS has to be sliced per broadcasted
+                # slice (i.e. non_reprojected_dims). The whole input slice has to
+                # be reprojected as one (it cannot be chunked along the reprojected
+                # dimensions, since any output pixel can map anywhere in the input),
+                # so we still parallelize one full reprojected plane per block, but
+                # additionally sub-tile the reprojection within each plane to bound
+                # the coordinate-transform memory, which would otherwise scale with
+                # the full plane size.
+                broadcasted_parallelization = True
+                sub_tile_shape = block_size[-n_dim_reproject:]
+                block_size = (1,) * (len(shape_out) - n_dim_reproject) + shape_out[
                     -n_dim_reproject:
                 ]
             elif block_size[:-n_dim_reproject] != shape_out[:-n_dim_reproject]:
@@ -341,9 +379,10 @@ def _reproject_dispatcher(
             raise NotImplementedError(
                 "Reprojecting fewer dimensions than the input or output WCS "
                 "(for example using non_reprojected_dims) currently requires "
-                "passing a block_size whose entries along the reprojected "
-                "dimensions match the output shape (optionally with parallel=True "
-                "to compute the blocks concurrently)"
+                "passing an explicit block_size whose entries along the reprojected "
+                "dimensions either match the output shape or are smaller (in which "
+                "case each plane is reprojected in sub-tiles of that size), "
+                "optionally with parallel=True to compute the blocks concurrently"
             )
 
         if output_footprint is None and return_footprint:
@@ -421,14 +460,40 @@ def _reproject_dispatcher(
             if array_or_path is None:
                 raise RuntimeError("array_or_path is not set")
 
-            array, footprint = reproject_func(
-                array_in,
-                wcs_in_sub,
-                wcs_out_sub,
-                shape_out=shape_out,
-                array_out=np.zeros(shape_out),
-                **reproject_func_kwargs,
-            )
+            if sub_tile_shape is None:
+                array, footprint = reproject_func(
+                    array_in,
+                    wcs_in_sub,
+                    wcs_out_sub,
+                    shape_out=shape_out,
+                    array_out=np.zeros(shape_out),
+                    **reproject_func_kwargs,
+                )
+            else:
+                # Reproject the plane in sub-tiles along the reprojected
+                # dimensions so that the coordinate transform (which is computed
+                # over the whole output sub-tile at once) does not have to be
+                # evaluated for the full plane in one go. The input slice is left
+                # whole since any output pixel can map anywhere within it.
+                array = np.zeros(shape_out)
+                footprint = np.zeros(shape_out)
+                n_broadcast = len(shape_out) - n_dim_reproject
+                for sub_tile in iterate_chunks(
+                    shape_out[n_broadcast:], max_chunk_size=int(np.prod(sub_tile_shape))
+                ):
+                    sub_wcs_out = HighLevelWCSWrapper(
+                        SlicedLowLevelWCS(low_level_wcs_out, slices=sub_tile)
+                    )
+                    full_slices = (slice(None),) * n_broadcast + sub_tile
+                    sub_shape = shape_out[:n_broadcast] + tuple(s.stop - s.start for s in sub_tile)
+                    array[full_slices], footprint[full_slices] = reproject_func(
+                        array_in,
+                        wcs_in_sub,
+                        sub_wcs_out,
+                        shape_out=sub_shape,
+                        array_out=np.zeros(sub_shape),
+                        **reproject_func_kwargs,
+                    )
 
             return np.array([array, footprint])
 
@@ -532,7 +597,7 @@ def _reproject_dispatcher(
 
         # We now convert the dask arrays back to Numpy arrays
 
-        if parallel:
+        if parallel or return_type == "zarr":
             # As discussed in https://github.com/dask/dask/issues/9556, da.store
             # will not work well in parallel mode when the destination is a
             # Numpy array. Instead, in this case we save the dask array to a zarr
@@ -541,11 +606,15 @@ def _reproject_dispatcher(
             # 'synchronous' scheduler since that is I/O limited so does not need
             # to be done in parallel.
 
-            zarr_path = os.path.join(local_tmp_dir, f"{uuid.uuid4()}.zarr")
+            if return_type != "zarr":
+                zarr_path = os.path.join(local_tmp_dir, f"{uuid.uuid4()}.zarr")
 
             logger.info(f"Computing output array directly to zarr array at {zarr_path}")
 
-            if parallel == "current-scheduler":
+            if not parallel:
+                with dask.config.set(scheduler="synchronous"):
+                    result.to_zarr(zarr_path)
+            elif parallel == "current-scheduler":
                 # Just use whatever is the current active scheduler, which can
                 # be used for e.g. dask.distributed
                 result.to_zarr(zarr_path)
@@ -564,6 +633,12 @@ def _reproject_dispatcher(
                     result.to_zarr(zarr_path)
 
             result = da.from_zarr(zarr_path)
+
+            if return_type == "zarr":
+                if return_footprint:
+                    return result[0], result[1]
+                else:
+                    return result[0]
 
         logger.info("Copying output zarr array into output Numpy arrays")
 

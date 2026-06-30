@@ -29,6 +29,7 @@ def reproject_interp(
     parallel=False,
     return_type=None,
     dask_method=None,
+    zarr_path=None,
 ):
     """
     Reproject data to a new projection using interpolation (this is typically
@@ -109,9 +110,11 @@ def reproject_interp(
         even when the input and output WCS have the same number of dimensions as
         the data. The dimensions must be the leading ones, given as a tuple of
         sequential integers starting from zero (e.g. ``(0,)`` or ``(0, 1)``).
-        This currently requires passing a ``block_size`` whose entries along
-        the reprojected dimensions match ``shape_out`` (optionally combined
-        with ``parallel`` to compute the blocks concurrently).
+        This currently requires passing an explicit ``block_size``; its entries
+        along the reprojected dimensions may either match ``shape_out`` or be
+        smaller, in which case each plane is reprojected in sub-tiles of that
+        size to keep the coordinate-transform memory bounded (optionally
+        combined with ``parallel`` to compute the blocks concurrently).
     parallel : bool or int or str, optional
         If `True`, the reprojection is carried out in parallel, and if a
         positive integer, this specifies the number of threads to use.
@@ -119,8 +122,13 @@ def reproject_interp(
         by ``block_size`` (if the block size is not set, it will be determined
         automatically). To use the currently active dask scheduler (e.g.
         dask.distributed), set this to ``'current-scheduler'``.
-    return_type : {'numpy', 'dask'}, optional
-        Whether to return numpy or dask arrays.
+    return_type : {'numpy', 'dask', 'zarr'}, optional
+        Whether to return numpy or dask arrays, or to write the output to a zarr
+        array on disk. If ``'zarr'``, ``zarr_path`` must also be given; the
+        output is then computed in blocks (using dask, on the synchronous
+        scheduler when ``parallel`` is `False`), ``block_size`` defaults to
+        ``'auto'`` when not specified, and dask arrays backed by the zarr array
+        are returned.
     dask_method : {'memmap', 'none'}, optional
         Method to use when input array is a dask array. The methods are:
             * ``'memmap'``: write out the entire input dask array to a temporary
@@ -128,6 +136,9 @@ def reproject_interp(
               the entire input array.
             * ``'none'`` (default): use native dask interpolation, which avoids
               having to write the array to disk.
+    zarr_path : str, optional
+        Path to use for the output zarr array when ``return_type='zarr'``. This
+        must be a path that does not already exist.
 
     Returns
     -------
@@ -170,4 +181,5 @@ def reproject_interp(
         ),
         return_type=return_type,
         dask_method=dask_method,
+        zarr_path=zarr_path,
     )

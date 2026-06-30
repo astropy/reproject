@@ -57,6 +57,40 @@ def test_non_reprojected_dims(reproject_function):
     assert_allclose(array_out, reference, equal_nan=True)
 
 
+@pytest.mark.parametrize("block_size", [(1, 7, 7), (7, 7), (1, 12, 20)])
+def test_non_reprojected_dims_subtiled(reproject_function, block_size):
+    # A block_size smaller than the output along the reprojected (celestial)
+    # dimensions should reproject each plane in sub-tiles and give exactly the
+    # same result as reprojecting each full plane in one go. This is what keeps
+    # the coordinate-transform memory bounded for large planes.
+
+    data = np.arange(4 * 20 * 20, dtype=float).reshape((4, 20, 20))
+    wcs_in = _spectral_cube_wcs(0.0, 1e9)
+    wcs_out = _spectral_cube_wcs(0.02, 1e9 + 2e6)
+    shape_out = (4, 20, 20)
+
+    array_full, footprint_full = reproject_function(
+        (data, wcs_in),
+        wcs_out,
+        shape_out=shape_out,
+        non_reprojected_dims=(0,),
+        parallel=True,
+        block_size=(20, 20),
+    )
+
+    array_sub, footprint_sub = reproject_function(
+        (data, wcs_in),
+        wcs_out,
+        shape_out=shape_out,
+        non_reprojected_dims=(0,),
+        parallel=True,
+        block_size=block_size,
+    )
+
+    assert_allclose(array_sub, array_full, equal_nan=True)
+    assert_allclose(footprint_sub, footprint_full, equal_nan=True)
+
+
 def test_non_reprojected_dims_invalid_order(reproject_function):
     data = np.ones((4, 20, 20))
     wcs = _spectral_cube_wcs(0.0, 1e9)
@@ -82,12 +116,13 @@ def test_non_reprojected_dims_inconsistent_with_wcs(reproject_function):
 
 
 @pytest.mark.parametrize(
-    "kwargs", [{}, {"parallel": True}, {"parallel": True, "block_size": (4, 10, 10)}]
+    "kwargs", [{}, {"parallel": True}, {"parallel": True, "block_size": "auto"}]
 )
 def test_non_reprojected_dims_unsupported_mode(reproject_function, kwargs):
     # non_reprojected_dims with a full-dimensional WCS is only supported when
-    # parallelizing over the non-reprojected dimensions; other modes should
-    # raise rather than silently reprojecting the non-reprojected axis.
+    # parallelizing over the non-reprojected dimensions, which requires an
+    # explicit block_size; modes without one (including block_size='auto')
+    # should raise rather than silently reprojecting the non-reprojected axis.
     data = np.ones((4, 20, 20))
     wcs_in = _spectral_cube_wcs(0.0, 1e9)
     wcs_out = _spectral_cube_wcs(0.02, 1e9 + 2e6)

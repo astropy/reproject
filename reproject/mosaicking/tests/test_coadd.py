@@ -25,8 +25,13 @@ def reproject_function(request):
     return request.param
 
 
-@pytest.fixture(params=[False, True])
+@pytest.fixture(params=[False, True, "zarr"])
 def intermediate_memmap(request):
+    return request.param
+
+
+@pytest.fixture(params=[False, True])
+def intermediate_memmap_nozarr(request):
     return request.param
 
 
@@ -92,6 +97,7 @@ class TestReprojectAndCoAdd:
             shape_out=self.array.shape,
             combine_function=combine_function,
             reproject_function=reproject_function,
+            intermediate_memmap=intermediate_memmap,
         )
 
         assert_allclose(array, self.array, atol=ATOL)
@@ -109,8 +115,37 @@ class TestReprojectAndCoAdd:
             shape_out=self.array.shape,
             combine_function="mean",
             reproject_function=reproject_function,
+            intermediate_memmap=intermediate_memmap,
         )
 
+        assert_allclose(array, self.array, atol=ATOL)
+
+    def test_coadd_zarr_interior_nan(self, reproject_function, monkeypatch):
+        # Regression test: with intermediate_memmap='zarr' the reprojected arrays
+        # are dask arrays, which do not support in-place assignment, so NaN values
+        # inside the footprint have to be masked out lazily. We force a small
+        # chunk size so the masking spans more than one chunk, which previously
+        # silently failed for dask arrays and left NaNs in the output.
+        monkeypatch.setattr("reproject.mosaicking._coadd.DEFAULT_MAX_CHUNK_SIZE", 100)
+
+        # Two identical full-frame tiles so every pixel is covered twice, with
+        # NaNs in one tile that must be ignored in favor of the other.
+        input_data = [
+            (self.array.copy(), self.wcs.deepcopy()),
+            (self.array.copy(), self.wcs.deepcopy()),
+        ]
+        input_data[0][0][:20, :20] = np.nan
+
+        array, footprint = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=self.array.shape,
+            combine_function="mean",
+            reproject_function=reproject_function,
+            intermediate_memmap="zarr",
+        )
+
+        assert not np.any(np.isnan(array))
         assert_allclose(array, self.array, atol=ATOL)
 
     def test_coadd_with_outputs(self, tmp_path, reproject_function, intermediate_memmap):
@@ -133,6 +168,7 @@ class TestReprojectAndCoAdd:
             reproject_function=reproject_function,
             output_array=output_array,
             output_footprint=output_footprint,
+            intermediate_memmap=intermediate_memmap,
         )
 
         assert_allclose(output_array, self.array, atol=ATOL)
@@ -179,7 +215,7 @@ class TestReprojectAndCoAdd:
             assert_allclose(output_values, (i + 7) % 20)
             array[view] = np.nan
 
-    def test_coadd_background_matching(self, reproject_function, intermediate_memmap):
+    def test_coadd_background_matching(self, reproject_function, intermediate_memmap_nozarr):
         # Test out the background matching
 
         input_data = self._get_tiles(self._overlapping_views)
@@ -195,6 +231,7 @@ class TestReprojectAndCoAdd:
             shape_out=self.array.shape,
             combine_function="mean",
             reproject_function=reproject_function,
+            intermediate_memmap=intermediate_memmap_nozarr,
         )
 
         assert not np.allclose(array, self.array, atol=ATOL)
@@ -208,6 +245,7 @@ class TestReprojectAndCoAdd:
             combine_function="mean",
             reproject_function=reproject_function,
             match_background=True,
+            intermediate_memmap=intermediate_memmap_nozarr,
         )
 
         # The absolute values of the two arrays will be offset since any
@@ -215,7 +253,9 @@ class TestReprojectAndCoAdd:
 
         assert_allclose(array - np.mean(array), self.array - np.mean(self.array), atol=ATOL)
 
-    def test_coadd_background_matching_one_array(self, reproject_function, intermediate_memmap):
+    def test_coadd_background_matching_one_array(
+        self, reproject_function, intermediate_memmap_nozarr
+    ):
         # Test that background matching doesn't affect the output when there's
         # only one input image.
 
@@ -228,6 +268,7 @@ class TestReprojectAndCoAdd:
             combine_function="mean",
             reproject_function=reproject_function,
             match_background=True,
+            intermediate_memmap=intermediate_memmap_nozarr,
         )
 
         array, footprint = reproject_and_coadd(
@@ -237,6 +278,7 @@ class TestReprojectAndCoAdd:
             combine_function="mean",
             reproject_function=reproject_function,
             match_background=False,
+            intermediate_memmap=intermediate_memmap_nozarr,
         )
         np.testing.assert_allclose(array, array_matched)
         np.testing.assert_allclose(footprint, footprint_matched)
@@ -306,7 +348,9 @@ class TestReprojectAndCoAdd:
         np.testing.assert_allclose(footprint_match, footprint_nomatch, atol=ATOL)
         np.testing.assert_allclose(array_match, array_nomatch, atol=ATOL)
 
-    def test_coadd_background_matching_with_nan(self, reproject_function, intermediate_memmap):
+    def test_coadd_background_matching_with_nan(
+        self, reproject_function, intermediate_memmap_nozarr
+    ):
         # Test out the background matching when NaN values are present. We do
         # this by using three arrays with the same footprint but with different
         # parts masked.
@@ -329,6 +373,7 @@ class TestReprojectAndCoAdd:
             combine_function="mean",
             reproject_function=reproject_function,
             match_background=True,
+            intermediate_memmap=intermediate_memmap_nozarr,
         )
 
         # The absolute values of the two arrays will be offset since any
@@ -374,6 +419,7 @@ class TestReprojectAndCoAdd:
             input_weights=input_weights,
             reproject_function=reproject_function,
             match_background=False,
+            intermediate_memmap=intermediate_memmap,
         )
 
         expected = self.array + (2 * (weight1 / weight1.max()) - 1)
@@ -408,6 +454,7 @@ class TestReprojectAndCoAdd:
             input_weights=input_weights,
             reproject_function=reproject_function,
             match_background=False,
+            intermediate_memmap=intermediate_memmap,
         )
 
         weights1_reprojected = reproject_function(
@@ -456,6 +503,7 @@ class TestReprojectAndCoAdd:
             shape_out=(3,) + self.array.shape,
             combine_function="mean",
             reproject_function=reproject_function,
+            intermediate_memmap=intermediate_memmap,
             **kwargs,
         )
 
@@ -566,6 +614,53 @@ def test_coadd_non_reprojected_dims(combine_function):
         roundtrip_coords=False,
         intermediate_memmap=True,
     )
+
+    assert_allclose(array, reference, atol=ATOL)
+    assert_allclose(footprint, reference_footprint, atol=ATOL)
+
+
+@pytest.mark.parametrize("combine_function", ["mean", "sum"])
+def test_coadd_non_reprojected_dims_celestial_output(combine_function):
+    # Co-add a drifting cube into a celestial-only (2D) output WCS, treating the
+    # leading axis as non-reprojected. Here the input WCS has more pixel
+    # dimensions than the output WCS, so computing each tile's footprint requires
+    # relating only the reprojected (celestial) sub-space of the input WCS to the
+    # output. The result should match co-adding each time slice independently
+    # with the input WCS sliced at that time.
+    n_time = 5
+    shape_out = (n_time, 30, 30)
+    wcs_in = _drifting_cube_wcs(drift=0.6)
+    wcs_out = _drifting_cube_wcs(drift=0.0).celestial
+
+    rng = np.random.default_rng(12345)
+    data1 = rng.random((n_time, 30, 30))
+    data2 = rng.random((n_time, 30, 30))
+
+    array, footprint = reproject_and_coadd(
+        [(data1, wcs_in), (data2, wcs_in)],
+        wcs_out,
+        shape_out=shape_out,
+        reproject_function=reproject_interp,
+        combine_function=combine_function,
+        non_reprojected_dims=(0,),
+        parallel=True,
+        block_size=(1,) + shape_out[1:],
+        roundtrip_coords=False,
+    )
+
+    reference = np.zeros(shape_out)
+    reference_footprint = np.zeros(shape_out)
+    for itime in range(n_time):
+        ref, ref_fp = reproject_and_coadd(
+            [(data1[itime], wcs_in[itime]), (data2[itime], wcs_in[itime])],
+            wcs_out,
+            shape_out=shape_out[1:],
+            reproject_function=reproject_interp,
+            combine_function=combine_function,
+            roundtrip_coords=False,
+        )
+        reference[itime] = ref
+        reference_footprint[itime] = ref_fp
 
     assert_allclose(array, reference, atol=ATOL)
     assert_allclose(footprint, reference_footprint, atol=ATOL)

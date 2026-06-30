@@ -20,6 +20,7 @@ def reproject_exact(
     parallel=False,
     return_type=None,
     dask_method=None,
+    zarr_path=None,
 ):
     """
     Reproject data to a new projection using flux-conserving spherical
@@ -86,8 +87,13 @@ def reproject_exact(
         by ``block_size`` (if the block size is not set, it will be determined
         automatically). To use the currently active dask scheduler (e.g.
         dask.distributed), set this to ``'current-scheduler'``.
-    return_type : {'numpy', 'dask'}, optional
-        Whether to return numpy or dask arrays
+    return_type : {'numpy', 'dask', 'zarr'}, optional
+        Whether to return numpy or dask arrays, or to write the output to a zarr
+        array on disk. If ``'zarr'``, ``zarr_path`` must also be given; the
+        output is then computed in blocks (using dask, on the synchronous
+        scheduler when ``parallel`` is `False`), ``block_size`` defaults to
+        ``'auto'`` when not specified, and dask arrays backed by the zarr array
+        are returned.
     dask_method : {'memmap', 'none'}, optional
         Method to use when input array is a dask array. The methods are:
             * ``'memmap'``: write out the entire input dask array to a temporary
@@ -100,6 +106,9 @@ def reproject_exact(
               fits into memory (as this will then be faster than ``'memmap'``),
               and when the data contains more dimensions than the input WCS and
               the block_size is chosen to iterate over the extra dimensions.
+    zarr_path : str, optional
+        Path to use for the output zarr array when ``return_type='zarr'``. This
+        must be a path that does not already exist.
 
     Returns
     -------
@@ -129,6 +138,7 @@ def reproject_exact(
             return_footprint=return_footprint,
             output_footprint=output_footprint,
             return_type=return_type,
+            zarr_path=zarr_path,
         )
     else:
         raise NotImplementedError(

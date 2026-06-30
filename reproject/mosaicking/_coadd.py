@@ -1,20 +1,22 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 import os
+import shutil
 import sys
 import tempfile
 import uuid
 from logging import getLogger
 
+import dask.array as da
 import numpy as np
 from astropy.wcs import WCS
-from astropy.wcs.utils import pixel_to_pixel
 from astropy.wcs.wcsapi import SlicedLowLevelWCS
 
-from .._array_utils import iterate_chunks, sample_array_edges
+from .._array_utils import iterate_chunks
 from ..interpolation._core import _validate_wcs
 from ..utils import parse_input_data, parse_input_weights, parse_output_projection
 from ._background import determine_offset_matrix, solve_corrections_sgd
 from ._subset_array import DEFAULT_MAX_CHUNK_SIZE, ReprojectedArraySubset
+from ._wcs_helpers import sample_input_edges_in_output
 
 __all__ = ["reproject_and_coadd"]
 
@@ -28,8 +30,12 @@ def _noop(iterable):
 
 def _safe_remove(path):
     try:
-        os.remove(path)
-    except PermissionError:
+        if os.path.isdir(path):
+            # zarr stores are directories rather than single files
+            shutil.rmtree(path, ignore_errors=True)
+        else:
+            os.remove(path)
+    except (PermissionError, FileNotFoundError):
         pass
 
 
@@ -169,9 +175,12 @@ def reproject_and_coadd(
     blank_pixel_value : float, optional
         Value to use for areas of the resulting mosaic that do not have input
         data.
-    intermediate_memmap : bool, optional
-        If `True`, use `numpy.memmap` to store intermediate output arrays for
-        reprojected data.
+    intermediate_memmap : bool or {'zarr'}, optional
+        If `True`, use `numpy.memmap` to store intermediate reprojected arrays on
+        disk. If ``'zarr'``, store the intermediate arrays as zarr arrays on disk
+        instead, which is typically more efficient (each image is then reprojected
+        in blocks and the zarr store is removed once the image has been combined),
+        but cannot be used together with ``match_background=True``.
 
     **kwargs
         Keyword arguments to be passed to the reprojection function.
@@ -214,6 +223,9 @@ def reproject_and_coadd(
 
     if progress_bar is None:
         progress_bar = _noop
+
+    if match_background and intermediate_memmap == "zarr":
+        raise ValueError("Cannot use intermediate_memmap='zarr' when match_background=True")
 
     # Parse the output projection to avoid having to do it for each
 
@@ -306,10 +318,7 @@ def reproject_and_coadd(
             # which provides a lot of redundant information.
 
             try:
-                edges = sample_array_edges(
-                    array_in.shape[-wcs_in.low_level_wcs.pixel_n_dim :], n_samples=11
-                )[::-1]
-                edges_out = pixel_to_pixel(wcs_in, wcs_out, *edges)[::-1]
+                edges_out = sample_input_edges_in_output(array_in.shape, wcs_in, wcs_out)
             except Exception:
                 # If the edge coordinates cannot be transformed (for example if
                 # they fall outside the validity region of the WCS), fall back to
@@ -402,7 +411,16 @@ def reproject_and_coadd(
             # able to handle weights, and make the footprint become the combined
             # footprint + weight map
 
-            if intermediate_memmap:
+            extra_kwargs = {}
+            array = footprint = None
+
+            if intermediate_memmap == "zarr":
+
+                array_zarr_path = os.path.join(local_tmp_dir, f"array_{uuid.uuid4()}.zarr")
+                extra_kwargs["return_type"] = "zarr"
+                extra_kwargs["zarr_path"] = array_zarr_path
+
+            elif intermediate_memmap:
 
                 array_path = os.path.join(local_tmp_dir, f"array_{uuid.uuid4()}.np")
 
@@ -430,10 +448,6 @@ def reproject_and_coadd(
                     dtype=float,
                 )
 
-            else:
-
-                array = footprint = None
-
             logger.info(f"Calling {reproject_function.__name__} with shape_out={shape_out_indiv}")
 
             array, footprint = reproject_function(
@@ -445,11 +459,21 @@ def reproject_and_coadd(
                 output_footprint=footprint,
                 block_size=block_size,
                 **kwargs,
+                **extra_kwargs,
             )
 
             if weights_in is not None:
 
-                if intermediate_memmap:
+                extra_kwargs = {}
+                weights = None
+
+                if intermediate_memmap == "zarr":
+
+                    weights_zarr_path = os.path.join(local_tmp_dir, f"weights_{uuid.uuid4()}.zarr")
+                    extra_kwargs["return_type"] = "zarr"
+                    extra_kwargs["zarr_path"] = weights_zarr_path
+
+                elif intermediate_memmap:
 
                     weights_path = os.path.join(local_tmp_dir, f"weights_{uuid.uuid4()}.np")
 
@@ -464,10 +488,6 @@ def reproject_and_coadd(
                         dtype=float,
                     )
 
-                else:
-
-                    weights = None
-
                 logger.info(
                     f"Calling {reproject_function.__name__} with shape_out={shape_out_indiv} for weights"
                 )
@@ -480,28 +500,43 @@ def reproject_and_coadd(
                     output_array=weights,
                     return_footprint=False,
                     **kwargs,
+                    **extra_kwargs,
                 )
 
             # For the purposes of mosaicking, we mask out NaN values from the array
-            # and set the footprint to 0 at these locations. We do this in chunks
-            # to avoid excessive memory usage.
-            for chunk in iterate_chunks(array.shape, max_chunk_size=DEFAULT_MAX_CHUNK_SIZE):
-
-                # Determine location of NaNs
-                reset = np.isnan(array[chunk])
+            # and set the footprint to 0 at these locations, and fold any weights
+            # into the footprint.
+            if isinstance(array, da.core.Array):
+                # When intermediate_memmap='zarr' the arrays are dask arrays which
+                # do not support in-place assignment, so build the masked arrays
+                # lazily instead; the masking is then applied chunk by chunk when
+                # the arrays are combined below.
+                reset = da.isnan(array)
                 if weights_in is not None:
-                    reset |= np.isnan(weights[chunk])
+                    reset = reset | da.isnan(weights)
+                    footprint = da.where(reset, 0.0, footprint * weights)
+                else:
+                    footprint = da.where(reset, 0.0, footprint)
+                array = da.where(reset, 0.0, array)
+            else:
+                # We do this in chunks to avoid excessive memory usage.
+                for chunk in iterate_chunks(array.shape, max_chunk_size=DEFAULT_MAX_CHUNK_SIZE):
 
-                # Mask them in-place in the arrays
-                array[chunk][reset] = 0.0
-                footprint[chunk][reset] = 0.0
+                    # Determine location of NaNs
+                    reset = np.isnan(array[chunk])
+                    if weights_in is not None:
+                        reset |= np.isnan(weights[chunk])
 
-                # Combine weights and footprint
-                if weights_in is not None:
-                    weights[chunk][reset] = 0.0
-                    footprint[chunk] *= weights[chunk]
+                    # Mask them in-place in the arrays
+                    array[chunk][reset] = 0.0
+                    footprint[chunk][reset] = 0.0
 
-            if weights_in is not None and intermediate_memmap:
+                    # Combine weights and footprint
+                    if weights_in is not None:
+                        weights[chunk][reset] = 0.0
+                        footprint[chunk] *= weights[chunk]
+
+            if weights_in is not None and intermediate_memmap is True:
                 # Remove the reference to the memmap before trying to remove the file itself
                 logger.info("Removing memory-mapped weight array")
                 weights = None
@@ -519,12 +554,22 @@ def reproject_and_coadd(
                 logger.info("Adding reprojected array to final array in chunks")
                 _combine_array_into_output(combine_function, array, output_array, output_footprint)
 
-                if intermediate_memmap:
+                if intermediate_memmap is True:
                     logger.info("Removing memory-mapped array and footprint arrays")
                     array = None
                     footprint = None
                     for path in (array_path, footprint_path):
                         _safe_remove(path)
+                elif intermediate_memmap == "zarr":
+                    # The array and footprint share a single zarr store, and the
+                    # footprint may lazily reference the weights zarr, so these
+                    # can only be removed now that the arrays have been combined.
+                    logger.info("Removing intermediate zarr arrays")
+                    array = None
+                    footprint = None
+                    _safe_remove(array_zarr_path)
+                    if weights_in is not None:
+                        _safe_remove(weights_zarr_path)
 
             else:
 
