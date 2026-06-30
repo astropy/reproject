@@ -1025,10 +1025,11 @@ def reproject_and_coadd(
         Value to use for areas of the resulting mosaic that do not have input
         data.
     intermediate_memmap : {'False', 'True', 'zarr'}, optional
-        If `True`, use `numpy.memmap` to store intermediate output arrays for
-        reprojected data. If `'zarr'`, intermediate output arrays will be
-        written to zarr arrays on disk. The latter should be more efficient,
-        but can only be used if ``match_background`` is `False`. Only supported
+        If `True`, use `numpy.memmap` to store intermediate reprojected arrays on
+        disk. If ``'zarr'``, store the intermediate arrays as zarr arrays on disk
+        instead, which is typically more efficient (each image is then reprojected
+        in blocks and the zarr store is removed once the image has been combined),
+        but cannot be used together with ``match_background=True``. Only supported
         with ``return_type='numpy'``.
     return_type : {None, 'numpy', 'dask', 'zarr'}, optional
         If ``'dask'``, reproject each image lazily (using ``return_type='dask'``
