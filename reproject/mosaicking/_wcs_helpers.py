@@ -339,8 +339,9 @@ def sample_input_edges_in_output(array_shape, wcs_in, wcs_out, n_samples=11):
     (trailing) dimensions before being related to the output, since
     ``pixel_to_pixel`` requires the two WCS to describe the same number of world
     coordinates. Because the reprojected WCS may vary along the non-reprojected
-    axes (for example a drifting pointing), the edges are sampled at the end
-    points of those axes and the resulting footprints are combined.
+    axes (for example a drifting pointing, possibly non-linear), the input WCS is
+    sliced at ``n_samples`` positions along each of those axes and the resulting
+    footprints are combined.
 
     Parameters
     ----------
@@ -370,8 +371,15 @@ def sample_input_edges_in_output(array_shape, wcs_in, wcs_out, n_samples=11):
     n_reproject = wcs_out.low_level_wcs.pixel_n_dim
     edges = sample_array_edges(array_shape[-n_reproject:], n_samples=n_samples)[::-1]
     leading_shape = array_shape[:n_extra_in]
+    # Sample positions along each non-reprojected axis (not just its end points)
+    # so that non-linear variation of the reprojected WCS along that axis is
+    # captured. Use integer pixel indices and de-duplicate for short axes.
+    leading_samples = [
+        sorted({int(round(idx)) for idx in np.linspace(0, size - 1, n_samples)})
+        for size in leading_shape
+    ]
     edges_out_corners = []
-    for corner in itertools.product(*[sorted({0, size - 1}) for size in leading_shape]):
+    for corner in itertools.product(*leading_samples):
         slices = list(corner) + [slice(None)] * n_reproject
         wcs_in_reproject = HighLevelWCSWrapper(
             SlicedLowLevelWCS(wcs_in.low_level_wcs, slices=slices)
