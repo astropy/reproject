@@ -11,7 +11,7 @@ from astropy.wcs.wcsapi import BaseHighLevelWCS, SlicedLowLevelWCS
 from astropy.wcs.wcsapi.high_level_wcs_wrapper import HighLevelWCSWrapper
 from dask import delayed
 
-from ._array_utils import ArrayWrapper
+from ._array_utils import ArrayWrapper, iterate_chunks
 from .utils import _dask_to_numpy_memmap
 
 __all__ = ["_reproject_dispatcher"]
@@ -102,9 +102,10 @@ def _reproject_dispatcher(
         given as a tuple of sequential integers starting from zero (e.g.
         ``(0,)`` or ``(0, 1)``). If `None` (the default), any leading dimensions
         for which the WCS has fewer dimensions than the data are treated this
-        way. Reprojecting fewer dimensions than the WCS currently requires a
-        ``block_size`` that matches the output shape along the reprojected
-        dimensions.
+        way. Reprojecting fewer dimensions than the WCS currently requires an
+        explicit ``block_size``; its entries along the reprojected dimensions
+        may either match the output shape or be smaller, in which case each
+        plane is reprojected in sub-tiles of that size.
     array_out : `~numpy.ndarray`, optional
         An array in which to store the reprojected data.  This can be any numpy
         array including a memory map, which may be helpful when dealing with
@@ -333,11 +334,30 @@ def _reproject_dispatcher(
         # don't make any assumptions for now and assume a single chunk in the
         # missing dimensions.
         broadcasted_parallelization = False
+        # When sub-tiling the reprojected dimensions within each broadcasted block
+        # (see below), this holds the shape of each sub-tile; otherwise it is None
+        # and each block is reprojected in one go.
+        sub_tile_shape = None
         if broadcasting and block_size is not None and block_size != "auto":
             if block_size[-n_dim_reproject:] == shape_out[-n_dim_reproject:]:
                 # TODO: maybe error if block_size was given in full and is wrong
                 broadcasted_parallelization = True
                 block_size = (1,) * (len(shape_out) - n_dim_reproject) + block_size[
+                    -n_dim_reproject:
+                ]
+            elif wcs_slicing_required:
+                # A block smaller than the output along the reprojected dimensions
+                # is only meaningful when the WCS has to be sliced per broadcasted
+                # slice (i.e. non_reprojected_dims). The whole input slice has to
+                # be reprojected as one (it cannot be chunked along the reprojected
+                # dimensions, since any output pixel can map anywhere in the input),
+                # so we still parallelize one full reprojected plane per block, but
+                # additionally sub-tile the reprojection within each plane to bound
+                # the coordinate-transform memory, which would otherwise scale with
+                # the full plane size.
+                broadcasted_parallelization = True
+                sub_tile_shape = block_size[-n_dim_reproject:]
+                block_size = (1,) * (len(shape_out) - n_dim_reproject) + shape_out[
                     -n_dim_reproject:
                 ]
             elif block_size[:-n_dim_reproject] != shape_out[:-n_dim_reproject]:
@@ -359,9 +379,10 @@ def _reproject_dispatcher(
             raise NotImplementedError(
                 "Reprojecting fewer dimensions than the input or output WCS "
                 "(for example using non_reprojected_dims) currently requires "
-                "passing a block_size whose entries along the reprojected "
-                "dimensions match the output shape (optionally with parallel=True "
-                "to compute the blocks concurrently)"
+                "passing an explicit block_size whose entries along the reprojected "
+                "dimensions either match the output shape or are smaller (in which "
+                "case each plane is reprojected in sub-tiles of that size), "
+                "optionally with parallel=True to compute the blocks concurrently"
             )
 
         if output_footprint is None and return_footprint:
@@ -439,14 +460,40 @@ def _reproject_dispatcher(
             if array_or_path is None:
                 raise RuntimeError("array_or_path is not set")
 
-            array, footprint = reproject_func(
-                array_in,
-                wcs_in_sub,
-                wcs_out_sub,
-                shape_out=shape_out,
-                array_out=np.zeros(shape_out),
-                **reproject_func_kwargs,
-            )
+            if sub_tile_shape is None:
+                array, footprint = reproject_func(
+                    array_in,
+                    wcs_in_sub,
+                    wcs_out_sub,
+                    shape_out=shape_out,
+                    array_out=np.zeros(shape_out),
+                    **reproject_func_kwargs,
+                )
+            else:
+                # Reproject the plane in sub-tiles along the reprojected
+                # dimensions so that the coordinate transform (which is computed
+                # over the whole output sub-tile at once) does not have to be
+                # evaluated for the full plane in one go. The input slice is left
+                # whole since any output pixel can map anywhere within it.
+                array = np.zeros(shape_out)
+                footprint = np.zeros(shape_out)
+                n_broadcast = len(shape_out) - n_dim_reproject
+                for sub_tile in iterate_chunks(
+                    shape_out[n_broadcast:], max_chunk_size=int(np.prod(sub_tile_shape))
+                ):
+                    sub_wcs_out = HighLevelWCSWrapper(
+                        SlicedLowLevelWCS(low_level_wcs_out, slices=sub_tile)
+                    )
+                    full_slices = (slice(None),) * n_broadcast + sub_tile
+                    sub_shape = shape_out[:n_broadcast] + tuple(s.stop - s.start for s in sub_tile)
+                    array[full_slices], footprint[full_slices] = reproject_func(
+                        array_in,
+                        wcs_in_sub,
+                        sub_wcs_out,
+                        shape_out=sub_shape,
+                        array_out=np.zeros(sub_shape),
+                        **reproject_func_kwargs,
+                    )
 
             return np.array([array, footprint])
 
