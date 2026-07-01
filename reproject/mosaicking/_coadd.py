@@ -5,6 +5,7 @@ import tempfile
 import uuid
 from logging import getLogger
 
+import dask.array as da
 import numpy as np
 from astropy.wcs import WCS
 from astropy.wcs.utils import pixel_to_pixel
@@ -81,6 +82,7 @@ def reproject_and_coadd(
     progress_bar=None,
     blank_pixel_value=0,
     intermediate_memmap=False,
+    return_type=None,
     **kwargs,
 ):
     """
@@ -172,6 +174,16 @@ def reproject_and_coadd(
     intermediate_memmap : bool, optional
         If `True`, use `numpy.memmap` to store intermediate output arrays for
         reprojected data.
+    return_type : {None, 'dask'}, optional
+        If ``'dask'``, reproject each image lazily (using ``return_type='dask'``
+        on the reprojection function), pad each onto the output grid, and combine
+        them with a single nan-aware reduction, returning the resulting
+        **uncomputed** dask arrays so the whole co-addition is deferred into one
+        computation. This currently supports ``combine_function`` of 'mean',
+        'sum', 'min' or 'max' (each weighting the images equally rather than by
+        footprint), and does not support ``match_background`` or
+        ``input_weights``. The default (`None`) uses the standard eager
+        co-addition.
 
     **kwargs
         Keyword arguments to be passed to the reprojection function.
@@ -227,21 +239,40 @@ def reproject_and_coadd(
         wcs_out = wcs_out.deepcopy()
         wcs_out.array_shape = shape_out[-wcs_out.low_level_wcs.pixel_n_dim :]
 
-    if output_array is None:
-        output_array = np.zeros(shape_out)
-    elif output_array.shape != shape_out:
-        raise ValueError(
-            "If you specify an output array, it must have a shape matching "
-            f"the output shape {shape_out}"
-        )
+    # When return_type='dask', we build the entire co-addition as a single deferred
+    # dask graph: each image is reprojected lazily, padded onto the output grid, and
+    # the images are combined with a nan-aware reduction. The uncomputed dask arrays
+    # are returned so the whole thing is computed once at the end, so we must not
+    # allocate the (potentially huge) output arrays here.
+    coadd_with_dask = return_type == "dask"
 
-    if output_footprint is None:
-        output_footprint = np.zeros(shape_out)
-    elif output_footprint.shape != shape_out:
-        raise ValueError(
-            "If you specify an output footprint array, it must have a shape matching "
-            f"the output shape {shape_out}"
-        )
+    if coadd_with_dask:
+        if match_background:
+            raise ValueError("Cannot use return_type='dask' together with match_background")
+        if input_weights is not None:
+            raise NotImplementedError("return_type='dask' does not yet support input_weights")
+        if combine_function not in ("mean", "sum", "min", "max"):
+            raise NotImplementedError(
+                "return_type='dask' currently only supports combine_function 'mean', "
+                "'sum', 'min' or 'max'"
+            )
+        dask_arrays = []
+    else:
+        if output_array is None:
+            output_array = np.zeros(shape_out)
+        elif output_array.shape != shape_out:
+            raise ValueError(
+                "If you specify an output array, it must have a shape matching "
+                f"the output shape {shape_out}"
+            )
+
+        if output_footprint is None:
+            output_footprint = np.zeros(shape_out)
+        elif output_footprint.shape != shape_out:
+            raise ValueError(
+                "If you specify an output footprint array, it must have a shape matching "
+                f"the output shape {shape_out}"
+            )
 
     logger.info(f"Output mosaic will have shape {shape_out}")
 
@@ -260,10 +291,11 @@ def reproject_and_coadd(
     if not on_the_fly:
         arrays = []
 
-    if combine_function == "min":
-        output_array[...] = np.inf
-    elif combine_function == "max":
-        output_array[...] = -np.inf
+    if not coadd_with_dask:
+        if combine_function == "min":
+            output_array[...] = np.inf
+        elif combine_function == "max":
+            output_array[...] = -np.inf
 
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=IS_WIN) as local_tmp_dir:
 
@@ -397,6 +429,28 @@ def reproject_and_coadd(
                 )
             else:
                 block_size = global_block_size
+
+            if coadd_with_dask:
+                # Reproject this image lazily and pad the cutout back onto the full
+                # output grid (filling the uncovered region with NaN so the nan-aware
+                # reduction later ignores it). Nothing is computed here.
+                logger.info(
+                    f"Calling {reproject_function.__name__} lazily with "
+                    f"shape_out={shape_out_indiv} (return_type='dask')"
+                )
+                array = reproject_function(
+                    (array_in, wcs_in),
+                    output_projection=wcs_out_indiv,
+                    shape_out=shape_out_indiv,
+                    hdu_in=hdu_in,
+                    return_footprint=False,
+                    return_type="dask",
+                    block_size=block_size,
+                    **kwargs,
+                )
+                pad = [(imin, shape_out[idim] - imax) for idim, (imin, imax) in enumerate(bounds)]
+                dask_arrays.append(da.pad(array, pad, constant_values=np.nan))
+                continue
 
             # TODO: optimize handling of weights by making reprojection functions
             # able to handle weights, and make the footprint become the combined
@@ -547,7 +601,7 @@ def reproject_and_coadd(
             for array in arrays:
                 _combine_array_into_output(combine_function, array, output_array, output_footprint)
 
-        if combine_function == "mean":
+        if combine_function == "mean" and not coadd_with_dask:
             logger.info("Handle normalization of output array")
             with np.errstate(invalid="ignore"):
                 output_array /= output_footprint
@@ -558,6 +612,23 @@ def reproject_and_coadd(
             array = None
             footprint = None
             arrays = []
+
+    if coadd_with_dask:
+        # Combine all the lazily-reprojected, NaN-padded images with a single
+        # nan-aware reduction along the stacking axis. The result is returned
+        # uncomputed so the entire graph (reprojections and co-addition) is
+        # evaluated in one deferred computation by the caller.
+        stacked = da.stack(dask_arrays)
+        if combine_function == "mean":
+            output_array = da.nanmean(stacked, axis=0)
+        elif combine_function == "sum":
+            output_array = da.nansum(stacked, axis=0)
+        elif combine_function == "min":
+            output_array = da.nanmin(stacked, axis=0)
+        elif combine_function == "max":
+            output_array = da.nanmax(stacked, axis=0)
+        output_footprint = da.isfinite(stacked).sum(axis=0)
+        return output_array, output_footprint
 
     # We need to avoid potentially large memory allocation from output == 0 so
     # we operate in chunks.
