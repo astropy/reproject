@@ -91,6 +91,44 @@ def test_non_reprojected_dims_subtiled(reproject_function, block_size):
     assert_allclose(footprint_sub, footprint_full, equal_nan=True)
 
 
+@pytest.mark.parametrize("block_size", [(20, 20), (7, 7)])
+def test_non_reprojected_dims_dask_input(reproject_function, block_size):
+    # A dask-array input is handed to dask as a genuine blockwise dependency (rather
+    # than materialized or recomputed inside each task), so that the input chunks are
+    # streamed to wherever each output tile runs. The result must match the identical
+    # numpy input, both for full-plane and sub-tiled blocks. The WCS drifts along the
+    # non-reprojected axis so each slice really is reprojected with its own WCS.
+    import dask.array as da
+
+    n_time = 5
+    shape_out = (n_time, 30, 30)
+    wcs_in = _drifting_cube_wcs(drift=0.6)
+    wcs_out = _drifting_cube_wcs(drift=0.0)
+
+    data = np.random.default_rng(0).random((n_time, 30, 30))
+
+    reference, _ = reproject_function(
+        (data, wcs_in),
+        wcs_out,
+        shape_out=shape_out,
+        non_reprojected_dims=(0,),
+        parallel=True,
+        block_size=(30, 30),
+    )
+
+    array_out, _ = reproject_function(
+        (da.from_array(data, chunks=(1, 30, 30)), wcs_in),
+        wcs_out,
+        shape_out=shape_out,
+        non_reprojected_dims=(0,),
+        parallel=True,
+        block_size=block_size,
+        dask_method="none",
+    )
+
+    assert_allclose(array_out, reference, equal_nan=True)
+
+
 def test_non_reprojected_dims_invalid_order(reproject_function):
     data = np.ones((4, 20, 20))
     wcs = _spectral_cube_wcs(0.0, 1e9)
