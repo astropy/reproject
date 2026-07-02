@@ -174,7 +174,7 @@ def reproject_and_coadd(
     intermediate_memmap : bool, optional
         If `True`, use `numpy.memmap` to store intermediate output arrays for
         reprojected data.
-    return_type : {None, 'dask'}, optional
+    return_type : {None, 'numpy', 'dask'}, optional
         If ``'dask'``, reproject each image lazily (using ``return_type='dask'``
         on the reprojection function), pad each onto the output grid, and combine
         them along a stacking axis, returning the resulting **uncomputed** dask
@@ -184,9 +184,10 @@ def reproject_and_coadd(
         'first', 'last', 'min' and 'max'), and ``input_weights`` are supported. A
         ``combine_function`` of 'median' is additionally available here (as an
         unweighted median), which the ``return_type='numpy'`` path cannot compute.
-        ``match_background`` is not supported, since it requires all images up front
-        rather than a single deferred graph. The default (`None`) uses the standard
-        ``return_type='numpy'`` co-addition.
+        ``match_background``, ``output_array``, ``output_footprint`` and
+        ``intermediate_memmap`` are not supported, since the result is a deferred
+        graph rather than arrays filled in place. The default (`None`, equivalent
+        to ``'numpy'``) uses the standard eager co-addition.
 
     **kwargs
         Keyword arguments to be passed to the reprojection function.
@@ -209,6 +210,13 @@ def reproject_and_coadd(
 
     # Validate inputs
 
+    # Validate return_type up front: a typo such as 'Dask' would otherwise
+    # silently select the eager numpy co-addition.
+    if return_type is None:
+        return_type = "numpy"
+    if return_type not in ("numpy", "dask"):
+        raise ValueError("return_type should be set to 'numpy' or 'dask'")
+
     # 'median' is only available for the deferred dask path (return_type='dask'); the
     # return_type='numpy' path cannot compute a median on the fly.
     allowed_combine = ("mean", "sum", "first", "last", "min", "max")
@@ -226,6 +234,25 @@ def reproject_and_coadd(
         if block_sizes is not None:
             raise ValueError("Cannot specify block_sizes= and block_size= at the same time")
         block_sizes = kwargs.pop("block_size")
+
+    # block_sizes may be a single block size to use for every dataset (a tuple
+    # of values or 'auto') or one block size per dataset (a list of lists or
+    # tuples). Normalize it once here to one entry per dataset, keeping track
+    # of the single common block size (if there is one), which is also used as
+    # the output chunking for the deferred return_type='dask' co-addition.
+    common_block_size = None
+    if block_sizes is None:
+        block_sizes = [None] * len(input_data)
+    elif isinstance(block_sizes, str) or not any(
+        isinstance(entry, (list, tuple)) for entry in block_sizes
+    ):
+        common_block_size = block_sizes if isinstance(block_sizes, str) else tuple(block_sizes)
+        block_sizes = [common_block_size] * len(input_data)
+    elif len(block_sizes) != len(input_data):
+        raise ValueError(
+            f"block_sizes should be a single block size or one per dataset "
+            f"({len(input_data)}), got {len(block_sizes)}"
+        )
 
     # non_reprojected_dims is used below to size the cutouts correctly and is
     # also forwarded to reproject_function for each individual reprojection.
@@ -264,6 +291,12 @@ def reproject_and_coadd(
     if coadd_with_dask:
         if match_background:
             raise ValueError("Cannot use return_type='dask' together with match_background")
+        if output_array is not None or output_footprint is not None:
+            raise ValueError(
+                "Cannot use return_type='dask' together with output_array or output_footprint"
+            )
+        if intermediate_memmap:
+            raise ValueError("Cannot use return_type='dask' together with intermediate_memmap")
         dask_arrays = []
         dask_footprints = []
     else:
@@ -284,6 +317,21 @@ def reproject_and_coadd(
             )
 
     logger.info(f"Output mosaic will have shape {shape_out}")
+
+    ndim_out = len(shape_out)
+
+    # Determine how many leading dimensions are broadcasted (i.e. not
+    # reprojected). If non_reprojected_dims is set these are given
+    # explicitly; otherwise they are the dimensions for which the output
+    # WCS has fewer pixel dimensions than the data.
+    if non_reprojected_dims is not None:
+        n_broadcasted = len(non_reprojected_dims)
+    else:
+        n_broadcasted = len(shape_out) - wcs_out.low_level_wcs.pixel_n_dim
+    n_dim_reproject = len(shape_out) - n_broadcasted
+    # Number of leading dimensions that the output WCS does not itself
+    # describe and which therefore have to be skipped when slicing it.
+    n_wcs_out_extra = len(shape_out) - wcs_out.low_level_wcs.pixel_n_dim
 
     # Define 'on-the-fly' mode: in the case where we don't need to match the
     # backgrounds, we don't have to keep track of the intermediate arrays and
@@ -364,21 +412,6 @@ def reproject_and_coadd(
             # such as all-sky images or full solar disk views. In this case we skip
             # this step and just use the full output WCS for reprojection.
 
-            ndim_out = len(shape_out)
-
-            # Determine how many leading dimensions are broadcasted (i.e. not
-            # reprojected). If non_reprojected_dims is set these are given
-            # explicitly; otherwise they are the dimensions for which the output
-            # WCS has fewer pixel dimensions than the data.
-            if non_reprojected_dims is not None:
-                n_broadcasted = len(non_reprojected_dims)
-            else:
-                n_broadcasted = len(shape_out) - wcs_out.low_level_wcs.pixel_n_dim
-            n_dim_reproject = len(shape_out) - n_broadcasted
-            # Number of leading dimensions that the output WCS does not itself
-            # describe and which therefore have to be skipped when slicing it.
-            n_wcs_out_extra = len(shape_out) - wcs_out.low_level_wcs.pixel_n_dim
-
             skip_data = False
             if np.any(np.isnan(edges_out)):
                 bounds = list(zip([0] * ndim_out, shape_out, strict=False))
@@ -417,22 +450,17 @@ def reproject_and_coadd(
 
             shape_out_indiv = tuple([imax - imin for (imin, imax) in bounds])
 
-            if block_sizes is not None:
-                if len(block_sizes) == len(input_data) and len(block_sizes[idata]) == len(
-                    shape_out
-                ):
-                    global_block_size = block_sizes[idata]
-                else:
-                    global_block_size = block_sizes
-            else:
-                global_block_size = None
+            global_block_size = block_sizes[idata]
 
             # If the block size matches the output shape along the reprojected
             # dimensions, we need to shrink those entries to match this cutout's
             # size (keeping the broadcasted entries) so that the per-image
             # reprojection parallelizes over the broadcasted dimensions.
-            if global_block_size and tuple(global_block_size[-n_dim_reproject:]) == tuple(
-                shape_out[-n_dim_reproject:]
+            if (
+                global_block_size
+                and not isinstance(global_block_size, str)
+                and tuple(global_block_size[-n_dim_reproject:])
+                == tuple(shape_out[-n_dim_reproject:])
             ):
                 block_size = tuple(global_block_size[:n_broadcasted]) + tuple(
                     shape_out_indiv[n_broadcasted:]
@@ -667,63 +695,78 @@ def reproject_and_coadd(
         # every image to one common chunking first so the stack and reduction stay
         # small and the memory per chunk stays bounded.
         #
-        # When the user gave a block size, use it as the output chunking so they stay
-        # in control. Otherwise default to splitting along the non-reprojected
-        # (leading) dimensions, so each output chunk is a single plane rather than the
-        # whole non-reprojected extent -- that keeps memory bounded to a plane per
-        # image and lets the reprojection and co-addition stream plane by plane instead
-        # of reprojecting every image in full before combining.
-        if non_reprojected_dims is not None:
-            n_broadcast = len(non_reprojected_dims)
-        else:
-            n_broadcast = len(shape_out) - wcs_out.low_level_wcs.pixel_n_dim
-        n_dim_reproject = len(shape_out) - n_broadcast
-
-        # block_sizes may be a single block size or a per-dataset list of them; only a
-        # single block size maps onto one output chunking.
+        # When the user gave a single common block size, use it as the output chunking
+        # so they stay in control (a per-dataset list of block sizes cannot map onto
+        # one output chunking, so it falls back to the default). Otherwise default to
+        # splitting along the non-reprojected (leading) dimensions, so each output
+        # chunk is a single plane rather than the whole non-reprojected extent -- that
+        # keeps memory bounded to a plane per image and lets the reprojection and
+        # co-addition stream plane by plane instead of reprojecting every image in
+        # full before combining.
         block_size = None
-        if block_sizes is not None and not any(
-            isinstance(entry, (list, tuple)) for entry in block_sizes
-        ):
-            block_size = tuple(block_sizes)
+        if common_block_size is not None and not isinstance(common_block_size, str):
+            block_size = common_block_size
 
         if block_size is None:
-            chunk_spec = (1,) * n_broadcast + ("auto",) * n_dim_reproject
+            chunk_spec = (1,) * n_broadcasted + ("auto",) * n_dim_reproject
         elif len(block_size) == n_dim_reproject:
             # A block size given only for the reprojected dimensions; take one plane at
             # a time along the non-reprojected ones.
-            chunk_spec = (1,) * n_broadcast + block_size
+            chunk_spec = (1,) * n_broadcasted + block_size
         else:
             chunk_spec = block_size
         target_chunks = da.core.normalize_chunks(chunk_spec, shape=tuple(shape_out), dtype=float)
+
+        if not dask_arrays:
+            # No image is predicted to overlap the output; return the same blank
+            # mosaic and zero footprint as the return_type='numpy' path, lazily.
+            output_array = da.full(
+                tuple(shape_out), float(blank_pixel_value), chunks=target_chunks
+            )
+            output_footprint = da.zeros(tuple(shape_out), chunks=target_chunks)
+            return output_array, output_footprint
+
         dask_arrays = [array.rechunk(target_chunks) for array in dask_arrays]
         dask_footprints = [footprint.rechunk(target_chunks) for footprint in dask_footprints]
         stacked_array = da.stack(dask_arrays)
         stacked_footprint = da.stack(dask_footprints)
-        covered = stacked_footprint > 0
 
         if combine_function in ("mean", "sum"):
             # Footprint-weighted sum: output = sum(array * footprint), footprint =
             # sum(footprint), and for the mean divide the two (as the
-            # return_type='numpy' path does). The numerator is zero wherever the
-            # footprint is zero, so divide by a footprint that has its zeros replaced
-            # by one to avoid a lazily-evaluated 0/0 (which would warn at compute time).
-            numerator = da.where(covered, stacked_array * stacked_footprint, 0.0).sum(axis=0)
+            # return_type='numpy' path does, including contributions where the
+            # footprint is negative, which can happen when reprojecting weight maps
+            # with interpolation orders that overshoot). The numerator is zero
+            # wherever the footprint is zero, so for the mean divide by a footprint
+            # that has its zeros replaced by one to avoid a lazily-evaluated 0/0
+            # (which would warn at compute time).
+            output_array = (stacked_array * stacked_footprint).sum(axis=0)
             output_footprint = stacked_footprint.sum(axis=0)
-            if combine_function == "sum":
-                output_array = numerator
-            else:
-                output_array = numerator / da.where(output_footprint > 0, output_footprint, 1.0)
+            if combine_function == "mean":
+                output_array = output_array / da.where(
+                    output_footprint == 0, 1.0, output_footprint
+                )
         elif combine_function == "median":
+            covered = stacked_footprint > 0
             # Unweighted median of the covered images. This is only available for the
-            # dask path (the return_type='numpy' path cannot compute a median on the fly); the median
-            # needs the whole stacking axis at once, so it is collapsed to one chunk.
-            masked = da.where(covered, stacked_array, np.nan).rechunk({0: -1})
-            output_array = da.nanmedian(masked, axis=0)
+            # dask path (the return_type='numpy' path cannot compute a median on the fly).
+            masked = da.where(covered, stacked_array, np.nan)
+            # Pixels covered by no image at all would be all-NaN slices, which would
+            # make nanmedian warn at compute time; give them a value of zero since
+            # they are set to blank_pixel_value below anyway.
+            masked = da.where(covered.any(axis=0)[np.newaxis], masked, 0.0)
+            # The median needs the whole stacking axis at once, so collapse it to a
+            # single chunk and let dask re-split the other axes so that the total
+            # chunk size stays bounded instead of growing with the number of images.
+            masked = masked.rechunk(
+                {0: -1, **{iaxis: "auto" for iaxis in range(1, masked.ndim)}}
+            )
+            output_array = da.nanmedian(masked, axis=0).rechunk(target_chunks)
             output_footprint = stacked_footprint.sum(axis=0)
         else:
             # first/last/min/max select one image per pixel; we find its index along
             # the stacking axis and take both the value and the footprint from there.
+            covered = stacked_footprint > 0
             n_images = stacked_array.shape[0]
             axis_index = da.arange(n_images).reshape((n_images,) + (1,) * (stacked_array.ndim - 1))
             if combine_function == "first":
@@ -736,18 +779,19 @@ def reproject_and_coadd(
                 selected = da.where(covered, stacked_array, -np.inf).argmax(axis=0)
             else:
                 raise ValueError(f"Unexpected combine_function: {combine_function}")
-            any_covered = covered.any(axis=0)
-            selected = da.where(any_covered, selected, 0)
             # Pick the value and footprint from the selected image with a one-hot
-            # mask along the stacking axis (dask has no take_along_axis).
+            # mask along the stacking axis (dask has no take_along_axis). For pixels
+            # covered by no image, the selected index either matches no image
+            # (first/last) or picks an image whose footprint there is zero (min/max),
+            # so the sums give a zero footprint and the pixel is blanked below.
             onehot = axis_index == selected[np.newaxis]
             output_array = da.where(onehot, stacked_array, 0.0).sum(axis=0)
             output_footprint = da.where(onehot, stacked_footprint, 0.0).sum(axis=0)
-            output_footprint = da.where(any_covered, output_footprint, 0.0)
 
-        # Match the return_type='numpy' path's final step: set pixels with no coverage to the blank
-        # value (the return_type='numpy' loop does this at the end for output_footprint == 0).
-        output_array = da.where(output_footprint > 0, output_array, blank_pixel_value)
+        # Match the return_type='numpy' path's final step: set pixels with no coverage
+        # to the blank value (the return_type='numpy' loop does this at the end where
+        # output_footprint == 0, keeping pixels with a negative summed footprint).
+        output_array = da.where(output_footprint == 0, blank_pixel_value, output_array)
         return output_array, output_footprint
 
     # We need to avoid potentially large memory allocation from output == 0 so
