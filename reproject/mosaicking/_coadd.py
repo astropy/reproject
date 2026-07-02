@@ -7,14 +7,14 @@ from logging import getLogger
 
 import numpy as np
 from astropy.wcs import WCS
-from astropy.wcs.utils import pixel_to_pixel
 from astropy.wcs.wcsapi import SlicedLowLevelWCS
 
-from .._array_utils import iterate_chunks, sample_array_edges
+from .._array_utils import iterate_chunks
 from ..interpolation._core import _validate_wcs
 from ..utils import parse_input_data, parse_input_weights, parse_output_projection
 from ._background import determine_offset_matrix, solve_corrections_sgd
 from ._subset_array import DEFAULT_MAX_CHUNK_SIZE, ReprojectedArraySubset
+from ._wcs_helpers import sample_input_edges_in_output
 
 __all__ = ["reproject_and_coadd"]
 
@@ -209,7 +209,14 @@ def reproject_and_coadd(
 
     # non_reprojected_dims is used below to size the cutouts correctly and is
     # also forwarded to reproject_function for each individual reprojection.
+    # Validate it here too since reproject_function performs the same check but
+    # is never called if no input is predicted to overlap the output, in which
+    # case an invalid value would otherwise silently produce a blank mosaic.
     if non_reprojected_dims is not None:
+        if non_reprojected_dims != tuple(range(len(non_reprojected_dims))):
+            raise ValueError(
+                "non_reprojected_dims should be a tuple with values increasing sequentially from zero"
+            )
         kwargs["non_reprojected_dims"] = non_reprojected_dims
 
     if progress_bar is None:
@@ -306,14 +313,15 @@ def reproject_and_coadd(
             # which provides a lot of redundant information.
 
             try:
-                edges = sample_array_edges(
-                    array_in.shape[-wcs_in.low_level_wcs.pixel_n_dim :], n_samples=11
-                )[::-1]
-                edges_out = pixel_to_pixel(wcs_in, wcs_out, *edges)[::-1]
-            except Exception:
+                edges_out = sample_input_edges_in_output(array_in.shape, wcs_in, wcs_out)
+            except Exception as exc:
                 # If the edge coordinates cannot be transformed (for example if
                 # they fall outside the validity region of the WCS), fall back to
                 # assuming no predicted overlap so the full output is considered.
+                logger.info(
+                    f"Could not determine cutout bounds for input data {idata + 1} "
+                    f"({exc}), reprojecting to the full output instead"
+                )
                 edges_out = np.array([np.nan])
 
             # Determine the cutout parameters

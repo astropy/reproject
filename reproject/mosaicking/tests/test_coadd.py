@@ -524,16 +524,24 @@ def test_coadd_solar_map():
 
 @pytest.mark.filterwarnings("ignore::erfa.ErfaWarning")
 @pytest.mark.parametrize("combine_function", ["mean", "sum"])
-def test_coadd_non_reprojected_dims(combine_function):
+@pytest.mark.parametrize("celestial_output", [False, True])
+def test_coadd_non_reprojected_dims(combine_function, celestial_output):
     # Co-add cubes whose celestial coordinates drift along the non-reprojected
-    # (time) axis, treating that axis as non-reprojected. The result should
-    # match co-adding each time slice independently with the WCS sliced at that
-    # time.
+    # (time) axis, treating that axis as non-reprojected. With a full cube
+    # output WCS the result should match co-adding without non_reprojected_dims
+    # (which is an optimization and shouldn't change the answer). With a
+    # celestial-only (2D) output WCS the input WCS has more pixel dimensions
+    # than the output, so computing each tile's footprint requires relating
+    # only the reprojected (celestial) sub-space of the input WCS to the
+    # output; the result should match co-adding each time slice independently
+    # with the input WCS sliced at that time.
 
     n_time = 5
     shape_out = (n_time, 30, 30)
     wcs_in = _drifting_cube_wcs(drift=0.6)
     wcs_out = _drifting_cube_wcs(drift=0.0)
+    if celestial_output:
+        wcs_out = wcs_out.celestial
 
     rng = np.random.default_rng(12345)
     data1 = rng.random((n_time, 30, 30))
@@ -553,19 +561,48 @@ def test_coadd_non_reprojected_dims(combine_function):
         intermediate_memmap=True,
     )
 
-    # Run without non-reprojected dims (non_reprojected_dims is an optimization
-    # but shouldn't give a different answer)
-    reference, reference_footprint = reproject_and_coadd(
-        [(data1, wcs_in), (data2, wcs_in)],
-        wcs_out,
-        shape_out=shape_out,
-        reproject_function=reproject_interp,
-        combine_function=combine_function,
-        parallel=True,
-        block_size=(1,) + shape_out[1:],
-        roundtrip_coords=False,
-        intermediate_memmap=True,
-    )
+    if celestial_output:
+        reference = np.zeros(shape_out)
+        reference_footprint = np.zeros(shape_out)
+        for itime in range(n_time):
+            reference[itime], reference_footprint[itime] = reproject_and_coadd(
+                [(data1[itime], wcs_in[itime]), (data2[itime], wcs_in[itime])],
+                wcs_out,
+                shape_out=shape_out[1:],
+                reproject_function=reproject_interp,
+                combine_function=combine_function,
+                roundtrip_coords=False,
+            )
+    else:
+        # Run without non-reprojected dims (non_reprojected_dims is an
+        # optimization but shouldn't give a different answer)
+        reference, reference_footprint = reproject_and_coadd(
+            [(data1, wcs_in), (data2, wcs_in)],
+            wcs_out,
+            shape_out=shape_out,
+            reproject_function=reproject_interp,
+            combine_function=combine_function,
+            parallel=True,
+            block_size=(1,) + shape_out[1:],
+            roundtrip_coords=False,
+            intermediate_memmap=True,
+        )
 
     assert_allclose(array, reference, atol=ATOL)
     assert_allclose(footprint, reference_footprint, atol=ATOL)
+
+
+def test_coadd_non_reprojected_dims_invalid():
+    # An invalid non_reprojected_dims should raise even if no input overlaps
+    # the output (in which case the same check inside reproject_function is
+    # never reached).
+    wcs_in = _drifting_cube_wcs(drift=0.0)
+    with pytest.raises(ValueError, match="increasing sequentially from zero"):
+        reproject_and_coadd(
+            [(np.zeros((5, 30, 30)), wcs_in)],
+            wcs_in.celestial,
+            shape_out=(5, 30, 30),
+            reproject_function=reproject_interp,
+            combine_function="mean",
+            non_reprojected_dims=(1,),
+        )
