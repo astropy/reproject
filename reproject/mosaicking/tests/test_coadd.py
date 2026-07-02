@@ -3,6 +3,7 @@
 import os
 import random
 
+import dask.array as da
 import numpy as np
 import pytest
 from astropy.io import fits
@@ -27,6 +28,11 @@ def reproject_function(request):
 
 @pytest.fixture(params=[False, True])
 def intermediate_memmap(request):
+    return request.param
+
+
+@pytest.fixture(params=[None, "dask"], ids=["numpy", "dask"])
+def return_type(request):
     return request.param
 
 
@@ -80,7 +86,9 @@ class TestReprojectAndCoAdd:
         return views
 
     @pytest.mark.parametrize("combine_function", ["mean", "sum", "first", "last"])
-    def test_coadd_no_overlap(self, combine_function, reproject_function, intermediate_memmap):
+    def test_coadd_no_overlap(
+        self, combine_function, reproject_function, intermediate_memmap, return_type
+    ):
         # Make sure that if all tiles are exactly non-overlapping, and
         # we use 'sum' or 'mean', we get the exact input array back.
 
@@ -92,12 +100,17 @@ class TestReprojectAndCoAdd:
             shape_out=self.array.shape,
             combine_function=combine_function,
             reproject_function=reproject_function,
+            return_type=return_type,
         )
+        # np.asarray is a no-op for the numpy path and computes the deferred dask
+        # result for return_type='dask', which must match numerically.
+        array = np.asarray(array)
+        footprint = np.asarray(footprint)
 
         assert_allclose(array, self.array, atol=ATOL)
         assert_allclose(footprint, 1, atol=ATOL)
 
-    def test_coadd_with_overlap(self, reproject_function, intermediate_memmap):
+    def test_coadd_with_overlap(self, reproject_function, intermediate_memmap, return_type):
         # Here we make the input tiles overlapping. We can only check the
         # mean, not the sum.
 
@@ -109,9 +122,47 @@ class TestReprojectAndCoAdd:
             shape_out=self.array.shape,
             combine_function="mean",
             reproject_function=reproject_function,
+            return_type=return_type,
         )
+        array = np.asarray(array)
 
         assert_allclose(array, self.array, atol=ATOL)
+
+    def test_coadd_dask_median(self, reproject_function):
+        # 'median' is only available through the deferred dask path (the return_type='numpy' path
+        # cannot compute a median on the fly). Check it against a direct numpy
+        # nanmedian of the reprojected images, and that the result is uncomputed.
+        input_data = self._get_tiles(self._overlapping_views)
+
+        array, footprint = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=self.array.shape,
+            combine_function="median",
+            reproject_function=reproject_function,
+            return_type="dask",
+        )
+        assert isinstance(array, da.core.Array)  # returned uncomputed
+
+        refs = []
+        for arr, wcs in input_data:
+            reprojected, fp = reproject_function((arr, wcs), self.wcs, shape_out=self.array.shape)
+            reprojected[fp == 0] = np.nan
+            refs.append(reprojected)
+        reference = np.nanmedian(np.array(refs), axis=0)
+
+        covered = np.asarray(footprint) > 0
+        assert_allclose(np.asarray(array)[covered], reference[covered], atol=ATOL)
+
+        # The return_type='numpy' path must still reject 'median'.
+        with pytest.raises(ValueError, match="combine_function should be one of"):
+            reproject_and_coadd(
+                input_data,
+                self.wcs,
+                shape_out=self.array.shape,
+                combine_function="median",
+                reproject_function=reproject_function,
+            )
 
     def test_coadd_with_outputs(self, tmp_path, reproject_function, intermediate_memmap):
         # Test the options to specify output array/footprint
@@ -139,7 +190,7 @@ class TestReprojectAndCoAdd:
         assert_allclose(output_footprint, footprint, atol=ATOL)
 
     @pytest.mark.parametrize("combine_function", ["first", "last", "min", "max"])
-    def test_coadd_with_overlap_first_last(self, reproject_function, combine_function):
+    def test_coadd_with_overlap_first_last(self, reproject_function, combine_function, return_type):
         views = self._overlapping_views
         input_data = self._get_tiles(views)
 
@@ -156,7 +207,9 @@ class TestReprojectAndCoAdd:
             shape_out=self.array.shape,
             combine_function=combine_function,
             reproject_function=reproject_function,
+            return_type=return_type,
         )
+        array = np.asarray(array)
 
         # Test that either the correct tile sets the output value in the overlap regions
         test_sequence = list(enumerate(views))
@@ -243,7 +296,11 @@ class TestReprojectAndCoAdd:
 
     @pytest.mark.parametrize("combine_function", ["first", "last", "min", "max", "sum", "mean"])
     @pytest.mark.parametrize("match_background", [True, False])
-    def test_footprint_correct(self, reproject_function, combine_function, match_background):
+    def test_footprint_correct(
+        self, reproject_function, combine_function, match_background, return_type
+    ):
+        if return_type == "dask" and match_background:
+            pytest.skip("return_type='dask' does not support match_background")
         # Test that the output array is zero outside the returned footprint
         # We're running this test over a somewhat large grid of parameters, so
         # cut down the array size to avoid increasing the total test runtime
@@ -270,7 +327,10 @@ class TestReprojectAndCoAdd:
             combine_function=combine_function,
             reproject_function=reproject_function,
             match_background=match_background,
+            return_type=return_type,
         )
+        array = np.asarray(array)
+        footprint = np.asarray(footprint)
 
         # The inputs do overlap the output, so there should be coverage --
         # asserting this makes the test non-vacuous (a fully blank output would
@@ -338,7 +398,9 @@ class TestReprojectAndCoAdd:
 
     @pytest.mark.filterwarnings("ignore:unclosed file:ResourceWarning")
     @pytest.mark.parametrize("mode", ["arrays", "filenames", "hdus", "hdulist"])
-    def test_coadd_with_weights(self, tmpdir, reproject_function, mode, intermediate_memmap):
+    def test_coadd_with_weights(
+        self, tmpdir, reproject_function, mode, intermediate_memmap, return_type
+    ):
         # Make sure that things work properly when specifying weights
 
         array1 = self.array + 1
@@ -374,7 +436,9 @@ class TestReprojectAndCoAdd:
             input_weights=input_weights,
             reproject_function=reproject_function,
             match_background=False,
+            return_type=return_type,
         )
+        array = np.asarray(array)
 
         expected = self.array + (2 * (weight1 / weight1.max()) - 1)
 

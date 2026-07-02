@@ -177,13 +177,16 @@ def reproject_and_coadd(
     return_type : {None, 'dask'}, optional
         If ``'dask'``, reproject each image lazily (using ``return_type='dask'``
         on the reprojection function), pad each onto the output grid, and combine
-        them with a single nan-aware reduction, returning the resulting
-        **uncomputed** dask arrays so the whole co-addition is deferred into one
-        computation. This currently supports ``combine_function`` of 'mean',
-        'sum', 'min' or 'max' (each weighting the images equally rather than by
-        footprint), and does not support ``match_background`` or
-        ``input_weights``. The default (`None`) uses the standard eager
-        co-addition.
+        them along a stacking axis, returning the resulting **uncomputed** dask
+        arrays so the whole co-addition is deferred into a single computation. The
+        combination matches the default ``return_type='numpy'`` path exactly
+        (footprint-weighted for 'mean' and 'sum', footprint-aware selection for
+        'first', 'last', 'min' and 'max'), and ``input_weights`` are supported. A
+        ``combine_function`` of 'median' is additionally available here (as an
+        unweighted median), which the ``return_type='numpy'`` path cannot compute.
+        ``match_background`` is not supported, since it requires all images up front
+        rather than a single deferred graph. The default (`None`) uses the standard
+        ``return_type='numpy'`` co-addition.
 
     **kwargs
         Keyword arguments to be passed to the reprojection function.
@@ -206,8 +209,13 @@ def reproject_and_coadd(
 
     # Validate inputs
 
-    if combine_function not in ("mean", "sum", "first", "last", "min", "max"):
-        raise ValueError("combine_function should be one of mean/sum/first/last/min/max")
+    # 'median' is only available for the deferred dask path (return_type='dask'); the
+    # return_type='numpy' path cannot compute a median on the fly.
+    allowed_combine = ("mean", "sum", "first", "last", "min", "max")
+    if return_type == "dask":
+        allowed_combine = allowed_combine + ("median",)
+    if combine_function not in allowed_combine:
+        raise ValueError(f"combine_function should be one of {'/'.join(allowed_combine)}")
 
     if reproject_function is None:
         raise ValueError(
@@ -256,14 +264,8 @@ def reproject_and_coadd(
     if coadd_with_dask:
         if match_background:
             raise ValueError("Cannot use return_type='dask' together with match_background")
-        if input_weights is not None:
-            raise NotImplementedError("return_type='dask' does not yet support input_weights")
-        if combine_function not in ("mean", "sum", "min", "max"):
-            raise NotImplementedError(
-                "return_type='dask' currently only supports combine_function 'mean', "
-                "'sum', 'min' or 'max'"
-            )
         dask_arrays = []
+        dask_footprints = []
     else:
         if output_array is None:
             output_array = np.zeros(shape_out)
@@ -439,25 +441,56 @@ def reproject_and_coadd(
                 block_size = global_block_size
 
             if coadd_with_dask:
-                # Reproject this image lazily and pad the cutout back onto the full
-                # output grid (filling the uncovered region with NaN so the nan-aware
-                # reduction later ignores it). Nothing is computed here.
+                # Reproject this image (and its weights) lazily, mirroring the return_type='numpy'
+                # per-image handling: NaNs are masked out of the array and footprint,
+                # any weights are folded into the footprint, and both the array and
+                # footprint are padded back onto the full output grid (the uncovered
+                # region gets a zero footprint so it drops out of the combine). The
+                # footprint is kept so that the combine below can weight by it exactly
+                # as the return_type='numpy' path does. Nothing is computed here.
                 logger.info(
                     f"Calling {reproject_function.__name__} lazily with "
                     f"shape_out={shape_out_indiv} (return_type='dask')"
                 )
-                array = reproject_function(
+                # A dask return requires the reprojection to run in blocks, so fall
+                # back to automatic block sizes if none was given for this image.
+                dask_block_size = block_size if block_size is not None else "auto"
+                array, footprint = reproject_function(
                     (array_in, wcs_in),
                     output_projection=wcs_out_indiv,
                     shape_out=shape_out_indiv,
                     hdu_in=hdu_in,
-                    return_footprint=False,
+                    return_footprint=True,
                     return_type="dask",
-                    block_size=block_size,
+                    block_size=dask_block_size,
                     **kwargs,
                 )
+
+                if weights_in is not None:
+                    weights = reproject_function(
+                        (weights_in, weights_wcs),
+                        output_projection=wcs_out_indiv,
+                        shape_out=shape_out_indiv,
+                        hdu_in=hdu_in,
+                        return_footprint=False,
+                        return_type="dask",
+                        block_size=dask_block_size,
+                        **kwargs,
+                    )
+                else:
+                    weights = None
+
+                reset = da.isnan(array)
+                if weights is not None:
+                    reset = reset | da.isnan(weights)
+                array = da.where(reset, 0.0, array)
+                footprint = da.where(reset, 0.0, footprint)
+                if weights is not None:
+                    footprint = footprint * da.where(reset, 0.0, weights)
+
                 pad = [(imin, shape_out[idim] - imax) for idim, (imin, imax) in enumerate(bounds)]
-                dask_arrays.append(da.pad(array, pad, constant_values=np.nan))
+                dask_arrays.append(da.pad(array, pad, constant_values=0.0))
+                dask_footprints.append(da.pad(footprint, pad, constant_values=0.0))
                 continue
 
             # TODO: optimize handling of weights by making reprojection functions
@@ -622,20 +655,58 @@ def reproject_and_coadd(
             arrays = []
 
     if coadd_with_dask:
-        # Combine all the lazily-reprojected, NaN-padded images with a single
-        # nan-aware reduction along the stacking axis. The result is returned
-        # uncomputed so the entire graph (reprojections and co-addition) is
+        # Combine all the lazily-reprojected images along the stacking axis, matching
+        # the return_type='numpy' _combine_array_into_output semantics exactly, and return the
+        # result uncomputed so the whole graph (reprojections and co-addition) is
         # evaluated in one deferred computation by the caller.
-        stacked = da.stack(dask_arrays)
-        if combine_function == "mean":
-            output_array = da.nanmean(stacked, axis=0)
-        elif combine_function == "sum":
-            output_array = da.nansum(stacked, axis=0)
-        elif combine_function == "min":
-            output_array = da.nanmin(stacked, axis=0)
-        elif combine_function == "max":
-            output_array = da.nanmax(stacked, axis=0)
-        output_footprint = da.isfinite(stacked).sum(axis=0)
+        stacked_array = da.stack(dask_arrays)
+        stacked_footprint = da.stack(dask_footprints)
+        covered = stacked_footprint > 0
+
+        if combine_function in ("mean", "sum"):
+            # Footprint-weighted sum: output = sum(array * footprint), footprint =
+            # sum(footprint), and for the mean divide the two (as the return_type='numpy' path does).
+            numerator = da.where(covered, stacked_array * stacked_footprint, 0.0).sum(axis=0)
+            output_footprint = stacked_footprint.sum(axis=0)
+            if combine_function == "sum":
+                output_array = numerator
+            else:
+                with np.errstate(invalid="ignore"):
+                    output_array = numerator / output_footprint
+        elif combine_function == "median":
+            # Unweighted median of the covered images. This is only available for the
+            # dask path (the return_type='numpy' path cannot compute a median on the fly); the median
+            # needs the whole stacking axis at once, so it is collapsed to one chunk.
+            masked = da.where(covered, stacked_array, np.nan).rechunk({0: -1})
+            output_array = da.nanmedian(masked, axis=0)
+            output_footprint = stacked_footprint.sum(axis=0)
+        else:
+            # first/last/min/max select one image per pixel; we find its index along
+            # the stacking axis and take both the value and the footprint from there.
+            n_images = stacked_array.shape[0]
+            axis_index = da.arange(n_images).reshape((n_images,) + (1,) * (stacked_array.ndim - 1))
+            if combine_function == "first":
+                selected = da.where(covered, axis_index, n_images).min(axis=0)
+            elif combine_function == "last":
+                selected = da.where(covered, axis_index, -1).max(axis=0)
+            elif combine_function == "min":
+                selected = da.where(covered, stacked_array, np.inf).argmin(axis=0)
+            elif combine_function == "max":
+                selected = da.where(covered, stacked_array, -np.inf).argmax(axis=0)
+            else:
+                raise ValueError(f"Unexpected combine_function: {combine_function}")
+            any_covered = covered.any(axis=0)
+            selected = da.where(any_covered, selected, 0)
+            # Pick the value and footprint from the selected image with a one-hot
+            # mask along the stacking axis (dask has no take_along_axis).
+            onehot = axis_index == selected[np.newaxis]
+            output_array = da.where(onehot, stacked_array, 0.0).sum(axis=0)
+            output_footprint = da.where(onehot, stacked_footprint, 0.0).sum(axis=0)
+            output_footprint = da.where(any_covered, output_footprint, 0.0)
+
+        # Match the return_type='numpy' path's final step: set pixels with no coverage to the blank
+        # value (the return_type='numpy' loop does this at the end for output_footprint == 0).
+        output_array = da.where(output_footprint > 0, output_array, blank_pixel_value)
         return output_array, output_footprint
 
     # We need to avoid potentially large memory allocation from output == 0 so
