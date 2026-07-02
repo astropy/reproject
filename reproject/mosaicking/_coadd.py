@@ -667,17 +667,34 @@ def reproject_and_coadd(
         # every image to one common chunking first so the stack and reduction stay
         # small and the memory per chunk stays bounded.
         #
-        # The chunking is chosen to split along the non-reprojected (leading)
-        # dimensions, so each output chunk is a single plane (or slab) rather than the
-        # whole non-reprojected extent. That keeps memory bounded to a plane per image
-        # and lets the reprojection and co-addition stream plane by plane instead of
-        # reprojecting every image in full before combining. The reprojected
-        # dimensions are chunked automatically.
+        # When the user gave a block size, use it as the output chunking so they stay
+        # in control. Otherwise default to splitting along the non-reprojected
+        # (leading) dimensions, so each output chunk is a single plane rather than the
+        # whole non-reprojected extent -- that keeps memory bounded to a plane per
+        # image and lets the reprojection and co-addition stream plane by plane instead
+        # of reprojecting every image in full before combining.
         if non_reprojected_dims is not None:
             n_broadcast = len(non_reprojected_dims)
         else:
             n_broadcast = len(shape_out) - wcs_out.low_level_wcs.pixel_n_dim
-        chunk_spec = (1,) * n_broadcast + ("auto",) * (len(shape_out) - n_broadcast)
+        n_dim_reproject = len(shape_out) - n_broadcast
+
+        # block_sizes may be a single block size or a per-dataset list of them; only a
+        # single block size maps onto one output chunking.
+        block_size = None
+        if block_sizes is not None and not any(
+            isinstance(entry, (list, tuple)) for entry in block_sizes
+        ):
+            block_size = tuple(block_sizes)
+
+        if block_size is None:
+            chunk_spec = (1,) * n_broadcast + ("auto",) * n_dim_reproject
+        elif len(block_size) == n_dim_reproject:
+            # A block size given only for the reprojected dimensions; take one plane at
+            # a time along the non-reprojected ones.
+            chunk_spec = (1,) * n_broadcast + block_size
+        else:
+            chunk_spec = block_size
         target_chunks = da.core.normalize_chunks(chunk_spec, shape=tuple(shape_out), dtype=float)
         dask_arrays = [array.rechunk(target_chunks) for array in dask_arrays]
         dask_footprints = [footprint.rechunk(target_chunks) for footprint in dask_footprints]
