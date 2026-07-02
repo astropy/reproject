@@ -327,6 +327,17 @@ def find_optimal_celestial_wcs(
     return wcs_final, (naxis2, naxis1)
 
 
+def _pixel_to_pixel_list(wcs_in, wcs_out, *inputs):
+    # pixel_to_pixel returns a bare array rather than a list of per-dimension
+    # arrays when the output WCS has a single pixel dimension, which would make
+    # the [::-1] reversals in sample_input_edges_in_output reverse the samples
+    # instead of the dimensions.
+    outputs = pixel_to_pixel(wcs_in, wcs_out, *inputs)
+    if wcs_out.low_level_wcs.pixel_n_dim == 1:
+        outputs = [outputs]
+    return outputs
+
+
 def sample_input_edges_in_output(array_shape, wcs_in, wcs_out, n_samples=11):
     """
     Sample the edges of an input array and return their pixel coordinates in the
@@ -341,7 +352,9 @@ def sample_input_edges_in_output(array_shape, wcs_in, wcs_out, n_samples=11):
     coordinates. Because the reprojected WCS may vary along the non-reprojected
     axes (for example a drifting pointing, possibly non-linear), the input WCS is
     sliced at ``n_samples`` positions along each of those axes and the resulting
-    footprints are combined.
+    footprints are combined; variation between the sampled positions is not
+    captured. Axes that do not affect the reprojected world coordinates
+    (according to the axis correlation matrix) are sliced at a single position.
 
     Parameters
     ----------
@@ -366,25 +379,38 @@ def sample_input_edges_in_output(array_shape, wcs_in, wcs_out, n_samples=11):
         edges = sample_array_edges(
             array_shape[-wcs_in.low_level_wcs.pixel_n_dim :], n_samples=n_samples
         )[::-1]
-        return pixel_to_pixel(wcs_in, wcs_out, *edges)[::-1]
+        return _pixel_to_pixel_list(wcs_in, wcs_out, *edges)[::-1]
 
     n_reproject = wcs_out.low_level_wcs.pixel_n_dim
     edges = sample_array_edges(array_shape[-n_reproject:], n_samples=n_samples)[::-1]
-    leading_shape = array_shape[:n_extra_in]
+    # Trim the array shape to the dimensions the input WCS describes before
+    # taking the non-reprojected leading sizes, since the array may have extra
+    # leading broadcast dimensions beyond the WCS (as in the branch above).
+    leading_shape = array_shape[-wcs_in.low_level_wcs.pixel_n_dim : -n_reproject]
     # Sample positions along each non-reprojected axis (not just its end points)
     # so that non-linear variation of the reprojected WCS along that axis is
-    # captured. Use integer pixel indices and de-duplicate for short axes.
-    leading_samples = [
-        sorted({int(round(idx)) for idx in np.linspace(0, size - 1, n_samples)})
-        for size in leading_shape
-    ]
+    # captured, provided the variation is smooth on the scale of the sample
+    # spacing. Axes that the correlation matrix shows do not affect the
+    # reprojected world coordinates are sampled at a single position, since
+    # every slice along them gives the same footprint. Use integer pixel
+    # indices and de-duplicate for short axes.
+    matrix = wcs_in.low_level_wcs.axis_correlation_matrix
+    world_reprojected = matrix[:, :n_reproject].any(axis=1)
+    leading_samples = []
+    for iaxis, size in enumerate(leading_shape):
+        pixel_axis = wcs_in.low_level_wcs.pixel_n_dim - 1 - iaxis
+        if matrix[world_reprojected, pixel_axis].any():
+            samples = sorted({int(round(idx)) for idx in np.linspace(0, size - 1, n_samples)})
+        else:
+            samples = [0]
+        leading_samples.append(samples)
     edges_out_corners = []
     for corner in itertools.product(*leading_samples):
         slices = list(corner) + [slice(None)] * n_reproject
         wcs_in_reproject = HighLevelWCSWrapper(
             SlicedLowLevelWCS(wcs_in.low_level_wcs, slices=slices)
         )
-        edges_out_corners.append(pixel_to_pixel(wcs_in_reproject, wcs_out, *edges)[::-1])
+        edges_out_corners.append(_pixel_to_pixel_list(wcs_in_reproject, wcs_out, *edges)[::-1])
     return [
         np.concatenate([corner[idim] for corner in edges_out_corners])
         for idim in range(n_reproject)

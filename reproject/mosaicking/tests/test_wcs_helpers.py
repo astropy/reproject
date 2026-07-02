@@ -492,6 +492,62 @@ def test_sample_edges_multiple_leading_axes():
 
 
 @pytest.mark.filterwarnings("ignore::astropy.wcs.wcs.FITSFixedWarning")
+@pytest.mark.filterwarnings("ignore::erfa.ErfaWarning")
+def test_sample_edges_extra_broadcast_dims():
+    # The array may have extra leading broadcast dimensions beyond the input
+    # WCS; the non-reprojected sizes must be taken from the dimensions the WCS
+    # describes, not blindly from the leading array dimensions.
+    wcs_in = _drifting_cube_wcs(drift=0.6)
+    wcs_out = _drifting_cube_wcs(drift=0.0).celestial
+    edges_out = sample_input_edges_in_output((5, 30, 40), wcs_in, wcs_out)
+    edges_out_broadcast = sample_input_edges_in_output((3, 5, 30, 40), wcs_in, wcs_out)
+    assert len(edges_out) == len(edges_out_broadcast)
+    for edges, edges_broadcast in zip(edges_out, edges_out_broadcast, strict=True):
+        assert_allclose(edges, edges_broadcast)
+
+
+@pytest.mark.filterwarnings("ignore::astropy.wcs.wcs.FITSFixedWarning")
+def test_sample_edges_single_output_dim():
+    # With a single output pixel dimension, pixel_to_pixel returns a bare array
+    # rather than a list of per-dimension arrays; make sure both branches
+    # normalize this so the result is a list with one entry per output dimension.
+    wcs_1d = WCS(naxis=1)
+    wcs_1d.wcs.ctype = ["FREQ"]
+    wcs_1d.wcs.crpix = [1]
+    wcs_1d.wcs.crval = [1.0e9]
+    wcs_1d.wcs.cdelt = [1.0e6]
+
+    edges_out = sample_input_edges_in_output((20,), wcs_1d, wcs_1d)
+    assert len(edges_out) == 1
+    assert_allclose(edges_out[0].min(), -0.5, atol=1e-6)
+    assert_allclose(edges_out[0].max(), 19.5, atol=1e-6)
+
+    wcs_in = WCS(naxis=3)
+    wcs_in.wcs.ctype = ["FREQ", "RA---TAN", "DEC--TAN"]
+    wcs_in.wcs.crpix = [1, 15, 15]
+    wcs_in.wcs.crval = [1.0e9, 40.0, 0.0]
+    wcs_in.wcs.cdelt = [1.0e6, -0.01, 0.01]
+
+    edges_out = sample_input_edges_in_output((10, 12, 20), wcs_in, wcs_1d)
+    assert len(edges_out) == 1
+    assert_allclose(edges_out[0].min(), -0.5, atol=1e-6)
+    assert_allclose(edges_out[0].max(), 19.5, atol=1e-6)
+
+
+@pytest.mark.filterwarnings("ignore::astropy.wcs.wcs.FITSFixedWarning")
+@pytest.mark.filterwarnings("ignore::erfa.ErfaWarning")
+def test_sample_edges_uncorrelated_leading_axis_single_sample():
+    # A leading axis that does not affect the reprojected world coordinates is
+    # sliced at a single position, whereas a correlated (drifting) axis longer
+    # than n_samples is sliced at n_samples positions.
+    shape = (50, 30, 40)
+    wcs_out = _drifting_cube_wcs(drift=0.0).celestial
+    edges_no_drift = sample_input_edges_in_output(shape, _drifting_cube_wcs(drift=0.0), wcs_out)
+    edges_drift = sample_input_edges_in_output(shape, _drifting_cube_wcs(drift=0.6), wcs_out)
+    assert len(edges_drift[0]) == 11 * len(edges_no_drift[0])
+
+
+@pytest.mark.filterwarnings("ignore::astropy.wcs.wcs.FITSFixedWarning")
 def test_sample_edges_n_samples_and_short_leading_axis():
     # A leading axis shorter than n_samples must not error: the sampled integer
     # indices are de-duplicated. A larger n_samples samples each edge more finely

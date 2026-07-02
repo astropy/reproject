@@ -209,7 +209,14 @@ def reproject_and_coadd(
 
     # non_reprojected_dims is used below to size the cutouts correctly and is
     # also forwarded to reproject_function for each individual reprojection.
+    # Validate it here too since reproject_function performs the same check but
+    # is never called if no input is predicted to overlap the output, in which
+    # case an invalid value would otherwise silently produce a blank mosaic.
     if non_reprojected_dims is not None:
+        if non_reprojected_dims != tuple(range(len(non_reprojected_dims))):
+            raise ValueError(
+                "non_reprojected_dims should be a tuple with values increasing sequentially from zero"
+            )
         kwargs["non_reprojected_dims"] = non_reprojected_dims
 
     if progress_bar is None:
@@ -307,10 +314,14 @@ def reproject_and_coadd(
 
             try:
                 edges_out = sample_input_edges_in_output(array_in.shape, wcs_in, wcs_out)
-            except Exception:
+            except Exception as exc:
                 # If the edge coordinates cannot be transformed (for example if
                 # they fall outside the validity region of the WCS), fall back to
                 # assuming no predicted overlap so the full output is considered.
+                logger.info(
+                    f"Could not determine cutout bounds for input data {idata + 1} "
+                    f"({exc}), reprojecting to the full output instead"
+                )
                 edges_out = np.array([np.nan])
 
             # Determine the cutout parameters
