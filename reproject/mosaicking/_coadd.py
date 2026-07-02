@@ -666,7 +666,19 @@ def reproject_and_coadd(
         # linearly with the number of images (the co-addition appears to hang). Rechunk
         # every image to one common chunking first so the stack and reduction stay
         # small and the memory per chunk stays bounded.
-        target_chunks = da.core.normalize_chunks("auto", shape=tuple(shape_out), dtype=float)
+        #
+        # The chunking is chosen to split along the non-reprojected (leading)
+        # dimensions, so each output chunk is a single plane (or slab) rather than the
+        # whole non-reprojected extent. That keeps memory bounded to a plane per image
+        # and lets the reprojection and co-addition stream plane by plane instead of
+        # reprojecting every image in full before combining. The reprojected
+        # dimensions are chunked automatically.
+        if non_reprojected_dims is not None:
+            n_broadcast = len(non_reprojected_dims)
+        else:
+            n_broadcast = len(shape_out) - wcs_out.low_level_wcs.pixel_n_dim
+        chunk_spec = (1,) * n_broadcast + ("auto",) * (len(shape_out) - n_broadcast)
+        target_chunks = da.core.normalize_chunks(chunk_spec, shape=tuple(shape_out), dtype=float)
         dask_arrays = [array.rechunk(target_chunks) for array in dask_arrays]
         dask_footprints = [footprint.rechunk(target_chunks) for footprint in dask_footprints]
         stacked_array = da.stack(dask_arrays)
