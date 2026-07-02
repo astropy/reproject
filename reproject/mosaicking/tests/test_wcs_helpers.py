@@ -11,7 +11,8 @@ from numpy.testing import assert_allclose, assert_equal
 
 from reproject.tests.helpers import assert_wcs_allclose
 
-from .._wcs_helpers import find_optimal_celestial_wcs
+from ...tests.test_non_reprojected_dims import _drifting_cube_wcs
+from .._wcs_helpers import find_optimal_celestial_wcs, sample_input_edges_in_output
 
 try:
     import shapely  # noqa
@@ -382,3 +383,127 @@ def test_negative_lon_cdelt():
     wcs_out, _ = find_optimal_celestial_wcs(((10, 10), wcs_ref), negative_lon_cdelt="auto")
 
     assert np.all(wcs_out.wcs.cdelt > 0)
+
+
+# Tests for sample_input_edges_in_output, which projects the edges of an input
+# array into the output WCS pixel space (for the reprojected dimensions only)
+# and is used by reproject_and_coadd to size each tile's cutout.
+
+
+@pytest.mark.filterwarnings("ignore::astropy.wcs.wcs.FITSFixedWarning")
+def test_sample_edges_equal_dims_identity(simple_celestial_fits_wcs):
+    # With identical input and output WCS the transform is the identity, so the
+    # sampled edges trace the array boundary (-0.5 to shape - 0.5), returned in
+    # array (y, x) order.
+    wcs = simple_celestial_fits_wcs
+    edges_out = sample_input_edges_in_output((30, 40), wcs, wcs)
+    assert len(edges_out) == 2
+    assert_allclose(edges_out[0].min(), -0.5, atol=1e-6)
+    assert_allclose(edges_out[0].max(), 29.5, atol=1e-6)
+    assert_allclose(edges_out[1].min(), -0.5, atol=1e-6)
+    assert_allclose(edges_out[1].max(), 39.5, atol=1e-6)
+
+
+@pytest.mark.filterwarnings("ignore::astropy.wcs.wcs.FITSFixedWarning")
+def test_sample_edges_equal_dims_translation(simple_celestial_fits_wcs):
+    # Shifting the output reference pixel along the RA (x) axis by 5 pixels
+    # translates the output pixel coordinates by +5 along x only. This also pins
+    # the array-order convention: the shift shows up in index 1 (x), not 0 (y).
+    wcs_in = simple_celestial_fits_wcs
+    wcs_out = simple_celestial_fits_wcs.deepcopy()
+    wcs_out.wcs.crpix = wcs_in.wcs.crpix + [5, 0]
+    edges_out = sample_input_edges_in_output((30, 40), wcs_in, wcs_out)
+    assert_allclose(edges_out[0].min(), -0.5, atol=1e-6)
+    assert_allclose(edges_out[0].max(), 29.5, atol=1e-6)
+    assert_allclose(edges_out[1].min(), 4.5, atol=1e-6)
+    assert_allclose(edges_out[1].max(), 44.5, atol=1e-6)
+
+
+@pytest.mark.filterwarnings("ignore::astropy.wcs.wcs.FITSFixedWarning")
+def test_sample_edges_fewer_dims_no_drift():
+    # Input WCS has more pixel dimensions than the output (a cube into a
+    # celestial-only output). With no drift the celestial mapping is the identity
+    # for every time slice, so the edges again trace the celestial array boundary.
+    wcs_in = _drifting_cube_wcs(drift=0.0)
+    wcs_out = wcs_in.celestial
+    edges_out = sample_input_edges_in_output((5, 30, 40), wcs_in, wcs_out)
+    assert len(edges_out) == 2
+    assert_allclose(edges_out[0].min(), -0.5, atol=1e-6)
+    assert_allclose(edges_out[0].max(), 29.5, atol=1e-6)
+    assert_allclose(edges_out[1].min(), -0.5, atol=1e-6)
+    assert_allclose(edges_out[1].max(), 39.5, atol=1e-6)
+
+
+@pytest.mark.filterwarnings("ignore::astropy.wcs.wcs.FITSFixedWarning")
+@pytest.mark.filterwarnings("ignore::erfa.ErfaWarning")
+def test_sample_edges_fewer_dims_drift_covers_union():
+    # When the celestial footprint drifts along the non-reprojected axis, the
+    # sampled edges must cover the union of the footprint across that axis rather
+    # than just one slice. We check this against an independent computation that
+    # projects the four array corners at the first and last time slices through
+    # the full input WCS (low-level pix2world/world2pix), which does not share
+    # code with the function under test.
+    shape = (5, 30, 40)
+    wcs_in = _drifting_cube_wcs(drift=0.6)
+    wcs_out = _drifting_cube_wcs(drift=0.0).celestial
+    edges_out = sample_input_edges_in_output(shape, wcs_in, wcs_out)
+
+    cx = np.array([-0.5, -0.5, 39.5, 39.5])
+    cy = np.array([-0.5, 29.5, 29.5, -0.5])
+    px_all, py_all = [], []
+    for t in (0, shape[0] - 1):
+        world = wcs_in.wcs_pix2world(np.column_stack([cx, cy, np.full(4, t)]), 0)
+        out = wcs_out.wcs_world2pix(world[:, :2], 0)
+        px_all.append(out[:, 0])
+        py_all.append(out[:, 1])
+    px_all = np.concatenate(px_all)
+    py_all = np.concatenate(py_all)
+
+    # the drift must actually move the corners between the two time slices
+    assert not np.allclose(px_all[:4], px_all[4:])
+
+    # the sampled edges bound the corner projections at both time slices
+    assert edges_out[1].min() <= px_all.min() + 1e-6
+    assert edges_out[1].max() >= px_all.max() - 1e-6
+    assert edges_out[0].min() <= py_all.min() + 1e-6
+    assert edges_out[0].max() >= py_all.max() - 1e-6
+
+    # and the drift genuinely widens the footprint beyond a single (no-drift) slice
+    no_drift = sample_input_edges_in_output(shape, _drifting_cube_wcs(drift=0.0), wcs_out)
+    assert (edges_out[1].max() - edges_out[1].min()) > (no_drift[1].max() - no_drift[1].min()) + 1.0
+
+
+@pytest.mark.filterwarnings("ignore::astropy.wcs.wcs.FITSFixedWarning")
+def test_sample_edges_multiple_leading_axes():
+    # Two non-reprojected leading axes (e.g. stokes and time) into a 2D celestial
+    # output: the function iterates over the product of samples along both axes.
+    wcs_in = WCS(naxis=4)
+    wcs_in.wcs.ctype = "RA---TAN", "DEC--TAN", "TIME", "STOKES"
+    wcs_in.wcs.crpix = [20, 15, 1, 1]
+    wcs_in.wcs.crval = [40.0, 0.0, 0.0, 1.0]
+    wcs_in.wcs.cdelt = [-0.01, 0.01, 1.0, 1.0]
+    wcs_out = wcs_in.celestial
+    edges_out = sample_input_edges_in_output((2, 5, 30, 40), wcs_in, wcs_out)
+    assert len(edges_out) == 2
+    assert_allclose(edges_out[0].min(), -0.5, atol=1e-6)
+    assert_allclose(edges_out[0].max(), 29.5, atol=1e-6)
+    assert_allclose(edges_out[1].min(), -0.5, atol=1e-6)
+    assert_allclose(edges_out[1].max(), 39.5, atol=1e-6)
+
+
+@pytest.mark.filterwarnings("ignore::astropy.wcs.wcs.FITSFixedWarning")
+def test_sample_edges_n_samples_and_short_leading_axis():
+    # A leading axis shorter than n_samples must not error: the sampled integer
+    # indices are de-duplicated. A larger n_samples samples each edge more finely
+    # (longer output arrays) but for a linear drift the extent is unchanged since
+    # the endpoints already bound it.
+    shape = (2, 30, 40)
+    wcs_in = _drifting_cube_wcs(drift=0.3)
+    wcs_out = _drifting_cube_wcs(drift=0.0).celestial
+    e11 = sample_input_edges_in_output(shape, wcs_in, wcs_out, n_samples=11)
+    e2 = sample_input_edges_in_output(shape, wcs_in, wcs_out, n_samples=2)
+    assert len(e11[0]) > len(e2[0])
+    assert_allclose(e11[0].min(), e2[0].min(), atol=1e-2)
+    assert_allclose(e11[0].max(), e2[0].max(), atol=1e-2)
+    assert_allclose(e11[1].min(), e2[1].min(), atol=1e-2)
+    assert_allclose(e11[1].max(), e2[1].max(), atol=1e-2)
