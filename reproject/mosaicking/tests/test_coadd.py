@@ -36,6 +36,15 @@ def return_type(request):
     return request.param
 
 
+def _compute(result, return_type):
+    # For return_type='dask' the co-addition must hand back an uncomputed dask array
+    # (a silent numpy fallback would defeat the point), so assert that before computing
+    # it to plain numpy for the numerical comparisons in the tests below.
+    if return_type == "dask":
+        assert isinstance(result, da.core.Array)
+    return np.asarray(result)
+
+
 class TestReprojectAndCoAdd:
     def setup_method(self, method):
         self.wcs = WCS(naxis=2)
@@ -104,8 +113,8 @@ class TestReprojectAndCoAdd:
         )
         # np.asarray is a no-op for the numpy path and computes the deferred dask
         # result for return_type='dask', which must match numerically.
-        array = np.asarray(array)
-        footprint = np.asarray(footprint)
+        array = _compute(array, return_type)
+        footprint = _compute(footprint, return_type)
 
         assert_allclose(array, self.array, atol=ATOL)
         assert_allclose(footprint, 1, atol=ATOL)
@@ -124,7 +133,7 @@ class TestReprojectAndCoAdd:
             reproject_function=reproject_function,
             return_type=return_type,
         )
-        array = np.asarray(array)
+        array = _compute(array, return_type)
 
         assert_allclose(array, self.array, atol=ATOL)
 
@@ -209,7 +218,7 @@ class TestReprojectAndCoAdd:
             reproject_function=reproject_function,
             return_type=return_type,
         )
-        array = np.asarray(array)
+        array = _compute(array, return_type)
 
         # Test that either the correct tile sets the output value in the overlap regions
         test_sequence = list(enumerate(views))
@@ -329,8 +338,8 @@ class TestReprojectAndCoAdd:
             match_background=match_background,
             return_type=return_type,
         )
-        array = np.asarray(array)
-        footprint = np.asarray(footprint)
+        array = _compute(array, return_type)
+        footprint = _compute(footprint, return_type)
 
         # The inputs do overlap the output, so there should be coverage --
         # asserting this makes the test non-vacuous (a fully blank output would
@@ -438,7 +447,7 @@ class TestReprojectAndCoAdd:
             match_background=False,
             return_type=return_type,
         )
-        array = np.asarray(array)
+        array = _compute(array, return_type)
 
         expected = self.array + (2 * (weight1 / weight1.max()) - 1)
 
