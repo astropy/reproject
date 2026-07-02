@@ -1,5 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
+import itertools
 import warnings
 
 import numpy as np
@@ -9,12 +10,15 @@ from astropy.io.fits import Header
 from astropy.wcs import WCS
 from astropy.wcs.utils import (
     celestial_frame_to_wcs,
+    pixel_to_pixel,
     pixel_to_skycoord,
     skycoord_to_pixel,
     wcs_to_celestial_frame,
 )
-from astropy.wcs.wcsapi import BaseHighLevelWCS, BaseLowLevelWCS
+from astropy.wcs.wcsapi import BaseHighLevelWCS, BaseLowLevelWCS, SlicedLowLevelWCS
+from astropy.wcs.wcsapi.high_level_wcs_wrapper import HighLevelWCSWrapper
 
+from .._array_utils import sample_array_edges
 from .._wcs_utils import pixel_scale
 from ..utils import parse_input_shape
 
@@ -321,3 +325,67 @@ def find_optimal_celestial_wcs(
     naxis2 = int(round(ymax - ymin))
 
     return wcs_final, (naxis2, naxis1)
+
+
+def sample_input_edges_in_output(array_shape, wcs_in, wcs_out, n_samples=11):
+    """
+    Sample the edges of an input array and return their pixel coordinates in the
+    output WCS, for the reprojected (trailing) dimensions.
+
+    This is used to determine the minimal region of the output that an input
+    image covers. If the input WCS has more pixel dimensions than the output WCS
+    (for example when using ``non_reprojected_dims`` to reproject a cube into a
+    celestial-only output), the input WCS is sliced down to its reprojected
+    (trailing) dimensions before being related to the output, since
+    ``pixel_to_pixel`` requires the two WCS to describe the same number of world
+    coordinates. Because the reprojected WCS may vary along the non-reprojected
+    axes (for example a drifting pointing, possibly non-linear), the input WCS is
+    sliced at ``n_samples`` positions along each of those axes and the resulting
+    footprints are combined.
+
+    Parameters
+    ----------
+    array_shape : tuple
+        The shape of the input array.
+    wcs_in : `~astropy.wcs.wcsapi.BaseHighLevelWCS`
+        The WCS of the input array.
+    wcs_out : `~astropy.wcs.wcsapi.BaseHighLevelWCS`
+        The WCS of the output array.
+    n_samples : int, optional
+        The number of samples to take along each edge.
+
+    Returns
+    -------
+    list of `~numpy.ndarray`
+        The output pixel coordinates of the sampled edges, in array (numpy)
+        dimension order.
+    """
+    n_extra_in = wcs_in.low_level_wcs.pixel_n_dim - wcs_out.low_level_wcs.pixel_n_dim
+
+    if n_extra_in <= 0:
+        edges = sample_array_edges(
+            array_shape[-wcs_in.low_level_wcs.pixel_n_dim :], n_samples=n_samples
+        )[::-1]
+        return pixel_to_pixel(wcs_in, wcs_out, *edges)[::-1]
+
+    n_reproject = wcs_out.low_level_wcs.pixel_n_dim
+    edges = sample_array_edges(array_shape[-n_reproject:], n_samples=n_samples)[::-1]
+    leading_shape = array_shape[:n_extra_in]
+    # Sample positions along each non-reprojected axis (not just its end points)
+    # so that non-linear variation of the reprojected WCS along that axis is
+    # captured. Use integer pixel indices and de-duplicate for short axes.
+    leading_samples = [
+        sorted({int(round(idx)) for idx in np.linspace(0, size - 1, n_samples)})
+        for size in leading_shape
+    ]
+    edges_out_corners = []
+    for corner in itertools.product(*leading_samples):
+        slices = list(corner) + [slice(None)] * n_reproject
+        wcs_in_reproject = HighLevelWCSWrapper(
+            SlicedLowLevelWCS(wcs_in.low_level_wcs, slices=slices)
+        )
+        edges_out_corners.append(pixel_to_pixel(wcs_in_reproject, wcs_out, *edges)[::-1])
+    return [
+        np.concatenate([corner[idim] for corner in edges_out_corners])
+        for idim in range(n_reproject)
+    ]
