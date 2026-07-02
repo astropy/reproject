@@ -64,6 +64,54 @@ def _combine_array_into_output(combine_function, array, output_array, output_foo
             raise ValueError(f"Unexpected combine_function: {combine_function}")
 
 
+def _pad_to_output_grid(array, bounds, shape_out, target_chunks):
+    """
+    Pad a lazily-reprojected cutout onto the full output grid, with chunk
+    boundaries aligned to the target output chunking.
+
+    da.pad would chunk the pad region at the cutout's own chunk sizes, so the
+    later rechunk to the output chunking would have to split and recombine
+    chunks, making the number of tasks grow much faster than the number of
+    images. With the chunks aligned here, the final rechunk only has to merge
+    chunks at the cutout edges.
+    """
+    for idim, (imin, imax) in enumerate(bounds):
+        edges = np.cumsum(target_chunks[idim])[:-1]
+
+        def aligned_chunks(lo, hi, edges=edges):
+            cuts = [lo] + [int(edge) for edge in edges if lo < edge < hi] + [hi]
+            return tuple(np.diff(cuts).tolist())
+
+        array = array.rechunk(
+            array.chunks[:idim] + (aligned_chunks(imin, imax),) + array.chunks[idim + 1 :]
+        )
+        pieces = [array]
+        if imin > 0:
+            pieces.insert(
+                0,
+                da.zeros(
+                    array.shape[:idim] + (imin,) + array.shape[idim + 1 :],
+                    chunks=array.chunks[:idim]
+                    + (aligned_chunks(0, imin),)
+                    + array.chunks[idim + 1 :],
+                    dtype=array.dtype,
+                ),
+            )
+        if imax < shape_out[idim]:
+            pieces.append(
+                da.zeros(
+                    array.shape[:idim] + (shape_out[idim] - imax,) + array.shape[idim + 1 :],
+                    chunks=array.chunks[:idim]
+                    + (aligned_chunks(imax, shape_out[idim]),)
+                    + array.chunks[idim + 1 :],
+                    dtype=array.dtype,
+                ),
+            )
+        if len(pieces) > 1:
+            array = da.concatenate(pieces, axis=idim)
+    return array
+
+
 def reproject_and_coadd(
     input_data,
     output_projection,
@@ -333,6 +381,31 @@ def reproject_and_coadd(
     # describe and which therefore have to be skipped when slicing it.
     n_wcs_out_extra = len(shape_out) - wcs_out.low_level_wcs.pixel_n_dim
 
+    if coadd_with_dask:
+        # The deferred co-addition below stacks all the lazily-reprojected images,
+        # which requires a single common chunking. When the user gave a single
+        # common block size, use it as the output chunking so they stay in control
+        # (a per-dataset list of block sizes cannot map onto one output chunking,
+        # so it falls back to the default). Otherwise default to splitting along
+        # the non-reprojected (leading) dimensions, so each output chunk is a
+        # single plane rather than the whole non-reprojected extent -- that keeps
+        # memory bounded to a plane per image and lets the reprojection and
+        # co-addition stream plane by plane instead of reprojecting every image
+        # in full before combining.
+        block_size = None
+        if common_block_size is not None and not isinstance(common_block_size, str):
+            block_size = common_block_size
+
+        if block_size is None:
+            chunk_spec = (1,) * n_broadcasted + ("auto",) * n_dim_reproject
+        elif len(block_size) == n_dim_reproject:
+            # A block size given only for the reprojected dimensions; take one
+            # plane at a time along the non-reprojected ones.
+            chunk_spec = (1,) * n_broadcasted + block_size
+        else:
+            chunk_spec = block_size
+        target_chunks = da.core.normalize_chunks(chunk_spec, shape=tuple(shape_out), dtype=float)
+
     # Define 'on-the-fly' mode: in the case where we don't need to match the
     # backgrounds, we don't have to keep track of the intermediate arrays and
     # can just modify the output array on-the-fly
@@ -516,9 +589,10 @@ def reproject_and_coadd(
                 if weights is not None:
                     footprint = footprint * da.where(reset, 0.0, weights)
 
-                pad = [(imin, shape_out[idim] - imax) for idim, (imin, imax) in enumerate(bounds)]
-                dask_arrays.append(da.pad(array, pad, constant_values=0.0))
-                dask_footprints.append(da.pad(footprint, pad, constant_values=0.0))
+                dask_arrays.append(_pad_to_output_grid(array, bounds, shape_out, target_chunks))
+                dask_footprints.append(
+                    _pad_to_output_grid(footprint, bounds, shape_out, target_chunks)
+                )
                 continue
 
             # TODO: optimize handling of weights by making reprojection functions
@@ -687,35 +761,6 @@ def reproject_and_coadd(
         # the return_type='numpy' _combine_array_into_output semantics exactly, and
         # return the result uncomputed so the whole graph (reprojections and
         # co-addition) is evaluated in one deferred computation by the caller.
-        #
-        # Each image was padded to the full output grid, but with chunk boundaries
-        # that depend on where it landed. Stacking arrays with mismatched chunks makes
-        # dask unify them into an ever-finer grid, so the task count grows super-
-        # linearly with the number of images (the co-addition appears to hang). Rechunk
-        # every image to one common chunking first so the stack and reduction stay
-        # small and the memory per chunk stays bounded.
-        #
-        # When the user gave a single common block size, use it as the output chunking
-        # so they stay in control (a per-dataset list of block sizes cannot map onto
-        # one output chunking, so it falls back to the default). Otherwise default to
-        # splitting along the non-reprojected (leading) dimensions, so each output
-        # chunk is a single plane rather than the whole non-reprojected extent -- that
-        # keeps memory bounded to a plane per image and lets the reprojection and
-        # co-addition stream plane by plane instead of reprojecting every image in
-        # full before combining.
-        block_size = None
-        if common_block_size is not None and not isinstance(common_block_size, str):
-            block_size = common_block_size
-
-        if block_size is None:
-            chunk_spec = (1,) * n_broadcasted + ("auto",) * n_dim_reproject
-        elif len(block_size) == n_dim_reproject:
-            # A block size given only for the reprojected dimensions; take one plane at
-            # a time along the non-reprojected ones.
-            chunk_spec = (1,) * n_broadcasted + block_size
-        else:
-            chunk_spec = block_size
-        target_chunks = da.core.normalize_chunks(chunk_spec, shape=tuple(shape_out), dtype=float)
 
         if not dask_arrays:
             # No image is predicted to overlap the output; return the same blank
@@ -726,6 +771,13 @@ def reproject_and_coadd(
             output_footprint = da.zeros(tuple(shape_out), chunks=target_chunks)
             return output_array, output_footprint
 
+        # Each padded image has chunks aligned to the output chunking, with at most
+        # two extra chunk boundaries per dimension at the cutout edges. Rechunking to
+        # the common output chunking here therefore only merges those, and stacking
+        # identically-chunked arrays keeps the stack and reduction below small
+        # (stacking mismatched chunk grids would make dask unify them into an
+        # ever-finer grid, with the task count growing super-linearly with the
+        # number of images).
         dask_arrays = [array.rechunk(target_chunks) for array in dask_arrays]
         dask_footprints = [footprint.rechunk(target_chunks) for footprint in dask_footprints]
         stacked_array = da.stack(dask_arrays)
