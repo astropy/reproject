@@ -52,171 +52,6 @@ def as_delayed_memmap_path(array, tmp_dir):
     return array_path
 
 
-def _reproject_region(
-    array_region,
-    *,
-    wcs_in,
-    wcs_out,
-    slices_in_wcs,
-    slices_out_wcs,
-    shape_out_region,
-    reproject_func,
-    reproject_func_kwargs,
-):
-    """
-    Reproject a single region of the input into a single output block.
-
-    This is the core used by the map_blocks block function to reproject one block.
-
-    Parameters
-    ----------
-    array_region : `numpy.ndarray` or `dask.array.Array`
-        The region of the input array to reproject.
-    wcs_in : `~astropy.wcs.wcsapi.BaseHighLevelWCS`
-        The full input WCS, sliced down to ``slices_in_wcs`` before use.
-    wcs_out : `~astropy.wcs.wcsapi.BaseHighLevelWCS`
-        The full output WCS, sliced down to ``slices_out_wcs`` before use.
-    slices_in_wcs : tuple or None
-        Slices used to reduce ``wcs_in`` to the region being reprojected. If
-        `None`, the input WCS is used unchanged, for example when the
-        reprojection function broadcasts the extra dimensions itself.
-    slices_out_wcs : tuple
-        Slices used to reduce ``wcs_out`` to the output block.
-    shape_out_region : tuple
-        The shape of the output block.
-    reproject_func : callable
-        The low-level reprojection function to call.
-    reproject_func_kwargs : dict
-        Extra keyword arguments passed through to ``reproject_func``.
-
-    Returns
-    -------
-    `numpy.ndarray`
-        A stacked array containing the reprojected data and its footprint.
-    """
-
-    # The WCS class from astropy is not thread-safe, see e.g.
-    # https://github.com/astropy/astropy/issues/16244
-    # https://github.com/astropy/astropy/issues/16245
-    # To work around these issues, we make sure we do a deep copy of the WCS object
-    # in here when using FITS WCS. This is a very fast operation (<0.1ms) so should
-    # not be a concern in terms of performance. We only need to do this for FITS WCS.
-    wcs_in_cp = wcs_in.deepcopy() if isinstance(wcs_in, WCS) else wcs_in
-    wcs_out_cp = wcs_out.deepcopy() if isinstance(wcs_out, WCS) else wcs_out
-
-    if slices_in_wcs is None:
-        wcs_in_sub = wcs_in_cp
-    else:
-        if isinstance(wcs_in_cp, BaseHighLevelWCS):
-            low_level_wcs_in = SlicedLowLevelWCS(wcs_in_cp.low_level_wcs, slices=slices_in_wcs)
-        else:
-            low_level_wcs_in = SlicedLowLevelWCS(wcs_in_cp, slices=slices_in_wcs)
-        wcs_in_sub = HighLevelWCSWrapper(low_level_wcs_in)
-
-    if isinstance(wcs_out_cp, BaseHighLevelWCS):
-        low_level_wcs_out = SlicedLowLevelWCS(wcs_out_cp.low_level_wcs, slices=slices_out_wcs)
-    else:
-        low_level_wcs_out = SlicedLowLevelWCS(wcs_out_cp, slices=slices_out_wcs)
-    wcs_out_sub = HighLevelWCSWrapper(low_level_wcs_out)
-
-    array, footprint = reproject_func(
-        array_region,
-        wcs_in_sub,
-        wcs_out_sub,
-        shape_out=shape_out_region,
-        array_out=np.zeros(shape_out_region),
-        **reproject_func_kwargs,
-    )
-
-    return np.array([array, footprint])
-
-
-def _reproject_single_block(
-    a,
-    array_or_path,
-    block_info=None,
-    *,
-    wcs_in,
-    wcs_out,
-    shape_in,
-    broadcasted_parallelization,
-    n_dim_reproject,
-    reproject_func,
-    reproject_func_kwargs,
-):
-    # Reproject a single output block for the map_blocks path. The input is passed
-    # as an opaque object (a memmap, a memmap path, or an ``_ArrayContainer`` wrapping
-    # a dask array) and the output block location comes from ``block_info``.
-
-    if (
-        a.ndim == 0
-        or block_info is None
-        or block_info == []
-        or (isinstance(block_info, np.ndarray) and block_info.tolist() == [])
-    ):
-        return np.array([a, a])
-
-    if isinstance(array_or_path, _ArrayContainer):
-        array_or_path = array_or_path._array
-
-    shape_out = block_info[None]["chunk-shape"][1:]
-
-    # Three sets of slices are derived from this output block: which region of the
-    # output WCS it covers, which broadcasted slice of the input WCS it corresponds
-    # to, and which broadcasted slice of the input data to read. Along the
-    # reprojected dimensions the input is always kept whole (any output pixel can map
-    # anywhere within it), while dask may tile the output; along the broadcasted
-    # dimensions each block is a single slice.
-    slices_out_wcs = []
-    slices_in_wcs = []
-    slices_in_data = []
-    for idx in range(len(shape_out)):
-        interval = block_info[None]["array-location"][idx + 1]
-        if broadcasted_parallelization and idx < len(shape_out) - n_dim_reproject:
-            if interval[1] - interval[0] != 1:
-                raise RuntimeError(
-                    f"Expected a chunk of width 1 along dimension {idx} "
-                    f"(got {interval[1] - interval[0]})"
-                )
-            slices_out_wcs.append(interval[0])
-            slices_in_wcs.append(interval[0])
-            slices_in_data.append(slice(*interval))
-        else:
-            slices_out_wcs.append(slice(*interval))
-            slices_in_wcs.append(slice(None))
-            slices_in_data.append(slice(None))
-
-    slices_out_wcs = slices_out_wcs[-wcs_out.low_level_wcs.pixel_n_dim :]
-    slices_in_wcs = slices_in_wcs[-wcs_in.low_level_wcs.pixel_n_dim :]
-
-    if array_or_path is None:
-        raise RuntimeError("array_or_path is not set")
-
-    if isinstance(array_or_path, tuple):
-        array_in = np.memmap(array_or_path[0], **array_or_path[1], mode="r")
-    elif isinstance(array_or_path, str):
-        array_in = np.memmap(array_or_path, dtype=float, shape=shape_in, mode="r")
-    else:
-        array_in = array_or_path
-
-    if broadcasted_parallelization:
-        # Read just this broadcasted slice out of the whole input; the reprojected
-        # dimensions are kept whole (see above). For a memmap this stays a lazy view,
-        # so only the touched pages are loaded.
-        array_in = array_in[tuple(slices_in_data)]
-
-    return _reproject_region(
-        array_in,
-        wcs_in=wcs_in,
-        wcs_out=wcs_out,
-        slices_in_wcs=slices_in_wcs if broadcasted_parallelization else None,
-        slices_out_wcs=slices_out_wcs,
-        shape_out_region=shape_out,
-        reproject_func=reproject_func,
-        reproject_func_kwargs=reproject_func_kwargs,
-    )
-
-
 def _reproject_dispatcher(
     reproject_func,
     *,
@@ -534,6 +369,103 @@ def _reproject_dispatcher(
         if output_footprint is None and return_footprint and return_type != "dask":
             output_footprint = np.zeros(shape_out, dtype=float)
 
+        def reproject_single_block(a, array_or_path, block_info=None):
+
+            if (
+                a.ndim == 0
+                or block_info is None
+                or block_info == []
+                or (isinstance(block_info, np.ndarray) and block_info.tolist() == [])
+            ):
+                return np.array([a, a])
+
+            if isinstance(array_or_path, _ArrayContainer):
+                array_or_path = array_or_path._array
+
+            shape_out = block_info[None]["chunk-shape"][1:]
+
+            # The WCS class from astropy is not thread-safe, see e.g.
+            # https://github.com/astropy/astropy/issues/16244
+            # https://github.com/astropy/astropy/issues/16245
+            # To work around these issues, we make sure we do a deep copy of
+            # the WCS object in here when using FITS WCS. This is a very fast
+            # operation (<0.1ms) so should not be a concern in terms of
+            # performance. We only need to do this for FITS WCS.
+
+            wcs_in_cp = wcs_in.deepcopy() if isinstance(wcs_in, WCS) else wcs_in
+            wcs_out_cp = wcs_out.deepcopy() if isinstance(wcs_out, WCS) else wcs_out
+
+            # Along the reprojected dimensions the input is always kept whole (any
+            # output pixel can map anywhere within it) while dask may tile the
+            # output; along the broadcasted dimensions each block is a single slice.
+            # slices_in/slices_out reduce the input/output WCS to this block, and
+            # slices_in_data selects the matching broadcasted slice of the input.
+            slices_in = []
+            slices_out = []
+            slices_in_data = []
+            for idx in range(len(shape_out)):
+                interval = block_info[None]["array-location"][idx + 1]
+                if broadcasted_parallelization and idx < len(shape_out) - n_dim_reproject:
+                    if interval[1] - interval[0] != 1:
+                        raise RuntimeError(
+                            f"Expected a chunk of width 1 along dimension {idx} "
+                            f"(got {interval[1] - interval[0]})"
+                        )
+                    slices_in.append(interval[0])
+                    slices_out.append(interval[0])
+                    slices_in_data.append(slice(*interval))
+                else:
+                    slices_in.append(slice(None))
+                    slices_out.append(slice(*block_info[None]["array-location"][idx + 1]))
+                    slices_in_data.append(slice(None))
+
+            slices_in = slices_in[-wcs_in.low_level_wcs.pixel_n_dim :]
+            slices_out = slices_out[-wcs_out.low_level_wcs.pixel_n_dim :]
+
+            if broadcasted_parallelization:
+                if isinstance(wcs_in_cp, BaseHighLevelWCS):
+                    low_level_wcs_in = SlicedLowLevelWCS(wcs_in_cp.low_level_wcs, slices=slices_in)
+                else:
+                    low_level_wcs_in = SlicedLowLevelWCS(wcs_in_cp, slices=slices_in)
+
+                wcs_in_sub = HighLevelWCSWrapper(low_level_wcs_in)
+            else:
+                wcs_in_sub = wcs_in_cp
+
+            if isinstance(wcs_out_cp, BaseHighLevelWCS):
+                low_level_wcs_out = SlicedLowLevelWCS(wcs_out_cp.low_level_wcs, slices=slices_out)
+            else:
+                low_level_wcs_out = SlicedLowLevelWCS(wcs_out_cp, slices=slices_out)
+
+            wcs_out_sub = HighLevelWCSWrapper(low_level_wcs_out)
+
+            if isinstance(array_or_path, tuple):
+                array_in = np.memmap(array_or_path[0], **array_or_path[1], mode="r")
+            elif isinstance(array_or_path, str):
+                array_in = np.memmap(array_or_path, dtype=float, shape=shape_in, mode="r")
+            else:
+                array_in = array_or_path
+
+            if array_or_path is None:
+                raise RuntimeError("array_or_path is not set")
+
+            if broadcasted_parallelization:
+                # Read just this broadcasted slice out of the whole input; the
+                # reprojected dimensions are kept whole (see above). For a memmap
+                # this stays a lazy view, so only the touched pages are loaded.
+                array_in = array_in[tuple(slices_in_data)]
+
+            array, footprint = reproject_func(
+                array_in,
+                wcs_in_sub,
+                wcs_out_sub,
+                shape_out=shape_out,
+                array_out=np.zeros(shape_out),
+                **reproject_func_kwargs,
+            )
+
+            return np.array([array, footprint])
+
         # The input is passed to map_blocks as an opaque (non-dask) argument
         # rather than as a second dask array to align with the output, so that
         # dask is free to tile the output however the block size dictates
@@ -571,7 +503,7 @@ def _reproject_dispatcher(
             # been set previously, but in synchronous and threaded mode it is
             # better to simply pass a reference to the memmap array itself to
             # avoid having to load the memmap inside each
-            # _reproject_single_block call.
+            # reproject_single_block call.
             array_in_or_path = array_in
 
         if block_size is not None and block_size != "auto":
@@ -589,19 +521,12 @@ def _reproject_dispatcher(
         logger.info("Setting up output dask array with map_blocks")
 
         result = da.map_blocks(
-            _reproject_single_block,
+            reproject_single_block,
             array_out_dask,
             array_in_or_path,
             dtype="<f8",
             new_axis=0,
             chunks=(2,) + array_out_dask.chunksize,
-            wcs_in=wcs_in,
-            wcs_out=wcs_out,
-            shape_in=shape_in,
-            broadcasted_parallelization=broadcasted_parallelization,
-            n_dim_reproject=n_dim_reproject,
-            reproject_func=reproject_func,
-            reproject_func_kwargs=reproject_func_kwargs,
         )
 
         # Ensure that there are no more references to Numpy memmaps
