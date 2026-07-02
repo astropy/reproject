@@ -656,23 +656,35 @@ def reproject_and_coadd(
 
     if coadd_with_dask:
         # Combine all the lazily-reprojected images along the stacking axis, matching
-        # the return_type='numpy' _combine_array_into_output semantics exactly, and return the
-        # result uncomputed so the whole graph (reprojections and co-addition) is
-        # evaluated in one deferred computation by the caller.
+        # the return_type='numpy' _combine_array_into_output semantics exactly, and
+        # return the result uncomputed so the whole graph (reprojections and
+        # co-addition) is evaluated in one deferred computation by the caller.
+        #
+        # Each image was padded to the full output grid, but with chunk boundaries
+        # that depend on where it landed. Stacking arrays with mismatched chunks makes
+        # dask unify them into an ever-finer grid, so the task count grows super-
+        # linearly with the number of images (the co-addition appears to hang). Rechunk
+        # every image to one common chunking first so the stack and reduction stay
+        # small and the memory per chunk stays bounded.
+        target_chunks = da.core.normalize_chunks("auto", shape=tuple(shape_out), dtype=float)
+        dask_arrays = [array.rechunk(target_chunks) for array in dask_arrays]
+        dask_footprints = [footprint.rechunk(target_chunks) for footprint in dask_footprints]
         stacked_array = da.stack(dask_arrays)
         stacked_footprint = da.stack(dask_footprints)
         covered = stacked_footprint > 0
 
         if combine_function in ("mean", "sum"):
             # Footprint-weighted sum: output = sum(array * footprint), footprint =
-            # sum(footprint), and for the mean divide the two (as the return_type='numpy' path does).
+            # sum(footprint), and for the mean divide the two (as the
+            # return_type='numpy' path does). The numerator is zero wherever the
+            # footprint is zero, so divide by a footprint that has its zeros replaced
+            # by one to avoid a lazily-evaluated 0/0 (which would warn at compute time).
             numerator = da.where(covered, stacked_array * stacked_footprint, 0.0).sum(axis=0)
             output_footprint = stacked_footprint.sum(axis=0)
             if combine_function == "sum":
                 output_array = numerator
             else:
-                with np.errstate(invalid="ignore"):
-                    output_array = numerator / output_footprint
+                output_array = numerator / da.where(output_footprint > 0, output_footprint, 1.0)
         elif combine_function == "median":
             # Unweighted median of the covered images. This is only available for the
             # dask path (the return_type='numpy' path cannot compute a median on the fly); the median
