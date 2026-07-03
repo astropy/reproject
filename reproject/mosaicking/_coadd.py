@@ -10,7 +10,7 @@ import numpy as np
 from astropy.wcs import WCS
 from astropy.wcs.wcsapi import SlicedLowLevelWCS
 
-from .._array_utils import iterate_chunks
+from .._array_utils import iterate_chunks, pad_dask_array_to_grid
 from ..interpolation._core import _validate_wcs
 from ..utils import parse_input_data, parse_input_weights, parse_output_projection
 from ._background import determine_offset_matrix, solve_corrections_sgd
@@ -62,54 +62,6 @@ def _combine_array_into_output(combine_function, array, output_array, output_foo
             np.copyto(output_array[chunk.view_in_original_array], chunk.array, where=mask)
         else:
             raise ValueError(f"Unexpected combine_function: {combine_function}")
-
-
-def _pad_to_output_grid(array, bounds, shape_out, target_chunks):
-    """
-    Pad a lazily-reprojected cutout onto the full output grid, with chunk
-    boundaries aligned to the target output chunking.
-
-    da.pad would chunk the pad region at the cutout's own chunk sizes, so the
-    later rechunk to the output chunking would have to split and recombine
-    chunks, making the number of tasks grow much faster than the number of
-    images. With the chunks aligned here, the final rechunk only has to merge
-    chunks at the cutout edges.
-    """
-    for idim, (imin, imax) in enumerate(bounds):
-        edges = np.cumsum(target_chunks[idim])[:-1]
-
-        def aligned_chunks(lo, hi, edges=edges):
-            cuts = [lo] + [int(edge) for edge in edges if lo < edge < hi] + [hi]
-            return tuple(np.diff(cuts).tolist())
-
-        array = array.rechunk(
-            array.chunks[:idim] + (aligned_chunks(imin, imax),) + array.chunks[idim + 1 :]
-        )
-        pieces = [array]
-        if imin > 0:
-            pieces.insert(
-                0,
-                da.zeros(
-                    array.shape[:idim] + (imin,) + array.shape[idim + 1 :],
-                    chunks=array.chunks[:idim]
-                    + (aligned_chunks(0, imin),)
-                    + array.chunks[idim + 1 :],
-                    dtype=array.dtype,
-                ),
-            )
-        if imax < shape_out[idim]:
-            pieces.append(
-                da.zeros(
-                    array.shape[:idim] + (shape_out[idim] - imax,) + array.shape[idim + 1 :],
-                    chunks=array.chunks[:idim]
-                    + (aligned_chunks(imax, shape_out[idim]),)
-                    + array.chunks[idim + 1 :],
-                    dtype=array.dtype,
-                ),
-            )
-        if len(pieces) > 1:
-            array = da.concatenate(pieces, axis=idim)
-    return array
 
 
 def reproject_and_coadd(
@@ -589,9 +541,9 @@ def reproject_and_coadd(
                 if weights is not None:
                     footprint = footprint * da.where(reset, 0.0, weights)
 
-                dask_arrays.append(_pad_to_output_grid(array, bounds, shape_out, target_chunks))
+                dask_arrays.append(pad_dask_array_to_grid(array, bounds, shape_out, target_chunks))
                 dask_footprints.append(
-                    _pad_to_output_grid(footprint, bounds, shape_out, target_chunks)
+                    pad_dask_array_to_grid(footprint, bounds, shape_out, target_chunks)
                 )
                 continue
 
