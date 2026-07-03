@@ -284,4 +284,5 @@ def reproject_adaptive(
             bad_fill_value=bad_fill_value,
         ),
         return_type=return_type,
+        dask_method=dask_method,
     )

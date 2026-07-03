@@ -2,7 +2,9 @@
 
 import os
 import random
+import warnings
 
+import dask.array as da
 import numpy as np
 import pytest
 from astropy.io import fits
@@ -28,6 +30,20 @@ def reproject_function(request):
 @pytest.fixture(params=[False, True])
 def intermediate_memmap(request):
     return request.param
+
+
+@pytest.fixture(params=[None, "dask"], ids=["numpy", "dask"])
+def return_type(request):
+    return request.param
+
+
+def _compute(result, return_type):
+    # For return_type='dask' the co-addition must hand back an uncomputed dask array
+    # (a silent numpy fallback would defeat the point), so assert that before computing
+    # it to plain numpy for the numerical comparisons in the tests below.
+    if return_type == "dask":
+        assert isinstance(result, da.core.Array)
+    return np.asarray(result)
 
 
 class TestReprojectAndCoAdd:
@@ -80,7 +96,9 @@ class TestReprojectAndCoAdd:
         return views
 
     @pytest.mark.parametrize("combine_function", ["mean", "sum", "first", "last"])
-    def test_coadd_no_overlap(self, combine_function, reproject_function, intermediate_memmap):
+    def test_coadd_no_overlap(
+        self, combine_function, reproject_function, intermediate_memmap, return_type
+    ):
         # Make sure that if all tiles are exactly non-overlapping, and
         # we use 'sum' or 'mean', we get the exact input array back.
 
@@ -92,12 +110,17 @@ class TestReprojectAndCoAdd:
             shape_out=self.array.shape,
             combine_function=combine_function,
             reproject_function=reproject_function,
+            return_type=return_type,
         )
+        # np.asarray is a no-op for the numpy path and computes the deferred dask
+        # result for return_type='dask', which must match numerically.
+        array = _compute(array, return_type)
+        footprint = _compute(footprint, return_type)
 
         assert_allclose(array, self.array, atol=ATOL)
         assert_allclose(footprint, 1, atol=ATOL)
 
-    def test_coadd_with_overlap(self, reproject_function, intermediate_memmap):
+    def test_coadd_with_overlap(self, reproject_function, intermediate_memmap, return_type):
         # Here we make the input tiles overlapping. We can only check the
         # mean, not the sum.
 
@@ -109,9 +132,296 @@ class TestReprojectAndCoAdd:
             shape_out=self.array.shape,
             combine_function="mean",
             reproject_function=reproject_function,
+            return_type=return_type,
         )
+        array = _compute(array, return_type)
 
         assert_allclose(array, self.array, atol=ATOL)
+
+    def test_coadd_dask_median(self, reproject_function):
+        # 'median' is only available through the deferred dask path (the return_type='numpy' path
+        # cannot compute a median on the fly). Check it against a direct numpy
+        # nanmedian of the reprojected images, and that the result is uncomputed.
+        input_data = self._get_tiles(self._overlapping_views)
+
+        array, footprint = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=self.array.shape,
+            combine_function="median",
+            reproject_function=reproject_function,
+            return_type="dask",
+        )
+        assert isinstance(array, da.core.Array)  # returned uncomputed
+
+        refs = []
+        for arr, wcs in input_data:
+            reprojected, fp = reproject_function((arr, wcs), self.wcs, shape_out=self.array.shape)
+            reprojected[fp == 0] = np.nan
+            refs.append(reprojected)
+        reference = np.nanmedian(np.array(refs), axis=0)
+
+        covered = np.asarray(footprint) > 0
+        assert_allclose(np.asarray(array)[covered], reference[covered], atol=ATOL)
+
+        # The return_type='numpy' path must still reject 'median'.
+        with pytest.raises(ValueError, match="combine_function should be one of"):
+            reproject_and_coadd(
+                input_data,
+                self.wcs,
+                shape_out=self.array.shape,
+                combine_function="median",
+                reproject_function=reproject_function,
+            )
+
+    def test_coadd_dask_median_uncovered(self):
+        # Pixels covered by no image must not make the deferred median warn about
+        # all-NaN slices at compute time, and must come out blank with a zero
+        # footprint.
+        input_data = self._get_tiles([np.s_[0:100, 0:100]])
+
+        array, footprint = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=self.array.shape,
+            combine_function="median",
+            reproject_function=reproject_interp,
+            return_type="dask",
+        )
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            array = np.asarray(array)
+            footprint = np.asarray(footprint)
+
+        assert_allclose(footprint[200:, 200:], 0, atol=ATOL)
+        assert_allclose(array[200:, 200:], 0, atol=ATOL)
+        assert_allclose(array[:100, :100], self.array[:100, :100], atol=ATOL)
+
+    @pytest.mark.parametrize("combine_function", ["mean", "sum"])
+    def test_coadd_dask_negative_weights(self, combine_function):
+        # Reprojected weights can end up negative (e.g. interpolation overshoot
+        # with order='bicubic'), and the return_type='numpy' path includes negative
+        # contributions in both the weighted sum and the summed footprint, and only
+        # blanks pixels whose summed footprint is exactly zero. The deferred dask
+        # path must match, in particular not blanking pixels whose summed footprint
+        # is negative.
+        views = [np.s_[0:250, :], np.s_[150:399, :]]
+        input_data = self._get_tiles(views)
+        input_weights = [
+            np.ones_like(input_data[0][0]),
+            np.full_like(input_data[1][0], -0.5),
+        ]
+
+        results = {}
+        for return_type in (None, "dask"):
+            array, footprint = reproject_and_coadd(
+                input_data,
+                self.wcs,
+                shape_out=self.array.shape,
+                input_weights=input_weights,
+                combine_function=combine_function,
+                reproject_function=reproject_interp,
+                return_type=return_type,
+            )
+            results[return_type] = (np.asarray(array), np.asarray(footprint))
+
+        array_numpy, footprint_numpy = results[None]
+        array_dask, footprint_dask = results["dask"]
+
+        # The lower band is covered only by the negatively-weighted image, so its
+        # summed footprint is negative there and the values must be kept.
+        assert footprint_numpy[300, 100] < 0
+        assert_allclose(
+            array_numpy[300:, :],
+            self.array[300:, :] * (1 if combine_function == "mean" else -0.5),
+            atol=ATOL,
+        )
+
+        assert_allclose(footprint_dask, footprint_numpy, atol=ATOL)
+        assert_allclose(array_dask, array_numpy, atol=ATOL)
+
+    def test_coadd_dask_duplicate_input_names(self):
+        # Dask identifies arrays by name, so two different input dask arrays
+        # sharing a name get silently deduplicated once the co-addition is
+        # combined into one graph, with one input's data used for both; the
+        # dask path must warn about this. Passing the same array object twice
+        # is legitimate and must stay silent.
+        views = [np.s_[0:200, :], np.s_[199:399, :]]
+        (array1, wcs1), (array2, wcs2) = self._get_tiles(views)
+        dup1 = da.from_array(array1, name="duplicate-name")
+        dup2 = da.from_array(array2, name="duplicate-name")
+
+        # Record warnings rather than using pytest.warns, which re-emits the
+        # non-matching warnings on exit: with the oldest dependencies the dask
+        # machinery emits an unrelated DeprecationWarning that the
+        # warnings-as-errors filter would then turn into a failure.
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.simplefilter("always")
+            reproject_and_coadd(
+                [(dup1, wcs1), (dup2, wcs2)],
+                self.wcs,
+                shape_out=self.array.shape,
+                combine_function="mean",
+                reproject_function=reproject_interp,
+                return_type="dask",
+            )
+        assert any(
+            issubclass(w.category, UserWarning) and "share the name" in str(w.message)
+            for w in recorded
+        )
+
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.simplefilter("always")
+            reproject_and_coadd(
+                [(dup1, wcs1), (dup1, wcs1)],
+                self.wcs,
+                shape_out=self.array.shape,
+                combine_function="mean",
+                reproject_function=reproject_interp,
+                return_type="dask",
+            )
+        assert not any("share the name" in str(w.message) for w in recorded)
+
+    def test_coadd_dask_rejects_unsupported(self):
+        # Options that fill arrays in place cannot apply to a deferred dask result
+        # and must raise rather than being silently ignored.
+        input_data = self._get_tiles(self._nonoverlapping_views[:2])
+
+        for kwargs in (
+            {"output_array": np.zeros(self.array.shape)},
+            {"output_footprint": np.zeros(self.array.shape)},
+            {"intermediate_memmap": True},
+            {"match_background": True},
+        ):
+            with pytest.raises(ValueError, match="Cannot use return_type='dask'"):
+                reproject_and_coadd(
+                    input_data,
+                    self.wcs,
+                    shape_out=self.array.shape,
+                    combine_function="mean",
+                    reproject_function=reproject_interp,
+                    return_type="dask",
+                    **kwargs,
+                )
+
+    def test_coadd_return_type_validated(self):
+        # An unknown return_type must raise instead of silently running the eager
+        # numpy co-addition, and 'numpy' is accepted as an alias for the default.
+        input_data = self._get_tiles(self._nonoverlapping_views[:2])
+
+        with pytest.raises(ValueError, match="return_type should be set to"):
+            reproject_and_coadd(
+                input_data,
+                self.wcs,
+                shape_out=self.array.shape,
+                combine_function="mean",
+                reproject_function=reproject_interp,
+                return_type="Dask",
+            )
+
+        array, footprint = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=self.array.shape,
+            combine_function="mean",
+            reproject_function=reproject_interp,
+            return_type="numpy",
+        )
+        assert isinstance(array, np.ndarray)
+
+    def test_coadd_no_overlap_with_output(self, return_type):
+        # When no input is predicted to overlap the output, both paths must return
+        # a blank mosaic and zero footprint rather than erroring.
+        input_data = self._get_tiles(self._nonoverlapping_views[:2])
+
+        wcs_out = self.wcs.deepcopy()
+        wcs_out.wcs.crval = 103, 23
+
+        array, footprint = reproject_and_coadd(
+            input_data,
+            wcs_out,
+            shape_out=self.array.shape,
+            combine_function="mean",
+            reproject_function=reproject_interp,
+            blank_pixel_value=-1,
+            return_type=return_type,
+        )
+        array = _compute(array, return_type)
+        footprint = _compute(footprint, return_type)
+
+        assert_allclose(array, -1, atol=ATOL)
+        assert_allclose(footprint, 0, atol=ATOL)
+
+    def test_coadd_dask_block_size_auto(self):
+        # block_size='auto' is a documented value and must work with the deferred
+        # dask co-addition too.
+        input_data = self._get_tiles(self._nonoverlapping_views)
+
+        array, footprint = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=self.array.shape,
+            combine_function="mean",
+            reproject_function=reproject_interp,
+            return_type="dask",
+            block_size="auto",
+        )
+
+        assert_allclose(np.asarray(array), self.array, atol=ATOL)
+
+    def test_coadd_dask_output_chunking(self):
+        # A single user-specified block size is used as the chunking of the
+        # returned dask arrays.
+        input_data = self._get_tiles(self._nonoverlapping_views)
+
+        array, footprint = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=self.array.shape,
+            combine_function="mean",
+            reproject_function=reproject_interp,
+            return_type="dask",
+            block_size=(100, 100),
+        )
+
+        expected = da.core.normalize_chunks((100, 100), shape=self.array.shape, dtype=float)
+        assert array.chunks == expected
+        assert footprint.chunks == expected
+
+    def test_coadd_block_sizes_single_tuple_matching_n_datasets(self, return_type):
+        # A single flat block size tuple whose length happens to equal the number
+        # of datasets must still be interpreted as one common block size (this
+        # previously raised TypeError in the per-dataset detection).
+        input_data = self._get_tiles(self._nonoverlapping_views[:2])
+
+        array, footprint = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=self.array.shape,
+            combine_function="mean",
+            reproject_function=reproject_interp,
+            block_sizes=(10, 10),
+            return_type=return_type,
+        )
+        array = _compute(array, return_type)
+        footprint = _compute(footprint, return_type)
+
+        assert_allclose(array[footprint > 0], self.array[footprint > 0], atol=ATOL)
+
+    def test_coadd_block_sizes_wrong_length(self):
+        # A per-dataset list of block sizes must have one entry per dataset.
+        input_data = self._get_tiles(self._nonoverlapping_views[:2])
+
+        with pytest.raises(ValueError, match="one per dataset"):
+            reproject_and_coadd(
+                input_data,
+                self.wcs,
+                shape_out=self.array.shape,
+                combine_function="mean",
+                reproject_function=reproject_interp,
+                block_sizes=[(10, 10), (10, 10), (10, 10)],
+            )
 
     def test_coadd_with_outputs(self, tmp_path, reproject_function, intermediate_memmap):
         # Test the options to specify output array/footprint
@@ -139,7 +449,7 @@ class TestReprojectAndCoAdd:
         assert_allclose(output_footprint, footprint, atol=ATOL)
 
     @pytest.mark.parametrize("combine_function", ["first", "last", "min", "max"])
-    def test_coadd_with_overlap_first_last(self, reproject_function, combine_function):
+    def test_coadd_with_overlap_first_last(self, reproject_function, combine_function, return_type):
         views = self._overlapping_views
         input_data = self._get_tiles(views)
 
@@ -156,7 +466,9 @@ class TestReprojectAndCoAdd:
             shape_out=self.array.shape,
             combine_function=combine_function,
             reproject_function=reproject_function,
+            return_type=return_type,
         )
+        array = _compute(array, return_type)
 
         # Test that either the correct tile sets the output value in the overlap regions
         test_sequence = list(enumerate(views))
@@ -243,7 +555,11 @@ class TestReprojectAndCoAdd:
 
     @pytest.mark.parametrize("combine_function", ["first", "last", "min", "max", "sum", "mean"])
     @pytest.mark.parametrize("match_background", [True, False])
-    def test_footprint_correct(self, reproject_function, combine_function, match_background):
+    def test_footprint_correct(
+        self, reproject_function, combine_function, match_background, return_type
+    ):
+        if return_type == "dask" and match_background:
+            pytest.skip("return_type='dask' does not support match_background")
         # Test that the output array is zero outside the returned footprint
         # We're running this test over a somewhat large grid of parameters, so
         # cut down the array size to avoid increasing the total test runtime
@@ -270,7 +586,10 @@ class TestReprojectAndCoAdd:
             combine_function=combine_function,
             reproject_function=reproject_function,
             match_background=match_background,
+            return_type=return_type,
         )
+        array = _compute(array, return_type)
+        footprint = _compute(footprint, return_type)
 
         # The inputs do overlap the output, so there should be coverage --
         # asserting this makes the test non-vacuous (a fully blank output would
@@ -338,7 +657,9 @@ class TestReprojectAndCoAdd:
 
     @pytest.mark.filterwarnings("ignore:unclosed file:ResourceWarning")
     @pytest.mark.parametrize("mode", ["arrays", "filenames", "hdus", "hdulist"])
-    def test_coadd_with_weights(self, tmpdir, reproject_function, mode, intermediate_memmap):
+    def test_coadd_with_weights(
+        self, tmpdir, reproject_function, mode, intermediate_memmap, return_type
+    ):
         # Make sure that things work properly when specifying weights
 
         array1 = self.array + 1
@@ -374,7 +695,9 @@ class TestReprojectAndCoAdd:
             input_weights=input_weights,
             reproject_function=reproject_function,
             match_background=False,
+            return_type=return_type,
         )
+        array = _compute(array, return_type)
 
         expected = self.array + (2 * (weight1 / weight1.max()) - 1)
 
@@ -590,6 +913,95 @@ def test_coadd_non_reprojected_dims(combine_function, celestial_output):
 
     assert_allclose(array, reference, atol=ATOL)
     assert_allclose(footprint, reference_footprint, atol=ATOL)
+
+
+@pytest.mark.filterwarnings("ignore::erfa.ErfaWarning")
+@pytest.mark.parametrize("block_size", [(30, 30)])
+def test_coadd_non_reprojected_dims_reprojected_only_block_size(block_size):
+    # A block size covering only the reprojected dimensions must give the same
+    # result as the full-length equivalent; the per-cutout shrinking used to
+    # prepend the wrong leading entries for such block sizes. A sub-tiled
+    # (12, 12) case should be added here once block sizes smaller than the
+    # output along the reprojected dimensions are supported.
+
+    n_time = 3
+    shape_out = (n_time, 30, 30)
+    wcs_in = _drifting_cube_wcs(drift=0.6)
+    wcs_out = _drifting_cube_wcs(drift=0.0).celestial
+
+    rng = np.random.default_rng(12345)
+    data = rng.random((n_time, 30, 30))
+
+    reference, reference_footprint = reproject_and_coadd(
+        [(data, wcs_in)],
+        wcs_out,
+        shape_out=shape_out,
+        reproject_function=reproject_interp,
+        combine_function="mean",
+        non_reprojected_dims=(0,),
+        parallel=True,
+        block_size=(1,) + shape_out[1:],
+        roundtrip_coords=False,
+    )
+
+    array, footprint = reproject_and_coadd(
+        [(data, wcs_in)],
+        wcs_out,
+        shape_out=shape_out,
+        reproject_function=reproject_interp,
+        combine_function="mean",
+        non_reprojected_dims=(0,),
+        parallel=True,
+        block_size=block_size,
+        roundtrip_coords=False,
+    )
+
+    assert_allclose(array, reference, atol=ATOL)
+    assert_allclose(footprint, reference_footprint, atol=ATOL)
+
+
+@pytest.mark.filterwarnings("ignore::erfa.ErfaWarning")
+def test_coadd_non_reprojected_dims_with_weights():
+    # Weights combined with non_reprojected_dims used to raise
+    # NotImplementedError because the per-image weights reprojection did not
+    # pass the block size through. Uniform weights should give the same result
+    # as no weights.
+
+    n_time = 3
+    shape_out = (n_time, 30, 30)
+    wcs_in = _drifting_cube_wcs(drift=0.6)
+    wcs_out = _drifting_cube_wcs(drift=0.0)
+
+    rng = np.random.default_rng(12345)
+    data1 = rng.random((n_time, 30, 30))
+    data2 = rng.random((n_time, 30, 30))
+
+    reference, _ = reproject_and_coadd(
+        [(data1, wcs_in), (data2, wcs_in)],
+        wcs_out,
+        shape_out=shape_out,
+        reproject_function=reproject_interp,
+        combine_function="mean",
+        non_reprojected_dims=(0,),
+        parallel=True,
+        block_size=(1,) + shape_out[1:],
+        roundtrip_coords=False,
+    )
+
+    array, _ = reproject_and_coadd(
+        [(data1, wcs_in), (data2, wcs_in)],
+        wcs_out,
+        shape_out=shape_out,
+        input_weights=[np.ones(data1.shape), np.ones(data2.shape)],
+        reproject_function=reproject_interp,
+        combine_function="mean",
+        non_reprojected_dims=(0,),
+        parallel=True,
+        block_size=(1,) + shape_out[1:],
+        roundtrip_coords=False,
+    )
+
+    assert_allclose(array, reference, atol=ATOL)
 
 
 def test_coadd_non_reprojected_dims_invalid():

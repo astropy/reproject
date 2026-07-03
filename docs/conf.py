@@ -27,6 +27,13 @@ exclude_patterns.append("_templates")
 rst_epilog += """
 """
 
+intersphinx_resolve_self = "astropy"
+intersphinx_mapping.update(
+    {
+        "dask": ("https://docs.dask.org/en/stable/", None),
+    }
+)
+
 # -- Project information ------------------------------------------------------
 
 package_info = metadata.metadata("reproject")

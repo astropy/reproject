@@ -129,6 +129,7 @@ def reproject_exact(
             return_footprint=return_footprint,
             output_footprint=output_footprint,
             return_type=return_type,
+            dask_method=dask_method,
         )
     else:
         raise NotImplementedError(
