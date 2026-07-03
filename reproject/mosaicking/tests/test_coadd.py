@@ -232,7 +232,11 @@ class TestReprojectAndCoAdd:
         # The lower band is covered only by the negatively-weighted image, so its
         # summed footprint is negative there and the values must be kept.
         assert footprint_numpy[300, 100] < 0
-        assert_allclose(array_numpy[300:, :], self.array[300:, :] * (1 if combine_function == "mean" else -0.5), atol=ATOL)
+        assert_allclose(
+            array_numpy[300:, :],
+            self.array[300:, :] * (1 if combine_function == "mean" else -0.5),
+            atol=ATOL,
+        )
 
         assert_allclose(footprint_dask, footprint_numpy, atol=ATOL)
         assert_allclose(array_dask, array_numpy, atol=ATOL)

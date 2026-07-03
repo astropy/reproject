@@ -95,14 +95,13 @@ def _input_cutout_iterator(
     n_wcs_out_extra,
     progress_bar,
 ):
-    """
-    Parse each input dataset (and its weights map) and compute the minimal
-    cutout of the output grid that it covers, yielding everything that the
-    per-image reprojection needs. Datasets with no predicted overlap with the
-    output are skipped. This is shared between the return_type='numpy' and
-    return_type='dask' co-addition drivers so that the cutout logic exists
-    only once.
-    """
+    # Parse each input dataset (and its weights map) and compute the minimal
+    # cutout of the output grid that it covers, yielding everything that the
+    # per-image reprojection needs. Datasets with no predicted overlap with the
+    # output are skipped. This is shared between the return_type='numpy' and
+    # return_type='dask' co-addition drivers so that the cutout logic exists
+    # only once.
+
     logger = getLogger(__name__)
 
     ndim_out = len(shape_out)
@@ -240,14 +239,13 @@ def _coadd_dask(
     hdu_in,
     reproject_kwargs,
 ):
-    """
-    The return_type='dask' co-addition: reproject each cutout lazily, pad it
-    onto the output grid, and combine all the images along a stacking axis,
-    matching the return_type='numpy' path's _combine_array_into_output
-    semantics exactly. The result is returned uncomputed so the whole graph
-    (reprojections and co-addition) is evaluated in one computation by the
-    caller.
-    """
+    # The return_type='dask' co-addition: reproject each cutout lazily, pad it
+    # onto the output grid, and combine all the images along a stacking axis,
+    # matching the return_type='numpy' path's _combine_array_into_output
+    # semantics exactly. The result is returned uncomputed so the whole graph
+    # (reprojections and co-addition) is evaluated in one computation by the
+    # caller.
+
     logger = getLogger(__name__)
 
     dask_arrays = []
@@ -399,11 +397,10 @@ def _coadd_numpy(
     hdu_in,
     reproject_kwargs,
 ):
-    """
-    The return_type='numpy' co-addition: reproject each cutout and combine it
-    into the output arrays, either on the fly or, when the backgrounds need to
-    be matched, after all the images have been reprojected.
-    """
+    # The return_type='numpy' co-addition: reproject each cutout and combine it
+    # into the output arrays, either on the fly or, when the backgrounds need to
+    # be matched, after all the images have been reprojected.
+
     logger = getLogger(__name__)
 
     # Define 'on-the-fly' mode: in the case where we don't need to match the
@@ -857,8 +854,6 @@ def reproject_and_coadd(
             )
 
     logger.info(f"Output mosaic will have shape {shape_out}")
-
-    ndim_out = len(shape_out)
 
     # Determine how many leading dimensions are broadcasted (i.e. not
     # reprojected). If non_reprojected_dims is set these are given
