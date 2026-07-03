@@ -129,6 +129,43 @@ def test_non_reprojected_dims_dask_input(reproject_function, block_size):
     assert_allclose(array_out, reference, equal_nan=True)
 
 
+def test_non_reprojected_dims_sliced_memmap(tmp_path, reproject_function):
+    # A sliced memmap view keeps the parent's unadjusted .offset, so it must not
+    # be reconstructed from filename and offset inside the block tasks (which
+    # would silently reproject the wrong planes); views are passed by reference
+    # instead. Slicing off the leading plane keeps the view c-contiguous, which
+    # is the case that used to take the reconstruction path.
+
+    data = np.arange(5 * 20 * 20, dtype=float).reshape((5, 20, 20))
+    mm = np.memmap(tmp_path / "cube.np", mode="w+", dtype=float, shape=(5, 20, 20))
+    mm[:] = data
+    mm.flush()
+
+    wcs_in = _spectral_cube_wcs(0.0, 1e9)
+    wcs_out = _spectral_cube_wcs(0.02, 1e9 + 2e6)
+    shape_out = (4, 20, 20)
+
+    reference, _ = reproject_function(
+        (data[1:], wcs_in),
+        wcs_out,
+        shape_out=shape_out,
+        non_reprojected_dims=(0,),
+        parallel=True,
+        block_size=(20, 20),
+    )
+
+    array_out, _ = reproject_function(
+        (mm[1:], wcs_in),
+        wcs_out,
+        shape_out=shape_out,
+        non_reprojected_dims=(0,),
+        parallel=True,
+        block_size=(20, 20),
+    )
+
+    assert_allclose(array_out, reference, equal_nan=True)
+
+
 def test_non_reprojected_dims_invalid_order(reproject_function):
     data = np.ones((4, 20, 20))
     wcs = _spectral_cube_wcs(0.0, 1e9)
