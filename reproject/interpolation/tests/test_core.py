@@ -13,23 +13,11 @@ from astropy.wcs.wcs import FITSFixedWarning
 from astropy.wcs.wcsapi import HighLevelWCSWrapper, SlicedLowLevelWCS
 from numpy.testing import assert_allclose
 
+from reproject._array_utils import ArrayWrapper
 from reproject.interpolation._high_level import reproject_interp
 from reproject.tests.helpers import array_footprint_to_hdulist
 
 # TODO: add reference comparisons
-
-
-class ArrayWrapper:
-    # Minimal getitem-only array-like, standing in for a custom lazy array
-
-    def __init__(self, array):
-        self._array = array
-        self.ndim = array.ndim
-        self.shape = array.shape
-        self.dtype = array.dtype
-
-    def __getitem__(self, item):
-        return self._array[item]
 
 
 @pytest.fixture(

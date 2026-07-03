@@ -12,6 +12,7 @@ from astropy.wcs.wcsapi import BaseHighLevelWCS, SlicedLowLevelWCS
 from astropy.wcs.wcsapi.high_level_wcs_wrapper import HighLevelWCSWrapper
 from dask import delayed
 
+from ._array_utils import ArrayWrapper
 from .utils import _dask_to_numpy_memmap
 
 __all__ = ["_reproject_dispatcher"]
@@ -525,8 +526,14 @@ def _reproject_dispatcher(
                     )
                 array_in_or_path = da.block(pieces.tolist())
             else:
+                # ArrayWrapper (plus the explicit name) prevents dask from
+                # hashing the whole buffer to name the array, which for a memmap
+                # would silently load the entire file into memory (see
+                # https://github.com/dask/dask/issues/11850).
                 array_in_or_path = da.from_array(
-                    array_in, name=f"reproject-input-{uuid.uuid4().hex}", chunks=input_chunks
+                    ArrayWrapper(array_in),
+                    name=f"reproject-input-{uuid.uuid4().hex}",
+                    chunks=input_chunks,
                 )
 
         elif broadcasted_parallelization:
