@@ -91,13 +91,16 @@ def test_non_reprojected_dims_subtiled(reproject_function, block_size):
     assert_allclose(footprint_sub, footprint_full, equal_nan=True)
 
 
+@pytest.mark.parametrize("chunks", [(1, 30, 30), (1, 15, 15)])
 @pytest.mark.parametrize("block_size", [(20, 20), (7, 7)])
-def test_non_reprojected_dims_dask_input(reproject_function, block_size):
-    # A dask-array input is passed through map_blocks and reprojected per block (for
-    # interp, via dask-image's map_coordinates, which streams the input chunks). The
-    # result must match the identical numpy input, both for full-plane and sub-tiled
-    # blocks. The WCS drifts along the non-reprojected axis so each slice really is
-    # reprojected with its own WCS.
+def test_non_reprojected_dims_dask_input(reproject_function, block_size, chunks):
+    # A dask-array input must match the identical numpy input, both for
+    # full-plane and sub-tiled blocks. With dask_method='none', an input chunked
+    # one slice at a time is materialized per slice (exactly once), while an
+    # input chunked below one slice is kept lazy so streaming cores never need a
+    # whole slice at once; both must give the same answer. The WCS drifts along
+    # the non-reprojected axis so each slice really is reprojected with its own
+    # WCS.
     import dask.array as da
 
     n_time = 5
@@ -117,7 +120,7 @@ def test_non_reprojected_dims_dask_input(reproject_function, block_size):
     )
 
     array_out, _ = reproject_function(
-        (da.from_array(data, chunks=(1, 30, 30)), wcs_in),
+        (da.from_array(data, chunks=chunks), wcs_in),
         wcs_out,
         shape_out=shape_out,
         non_reprojected_dims=(0,),

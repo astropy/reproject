@@ -400,10 +400,12 @@ def _reproject_dispatcher(
             # output pixel can map anywhere within it) while dask may tile the
             # output; along the broadcasted dimensions each block is a single
             # slice. slices_in/slices_out reduce the input/output WCS to this
-            # block; the matching broadcasted slice of the input arrives as the
-            # aligned input block.
+            # block; the matching broadcasted slice of the input either arrives as
+            # the aligned input block or, when the input was passed whole (lazy
+            # dask input), is read out below using slices_in_data.
             slices_in = []
             slices_out = []
+            slices_in_data = []
             for idx in range(len(shape_out)):
                 interval = block_info[None]["array-location"][idx + 1]
                 if broadcasted_parallelization and idx < len(shape_out) - n_dim_reproject:
@@ -414,9 +416,11 @@ def _reproject_dispatcher(
                         )
                     slices_in.append(interval[0])
                     slices_out.append(interval[0])
+                    slices_in_data.append(slice(*interval))
                 else:
                     slices_in.append(slice(None))
                     slices_out.append(slice(*block_info[None]["array-location"][idx + 1]))
+                    slices_in_data.append(slice(None))
 
             slices_in = slices_in[-wcs_in.low_level_wcs.pixel_n_dim :]
             slices_out = slices_out[-wcs_out.low_level_wcs.pixel_n_dim :]
@@ -438,7 +442,7 @@ def _reproject_dispatcher(
 
             wcs_out_sub = HighLevelWCSWrapper(low_level_wcs_out)
 
-            if broadcasted_parallelization:
+            if broadcasted_parallelization and input_aligned:
                 # The input was passed as an aligned dask array, so array_or_path
                 # is already this block's broadcasted slice of the input, kept
                 # whole along the reprojected dimensions (see above).
@@ -453,6 +457,12 @@ def _reproject_dispatcher(
             if array_in is None:
                 raise RuntimeError("array_or_path is not set")
 
+            if broadcasted_parallelization and not input_aligned:
+                # The input was passed whole as a lazy dask array; read out a lazy
+                # view of this block's broadcasted slice so a streaming
+                # reprojection core only computes the input chunks it touches.
+                array_in = array_in[tuple(slices_in_data)]
+
             array, footprint = reproject_func(
                 array_in,
                 wcs_in_sub,
@@ -464,16 +474,26 @@ def _reproject_dispatcher(
 
             return np.array([array, footprint])
 
-        if broadcasted_parallelization:
+        input_aligned = False
+        if broadcasted_parallelization and (
+            not isinstance(array_in, da.core.Array)
+            or dask_method != "none"
+            or all(len(chunks) == 1 for chunks in array_in.chunks[-n_dim_reproject:])
+        ):
             # Pass the input as a second dask array with one chunk per broadcasted
             # slice, kept whole along the reprojected dimensions (any output pixel
             # can map anywhere within its slice). map_blocks broadcasts the single
             # chunk along the reprojected dimensions to every output tile of that
-            # slice, so each slice is computed once and streamed to exactly the
+            # slice, so each slice is computed exactly once and streamed to the
             # tasks that need it: dask array inputs are never materialized in
             # full, sub-tiled planes do not recompute their input per tile, and
             # under a distributed scheduler each task depends only on its own
-            # slice rather than embedding the whole input.
+            # slice rather than embedding the whole input. The exception is a dask
+            # input with dask_method='none' that is chunked below one slice along
+            # the reprojected dimensions: materializing it here would forgo the
+            # ability of streaming reprojection cores to work chunk by chunk
+            # without ever holding a whole slice, so it is kept lazy below.
+            input_aligned = True
             input_chunks = (1,) * (array_in.ndim - n_dim_reproject) + (-1,) * n_dim_reproject
             if isinstance(array_in, da.core.Array):
                 array_in_dask = array_in.rechunk(input_chunks)
@@ -496,6 +516,16 @@ def _reproject_dispatcher(
                 array_in_or_path = da.from_array(
                     array_in, name=f"reproject-input-{uuid.uuid4().hex}", chunks=input_chunks
                 )
+
+        elif broadcasted_parallelization:
+            # A dask input with dask_method='none' chunked below one slice along
+            # the reprojected dimensions: pass it whole as an opaque constant and
+            # let each block read out a lazy view of its own slice, so that a
+            # streaming reprojection core (e.g. interpolation via dask-image) only
+            # ever computes the input chunks that each output tile touches and a
+            # full slice need never be materialized at once. The tradeoff is that
+            # input chunks touched by several tiles are computed once per tile.
+            array_in_or_path = _ArrayContainer(array_in)
 
         # For the remaining (non-broadcasted) cases the input is passed to
         # map_blocks as an opaque (non-dask) argument, so that every task sees the
