@@ -598,21 +598,21 @@ def _reproject_dispatcher(
 
         logger.info("Setting up output dask array with map_blocks")
 
+        # Declare the exact (possibly ragged) chunks of the output template so
+        # that edge blocks are computed at their true size rather than being
+        # reprojected at the full block size and truncated afterwards.
         result = da.map_blocks(
             reproject_single_block,
             array_out_dask,
             array_in_or_path,
             dtype="<f8",
             new_axis=0,
-            chunks=(2,) + array_out_dask.chunksize,
+            chunks=((2,),) + array_out_dask.chunks,
         )
 
         # Ensure that there are no more references to Numpy memmaps
         array_in = None
         array_in_or_path = None
-
-        # Truncate extra elements
-        result = result[tuple([slice(None)] + [slice(s) for s in shape_out])]
 
         if return_type == "dask":
             if return_footprint:
