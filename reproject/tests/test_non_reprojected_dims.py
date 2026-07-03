@@ -59,10 +59,10 @@ def test_non_reprojected_dims(reproject_function):
 
 @pytest.mark.parametrize("block_size", [(1, 7, 7), (7, 7), (1, 12, 20)])
 def test_non_reprojected_dims_subtiled(reproject_function, block_size):
-    # A block_size smaller than the output along the reprojected (celestial)
-    # dimensions should reproject each plane in sub-tiles and give exactly the
-    # same result as reprojecting each full plane in one go. This is what keeps
-    # the coordinate-transform memory bounded for large planes.
+    # A block_size smaller than the output along the reprojected dimensions
+    # (the celestial ones here) should reproject each slice in sub-tiles and give
+    # exactly the same result as reprojecting each full slice in one go. This is
+    # what keeps the coordinate-transform memory bounded for large slices.
 
     data = np.arange(4 * 20 * 20, dtype=float).reshape((4, 20, 20))
     wcs_in = _spectral_cube_wcs(0.0, 1e9)

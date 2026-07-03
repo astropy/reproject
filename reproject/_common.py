@@ -105,7 +105,7 @@ def _reproject_dispatcher(
         way. Reprojecting fewer dimensions than the WCS currently requires an
         explicit ``block_size``; its entries along the reprojected dimensions
         may either match the output shape or be smaller, in which case each
-        plane is reprojected in sub-tiles of that size.
+        non-reprojected slice is reprojected in sub-tiles of that size.
     array_out : `~numpy.ndarray`, optional
         An array in which to store the reprojected data.  This can be any numpy
         array including a memory map, which may be helpful when dealing with
@@ -313,14 +313,14 @@ def _reproject_dispatcher(
         # about the number of entries but about which dimensions the block spans the
         # full output extent along:
         #  - if the block spans the full extent along the reprojected (trailing)
-        #    dimensions, each block is one whole reprojected plane, so we parallelize
-        #    over the broadcasted dimensions (one broadcasted slice per block);
+        #    dimensions, each block is one whole non-reprojected slice, so we
+        #    parallelize over the broadcasted dimensions (one slice per block);
         #  - if instead it spans the full extent along the broadcasted (leading)
-        #    dimensions, the block tiles the reprojected plane and we do not
+        #    dimensions, the block tiles the reprojected dimensions and we do not
         #    parallelize over the broadcasted dimensions;
         #  - if it spans the full extent along neither, we raise, unless
-        #    non_reprojected_dims requires slicing the WCS per plane, in which case a
-        #    block smaller than the plane sub-tiles each plane.
+        #    non_reprojected_dims requires slicing the WCS per non-reprojected slice,
+        #    in which case a block smaller than the slice sub-tiles each slice.
         broadcasted_parallelization = False
         if broadcasting and block_size is not None and block_size != "auto":
             if block_size[-n_dim_reproject:] == shape_out[-n_dim_reproject:]:
@@ -332,7 +332,7 @@ def _reproject_dispatcher(
                 # slice per block and let dask additionally tile the reprojected
                 # dimensions according to the block size, which bounds the
                 # coordinate-transform memory (it would otherwise scale with the
-                # full plane size). Each output tile is still reprojected from the
+                # full slice size). Each output tile is still reprojected from the
                 # whole input slice, since any output pixel can map anywhere within
                 # it.
                 broadcasted_parallelization = True
@@ -376,7 +376,8 @@ def _reproject_dispatcher(
                 "(for example using non_reprojected_dims) currently requires "
                 "passing an explicit block_size whose entries along the reprojected "
                 "dimensions either match the output shape or are smaller (in which "
-                "case each plane is reprojected in sub-tiles of that size), "
+                "case each non-reprojected slice is reprojected in sub-tiles of "
+                "that size), "
                 "optionally with parallel=True to compute the blocks concurrently"
             )
 
@@ -499,7 +500,7 @@ def _reproject_dispatcher(
             # chunk along the reprojected dimensions to every output tile of that
             # slice, so each slice is computed exactly once and streamed to the
             # tasks that need it: dask array inputs are never materialized in
-            # full, sub-tiled planes do not recompute their input per tile, and
+            # full, sub-tiled slices do not recompute their input per tile, and
             # under a distributed scheduler each task depends only on its own
             # slice rather than embedding the whole input. The exception is a dask
             # input with dask_method='none' that is chunked below one slice along

@@ -215,8 +215,9 @@ def reproject_adaptive(
         sequential integers starting from zero (e.g. ``(0,)`` or ``(0, 1)``).
         This currently requires passing an explicit ``block_size``; its entries
         along the reprojected dimensions may either match ``shape_out`` or be
-        smaller, in which case each plane is reprojected in sub-tiles of that
-        size to keep the coordinate-transform memory bounded (optionally
+        smaller, in which case each non-reprojected slice is reprojected in
+        sub-tiles of that size to keep the coordinate-transform memory bounded
+        (optionally
         combined with ``parallel`` to compute the blocks concurrently).
     parallel : bool or int or str, optional
         If `True`, the reprojection is carried out in parallel, and if a
