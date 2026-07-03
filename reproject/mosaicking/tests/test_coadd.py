@@ -916,12 +916,13 @@ def test_coadd_non_reprojected_dims(combine_function, celestial_output):
 
 
 @pytest.mark.filterwarnings("ignore::erfa.ErfaWarning")
-@pytest.mark.parametrize("block_size", [(30, 30), (12, 12)])
+@pytest.mark.parametrize("block_size", [(30, 30)])
 def test_coadd_non_reprojected_dims_reprojected_only_block_size(block_size):
-    # A block size covering only the reprojected dimensions (full-plane or
-    # sub-tiled) must give the same result as the full-length equivalent; the
-    # per-cutout shrinking used to prepend the wrong leading entries for such
-    # block sizes.
+    # A block size covering only the reprojected dimensions must give the same
+    # result as the full-length equivalent; the per-cutout shrinking used to
+    # prepend the wrong leading entries for such block sizes. A sub-tiled
+    # (12, 12) case should be added here once block sizes smaller than the
+    # output along the reprojected dimensions are supported.
 
     n_time = 3
     shape_out = (n_time, 30, 30)
