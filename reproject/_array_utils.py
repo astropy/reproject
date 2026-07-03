@@ -4,7 +4,7 @@ from dask_image.ndinterp import map_coordinates as dask_image_map_coordinates
 from dask_image.ndinterp import spline_filter
 from scipy.ndimage import spline_filter as scipy_spline_filter
 
-__all__ = ["map_coordinates", "dask_map_coordinates", "sample_array_edges", "ArrayWrapper"]
+__all__ = ["map_coordinates", "dask_map_coordinates", "sample_array_edges"]
 
 
 def find_chunk_shape(shape, max_chunk_size=None):
@@ -337,15 +337,3 @@ def pad_dask_array_to_grid(array, bounds, target_shape, target_chunks):
         if len(pieces) > 1:
             array = da.concatenate(pieces, axis=idim)
     return array
-
-
-class ArrayWrapper:
-
-    def __init__(self, array):
-        self._array = array
-        self.ndim = array.ndim
-        self.shape = array.shape
-        self.dtype = array.dtype
-
-    def __getitem__(self, item):
-        return self._array[item]
