@@ -82,7 +82,7 @@ _InputCutout = namedtuple(
 )
 
 
-def _iterate_input_cutouts(
+def _input_cutout_iterator(
     input_data,
     input_weights,
     hdu_in,
@@ -890,7 +890,7 @@ def reproject_and_coadd(
             chunk_spec = block_size
         target_chunks = da.core.normalize_chunks(chunk_spec, shape=tuple(shape_out), dtype=float)
 
-    cutouts = _iterate_input_cutouts(
+    cutouts = _input_cutout_iterator(
         input_data,
         input_weights,
         hdu_in,
