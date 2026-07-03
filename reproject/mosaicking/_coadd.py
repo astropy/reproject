@@ -3,6 +3,7 @@ import os
 import sys
 import tempfile
 import uuid
+import warnings
 from collections import namedtuple
 from logging import getLogger
 
@@ -251,7 +252,26 @@ def _coadd_dask(
     dask_arrays = []
     dask_footprints = []
 
+    # Dask identifies arrays by their name, so two different input arrays that
+    # share a name (a bug seen in the wild for arrays built with a hard-coded
+    # graph layer name) are silently treated as the same array once everything
+    # is combined into a single graph, with one input's data used for all of
+    # them. Passing the same array object several times is fine.
+    seen_dask_arrays = {}
+
     for cutout in cutouts:
+        if isinstance(cutout.array_in, da.core.Array):
+            previous = seen_dask_arrays.setdefault(cutout.array_in.name, cutout.array_in)
+            if previous is not cutout.array_in:
+                warnings.warn(
+                    f"Two different input dask arrays share the name "
+                    f"{cutout.array_in.name!r}, so dask will treat them as the "
+                    "same array in the combined co-addition graph and the "
+                    "resulting mosaic will likely use one input's data for "
+                    "both. Make sure each input dask array has a unique name.",
+                    UserWarning,
+                    stacklevel=2,
+                )
         # Reproject this image (and its weights) lazily, mirroring the return_type='numpy'
         # per-image handling: NaNs are masked out of the array and footprint,
         # any weights are folded into the footprint, and both the array and

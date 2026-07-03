@@ -241,6 +241,39 @@ class TestReprojectAndCoAdd:
         assert_allclose(footprint_dask, footprint_numpy, atol=ATOL)
         assert_allclose(array_dask, array_numpy, atol=ATOL)
 
+    def test_coadd_dask_duplicate_input_names(self):
+        # Dask identifies arrays by name, so two different input dask arrays
+        # sharing a name get silently deduplicated once the co-addition is
+        # combined into one graph, with one input's data used for both; the
+        # dask path must warn about this. Passing the same array object twice
+        # is legitimate and must stay silent.
+        views = [np.s_[0:200, :], np.s_[199:399, :]]
+        (array1, wcs1), (array2, wcs2) = self._get_tiles(views)
+        dup1 = da.from_array(array1, name="duplicate-name")
+        dup2 = da.from_array(array2, name="duplicate-name")
+
+        with pytest.warns(UserWarning, match="share the name"):
+            reproject_and_coadd(
+                [(dup1, wcs1), (dup2, wcs2)],
+                self.wcs,
+                shape_out=self.array.shape,
+                combine_function="mean",
+                reproject_function=reproject_interp,
+                return_type="dask",
+            )
+
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.simplefilter("always")
+            reproject_and_coadd(
+                [(dup1, wcs1), (dup1, wcs1)],
+                self.wcs,
+                shape_out=self.array.shape,
+                combine_function="mean",
+                reproject_function=reproject_interp,
+                return_type="dask",
+            )
+        assert not any("share the name" in str(w.message) for w in recorded)
+
     def test_coadd_dask_rejects_unsupported(self):
         # Options that fill arrays in place cannot apply to a deferred dask result
         # and must raise rather than being silently ignored.
