@@ -1,4 +1,3 @@
-import dask.array as da
 import numpy as np
 from dask_image.ndinterp import map_coordinates as dask_image_map_coordinates
 from dask_image.ndinterp import spline_filter
@@ -288,55 +287,6 @@ def sample_array_edges(shape, *, n_samples):
             all_positions.append(positions)
     positions = np.unique(np.vstack(all_positions), axis=0).T
     return positions
-
-
-def pad_dask_array_to_grid(array, bounds, target_shape, target_chunks):
-    """
-    Pad a dask array with zeros so that it occupies the region given by
-    ``bounds`` (one ``(imin, imax)`` pair per dimension) within an array of
-    shape ``target_shape``, with chunk boundaries aligned to ``target_chunks``.
-
-    da.pad would chunk the pad region at the array's own chunk sizes, so a
-    later rechunk to the target chunking would have to split and recombine
-    chunks, making the number of tasks grow much faster than the number of
-    padded arrays being combined. With the chunks aligned here, that rechunk
-    only has to merge chunks at the edges of the original array.
-    """
-    for idim, (imin, imax) in enumerate(bounds):
-        edges = np.cumsum(target_chunks[idim])[:-1]
-
-        def aligned_chunks(lo, hi, edges=edges):
-            cuts = [lo] + [int(edge) for edge in edges if lo < edge < hi] + [hi]
-            return tuple(np.diff(cuts).tolist())
-
-        array = array.rechunk(
-            array.chunks[:idim] + (aligned_chunks(imin, imax),) + array.chunks[idim + 1 :]
-        )
-        pieces = [array]
-        if imin > 0:
-            pieces.insert(
-                0,
-                da.zeros(
-                    array.shape[:idim] + (imin,) + array.shape[idim + 1 :],
-                    chunks=array.chunks[:idim]
-                    + (aligned_chunks(0, imin),)
-                    + array.chunks[idim + 1 :],
-                    dtype=array.dtype,
-                ),
-            )
-        if imax < target_shape[idim]:
-            pieces.append(
-                da.zeros(
-                    array.shape[:idim] + (target_shape[idim] - imax,) + array.shape[idim + 1 :],
-                    chunks=array.chunks[:idim]
-                    + (aligned_chunks(imax, target_shape[idim]),)
-                    + array.chunks[idim + 1 :],
-                    dtype=array.dtype,
-                ),
-            )
-        if len(pieces) > 1:
-            array = da.concatenate(pieces, axis=idim)
-    return array
 
 
 class ArrayWrapper:
