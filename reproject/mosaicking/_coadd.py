@@ -99,8 +99,9 @@ def _input_cutout_iterator(
     Parse each input dataset (and its weights map) and compute the minimal
     cutout of the output grid that it covers, yielding everything that the
     per-image reprojection needs. Datasets with no predicted overlap with the
-    output are skipped. This is shared between the eager (numpy) and deferred
-    (dask) co-addition drivers so that the cutout logic exists only once.
+    output are skipped. This is shared between the return_type='numpy' and
+    return_type='dask' co-addition drivers so that the cutout logic exists
+    only once.
     """
     logger = getLogger(__name__)
 
@@ -240,11 +241,12 @@ def _coadd_dask(
     reproject_kwargs,
 ):
     """
-    Deferred co-addition: reproject each cutout lazily, pad it onto the output
-    grid, and combine all the images along a stacking axis, matching the eager
-    path's _combine_array_into_output semantics exactly. The result is returned
-    uncomputed so the whole graph (reprojections and co-addition) is evaluated
-    in one deferred computation by the caller.
+    The return_type='dask' co-addition: reproject each cutout lazily, pad it
+    onto the output grid, and combine all the images along a stacking axis,
+    matching the return_type='numpy' path's _combine_array_into_output
+    semantics exactly. The result is returned uncomputed so the whole graph
+    (reprojections and co-addition) is evaluated in one computation by the
+    caller.
     """
     logger = getLogger(__name__)
 
@@ -398,9 +400,9 @@ def _coadd_numpy(
     reproject_kwargs,
 ):
     """
-    Eager co-addition: reproject each cutout and combine it into the output
-    arrays, either on the fly or, when the backgrounds need to be matched,
-    after all the images have been reprojected.
+    The return_type='numpy' co-addition: reproject each cutout and combine it
+    into the output arrays, either on the fly or, when the backgrounds need to
+    be matched, after all the images have been reprojected.
     """
     logger = getLogger(__name__)
 
@@ -668,14 +670,16 @@ def reproject_and_coadd(
         `~astropy.io.fits.HDUList` instance, specifies the HDU to use.
     reproject_function : callable
         The function to use for the reprojection.
-    combine_function : { 'mean', 'sum', 'first', 'last', 'min', 'max' }
+    combine_function : { 'mean', 'sum', 'first', 'last', 'min', 'max', 'median' }
         The type of function to use for combining the values into the final
         image. For 'first' and 'last', respectively, the reprojected images are
         simply overlaid on top of each other. With respect to the order of the
         input images in ``input_data``, either the first or the last image to
         cover a region of overlap determines the output data for that region.
+        'median' is only available with ``return_type='dask'``.
     match_background : bool
-        Whether to match the backgrounds of the images.
+        Whether to match the backgrounds of the images. Only supported with
+        ``return_type='numpy'``.
     background_reference : `None` or `int`
         If `None`, the background matching will make it so that the average of
         the corrections for all images is zero. If an integer, this specifies
@@ -684,14 +688,17 @@ def reproject_and_coadd(
         The final output array.  Specify this if you already have an
         appropriately-shaped array to store the data in.  Must match shape
         specified with ``shape_out`` or derived from the output
-        projection.
+        projection. Can only be specified with ``return_type='numpy'``.
     output_footprint : array or None
         The final output footprint array.  Specify this if you already have an
         appropriately-shaped array to store the data in.  Must match shape
         specified with ``shape_out`` or derived from the output projection.
+        Can only be specified with ``return_type='numpy'``.
     block_sizes : list of tuples or None
         The block size to use for each dataset.  Could also be a single tuple
-        if you want the same block size for all data sets.
+        if you want the same block size for all data sets. With
+        ``return_type='dask'``, a single common block size is also used as the
+        chunking of the returned dask arrays.
     non_reprojected_dims : tuple, optional
         Leading dimensions of the data that should not be reprojected but for
         which a one-to-one mapping between input and output pixels is assumed
@@ -707,33 +714,34 @@ def reproject_and_coadd(
         data.
     intermediate_memmap : bool, optional
         If `True`, use `numpy.memmap` to store intermediate output arrays for
-        reprojected data.
+        reprojected data. Only supported with ``return_type='numpy'``.
     return_type : {None, 'numpy', 'dask'}, optional
         If ``'dask'``, reproject each image lazily (using ``return_type='dask'``
         on the reprojection function), pad each onto the output grid, and combine
         them along a stacking axis, returning the resulting **uncomputed** dask
-        arrays so the whole co-addition is deferred into a single computation. The
-        combination matches the default ``return_type='numpy'`` path exactly
+        arrays so the whole co-addition is computed lazily in one go. The
+        combination matches the ``return_type='numpy'`` path exactly
         (footprint-weighted for 'mean' and 'sum', footprint-aware selection for
         'first', 'last', 'min' and 'max'), and ``input_weights`` are supported. A
         ``combine_function`` of 'median' is additionally available here (as an
         unweighted median), which the ``return_type='numpy'`` path cannot compute.
         ``match_background``, ``output_array``, ``output_footprint`` and
-        ``intermediate_memmap`` are not supported, since the result is a deferred
-        graph rather than arrays filled in place. The default (`None`, equivalent
-        to ``'numpy'``) uses the standard eager co-addition.
+        ``intermediate_memmap`` are not supported, since the result is an
+        uncomputed graph rather than arrays filled in place. The default (`None`)
+        is equivalent to ``'numpy'``.
 
     **kwargs
         Keyword arguments to be passed to the reprojection function.
 
     Returns
     -------
-    array : `~numpy.ndarray`
-        The co-added array.
-    footprint : `~numpy.ndarray`
+    array : `~numpy.ndarray` or `~dask.array.Array`
+        The co-added array. This is an uncomputed dask array when
+        ``return_type='dask'``.
+    footprint : `~numpy.ndarray` or `~dask.array.Array`
         Footprint of the co-added array. Values of 0 indicate no coverage or
         valid values in the input image, while values of 1 indicate valid
-        values.
+        values. This is an uncomputed dask array when ``return_type='dask'``.
     """
 
     # TODO: add support for saving intermediate files to disk to avoid blowing
@@ -745,7 +753,7 @@ def reproject_and_coadd(
     # Validate inputs
 
     # Validate return_type up front: a typo such as 'Dask' would otherwise
-    # silently select the eager numpy co-addition.
+    # silently select the return_type='numpy' co-addition.
     if return_type is None:
         return_type = "numpy"
     if return_type not in ("numpy", "dask"):
