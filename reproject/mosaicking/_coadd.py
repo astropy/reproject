@@ -12,7 +12,7 @@ import numpy as np
 from astropy.wcs import WCS
 from astropy.wcs.wcsapi import SlicedLowLevelWCS
 
-from .._array_utils import iterate_chunks, pad_dask_array_to_grid
+from .._array_utils import iterate_chunks
 from ..interpolation._core import _validate_wcs
 from ..utils import parse_input_data, parse_input_weights, parse_output_projection
 from ._background import determine_offset_matrix, solve_corrections_sgd
@@ -230,6 +230,81 @@ def _input_cutout_iterator(
         )
 
 
+def _combine_tile_pieces(
+    *pieces, combine_function, blank_pixel_value, dests, trailing_shape, block_info=None
+):
+    # Combine the pieces of the reprojected images that overlap one chunk of the
+    # output, using the same per-pixel logic as _combine_array_into_output (the
+    # images are applied in input order, so the sequential semantics of 'first'
+    # and 'last' are preserved). pieces holds an array block and a footprint
+    # block for each overlapping image, each covering dests[i] within the
+    # chunk; when no image overlaps (dests is empty), a single zeros template
+    # just provides the leading shape and the chunk comes out blank.
+    if dests:
+        arrays = pieces[0::2]
+        footprints = pieces[1::2]
+    else:
+        arrays = footprints = ()
+    lead_shape = pieces[0].shape[: pieces[0].ndim - len(trailing_shape)]
+    shape = lead_shape + tuple(trailing_shape)
+
+    output_array = np.zeros(shape)
+    output_footprint = np.zeros(shape)
+    if combine_function == "min":
+        output_array[...] = np.inf
+    elif combine_function == "max":
+        output_array[...] = -np.inf
+
+    if combine_function in ("mean", "sum"):
+        # Footprint-weighted sum, and for the mean divide by the summed
+        # footprint (as the return_type='numpy' path does, including
+        # contributions where the footprint is negative, which can happen when
+        # reprojecting weight maps with interpolation orders that overshoot);
+        # zeros in the divisor are replaced by one to avoid a 0/0 warning,
+        # since those pixels are set to the blank value below anyway.
+        for array, footprint, dest in zip(arrays, footprints, dests, strict=True):
+            region = (Ellipsis,) + dest
+            output_array[region] += array * footprint
+            output_footprint[region] += footprint
+        if combine_function == "mean":
+            output_array /= np.where(output_footprint == 0, 1, output_footprint)
+    elif combine_function == "median":
+        # Unweighted median of the values covering each pixel. Pixels covered
+        # by no image would be all-NaN slices, which make nanmedian warn; give
+        # them a dummy value of zero since they are blanked below anyway.
+        values = np.full((max(len(dests), 1),) + shape, np.nan)
+        for index, (array, footprint, dest) in enumerate(
+            zip(arrays, footprints, dests, strict=True)
+        ):
+            region = (Ellipsis,) + dest
+            values[index][region] = np.where(footprint > 0, array, np.nan)
+            output_footprint[region] += footprint
+        values[0][np.isnan(values).all(axis=0)] = 0.0
+        output_array = np.nanmedian(values, axis=0)
+    else:
+        # first/last/min/max select one image per pixel.
+        for array, footprint, dest in zip(arrays, footprints, dests, strict=True):
+            region = (Ellipsis,) + dest
+            if combine_function == "first":
+                mask = (footprint > 0) & (output_footprint[region] == 0)
+            elif combine_function == "last":
+                mask = footprint > 0
+            elif combine_function == "min":
+                mask = (footprint > 0) & (array < output_array[region])
+            elif combine_function == "max":
+                mask = (footprint > 0) & (array > output_array[region])
+            else:
+                raise ValueError(f"Unexpected combine_function: {combine_function}")
+            np.copyto(output_footprint[region], footprint, where=mask)
+            np.copyto(output_array[region], array, where=mask)
+
+    # Match the return_type='numpy' path's final step: set pixels with no
+    # coverage to the blank value (only where the summed footprint is exactly
+    # zero, keeping pixels with a negative summed footprint).
+    output_array = np.where(output_footprint == 0, blank_pixel_value, output_array)
+    return np.stack([output_array, output_footprint])
+
+
 def _coadd_dask(
     cutouts,
     *,
@@ -237,12 +312,13 @@ def _coadd_dask(
     combine_function,
     shape_out,
     target_chunks,
+    n_dim_reproject,
     blank_pixel_value,
     hdu_in,
     reproject_kwargs,
 ):
-    # The return_type='dask' co-addition: reproject each cutout lazily, pad it
-    # onto the output grid, and combine all the images along a stacking axis,
+    # The return_type='dask' co-addition: reproject each cutout lazily, then
+    # assemble each chunk of the output from only the images that overlap it,
     # matching the return_type='numpy' path's _combine_array_into_output
     # semantics exactly. The result is returned uncomputed so the whole graph
     # (reprojections and co-addition) is evaluated in one computation by the
@@ -250,8 +326,7 @@ def _coadd_dask(
 
     logger = getLogger(__name__)
 
-    dask_arrays = []
-    dask_footprints = []
+    tiles = []
 
     # Dask identifies arrays by their name, so two different input arrays that
     # share a name (a bug seen in the wild for arrays built with a hard-coded
@@ -275,11 +350,9 @@ def _coadd_dask(
                 )
         # Reproject this image (and its weights) lazily, mirroring the return_type='numpy'
         # per-image handling: NaNs are masked out of the array and footprint,
-        # any weights are folded into the footprint, and both the array and
-        # footprint are padded back onto the full output grid (the uncovered
-        # region gets a zero footprint so it drops out of the combine). The
-        # footprint is kept so that the combine below can weight by it exactly
-        # as the return_type='numpy' path does. Nothing is computed here.
+        # and any weights are folded into the footprint, which is kept so that
+        # the combine below can weight by it exactly as the return_type='numpy'
+        # path does. Nothing is computed here.
         logger.info(
             f"Calling {reproject_function.__name__} lazily with "
             f"shape_out={cutout.shape_out_indiv} (return_type='dask')"
@@ -320,88 +393,84 @@ def _coadd_dask(
         if weights is not None:
             footprint = footprint * da.where(reset, 0.0, weights)
 
-        dask_arrays.append(pad_dask_array_to_grid(array, cutout.bounds, shape_out, target_chunks))
-        dask_footprints.append(
-            pad_dask_array_to_grid(footprint, cutout.bounds, shape_out, target_chunks)
-        )
+        tiles.append((array, footprint, cutout.bounds))
 
-    if not dask_arrays:
+    if not tiles:
         # No image is predicted to overlap the output; return the same blank
         # mosaic and zero footprint as the return_type='numpy' path, lazily.
         output_array = da.full(tuple(shape_out), float(blank_pixel_value), chunks=target_chunks)
         output_footprint = da.zeros(tuple(shape_out), chunks=target_chunks)
         return output_array, output_footprint
 
-    # Each padded image has chunks aligned to the output chunking, with at most
-    # two extra chunk boundaries per dimension at the cutout edges. Rechunking to
-    # the common output chunking here therefore only merges those, and stacking
-    # identically-chunked arrays keeps the stack and reduction below small
-    # (stacking mismatched chunk grids would make dask unify them into an
-    # ever-finer grid, with the task count growing super-linearly with the
-    # number of images).
-    dask_arrays = [array.rechunk(target_chunks) for array in dask_arrays]
-    dask_footprints = [footprint.rechunk(target_chunks) for footprint in dask_footprints]
-    stacked_array = da.stack(dask_arrays)
-    stacked_footprint = da.stack(dask_footprints)
+    # Assemble each chunk of the output from only the images that overlap it:
+    # for every column of output chunks along the reprojected dimensions,
+    # slice the overlapping region out of each reprojected image and combine
+    # the pieces chunk by chunk in _combine_tile_pieces. Compared to padding
+    # every image onto the full output grid and reducing along a stacking
+    # axis, no zero chunks are ever materialized and each output chunk depends
+    # only on the images that actually cover it, so both the graph size and
+    # the amount of data resident during the computation are proportional to
+    # the true overlap rather than to n_images x n_chunks.
+    n_lead = len(shape_out) - n_dim_reproject
+    lead_chunks = target_chunks[:n_lead]
+    trailing_chunks = target_chunks[n_lead:]
+    edges = [np.concatenate([[0], np.cumsum(chunks)]) for chunks in trailing_chunks]
 
-    if combine_function in ("mean", "sum"):
-        # Footprint-weighted sum: output = sum(array * footprint), footprint =
-        # sum(footprint), and for the mean divide the two (as the
-        # return_type='numpy' path does, including contributions where the
-        # footprint is negative, which can happen when reprojecting weight maps
-        # with interpolation orders that overshoot). The numerator is zero
-        # wherever the footprint is zero, so for the mean divide by a footprint
-        # that has its zeros replaced by one to avoid a lazily-evaluated 0/0
-        # (which would warn at compute time).
-        output_array = (stacked_array * stacked_footprint).sum(axis=0)
-        output_footprint = stacked_footprint.sum(axis=0)
-        if combine_function == "mean":
-            output_array = output_array / da.where(output_footprint == 0, 1.0, output_footprint)
-    elif combine_function == "median":
-        covered = stacked_footprint > 0
-        # Unweighted median of the covered images. This is only available for the
-        # dask path (the return_type='numpy' path cannot compute a median on the fly).
-        masked = da.where(covered, stacked_array, np.nan)
-        # Pixels covered by no image at all would be all-NaN slices, which would
-        # make nanmedian warn at compute time; give them a value of zero since
-        # they are set to blank_pixel_value below anyway.
-        masked = da.where(covered.any(axis=0)[np.newaxis], masked, 0.0)
-        # The median needs the whole stacking axis at once, so collapse it to a
-        # single chunk and let dask re-split the other axes so that the total
-        # chunk size stays bounded instead of growing with the number of images.
-        masked = masked.rechunk({0: -1, **{iaxis: "auto" for iaxis in range(1, masked.ndim)}})
-        output_array = da.nanmedian(masked, axis=0).rechunk(target_chunks)
-        output_footprint = stacked_footprint.sum(axis=0)
-    else:
-        # first/last/min/max select one image per pixel; we find its index along
-        # the stacking axis and take both the value and the footprint from there.
-        covered = stacked_footprint > 0
-        n_images = stacked_array.shape[0]
-        axis_index = da.arange(n_images).reshape((n_images,) + (1,) * (stacked_array.ndim - 1))
-        if combine_function == "first":
-            selected = da.where(covered, axis_index, n_images).min(axis=0)
-        elif combine_function == "last":
-            selected = da.where(covered, axis_index, -1).max(axis=0)
-        elif combine_function == "min":
-            selected = da.where(covered, stacked_array, np.inf).argmin(axis=0)
-        elif combine_function == "max":
-            selected = da.where(covered, stacked_array, -np.inf).argmax(axis=0)
-        else:
-            raise ValueError(f"Unexpected combine_function: {combine_function}")
-        # Pick the value and footprint from the selected image with a one-hot
-        # mask along the stacking axis (dask has no take_along_axis). For pixels
-        # covered by no image, the selected index either matches no image
-        # (first/last) or picks an image whose footprint there is zero (min/max),
-        # so the sums give a zero footprint and the pixel is blanked below.
-        onehot = axis_index == selected[np.newaxis]
-        output_array = da.where(onehot, stacked_array, 0.0).sum(axis=0)
-        output_footprint = da.where(onehot, stacked_footprint, 0.0).sum(axis=0)
+    columns = np.empty(tuple(len(chunks) for chunks in trailing_chunks), dtype=object)
+    for index in np.ndindex(columns.shape):
+        extents = [(int(edges[idim][i]), int(edges[idim][i + 1])) for idim, i in enumerate(index)]
+        pieces = []
+        dests = []
+        for array, footprint, bounds in tiles:
+            trailing_bounds = bounds[n_lead:]
+            overlap = [
+                (max(lo, imin), min(hi, imax))
+                for (lo, hi), (imin, imax) in zip(extents, trailing_bounds, strict=True)
+            ]
+            if any(hi <= lo for lo, hi in overlap):
+                continue
+            # Slice of the image (in cutout coordinates) that falls inside this
+            # column, kept as one chunk along the reprojected dimensions and
+            # matching the output chunking along the non-reprojected ones.
+            local = (slice(None),) * n_lead + tuple(
+                slice(lo - imin, hi - imin)
+                for (lo, hi), (imin, _) in zip(overlap, trailing_bounds, strict=True)
+            )
+            rechunk_spec = {idim: lead_chunks[idim] for idim in range(n_lead)}
+            rechunk_spec.update({n_lead + idim: -1 for idim in range(n_dim_reproject)})
+            pieces.append(array[local].rechunk(rechunk_spec))
+            pieces.append(footprint[local].rechunk(rechunk_spec))
+            # Where the piece lands within the column's chunks.
+            dests.append(
+                tuple(
+                    slice(lo - start, hi - start)
+                    for (lo, hi), (start, _) in zip(overlap, extents, strict=True)
+                )
+            )
+        chunk_shape = tuple(hi - lo for lo, hi in extents)
+        if not pieces:
+            # No image overlaps this column; a zeros template just provides the
+            # block structure so the chunks come out blank.
+            pieces = [
+                da.zeros(
+                    tuple(shape_out[:n_lead]) + chunk_shape,
+                    chunks=lead_chunks + tuple((size,) for size in chunk_shape),
+                )
+            ]
+        columns[index] = da.map_blocks(
+            _combine_tile_pieces,
+            *pieces,
+            combine_function=combine_function,
+            blank_pixel_value=blank_pixel_value,
+            dests=tuple(dests),
+            trailing_shape=chunk_shape,
+            dtype=float,
+            new_axis=0,
+            chunks=((2,),) + lead_chunks + tuple((size,) for size in chunk_shape),
+        )
 
-    # Match the return_type='numpy' path's final step: set pixels with no coverage
-    # to the blank value (the return_type='numpy' loop does this at the end where
-    # output_footprint == 0, keeping pixels with a negative summed footprint).
-    output_array = da.where(output_footprint == 0, blank_pixel_value, output_array)
-    return output_array, output_footprint
+    result = da.block(columns.tolist())
+    return result[0], result[1]
 
 
 def _coadd_numpy(
@@ -736,9 +805,9 @@ def reproject_and_coadd(
         reprojected data. Only supported with ``return_type='numpy'``.
     return_type : {None, 'numpy', 'dask'}, optional
         If ``'dask'``, reproject each image lazily (using ``return_type='dask'``
-        on the reprojection function), pad each onto the output grid, and combine
-        them along a stacking axis, returning the resulting **uncomputed** dask
-        arrays so the whole co-addition is computed lazily in one go. The
+        on the reprojection function) and assemble each chunk of the output
+        from the images that overlap it, returning the resulting **uncomputed**
+        dask arrays so the whole co-addition is computed lazily in one go. The
         combination matches the ``return_type='numpy'`` path exactly
         (footprint-weighted for 'mean' and 'sum', footprint-aware selection for
         'first', 'last', 'min' and 'max'), and ``input_weights`` are supported. A
@@ -936,6 +1005,7 @@ def reproject_and_coadd(
             combine_function=combine_function,
             shape_out=shape_out,
             target_chunks=target_chunks,
+            n_dim_reproject=n_dim_reproject,
             blank_pixel_value=blank_pixel_value,
             hdu_in=hdu_in,
             reproject_kwargs=kwargs,

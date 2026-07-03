@@ -283,6 +283,75 @@ class TestReprojectAndCoAdd:
             )
         assert not any("share the name" in str(w.message) for w in recorded)
 
+    @pytest.mark.parametrize(
+        "combine_function", ["mean", "sum", "first", "last", "min", "max", "median"]
+    )
+    def test_coadd_dask_chunked_combine(self, combine_function):
+        # The dask co-addition assembles each output chunk from the images that
+        # overlap it; with chunks much smaller than the mosaic this exercises
+        # the per-chunk placement and combination for every combine function,
+        # which must match the return_type='numpy' path (or, for 'median',
+        # which that path cannot compute, a direct nanmedian of the
+        # individually reprojected images). The tiles are scaled to different
+        # values so that the selecting combine functions are non-trivial.
+        input_data = [
+            (array * (index + 1), wcs)
+            for index, (array, wcs) in enumerate(self._get_tiles(self._overlapping_views))
+        ]
+
+        array, footprint = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=self.array.shape,
+            combine_function=combine_function,
+            reproject_function=reproject_interp,
+            return_type="dask",
+            block_size=(100, 100),
+        )
+        array = np.asarray(array)
+        footprint = np.asarray(footprint)
+
+        if combine_function == "median":
+            refs = []
+            for arr, wcs in input_data:
+                reprojected, fp = reproject_interp((arr, wcs), self.wcs, shape_out=self.array.shape)
+                reprojected[fp == 0] = np.nan
+                refs.append(reprojected)
+            reference = np.nanmedian(np.array(refs), axis=0)
+            covered = footprint > 0
+            assert covered.any()
+            assert_allclose(array[covered], reference[covered], atol=ATOL)
+        else:
+            reference, reference_footprint = reproject_and_coadd(
+                input_data,
+                self.wcs,
+                shape_out=self.array.shape,
+                combine_function=combine_function,
+                reproject_function=reproject_interp,
+            )
+            assert_allclose(array, reference, atol=ATOL)
+            assert_allclose(footprint, reference_footprint, atol=ATOL)
+
+    def test_coadd_dask_graph_scales_with_overlap(self):
+        # Each output chunk depends only on the images that actually overlap
+        # it, so no zero-padding chunks are materialized and the graph size
+        # scales with the total overlap area rather than with the number of
+        # images times the number of chunks (padding every image to the full
+        # mosaic and reducing along a stacking axis produced several times
+        # more tasks for this configuration).
+        input_data = self._get_tiles(self._nonoverlapping_views)
+
+        array, footprint = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=self.array.shape,
+            combine_function="mean",
+            reproject_function=reproject_interp,
+            return_type="dask",
+            block_size=(100, 100),
+        )
+        assert len(dict(array.__dask_graph__())) < 1500
+
     def test_coadd_dask_rejects_unsupported(self):
         # Options that fill arrays in place cannot apply to a deferred dask result
         # and must raise rather than being silently ignored.
