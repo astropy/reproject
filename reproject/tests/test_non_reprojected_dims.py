@@ -166,6 +166,53 @@ def test_non_reprojected_dims_sliced_memmap(tmp_path, reproject_function):
     assert_allclose(array_out, reference, equal_nan=True)
 
 
+def test_non_reprojected_dims_dask_input_streams_planes(reproject_function):
+    # The input is passed as a dask array with one chunk per non-reprojected
+    # slice, so each input plane must be computed exactly once, including when
+    # the output is sub-tiled (every tile of a plane shares that plane's chunk
+    # rather than recomputing it), and the whole input must never be
+    # materialized at once.
+    import dask.array as da
+
+    n_time = 5
+    shape_out = (n_time, 30, 30)
+    wcs_in = _drifting_cube_wcs(drift=0.6)
+    wcs_out = _drifting_cube_wcs(drift=0.0)
+
+    data = np.random.default_rng(0).random((n_time, 30, 30))
+
+    computed_planes = []
+
+    def record_plane(plane, block_info=None):
+        if block_info:
+            computed_planes.append(block_info[None]["chunk-location"][0])
+        return plane
+
+    lazy = da.from_array(data, chunks=(1, 30, 30)).map_blocks(record_plane)
+
+    array_out, _ = reproject_function(
+        (lazy, wcs_in),
+        wcs_out,
+        shape_out=shape_out,
+        non_reprojected_dims=(0,),
+        parallel=True,
+        block_size=(7, 7),
+        dask_method="none",
+    )
+
+    reference, _ = reproject_function(
+        (data, wcs_in),
+        wcs_out,
+        shape_out=shape_out,
+        non_reprojected_dims=(0,),
+        parallel=True,
+        block_size=(30, 30),
+    )
+
+    assert_allclose(array_out, reference, equal_nan=True)
+    assert sorted(computed_planes) == list(range(n_time))
+
+
 def test_non_reprojected_dims_invalid_order(reproject_function):
     data = np.ones((4, 20, 20))
     wcs = _spectral_cube_wcs(0.0, 1e9)

@@ -398,12 +398,12 @@ def _reproject_dispatcher(
 
             # Along the reprojected dimensions the input is always kept whole (any
             # output pixel can map anywhere within it) while dask may tile the
-            # output; along the broadcasted dimensions each block is a single slice.
-            # slices_in/slices_out reduce the input/output WCS to this block, and
-            # slices_in_data selects the matching broadcasted slice of the input.
+            # output; along the broadcasted dimensions each block is a single
+            # slice. slices_in/slices_out reduce the input/output WCS to this
+            # block; the matching broadcasted slice of the input arrives as the
+            # aligned input block.
             slices_in = []
             slices_out = []
-            slices_in_data = []
             for idx in range(len(shape_out)):
                 interval = block_info[None]["array-location"][idx + 1]
                 if broadcasted_parallelization and idx < len(shape_out) - n_dim_reproject:
@@ -414,11 +414,9 @@ def _reproject_dispatcher(
                         )
                     slices_in.append(interval[0])
                     slices_out.append(interval[0])
-                    slices_in_data.append(slice(*interval))
                 else:
                     slices_in.append(slice(None))
                     slices_out.append(slice(*block_info[None]["array-location"][idx + 1]))
-                    slices_in_data.append(slice(None))
 
             slices_in = slices_in[-wcs_in.low_level_wcs.pixel_n_dim :]
             slices_out = slices_out[-wcs_out.low_level_wcs.pixel_n_dim :]
@@ -440,21 +438,20 @@ def _reproject_dispatcher(
 
             wcs_out_sub = HighLevelWCSWrapper(low_level_wcs_out)
 
-            if isinstance(array_or_path, tuple):
+            if broadcasted_parallelization:
+                # The input was passed as an aligned dask array, so array_or_path
+                # is already this block's broadcasted slice of the input, kept
+                # whole along the reprojected dimensions (see above).
+                array_in = array_or_path
+            elif isinstance(array_or_path, tuple):
                 array_in = np.memmap(array_or_path[0], **array_or_path[1], mode="r")
             elif isinstance(array_or_path, str):
                 array_in = np.memmap(array_or_path, dtype=float, shape=shape_in, mode="r")
             else:
                 array_in = array_or_path
 
-            if array_or_path is None:
+            if array_in is None:
                 raise RuntimeError("array_or_path is not set")
-
-            if broadcasted_parallelization:
-                # Read just this broadcasted slice out of the whole input; the
-                # reprojected dimensions are kept whole (see above). For a memmap
-                # this stays a lazy view, so only the touched pages are loaded.
-                array_in = array_in[tuple(slices_in_data)]
 
             array, footprint = reproject_func(
                 array_in,
@@ -467,12 +464,42 @@ def _reproject_dispatcher(
 
             return np.array([array, footprint])
 
-        # The input is passed to map_blocks as an opaque (non-dask) argument
-        # rather than as a second dask array to align with the output, so that
-        # dask is free to tile the output however the block size dictates
-        # (including along the reprojected dimensions) while every task still sees
-        # the whole input; the block function then reads out the broadcasted slice
-        # it needs. As we use the synchronous or threads scheduler, we don't need
+        if broadcasted_parallelization:
+            # Pass the input as a second dask array with one chunk per broadcasted
+            # slice, kept whole along the reprojected dimensions (any output pixel
+            # can map anywhere within its slice). map_blocks broadcasts the single
+            # chunk along the reprojected dimensions to every output tile of that
+            # slice, so each slice is computed once and streamed to exactly the
+            # tasks that need it: dask array inputs are never materialized in
+            # full, sub-tiled planes do not recompute their input per tile, and
+            # under a distributed scheduler each task depends only on its own
+            # slice rather than embedding the whole input.
+            input_chunks = (1,) * (array_in.ndim - n_dim_reproject) + (-1,) * n_dim_reproject
+            if isinstance(array_in, da.core.Array):
+                array_in_dask = array_in.rechunk(input_chunks)
+                # Blockwise fusion would fold the input graph into every output
+                # tile task, recomputing each broadcasted slice once per tile of
+                # that slice; routing each slice through a delayed task pins it
+                # as a single node in the graph that all of its tiles share.
+                delayed_blocks = array_in_dask.to_delayed()
+                pieces = np.empty(delayed_blocks.shape, dtype=object)
+                for index in np.ndindex(delayed_blocks.shape):
+                    shape = tuple(
+                        array_in_dask.chunks[idim][index[idim]]
+                        for idim in range(array_in_dask.ndim)
+                    )
+                    pieces[index] = da.from_delayed(
+                        delayed_blocks[index], shape=shape, dtype=array_in_dask.dtype
+                    )
+                array_in_or_path = da.block(pieces.tolist())
+            else:
+                array_in_or_path = da.from_array(
+                    array_in, name=f"reproject-input-{uuid.uuid4().hex}", chunks=input_chunks
+                )
+
+        # For the remaining (non-broadcasted) cases the input is passed to
+        # map_blocks as an opaque (non-dask) argument, so that every task sees the
+        # whole input. As we use the synchronous or threads scheduler, we don't need
         # to worry about the data getting copied, so if the data is already a Numpy
         # array (including a memory-mapped array) then we don't need to do anything
         # special. However, if the input array is a dask array, we should convert
@@ -483,7 +510,7 @@ def _reproject_dispatcher(
         # (e.g. a slice of a memmap) keep the parent's unadjusted .offset, so
         # reconstructing them would silently read the wrong file region. Views
         # fall through and are passed by reference like plain arrays.
-        if (
+        elif (
             isinstance(array_in, np.memmap)
             and array_in.flags.c_contiguous
             and isinstance(array_in.base, mmap.mmap)
