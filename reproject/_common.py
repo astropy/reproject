@@ -323,7 +323,6 @@ def _reproject_dispatcher(
         broadcasted_parallelization = False
         if broadcasting and block_size is not None and block_size != "auto":
             if block_size[-n_dim_reproject:] == shape_out[-n_dim_reproject:]:
-                # TODO: maybe error if block_size was given in full and is wrong
                 broadcasted_parallelization = True
             elif wcs_slicing_required:
                 # A block smaller than the output along the reprojected dimensions
@@ -344,6 +343,19 @@ def _reproject_dispatcher(
             if broadcasted_parallelization:
                 # One broadcasted slice per block; dask tiles the reprojected
                 # dimensions using whatever block size was requested along them.
+                # The block size along the non-reprojected dimensions must be 1
+                # or span the full extent (equivalent here, since blocks are
+                # single slices either way); anything else would be silently
+                # reinterpreted, so raise instead.
+                if any(
+                    entry not in (1, shape_out[idim])
+                    for idim, entry in enumerate(block_size[: len(shape_out) - n_dim_reproject])
+                ):
+                    raise ValueError(
+                        f"block_size {block_size} should be 1 or match the output shape "
+                        "along the non-reprojected dimensions (each block covers a "
+                        "single non-reprojected slice)"
+                    )
                 block_size = (1,) * (len(shape_out) - n_dim_reproject) + block_size[
                     -n_dim_reproject:
                 ]
