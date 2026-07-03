@@ -915,6 +915,94 @@ def test_coadd_non_reprojected_dims(combine_function, celestial_output):
     assert_allclose(footprint, reference_footprint, atol=ATOL)
 
 
+@pytest.mark.filterwarnings("ignore::erfa.ErfaWarning")
+@pytest.mark.parametrize("block_size", [(30, 30), (12, 12)])
+def test_coadd_non_reprojected_dims_reprojected_only_block_size(block_size):
+    # A block size covering only the reprojected dimensions (full-plane or
+    # sub-tiled) must give the same result as the full-length equivalent; the
+    # per-cutout shrinking used to prepend the wrong leading entries for such
+    # block sizes.
+
+    n_time = 3
+    shape_out = (n_time, 30, 30)
+    wcs_in = _drifting_cube_wcs(drift=0.6)
+    wcs_out = _drifting_cube_wcs(drift=0.0).celestial
+
+    rng = np.random.default_rng(12345)
+    data = rng.random((n_time, 30, 30))
+
+    reference, reference_footprint = reproject_and_coadd(
+        [(data, wcs_in)],
+        wcs_out,
+        shape_out=shape_out,
+        reproject_function=reproject_interp,
+        combine_function="mean",
+        non_reprojected_dims=(0,),
+        parallel=True,
+        block_size=(1,) + shape_out[1:],
+        roundtrip_coords=False,
+    )
+
+    array, footprint = reproject_and_coadd(
+        [(data, wcs_in)],
+        wcs_out,
+        shape_out=shape_out,
+        reproject_function=reproject_interp,
+        combine_function="mean",
+        non_reprojected_dims=(0,),
+        parallel=True,
+        block_size=block_size,
+        roundtrip_coords=False,
+    )
+
+    assert_allclose(array, reference, atol=ATOL)
+    assert_allclose(footprint, reference_footprint, atol=ATOL)
+
+
+@pytest.mark.filterwarnings("ignore::erfa.ErfaWarning")
+def test_coadd_non_reprojected_dims_with_weights():
+    # Weights combined with non_reprojected_dims used to raise
+    # NotImplementedError because the per-image weights reprojection did not
+    # pass the block size through. Uniform weights should give the same result
+    # as no weights.
+
+    n_time = 3
+    shape_out = (n_time, 30, 30)
+    wcs_in = _drifting_cube_wcs(drift=0.6)
+    wcs_out = _drifting_cube_wcs(drift=0.0)
+
+    rng = np.random.default_rng(12345)
+    data1 = rng.random((n_time, 30, 30))
+    data2 = rng.random((n_time, 30, 30))
+
+    reference, _ = reproject_and_coadd(
+        [(data1, wcs_in), (data2, wcs_in)],
+        wcs_out,
+        shape_out=shape_out,
+        reproject_function=reproject_interp,
+        combine_function="mean",
+        non_reprojected_dims=(0,),
+        parallel=True,
+        block_size=(1,) + shape_out[1:],
+        roundtrip_coords=False,
+    )
+
+    array, _ = reproject_and_coadd(
+        [(data1, wcs_in), (data2, wcs_in)],
+        wcs_out,
+        shape_out=shape_out,
+        input_weights=[np.ones(data1.shape), np.ones(data2.shape)],
+        reproject_function=reproject_interp,
+        combine_function="mean",
+        non_reprojected_dims=(0,),
+        parallel=True,
+        block_size=(1,) + shape_out[1:],
+        roundtrip_coords=False,
+    )
+
+    assert_allclose(array, reference, atol=ATOL)
+
+
 def test_coadd_non_reprojected_dims_invalid():
     # An invalid non_reprojected_dims should raise even if no input overlaps
     # the output (in which case the same check inside reproject_function is

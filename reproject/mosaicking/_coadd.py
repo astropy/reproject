@@ -204,14 +204,15 @@ def _input_cutout_iterator(
 
         # If the block size matches the output shape along the reprojected
         # dimensions, we need to shrink those entries to match this cutout's
-        # size (keeping the broadcasted entries) so that the per-image
-        # reprojection parallelizes over the broadcasted dimensions.
+        # size (keeping any leading entries, which the block size may omit
+        # entirely if it only covers the reprojected dimensions) so that the
+        # per-image reprojection parallelizes over the broadcasted dimensions.
         if (
             global_block_size
             and not isinstance(global_block_size, str)
             and tuple(global_block_size[-n_dim_reproject:]) == tuple(shape_out[-n_dim_reproject:])
         ):
-            block_size = tuple(global_block_size[:n_broadcasted]) + tuple(
+            block_size = tuple(global_block_size[:-n_dim_reproject]) + tuple(
                 shape_out_indiv[n_broadcasted:]
             )
         else:
@@ -527,6 +528,7 @@ def _coadd_numpy(
                     shape_out=cutout.shape_out_indiv,
                     hdu_in=hdu_in,
                     output_array=weights,
+                    block_size=cutout.block_size,
                     return_footprint=False,
                     **reproject_kwargs,
                 )
