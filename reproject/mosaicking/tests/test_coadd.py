@@ -252,7 +252,12 @@ class TestReprojectAndCoAdd:
         dup1 = da.from_array(array1, name="duplicate-name")
         dup2 = da.from_array(array2, name="duplicate-name")
 
-        with pytest.warns(UserWarning, match="share the name"):
+        # Record warnings rather than using pytest.warns, which re-emits the
+        # non-matching warnings on exit: with the oldest dependencies the dask
+        # machinery emits an unrelated DeprecationWarning that the
+        # warnings-as-errors filter would then turn into a failure.
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.simplefilter("always")
             reproject_and_coadd(
                 [(dup1, wcs1), (dup2, wcs2)],
                 self.wcs,
@@ -261,6 +266,10 @@ class TestReprojectAndCoAdd:
                 reproject_function=reproject_interp,
                 return_type="dask",
             )
+        assert any(
+            issubclass(w.category, UserWarning) and "share the name" in str(w.message)
+            for w in recorded
+        )
 
         with warnings.catch_warnings(record=True) as recorded:
             warnings.simplefilter("always")
