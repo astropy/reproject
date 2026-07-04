@@ -5,7 +5,7 @@ from astropy.io import fits
 from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
 
-from reproject._wcs_utils import has_celestial
+from reproject._wcs_utils import has_celestial, pixel_to_pixel_chunked
 from reproject.conftest import set_wcs_array_shape
 from reproject.tests.helpers import assert_wcs_allclose
 from reproject.utils import (
@@ -142,6 +142,57 @@ def test_has_celestial():
 
     wwh2 = HighLevelWCSWrapper(SlicedLowLevelWCS(ww, [slice(0, 1), slice(0, 1)]))
     assert has_celestial(wwh2)
+
+
+def test_pixel_to_pixel_chunked():
+    from astropy.wcs.utils import pixel_to_pixel
+
+    wcs1 = WCS(naxis=2)
+    wcs1.wcs.ctype = "RA---TAN", "DEC--TAN"
+    wcs1.wcs.crval = 43.0, 23.0
+    wcs1.wcs.cdelt = -0.1, 0.1
+    wcs1.wcs.crpix = 5.0, 5.0
+
+    wcs2 = WCS(naxis=2)
+    wcs2.wcs.ctype = "GLON-CAR", "GLAT-CAR"
+    # Center on the galactic coordinates of the wcs1 reference point so the
+    # two WCSes overlap
+    wcs2.wcs.crval = 155.97, -32.03
+    wcs2.wcs.cdelt = -0.1, 0.1
+    wcs2.wcs.crpix = 5.0, 5.0
+
+    rng = np.random.default_rng(42)
+    x = rng.uniform(0, 10, 1000)
+    y = rng.uniform(0, 10, 1000)
+
+    # Chunking should not change the results
+    xp, yp = pixel_to_pixel(wcs1, wcs2, x, y)
+    xc, yc = pixel_to_pixel_chunked(wcs1, wcs2, x, y, chunk_size=17)
+    np.testing.assert_array_equal(xp, xc)
+    np.testing.assert_array_equal(yp, yc)
+
+    # Results can be written into arrays of a different shape (matched in
+    # flat C order), and broadcast inputs should be handled without being
+    # expanded
+    output = np.empty((2, 40, 50))
+    pixel_to_pixel_chunked(
+        wcs1,
+        wcs2,
+        np.broadcast_to(x, (2, 1000)),
+        np.broadcast_to(y, (2, 1000)),
+        chunk_size=17,
+        output=list(output),
+    )
+    np.testing.assert_array_equal(output[0].ravel(), np.tile(xc, 2))
+    np.testing.assert_array_equal(output[1].ravel(), np.tile(yc, 2))
+
+    # Coordinates that do not round-trip (here: behind the TAN projection
+    # plane) should be set to NaN when roundtrip is enabled
+    xf, yf = pixel_to_pixel_chunked(
+        wcs2, wcs1, np.array([0.0, 1500.0]), np.array([0.0, 0.0]), roundtrip=True, chunk_size=1
+    )
+    assert not np.isnan(xf[0]) and not np.isnan(yf[0])
+    assert np.isnan(xf[1]) and np.isnan(yf[1])
 
 
 class TestHDUToMemmap:

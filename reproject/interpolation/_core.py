@@ -3,10 +3,9 @@
 import dask.array as da
 import numpy as np
 from astropy.wcs import WCS
-from astropy.wcs.utils import pixel_to_pixel
 
 from .._array_utils import dask_map_coordinates, map_coordinates
-from .._wcs_utils import has_celestial, pixel_to_pixel_with_roundtrip
+from .._wcs_utils import has_celestial, pixel_to_pixel_chunked
 
 
 def _validate_wcs(wcs_in, wcs_out, shape_in, shape_out):
@@ -112,13 +111,19 @@ def _reproject_full(
         sparse=False,
         copy=False,
     )
-    pixel_out = [p.ravel() for p in pixel_out]
-    # For each pixel in the output array, get the pixel value in the input WCS
-    if roundtrip_coords:
-        pixel_in = pixel_to_pixel_with_roundtrip(wcs_out, wcs_in, *pixel_out[::-1])[::-1]
-    else:
-        pixel_in = pixel_to_pixel(wcs_out, wcs_in, *pixel_out[::-1])[::-1]
-    pixel_in = np.array(pixel_in)
+    # For each pixel in the output array, get the pixel value in the input
+    # WCS, transforming in chunks and writing directly into the
+    # (n_dim, n_pixels) coordinate array that map_coordinates needs, so the
+    # meshgrid views are never expanded into full-size arrays and no
+    # full-size stacking copy is made
+    pixel_in = np.empty((len(pixel_out), pixel_out[0].size))
+    pixel_to_pixel_chunked(
+        wcs_out,
+        wcs_in,
+        *pixel_out[::-1],
+        roundtrip=roundtrip_coords,
+        output=list(pixel_in[::-1]),
+    )
 
     # Loop over the broadcasted dimensions in our array, reusing the same
     # computed transformation each time
