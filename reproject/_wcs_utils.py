@@ -9,12 +9,7 @@ from astropy.coordinates import SkyCoord, SpectralCoord
 from astropy.wcs import WCS
 from astropy.wcs.utils import pixel_to_pixel, proj_plane_pixel_scales
 
-__all__ = [
-    "has_celestial",
-    "pixel_to_pixel_chunked",
-    "pixel_to_pixel_with_roundtrip",
-    "pixel_scale",
-]
+__all__ = ["has_celestial", "pixel_to_pixel_chunked", "pixel_scale"]
 
 
 def has_celestial(wcs):
@@ -86,10 +81,6 @@ def pixel_to_pixel_chunked(wcs1, wcs2, *inputs, roundtrip=False, output=None, ch
             output[ipix].flat[chunk] = results[ipix]
 
     return output
-
-
-def pixel_to_pixel_with_roundtrip(wcs1, wcs2, *inputs):
-    return pixel_to_pixel_chunked(wcs1, wcs2, *inputs, roundtrip=True)
 
 
 def pixel_scale(wcs, shape):
