@@ -36,34 +36,47 @@ def _safe_remove(path):
         pass
 
 
+def _combine_piece(combine_function, array, footprint, output_array, output_footprint):
+    # Combine one piece of a reprojected image into the output array and
+    # footprint, where output_array and output_footprint are views covering
+    # the same region as the piece. This is the per-pixel logic shared between
+    # the return_type='numpy' and return_type='dask' co-addition paths; in
+    # both, the images are applied in input order, which is what gives 'first'
+    # and 'last' their sequential meaning.
+    if combine_function in ("mean", "sum"):
+        output_footprint += footprint
+        output_array += array * footprint
+    elif combine_function in ("first", "last", "min", "max"):
+        if combine_function == "first":
+            mask = (footprint > 0) & (output_footprint == 0)
+        elif combine_function == "last":
+            mask = footprint > 0
+        elif combine_function == "min":
+            mask = (footprint > 0) & (array < output_array)
+        elif combine_function == "max":
+            mask = (footprint > 0) & (array > output_array)
+
+        # Update only the selected pixels in place, which avoids allocating
+        # and rewriting the whole chunk as np.where would.
+        np.copyto(output_footprint, footprint, where=mask)
+        np.copyto(output_array, array, where=mask)
+    else:
+        raise ValueError(f"Unexpected combine_function: {combine_function}")
+
+
 def _combine_array_into_output(combine_function, array, output_array, output_footprint):
     for chunk in array.as_chunks():
         # Values outside of the footprint are set to NaN by default
         # but we set these to 0 here to avoid NaNs in the means/sums.
         if combine_function in ("mean", "sum"):
             chunk.array[chunk.footprint == 0] = 0.0
-            output_footprint[chunk.view_in_original_array] += chunk.footprint
-            output_array[chunk.view_in_original_array] += chunk.array * chunk.footprint
-        elif combine_function in ("first", "last", "min", "max"):
-            if combine_function == "first":
-                mask = (chunk.footprint > 0) & (output_footprint[chunk.view_in_original_array] == 0)
-            elif combine_function == "last":
-                mask = chunk.footprint > 0
-            elif combine_function == "min":
-                mask = (chunk.footprint > 0) & (
-                    chunk.array < output_array[chunk.view_in_original_array]
-                )
-            elif combine_function == "max":
-                mask = (chunk.footprint > 0) & (
-                    chunk.array > output_array[chunk.view_in_original_array]
-                )
-
-            # Update only the selected pixels in place, which avoids allocating
-            # and rewriting the whole chunk as np.where would.
-            np.copyto(output_footprint[chunk.view_in_original_array], chunk.footprint, where=mask)
-            np.copyto(output_array[chunk.view_in_original_array], chunk.array, where=mask)
-        else:
-            raise ValueError(f"Unexpected combine_function: {combine_function}")
+        _combine_piece(
+            combine_function,
+            chunk.array,
+            chunk.footprint,
+            output_array[chunk.view_in_original_array],
+            output_footprint[chunk.view_in_original_array],
+        )
 
 
 # Everything the per-image reprojection needs to know about one input dataset
@@ -234,9 +247,8 @@ def _combine_tile_pieces(
     *pieces, combine_function, blank_pixel_value, dests, trailing_shape, block_info=None
 ):
     # Combine the pieces of the reprojected images that overlap one chunk of the
-    # output, using the same per-pixel logic as _combine_array_into_output (the
-    # images are applied in input order, so the sequential semantics of 'first'
-    # and 'last' are preserved). pieces holds an array block and a footprint
+    # output, using the same per-pixel logic as the return_type='numpy' path
+    # (shared through _combine_piece). pieces holds an array block and a footprint
     # block for each overlapping image, each covering dests[i] within the
     # chunk; when no image overlaps (dests is empty), a single zeros template
     # just provides the leading shape and the chunk comes out blank.
@@ -255,20 +267,7 @@ def _combine_tile_pieces(
     elif combine_function == "max":
         output_array[...] = -np.inf
 
-    if combine_function in ("mean", "sum"):
-        # Footprint-weighted sum, and for the mean divide by the summed
-        # footprint (as the return_type='numpy' path does, including
-        # contributions where the footprint is negative, which can happen when
-        # reprojecting weight maps with interpolation orders that overshoot);
-        # zeros in the divisor are replaced by one to avoid a 0/0 warning,
-        # since those pixels are set to the blank value below anyway.
-        for array, footprint, dest in zip(arrays, footprints, dests, strict=True):
-            region = (Ellipsis,) + dest
-            output_array[region] += array * footprint
-            output_footprint[region] += footprint
-        if combine_function == "mean":
-            output_array /= np.where(output_footprint == 0, 1, output_footprint)
-    elif combine_function == "median":
+    if combine_function == "median":
         # Unweighted median of the values covering each pixel. Pixels covered
         # by no image would be all-NaN slices, which make nanmedian warn; give
         # them a dummy value of zero since they are blanked below anyway.
@@ -282,21 +281,19 @@ def _combine_tile_pieces(
         values[0][np.isnan(values).all(axis=0)] = 0.0
         output_array = np.nanmedian(values, axis=0)
     else:
-        # first/last/min/max select one image per pixel.
+        # For the mean, divide the footprint-weighted sum by the summed
+        # footprint (as the return_type='numpy' path does, including
+        # contributions where the footprint is negative, which can happen when
+        # reprojecting weight maps with interpolation orders that overshoot);
+        # zeros in the divisor are replaced by one to avoid a 0/0 warning,
+        # since those pixels are set to the blank value below anyway.
         for array, footprint, dest in zip(arrays, footprints, dests, strict=True):
             region = (Ellipsis,) + dest
-            if combine_function == "first":
-                mask = (footprint > 0) & (output_footprint[region] == 0)
-            elif combine_function == "last":
-                mask = footprint > 0
-            elif combine_function == "min":
-                mask = (footprint > 0) & (array < output_array[region])
-            elif combine_function == "max":
-                mask = (footprint > 0) & (array > output_array[region])
-            else:
-                raise ValueError(f"Unexpected combine_function: {combine_function}")
-            np.copyto(output_footprint[region], footprint, where=mask)
-            np.copyto(output_array[region], array, where=mask)
+            _combine_piece(
+                combine_function, array, footprint, output_array[region], output_footprint[region]
+            )
+        if combine_function == "mean":
+            output_array /= np.where(output_footprint == 0, 1, output_footprint)
 
     # Match the return_type='numpy' path's final step: set pixels with no
     # coverage to the blank value (only where the summed footprint is exactly
