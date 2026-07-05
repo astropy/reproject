@@ -55,3 +55,31 @@ def test_custom_map_coordinates(cval, shape, order, dtype):
     )
 
     assert_allclose(result1, result2)
+
+
+def test_map_coordinates_clips_to_coordinate_bounding_box():
+    # For non-native data (as read from FITS files), map_coordinates copies the
+    # data since scipy's map_coordinates copies non-native input internally.
+    # The copies should be clipped to the region that the coordinates actually
+    # cover, so interpolating a small region of a large array should only
+    # allocate memory proportional to that region, not to the whole array.
+    import tracemalloc
+
+    np.random.seed(1249)
+
+    data = np.random.random((64, 128, 128)).astype(">f4")  # 4 MB
+
+    coords = np.random.uniform(20, 30, (3, 10_000))
+
+    tracemalloc.start()
+    result = map_coordinates(data, coords, order=1, cval=np.nan, mode="constant")
+    _, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+
+    # The coordinates cover a ~10x10x10 region, so with padding the copies
+    # should be well under a megabyte; without clipping the whole 4 MB array
+    # would be copied.
+    assert peak < 1_000_000
+
+    expected = map_coordinates(data.astype("<f4"), coords, order=1, cval=np.nan, mode="constant")
+    assert_allclose(result, expected, rtol=1e-6)

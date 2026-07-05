@@ -575,7 +575,10 @@ def test_reproject_roundtrip_kwarg(aia_test_data):
         block_size=(32, 32),
     )
 
-    assert_allclose(output_roundtrip_1, output_roundtrip_2)
+    # The blocked path interpolates with coordinates offset to each block's
+    # clipped input region, which changes the float32 rounding slightly, so
+    # the results are not bitwise identical to the unblocked ones.
+    assert_allclose(output_roundtrip_1, output_roundtrip_2, rtol=1e-5)
 
     output_noroundtrip_1 = reproject_interp(
         (data, wcs),
@@ -593,7 +596,7 @@ def test_reproject_roundtrip_kwarg(aia_test_data):
         block_size=(32, 32),
     )
 
-    assert_allclose(output_noroundtrip_1, output_noroundtrip_2)
+    assert_allclose(output_noroundtrip_1, output_noroundtrip_2, rtol=1e-5)
 
     # The array with round-tripping should have more NaN values:
     assert np.sum(np.isnan(output_roundtrip_1)) > 9500
@@ -1103,4 +1106,7 @@ def test_reproject_order_method(order):
             dask_method="none",
         )
 
-        assert_allclose(array_out_memmap, array_out_none)
+        # The two dask methods route through different map_coordinates
+        # implementations (numpy with per-block input clipping vs dask-image),
+        # which agree to within rounding but not bitwise.
+        assert_allclose(array_out_memmap, array_out_none, rtol=1e-5)

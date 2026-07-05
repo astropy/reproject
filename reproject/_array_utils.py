@@ -238,17 +238,29 @@ def map_coordinates(
 
             chunk = list(chunk)
 
-            # Adjust chunks to add padding
+            coords_subset = coords[:, include].copy()
+
+            # Clip each chunk to the bounding box of the coordinates that fall
+            # inside it (plus the interpolation padding), since the coordinates
+            # can cover a region much smaller than the chunk, in which case only
+            # that region needs to be accessed and, for non-native data (which
+            # scipy's map_coordinates copies internally), copied. Coordinates
+            # can be NaN (e.g. for pixels that fail round-tripping), which the
+            # interpolation turns into NaN values, so the bounding box is
+            # computed from the finite coordinates, keeping the whole (padded)
+            # chunk if there are none.
             for idim, slc in enumerate(chunk):
-                start = max(0, slc.start - padding)
-                stop = min(original_shape[idim], slc.stop + padding)
+                finite = coords_subset[idim][np.isfinite(coords_subset[idim])]
+                if len(finite) > 0:
+                    start = max(0, int(np.floor(finite.min())) - padding)
+                    stop = min(original_shape[idim], int(np.ceil(finite.max())) + 1 + padding)
+                else:
+                    start = max(0, slc.start - padding)
+                    stop = min(original_shape[idim], slc.stop + padding)
                 chunk[idim] = slice(start, stop)
+                coords_subset[idim, :] -= start
 
             chunk = tuple(chunk)
-
-            coords_subset = coords[:, include].copy()
-            for idim, slc in enumerate(chunk):
-                coords_subset[idim, :] -= slc.start
 
             if optimize_memory:
                 image_subset = memory_efficient_access(image, chunk)
