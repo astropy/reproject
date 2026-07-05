@@ -146,7 +146,12 @@ def _reproject_full(
                 cval=np.nan,
                 mode="constant",
                 output=array_out_loopable[i].ravel(),
-                max_chunk_size=256 * 1024**2,
+                # max_chunk_size is a number of elements, not bytes, so this
+                # bounds the copies made for non-native (e.g. FITS) data to
+                # 64MB for 32-bit and 128MB for 64-bit values, which costs
+                # only a few percent in speed compared to larger chunks even
+                # when the coordinates span the whole input array
+                max_chunk_size=16 * 1024**2,
             )
 
     # n.b. We write the reprojected data into array_out_loopable, but array_out
