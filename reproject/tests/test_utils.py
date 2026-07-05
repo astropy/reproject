@@ -5,7 +5,7 @@ from astropy.io import fits
 from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
 
-from reproject._wcs_utils import has_celestial
+from reproject._wcs_utils import has_celestial, pixel_to_pixel_chunked
 from reproject.conftest import set_wcs_array_shape
 from reproject.tests.helpers import assert_wcs_allclose
 from reproject.utils import (
@@ -142,6 +142,123 @@ def test_has_celestial():
 
     wwh2 = HighLevelWCSWrapper(SlicedLowLevelWCS(ww, [slice(0, 1), slice(0, 1)]))
     assert has_celestial(wwh2)
+
+
+def test_pixel_to_pixel_chunked():
+    from astropy.wcs.utils import pixel_to_pixel
+
+    wcs1 = WCS(naxis=2)
+    wcs1.wcs.ctype = "RA---TAN", "DEC--TAN"
+    wcs1.wcs.crval = 43.0, 23.0
+    wcs1.wcs.cdelt = -0.1, 0.1
+    wcs1.wcs.crpix = 5.0, 5.0
+
+    wcs2 = WCS(naxis=2)
+    wcs2.wcs.ctype = "GLON-CAR", "GLAT-CAR"
+    # Center on the galactic coordinates of the wcs1 reference point so the
+    # two WCSes overlap
+    wcs2.wcs.crval = 155.97, -32.03
+    wcs2.wcs.cdelt = -0.1, 0.1
+    wcs2.wcs.crpix = 5.0, 5.0
+
+    rng = np.random.default_rng(42)
+    x = rng.uniform(0, 10, 1000)
+    y = rng.uniform(0, 10, 1000)
+
+    # Chunking should not change the results
+    xp, yp = pixel_to_pixel(wcs1, wcs2, x, y)
+    xc, yc = pixel_to_pixel_chunked(wcs1, wcs2, x, y, chunk_size=17)
+    np.testing.assert_array_equal(xp, xc)
+    np.testing.assert_array_equal(yp, yc)
+
+    # Results can be written into arrays of a different shape (matched in
+    # flat C order), and broadcast inputs should be handled without being
+    # expanded
+    output = np.empty((2, 40, 50))
+    pixel_to_pixel_chunked(
+        wcs1,
+        wcs2,
+        np.broadcast_to(x, (2, 1000)),
+        np.broadcast_to(y, (2, 1000)),
+        chunk_size=17,
+        output=list(output),
+    )
+    np.testing.assert_array_equal(output[0].ravel(), np.tile(xc, 2))
+    np.testing.assert_array_equal(output[1].ravel(), np.tile(yc, 2))
+
+    # Scalar inputs should be accepted and give the same answer as astropy
+    sx, sy = pixel_to_pixel_chunked(wcs1, wcs2, 5.0, 5.0)
+    ex, ey = pixel_to_pixel(wcs1, wcs2, 5.0, 5.0)
+    np.testing.assert_allclose([np.asarray(sx), np.asarray(sy)], [ex, ey])
+
+
+def test_pixel_to_pixel_chunked_1d():
+    # A one-dimensional WCS makes pixel_to_pixel return a bare array rather
+    # than a tuple, which needs special handling on both the forward and the
+    # roundtrip pass.
+    from astropy.wcs.utils import pixel_to_pixel
+
+    wcs1 = WCS(naxis=1)
+    wcs1.wcs.ctype = ("WAVE",)
+    wcs1.wcs.cunit = ("m",)
+    wcs1.wcs.crval = [1e-6]
+    wcs1.wcs.cdelt = [1e-9]
+    wcs1.wcs.crpix = [1]
+
+    wcs2 = WCS(naxis=1)
+    wcs2.wcs.ctype = ("WAVE",)
+    wcs2.wcs.cunit = ("m",)
+    wcs2.wcs.crval = [1e-6]
+    wcs2.wcs.cdelt = [2e-9]
+    wcs2.wcs.crpix = [1]
+
+    x = np.linspace(0, 50, 60)
+    ref = pixel_to_pixel(wcs1, wcs2, x)
+    (chunked,) = pixel_to_pixel_chunked(wcs1, wcs2, x, roundtrip=True, chunk_size=7)
+    np.testing.assert_array_equal(ref, chunked)
+
+
+def test_pixel_to_pixel_chunked_roundtrip():
+    # Reprojecting a full-sky output grid back to a small TAN input produces
+    # "ghost" pixels far from the footprint that transform to a finite input
+    # pixel but do not round-trip - these should be set to NaN when roundtrip
+    # is enabled, while pixels that do round-trip are left untouched.
+    from astropy.wcs.utils import pixel_to_pixel
+
+    wcs_in = WCS(naxis=2)
+    wcs_in.wcs.ctype = "RA---TAN", "DEC--TAN"
+    wcs_in.wcs.crval = 0.0, 0.0
+    wcs_in.wcs.crpix = 25.0, 25.0
+    wcs_in.wcs.cdelt = -0.1, 0.1
+    wcs_in.wcs.set()
+
+    wcs_out = WCS(naxis=2)
+    wcs_out.wcs.ctype = "RA---CAR", "DEC--CAR"
+    wcs_out.wcs.crval = 0.0, 0.0
+    wcs_out.wcs.crpix = 90.0, 45.0
+    wcs_out.wcs.cdelt = -2.0, 2.0
+    wcs_out.wcs.set()
+
+    y, x = np.mgrid[0:90, 0:180]
+    x = x.ravel().astype(float)
+    y = y.ravel().astype(float)
+
+    # Reference: forward transform with the round-trip reset applied by hand
+    fx, fy = pixel_to_pixel(wcs_out, wcs_in, x, y)
+    bx, by = pixel_to_pixel(wcs_in, wcs_out, fx, fy)
+    reset = (np.abs(bx - x) > 1) | (np.abs(by - y) > 1)
+    ref_x = np.where(reset, np.nan, fx)
+    ref_y = np.where(reset, np.nan, fy)
+
+    cx, cy = pixel_to_pixel_chunked(wcs_out, wcs_in, x, y, roundtrip=True, chunk_size=777)
+    np.testing.assert_array_equal(cx, ref_x)
+    np.testing.assert_array_equal(cy, ref_y)
+
+    # Sanity check that this geometry actually exercises the reset (some
+    # pixels transform to a finite input pixel but are still reset to NaN)
+    forward_finite = np.isfinite(fx) & np.isfinite(fy)
+    assert (reset & forward_finite).any()
+    assert np.isfinite(cx).any()
 
 
 class TestHDUToMemmap:

@@ -1,9 +1,8 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
 import numpy as np
-from astropy.wcs.utils import pixel_to_pixel
 
-from .._wcs_utils import pixel_to_pixel_with_roundtrip
+from .._wcs_utils import pixel_to_pixel_chunked
 from .deforest import map_coordinates
 
 __all__ = ["_reproject_adaptive_2d"]
@@ -17,11 +16,16 @@ class CoordinateTransformer:
 
     def __call__(self, pixel_out):
         pixel_out = pixel_out[:, :, 0], pixel_out[:, :, 1]
-        if self.roundtrip_coords:
-            pixel_in = pixel_to_pixel_with_roundtrip(self.wcs_out, self.wcs_in, *pixel_out)
-        else:
-            pixel_in = pixel_to_pixel(self.wcs_out, self.wcs_in, *pixel_out)
-        pixel_in = np.array(pixel_in).transpose().swapaxes(0, 1)
+        # Transform in chunks, writing directly into the (ny, nx, 2) array
+        # that map_coordinates needs to avoid full-size stacking copies
+        pixel_in = np.empty((*pixel_out[0].shape, 2))
+        pixel_to_pixel_chunked(
+            self.wcs_out,
+            self.wcs_in,
+            *pixel_out,
+            roundtrip=self.roundtrip_coords,
+            output=[pixel_in[..., 0], pixel_in[..., 1]],
+        )
         return pixel_in
 
 
