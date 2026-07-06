@@ -524,16 +524,18 @@ def _coadd_zarr(
     chunk_shape = tuple(chunks[0] for chunks in target_chunks)
 
     group = zarr.open_group(zarr_path, mode="w-")
+    # zarr 2 calls the array creation method create_dataset
+    create = group.create_array if hasattr(group, "create_array") else group.create_dataset
     # Batches with no overlapping images are never written, so the fill
     # values provide the same blank mosaic values as the other paths
-    zarr_array = group.create_array(
+    zarr_array = create(
         "array",
         shape=tuple(shape_out),
         chunks=chunk_shape,
         dtype=float,
         fill_value=float(blank_pixel_value),
     )
-    zarr_footprint = group.create_array(
+    zarr_footprint = create(
         "footprint",
         shape=tuple(shape_out),
         chunks=chunk_shape,
