@@ -1,4 +1,3 @@
-import dask.array as da
 import numpy as np
 from dask_image.ndinterp import map_coordinates as dask_image_map_coordinates
 from dask_image.ndinterp import spline_filter
@@ -239,17 +238,29 @@ def map_coordinates(
 
             chunk = list(chunk)
 
-            # Adjust chunks to add padding
+            coords_subset = coords[:, include].copy()
+
+            # Clip each chunk to the bounding box of the coordinates that fall
+            # inside it (plus the interpolation padding), since the coordinates
+            # can cover a region much smaller than the chunk, in which case only
+            # that region needs to be accessed and, for non-native data (which
+            # scipy's map_coordinates copies internally), copied. Coordinates
+            # can be NaN (e.g. for pixels that fail round-tripping), which the
+            # interpolation turns into NaN values, so the bounding box is
+            # computed from the finite coordinates, keeping the whole (padded)
+            # chunk if there are none.
             for idim, slc in enumerate(chunk):
-                start = max(0, slc.start - padding)
-                stop = min(original_shape[idim], slc.stop + padding)
+                finite = coords_subset[idim][np.isfinite(coords_subset[idim])]
+                if len(finite) > 0:
+                    start = max(0, int(np.floor(finite.min())) - padding)
+                    stop = min(original_shape[idim], int(np.ceil(finite.max())) + 1 + padding)
+                else:
+                    start = max(0, slc.start - padding)
+                    stop = min(original_shape[idim], slc.stop + padding)
                 chunk[idim] = slice(start, stop)
+                coords_subset[idim, :] -= start
 
             chunk = tuple(chunk)
-
-            coords_subset = coords[:, include].copy()
-            for idim, slc in enumerate(chunk):
-                coords_subset[idim, :] -= slc.start
 
             if optimize_memory:
                 image_subset = memory_efficient_access(image, chunk)
@@ -288,55 +299,6 @@ def sample_array_edges(shape, *, n_samples):
             all_positions.append(positions)
     positions = np.unique(np.vstack(all_positions), axis=0).T
     return positions
-
-
-def pad_dask_array_to_grid(array, bounds, target_shape, target_chunks):
-    """
-    Pad a dask array with zeros so that it occupies the region given by
-    ``bounds`` (one ``(imin, imax)`` pair per dimension) within an array of
-    shape ``target_shape``, with chunk boundaries aligned to ``target_chunks``.
-
-    da.pad would chunk the pad region at the array's own chunk sizes, so a
-    later rechunk to the target chunking would have to split and recombine
-    chunks, making the number of tasks grow much faster than the number of
-    padded arrays being combined. With the chunks aligned here, that rechunk
-    only has to merge chunks at the edges of the original array.
-    """
-    for idim, (imin, imax) in enumerate(bounds):
-        edges = np.cumsum(target_chunks[idim])[:-1]
-
-        def aligned_chunks(lo, hi, edges=edges):
-            cuts = [lo] + [int(edge) for edge in edges if lo < edge < hi] + [hi]
-            return tuple(np.diff(cuts).tolist())
-
-        array = array.rechunk(
-            array.chunks[:idim] + (aligned_chunks(imin, imax),) + array.chunks[idim + 1 :]
-        )
-        pieces = [array]
-        if imin > 0:
-            pieces.insert(
-                0,
-                da.zeros(
-                    array.shape[:idim] + (imin,) + array.shape[idim + 1 :],
-                    chunks=array.chunks[:idim]
-                    + (aligned_chunks(0, imin),)
-                    + array.chunks[idim + 1 :],
-                    dtype=array.dtype,
-                ),
-            )
-        if imax < target_shape[idim]:
-            pieces.append(
-                da.zeros(
-                    array.shape[:idim] + (target_shape[idim] - imax,) + array.shape[idim + 1 :],
-                    chunks=array.chunks[:idim]
-                    + (aligned_chunks(imax, target_shape[idim]),)
-                    + array.chunks[idim + 1 :],
-                    dtype=array.dtype,
-                ),
-            )
-        if len(pieces) > 1:
-            array = da.concatenate(pieces, axis=idim)
-    return array
 
 
 class ArrayWrapper:

@@ -1,14 +1,9 @@
-import dask.array as da
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 from scipy.ndimage import map_coordinates as scipy_map_coordinates
 
-from reproject._array_utils import (
-    dask_map_coordinates,
-    map_coordinates,
-    pad_dask_array_to_grid,
-)
+from reproject._array_utils import dask_map_coordinates, map_coordinates
 
 
 @pytest.mark.parametrize("cval", [3, np.nan])
@@ -62,40 +57,29 @@ def test_custom_map_coordinates(cval, shape, order, dtype):
     assert_allclose(result1, result2)
 
 
-@pytest.mark.parametrize(
-    "bounds",
-    [
-        [(7, 19), (18, 27)],  # interior: padding on every side
-        [(0, 12), (31, 40)],  # flush with the grid edges: no padding there
-        [(0, 30), (0, 9)],  # one dimension spanning the full grid
-    ],
-)
-def test_pad_dask_array_to_grid(bounds):
-    target_shape = (30, 40)
-    # Non-uniform chunking along the second dimension (remainder chunk)
-    target_chunks = da.core.normalize_chunks((10, 16), shape=target_shape, dtype=float)
+def test_map_coordinates_clips_to_coordinate_bounding_box():
+    # For non-native data (as read from FITS files), map_coordinates copies the
+    # data since scipy's map_coordinates copies non-native input internally.
+    # The copies should be clipped to the region that the coordinates actually
+    # cover, so interpolating a small region of a large array should only
+    # allocate memory proportional to that region, not to the whole array.
+    import tracemalloc
 
-    shape = tuple(imax - imin for (imin, imax) in bounds)
-    data = np.random.default_rng(42).random(shape).astype("<f4")
-    array = da.from_array(data, chunks=(5, 4))
+    np.random.seed(1249)
 
-    padded = pad_dask_array_to_grid(array, bounds, target_shape, target_chunks)
+    data = np.random.random((64, 128, 128)).astype(">f4")  # 4 MB
 
-    assert padded.shape == target_shape
-    assert padded.dtype == array.dtype
+    coords = np.random.uniform(20, 30, (3, 10_000))
 
-    expected = np.zeros(target_shape, dtype="<f4")
-    expected[tuple(slice(imin, imax) for (imin, imax) in bounds)] = data
-    assert_allclose(np.asarray(padded), expected)
+    tracemalloc.start()
+    result = map_coordinates(data, coords, order=1, cval=np.nan, mode="constant")
+    _, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
 
-    # The chunk boundaries are the target grid boundaries plus at most cuts at
-    # the bounds of the original array, so that the rechunk to the target
-    # chunking below only has to merge chunks rather than split and recombine
-    # them across the whole grid.
-    for idim in range(padded.ndim):
-        target_edges = set(np.cumsum(target_chunks[idim]))
-        result_edges = set(np.cumsum(padded.chunks[idim]))
-        assert target_edges <= result_edges
-        assert result_edges <= target_edges | set(bounds[idim])
+    # The coordinates cover a ~10x10x10 region, so with padding the copies
+    # should be well under a megabyte; without clipping the whole 4 MB array
+    # would be copied.
+    assert peak < 1_000_000
 
-    assert padded.rechunk(target_chunks).chunks == target_chunks
+    expected = map_coordinates(data.astype("<f4"), coords, order=1, cval=np.nan, mode="constant")
+    assert_allclose(result, expected, rtol=1e-6)
