@@ -318,8 +318,19 @@ def _reproject_dispatcher(
         broadcasted_parallelization = False
         if broadcasting and block_size is not None and block_size != "auto":
             if block_size[-n_dim_reproject:] == shape_out[-n_dim_reproject:]:
-                # TODO: maybe error if block_size was given in full and is wrong
                 broadcasted_parallelization = True
+                # Each block covers a single non-reprojected slice, so entries
+                # along the non-reprojected dimensions must be 1 or the full
+                # extent; anything else would be silently reinterpreted as 1.
+                if any(
+                    entry not in (1, shape_out[idim])
+                    for idim, entry in enumerate(block_size[: len(shape_out) - n_dim_reproject])
+                ):
+                    raise ValueError(
+                        f"block_size {block_size} should be 1 or match the output shape "
+                        "along the non-reprojected dimensions (each block covers a "
+                        "single non-reprojected slice)"
+                    )
                 block_size = (1,) * (len(shape_out) - n_dim_reproject) + block_size[
                     -n_dim_reproject:
                 ]
