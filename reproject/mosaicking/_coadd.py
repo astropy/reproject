@@ -475,6 +475,126 @@ def _coadd_dask(
     return result[0], result[1]
 
 
+def _coadd_zarr(
+    cutouts,
+    *,
+    reproject_function,
+    combine_function,
+    shape_out,
+    target_chunks,
+    n_dim_reproject,
+    blank_pixel_value,
+    hdu_in,
+    reproject_kwargs,
+    zarr_path,
+    zarr_batch_size,
+):
+    # The return_type='zarr' co-addition: build the same deferred graphs as
+    # return_type='dask', but compute them here, batch by batch along the
+    # first dimension, into a zarr store on disk. Each batch is built as its
+    # own graph from only the images that overlap it, so the memory used by
+    # the computation is bounded by one batch regardless of the size of the
+    # mosaic (the scheduler never sees tasks from more than one batch), and
+    # each batch is written to a disjoint region of the store. Reprojected
+    # chunks of images that span a batch boundary are computed in each batch
+    # that needs them, trading some recomputation for the bounded memory.
+
+    import zarr  # noqa: PLC0415
+
+    logger = getLogger(__name__)
+
+    cutouts = list(cutouts)
+
+    chunk_shape = tuple(chunks[0] for chunks in target_chunks)
+
+    group = zarr.open_group(zarr_path, mode="w-")
+    # Batches with no overlapping images are never written, so the fill
+    # values provide the same blank mosaic values as the other paths
+    zarr_array = group.create_array(
+        "array",
+        shape=tuple(shape_out),
+        chunks=chunk_shape,
+        dtype=float,
+        fill_value=float(blank_pixel_value),
+    )
+    zarr_footprint = group.create_array(
+        "footprint",
+        shape=tuple(shape_out),
+        chunks=chunk_shape,
+        dtype=float,
+        fill_value=0.0,
+    )
+
+    # Batches are groups of output chunks, iterating over the chunk grid in
+    # C order, sized so that one batch of the output is around 2 GB by
+    # default, since the working memory of the computation scales with the
+    # batch size.
+    numblocks = tuple(len(chunks) for chunks in target_chunks)
+    all_edges = [np.concatenate([[0], np.cumsum(chunks)]).astype(int) for chunks in target_chunks]
+
+    if zarr_batch_size is None:
+        chunk_nbytes = float(np.prod(chunk_shape, dtype=float)) * 8
+        zarr_batch_size = max(1, int(2 * 1024**3 // max(chunk_nbytes, 1)))
+
+    chunk_indices = list(np.ndindex(numblocks))
+    n_batches = int(np.ceil(len(chunk_indices) / zarr_batch_size))
+    for ibatch in range(n_batches):
+        batch = chunk_indices[ibatch * zarr_batch_size : (ibatch + 1) * zarr_batch_size]
+
+        regions = [
+            tuple(
+                slice(int(all_edges[axis][index[axis]]), int(all_edges[axis][index[axis] + 1]))
+                for axis in range(len(numblocks))
+            )
+            for index in batch
+        ]
+
+        # Keep only the images that overlap at least one chunk in the batch
+        batch_cutouts = [
+            cutout
+            for cutout in cutouts
+            if any(
+                all(
+                    cutout.bounds[axis][1] > region[axis].start
+                    and cutout.bounds[axis][0] < region[axis].stop
+                    for axis in range(len(numblocks))
+                )
+                for region in regions
+            )
+        ]
+        logger.info(
+            f"Computing batch {ibatch + 1} of {n_batches} ({len(batch)} chunks, "
+            f"{len(batch_cutouts)} overlapping images)"
+        )
+        if not batch_cutouts:
+            continue
+        array, footprint = _coadd_dask(
+            batch_cutouts,
+            reproject_function=reproject_function,
+            combine_function=combine_function,
+            shape_out=shape_out,
+            target_chunks=target_chunks,
+            n_dim_reproject=n_dim_reproject,
+            blank_pixel_value=blank_pixel_value,
+            hdu_in=hdu_in,
+            reproject_kwargs=reproject_kwargs,
+        )
+        sources = [array[region] for region in regions] + [footprint[region] for region in regions]
+        targets = [zarr_array] * len(regions) + [zarr_footprint] * len(regions)
+        da.store(
+            sources,
+            targets,
+            regions=regions + regions,
+            lock=False,
+            compute=True,
+        )
+
+    return (
+        da.from_zarr(zarr_path, component="array"),
+        da.from_zarr(zarr_path, component="footprint"),
+    )
+
+
 def _coadd_numpy(
     cutouts,
     *,
@@ -709,6 +829,8 @@ def reproject_and_coadd(
     blank_pixel_value=0,
     intermediate_memmap=False,
     return_type=None,
+    zarr_path=None,
+    zarr_batch_size=None,
     **kwargs,
 ):
     """
@@ -805,7 +927,7 @@ def reproject_and_coadd(
     intermediate_memmap : bool, optional
         If `True`, use `numpy.memmap` to store intermediate output arrays for
         reprojected data. Only supported with ``return_type='numpy'``.
-    return_type : {None, 'numpy', 'dask'}, optional
+    return_type : {None, 'numpy', 'dask', 'zarr'}, optional
         If ``'dask'``, reproject each image lazily (using ``return_type='dask'``
         on the reprojection function) and assemble each chunk of the output
         from the images that overlap it, returning the resulting **uncomputed**
@@ -817,8 +939,23 @@ def reproject_and_coadd(
         unweighted median), which the ``return_type='numpy'`` path cannot compute.
         ``match_background``, ``output_array``, ``output_footprint`` and
         ``intermediate_memmap`` are not supported, since the result is an
-        uncomputed graph rather than arrays filled in place. The default (`None`)
-        is equivalent to ``'numpy'``.
+        uncomputed graph rather than arrays filled in place. If ``'zarr'``,
+        build the same graphs as ``'dask'`` but compute them here, batch by
+        batch along the first dimension, into a zarr store at ``zarr_path``,
+        returning dask arrays that read from the store. This bounds the memory
+        used by the computation to one batch regardless of the size of the
+        mosaic, at the cost of recomputing reprojected chunks of images that
+        span a batch boundary, and the restrictions of ``'dask'`` apply. The
+        default (`None`) is equivalent to ``'numpy'``.
+    zarr_path : str, optional
+        The path at which to create the zarr store when
+        ``return_type='zarr'``. The path must not already exist. The store is
+        created as a group with ``'array'`` and ``'footprint'`` arrays.
+    zarr_batch_size : int, optional
+        The number of output chunks to compute per batch when
+        ``return_type='zarr'``, iterating over the output chunks in C order.
+        The default picks a batch size such that one batch of the output is
+        around 2 GB.
 
     **kwargs
         Keyword arguments to be passed to the reprojection function.
@@ -827,7 +964,8 @@ def reproject_and_coadd(
     -------
     array : `~numpy.ndarray` or `~dask.array.Array`
         The co-added array. This is an uncomputed dask array when
-        ``return_type='dask'``.
+        ``return_type='dask'``, and a dask array reading from the computed
+        zarr store when ``return_type='zarr'``.
     footprint : `~numpy.ndarray` or `~dask.array.Array`
         Footprint of the co-added array. Values of 0 indicate no coverage or
         valid values in the input image, while values of 1 indicate valid
@@ -846,13 +984,21 @@ def reproject_and_coadd(
     # silently select the return_type='numpy' co-addition.
     if return_type is None:
         return_type = "numpy"
-    if return_type not in ("numpy", "dask"):
-        raise ValueError("return_type should be set to 'numpy' or 'dask'")
+    if return_type not in ("numpy", "dask", "zarr"):
+        raise ValueError("return_type should be set to 'numpy', 'dask' or 'zarr'")
+
+    if return_type == "zarr":
+        if zarr_path is None:
+            raise ValueError("zarr_path should be set when using return_type='zarr'")
+        if os.path.exists(zarr_path):
+            raise ValueError(f"Path {zarr_path} already exists")
+    elif zarr_path is not None:
+        raise ValueError("zarr_path can only be set when using return_type='zarr'")
 
     # 'median' is only available for the deferred dask path (return_type='dask'); the
     # return_type='numpy' path cannot compute a median on the fly.
     allowed_combine = ("mean", "sum", "first", "last", "min", "max")
-    if return_type == "dask":
+    if return_type in ("dask", "zarr"):
         allowed_combine = allowed_combine + ("median",)
     if combine_function not in allowed_combine:
         raise ValueError(f"combine_function should be one of {'/'.join(allowed_combine)}")
@@ -918,17 +1064,21 @@ def reproject_and_coadd(
     # the images are combined with a nan-aware reduction. The uncomputed dask arrays
     # are returned so the whole thing is computed once at the end, so we must not
     # allocate the (potentially huge) output arrays here.
-    coadd_with_dask = return_type == "dask"
+    coadd_with_dask = return_type in ("dask", "zarr")
 
     if coadd_with_dask:
         if match_background:
-            raise ValueError("Cannot use return_type='dask' together with match_background")
+            raise ValueError(
+                f"Cannot use return_type={return_type!r} together with match_background"
+            )
         if output_array is not None or output_footprint is not None:
             raise ValueError(
-                "Cannot use return_type='dask' together with output_array or output_footprint"
+                f"Cannot use return_type={return_type!r} together with output_array or output_footprint"
             )
         if intermediate_memmap:
-            raise ValueError("Cannot use return_type='dask' together with intermediate_memmap")
+            raise ValueError(
+                f"Cannot use return_type={return_type!r} together with intermediate_memmap"
+            )
     else:
         if output_array is None:
             output_array = np.zeros(shape_out)
@@ -1000,7 +1150,21 @@ def reproject_and_coadd(
         progress_bar,
     )
 
-    if coadd_with_dask:
+    if return_type == "zarr":
+        return _coadd_zarr(
+            cutouts,
+            reproject_function=reproject_function,
+            combine_function=combine_function,
+            shape_out=shape_out,
+            target_chunks=target_chunks,
+            n_dim_reproject=n_dim_reproject,
+            blank_pixel_value=blank_pixel_value,
+            hdu_in=hdu_in,
+            reproject_kwargs=kwargs,
+            zarr_path=zarr_path,
+            zarr_batch_size=zarr_batch_size,
+        )
+    elif coadd_with_dask:
         return _coadd_dask(
             cutouts,
             reproject_function=reproject_function,
