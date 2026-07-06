@@ -57,6 +57,25 @@ def test_non_reprojected_dims(reproject_function):
     assert_allclose(array_out, reference, equal_nan=True)
 
 
+def test_non_reprojected_dims_invalid_leading_block_size(reproject_function):
+    # Since each block covers a single non-reprojected slice, block_size entries
+    # along the non-reprojected dimensions must be 1 or the full extent; other
+    # values would be silently reinterpreted as 1 so they raise instead.
+    data = np.ones((4, 20, 20))
+    wcs_in = _spectral_cube_wcs(0.0, 1e9)
+    wcs_out = _spectral_cube_wcs(0.02, 1e9 + 2e6)
+    for block_size in [(2, 20, 20), (999, 20, 20)]:
+        with pytest.raises(ValueError, match="single non-reprojected slice"):
+            reproject_function(
+                (data, wcs_in),
+                wcs_out,
+                shape_out=(4, 20, 20),
+                non_reprojected_dims=(0,),
+                parallel=True,
+                block_size=block_size,
+            )
+
+
 def test_non_reprojected_dims_invalid_order(reproject_function):
     data = np.ones((4, 20, 20))
     wcs = _spectral_cube_wcs(0.0, 1e9)

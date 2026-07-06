@@ -1,4 +1,5 @@
 import logging
+import mmap
 import os
 import tempfile
 import uuid
@@ -317,8 +318,19 @@ def _reproject_dispatcher(
         broadcasted_parallelization = False
         if broadcasting and block_size is not None and block_size != "auto":
             if block_size[-n_dim_reproject:] == shape_out[-n_dim_reproject:]:
-                # TODO: maybe error if block_size was given in full and is wrong
                 broadcasted_parallelization = True
+                # Each block covers a single non-reprojected slice, so entries
+                # along the non-reprojected dimensions must be 1 or the full
+                # extent; anything else would be silently reinterpreted as 1.
+                if any(
+                    entry not in (1, shape_out[idim])
+                    for idim, entry in enumerate(block_size[: len(shape_out) - n_dim_reproject])
+                ):
+                    raise ValueError(
+                        f"block_size {block_size} should be 1 or match the output shape "
+                        "along the non-reprojected dimensions (each block covers a "
+                        "single non-reprojected slice)"
+                    )
                 block_size = (1,) * (len(shape_out) - n_dim_reproject) + block_size[
                     -n_dim_reproject:
                 ]
@@ -359,8 +371,8 @@ def _reproject_dispatcher(
             ):
                 return np.array([a, a])
 
-            if isinstance(array_or_path, str) and array_or_path == "from-dict":
-                array_or_path = dask_arrays["array"]
+            if isinstance(array_or_path, _ArrayContainer):
+                array_or_path = array_or_path._array
 
             shape_out = block_info[None]["chunk-shape"][1:]
 
@@ -466,7 +478,16 @@ def _reproject_dispatcher(
             # memory-mapped array so that it can be used by the various reprojection
             # functions (which don't internally work with dask arrays).
 
-            if isinstance(array_in, np.memmap) and array_in.flags.c_contiguous:
+            # Only base memmaps can be reconstructed from filename and offset:
+            # views (e.g. a slice of a memmap) keep the parent's unadjusted
+            # .offset, so reconstructing them would silently read the wrong
+            # file region. Views fall through and are passed by reference like
+            # plain arrays.
+            if (
+                isinstance(array_in, np.memmap)
+                and array_in.flags.c_contiguous
+                and isinstance(array_in.base, mmap.mmap)
+            ):
                 array_in_or_path = array_in.filename, {
                     "dtype": array_in.dtype,
                     "shape": array_in.shape,
@@ -482,8 +503,11 @@ def _reproject_dispatcher(
                         tmp_dir = local_tmp_dir
                     array_in_or_path = as_delayed_memmap_path(_ArrayContainer(array_in), tmp_dir)
                 else:
-                    dask_arrays = {"array": array_in}
-                    array_in_or_path = "from-dict"
+                    # Wrap the dask array in _ArrayContainer so dask treats it
+                    # as an opaque constant (rather than a collection to
+                    # compute and align with the output blocks) when it is
+                    # passed through to the block function.
+                    array_in_or_path = _ArrayContainer(array_in)
             else:
                 # Here we could set array_in_or_path to array_in_path if it has
                 # been set previously, but in synchronous and threaded mode it is
@@ -508,21 +532,21 @@ def _reproject_dispatcher(
 
             logger.info("Setting up output dask array with map_blocks")
 
+            # Declare the exact (possibly ragged) chunks of the output template
+            # so that edge blocks are computed at their true size rather than
+            # being reprojected at the full block size and truncated afterwards.
             result = da.map_blocks(
                 reproject_single_block,
                 array_out_dask,
                 array_in_or_path,
                 dtype="<f8",
                 new_axis=0,
-                chunks=(2,) + array_out_dask.chunksize,
+                chunks=((2,),) + array_out_dask.chunks,
             )
 
         # Ensure that there are no more references to Numpy memmaps
         array_in = None
         array_in_or_path = None
-
-        # Truncate extra elements
-        result = result[tuple([slice(None)] + [slice(s) for s in shape_out])]
 
         if return_type == "dask":
             if return_footprint:
