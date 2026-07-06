@@ -1173,6 +1173,47 @@ def test_coadd_return_type_zarr_non_reprojected_dims(tmp_path):
     assert_allclose(np.asarray(footprint_zarr), np.asarray(footprint_dask))
 
 
+def test_coadd_return_type_zarr_parallel(tmp_path):
+    # The batch computation follows the same parallel semantics as the
+    # individual reprojection functions
+
+    data = np.random.default_rng(0).random((30, 30))
+    wcs = WCS(naxis=2)
+    wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
+    wcs.wcs.cdelt = [-0.001, 0.001]
+
+    kwargs = dict(
+        reproject_function=reproject_interp,
+        shape_out=(30, 30),
+        roundtrip_coords=False,
+        block_size=(10, 10),
+        return_type="zarr",
+    )
+
+    results = {}
+    for parallel in [False, True, 2, "current-scheduler"]:
+        array, footprint = reproject_and_coadd(
+            [(data, wcs)],
+            wcs,
+            zarr_path=str(tmp_path / f"coadd_{parallel}.zarr"),
+            parallel=parallel,
+            **kwargs,
+        )
+        results[parallel] = np.asarray(array)
+
+    for parallel in [True, 2, "current-scheduler"]:
+        assert_allclose(results[parallel], results[False])
+
+    with pytest.raises(ValueError, match="strictly positive"):
+        reproject_and_coadd(
+            [(data, wcs)],
+            wcs,
+            zarr_path=str(tmp_path / "coadd_invalid.zarr"),
+            parallel=-1,
+            **kwargs,
+        )
+
+
 def test_coadd_return_type_zarr_validation(tmp_path):
     data = np.ones((10, 10))
     wcs = WCS(naxis=2)

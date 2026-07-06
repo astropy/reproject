@@ -7,6 +7,7 @@ import warnings
 from collections import namedtuple
 from logging import getLogger
 
+import dask
 import dask.array as da
 import numpy as np
 from astropy.wcs import WCS
@@ -503,6 +504,21 @@ def _coadd_zarr(
 
     logger = getLogger(__name__)
 
+    # Compute with the scheduler implied by the parallel keyword, following
+    # the same semantics as the individual reprojection functions:
+    # 'current-scheduler' uses the active scheduler (e.g. dask.distributed),
+    # an integer uses that many threads, True uses the default number of
+    # threads, and False computes synchronously.
+    parallel = reproject_kwargs.get("parallel", False)
+    if parallel == "current-scheduler":
+        scheduler_config = {}
+    elif isinstance(parallel, bool):
+        scheduler_config = {"scheduler": "threads"} if parallel else {"scheduler": "synchronous"}
+    elif parallel > 0:
+        scheduler_config = {"scheduler": "threads", "num_workers": parallel}
+    else:
+        raise ValueError("The number of processors to use must be strictly positive")
+
     cutouts = list(cutouts)
 
     chunk_shape = tuple(chunks[0] for chunks in target_chunks)
@@ -581,13 +597,14 @@ def _coadd_zarr(
         )
         sources = [array[region] for region in regions] + [footprint[region] for region in regions]
         targets = [zarr_array] * len(regions) + [zarr_footprint] * len(regions)
-        da.store(
-            sources,
-            targets,
-            regions=regions + regions,
-            lock=False,
-            compute=True,
-        )
+        with dask.config.set(**scheduler_config):
+            da.store(
+                sources,
+                targets,
+                regions=regions + regions,
+                lock=False,
+                compute=True,
+            )
 
     return (
         da.from_zarr(zarr_path, component="array"),
@@ -955,7 +972,11 @@ def reproject_and_coadd(
         The number of output chunks to compute per batch when
         ``return_type='zarr'``, iterating over the output chunks in C order.
         The default picks a batch size such that one batch of the output is
-        around 2 GB.
+        around 2 GB. The batches are computed with the scheduler implied by
+        the ``parallel`` keyword, with the same semantics as for the
+        individual reprojection functions (``'current-scheduler'`` to use the
+        active scheduler, an integer for that many threads, `True` for the
+        default number of threads and `False` to compute synchronously).
 
     **kwargs
         Keyword arguments to be passed to the reprojection function.
