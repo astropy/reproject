@@ -80,6 +80,27 @@ def _combine_array_into_output(combine_function, array, output_array, output_foo
         )
 
 
+def _overlap_slices(bounds, region):
+    # Given the (min, max) bounds of a reprojected image along some dimensions
+    # and a target region as (start, stop) pairs along the same dimensions,
+    # return the slices of the image covering the intersection and the slices
+    # of the region where that intersection lands, or (None, None) if the two
+    # do not overlap.
+    overlap = [
+        (max(start, imin), min(stop, imax))
+        for (start, stop), (imin, imax) in zip(region, bounds, strict=True)
+    ]
+    if any(hi <= lo for lo, hi in overlap):
+        return None, None
+    local = tuple(
+        slice(lo - imin, hi - imin) for (lo, hi), (imin, _) in zip(overlap, bounds, strict=True)
+    )
+    dest = tuple(
+        slice(lo - start, hi - start) for (lo, hi), (start, _) in zip(overlap, region, strict=True)
+    )
+    return local, dest
+
+
 # Everything the per-image reprojection needs to know about one input dataset
 # and the cutout of the output grid that it covers.
 _InputCutout = namedtuple(
@@ -420,31 +441,19 @@ def _coadd_dask(
         pieces = []
         dests = []
         for array, footprint, bounds in tiles:
-            trailing_bounds = bounds[n_lead:]
-            overlap = [
-                (max(lo, imin), min(hi, imax))
-                for (lo, hi), (imin, imax) in zip(extents, trailing_bounds, strict=True)
-            ]
-            if any(hi <= lo for lo, hi in overlap):
+            local, dest = _overlap_slices(bounds[n_lead:], extents)
+            if local is None:
                 continue
             # Slice of the image (in cutout coordinates) that falls inside this
             # column, kept as one chunk along the reprojected dimensions and
             # matching the output chunking along the non-reprojected ones.
-            local = (slice(None),) * n_lead + tuple(
-                slice(lo - imin, hi - imin)
-                for (lo, hi), (imin, _) in zip(overlap, trailing_bounds, strict=True)
-            )
+            local = (slice(None),) * n_lead + local
             rechunk_spec = {idim: lead_chunks[idim] for idim in range(n_lead)}
             rechunk_spec.update({n_lead + idim: -1 for idim in range(n_dim_reproject)})
             pieces.append(array[local].rechunk(rechunk_spec))
             pieces.append(footprint[local].rechunk(rechunk_spec))
             # Where the piece lands within the column's chunks.
-            dests.append(
-                tuple(
-                    slice(lo - start, hi - start)
-                    for (lo, hi), (start, _) in zip(overlap, extents, strict=True)
-                )
-            )
+            dests.append(dest)
         chunk_shape = tuple(hi - lo for lo, hi in extents)
         if not pieces:
             # No image overlaps this column; a zeros template just provides the
@@ -818,24 +827,14 @@ def _coadd_numpy(
                     pieces = []
                     dests = []
                     for subset in arrays:
-                        overlap = [
-                            (max(slc.start, imin), min(slc.stop, imax))
-                            for slc, (imin, imax) in zip(chunk, subset.bounds, strict=True)
-                        ]
-                        if any(hi <= lo for lo, hi in overlap):
-                            continue
-                        local = tuple(
-                            slice(lo - imin, hi - imin)
-                            for (lo, hi), (imin, _) in zip(overlap, subset.bounds, strict=True)
+                        local, dest = _overlap_slices(
+                            subset.bounds, [(slc.start, slc.stop) for slc in chunk]
                         )
+                        if local is None:
+                            continue
                         pieces.append(subset.array[local])
                         pieces.append(subset.footprint[local])
-                        dests.append(
-                            tuple(
-                                slice(lo - slc.start, hi - slc.start)
-                                for (lo, hi), slc in zip(overlap, chunk, strict=True)
-                            )
-                        )
+                        dests.append(dest)
                     if not pieces:
                         # No coverage; the blank fill below takes care of it
                         continue
