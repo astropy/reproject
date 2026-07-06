@@ -360,8 +360,8 @@ def _reproject_dispatcher(
             ):
                 return np.array([a, a])
 
-            if isinstance(array_or_path, str) and array_or_path == "from-dict":
-                array_or_path = dask_arrays["array"]
+            if isinstance(array_or_path, _ArrayContainer):
+                array_or_path = array_or_path._array
 
             shape_out = block_info[None]["chunk-shape"][1:]
 
@@ -492,8 +492,11 @@ def _reproject_dispatcher(
                         tmp_dir = local_tmp_dir
                     array_in_or_path = as_delayed_memmap_path(_ArrayContainer(array_in), tmp_dir)
                 else:
-                    dask_arrays = {"array": array_in}
-                    array_in_or_path = "from-dict"
+                    # Wrap the dask array in _ArrayContainer so dask treats it
+                    # as an opaque constant (rather than a collection to
+                    # compute and align with the output blocks) when it is
+                    # passed through to the block function.
+                    array_in_or_path = _ArrayContainer(array_in)
             else:
                 # Here we could set array_in_or_path to array_in_path if it has
                 # been set previously, but in synchronous and threaded mode it is
