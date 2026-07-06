@@ -1087,3 +1087,155 @@ def test_coadd_non_reprojected_dims_invalid():
             combine_function="mean",
             non_reprojected_dims=(1,),
         )
+
+
+@pytest.mark.parametrize("combine_function", ["mean", "first", "median"])
+@pytest.mark.parametrize("block_size", [(20, 20), (80, 20)])
+def test_coadd_return_type_zarr(tmp_path, combine_function, block_size):
+    # The zarr return type computes the same graphs as the dask return type
+    # batch by batch into a store; results must match exactly, including the
+    # blank fill in regions covered by no image (which for skipped batches
+    # comes from the zarr fill value rather than a computed chunk). The
+    # (80, 20) block size spans the full first dimension, so the batches
+    # iterate over chunks of the second dimension.
+
+    wcs1 = WCS(naxis=2)
+    wcs1.wcs.ctype = ["RA---TAN", "DEC--TAN"]
+    wcs1.wcs.crval = [40.0, 0.0]
+    wcs1.wcs.cdelt = [-0.001, 0.001]
+    wcs1.wcs.crpix = [20.0, 20.0]
+    wcs2 = wcs1.deepcopy()
+    wcs2.wcs.crpix[0] -= 15
+    wcs2.wcs.crpix[1] -= 15
+
+    rng = np.random.default_rng(42)
+    input_data = [(rng.random((40, 40)), wcs1), (rng.random((40, 40)), wcs2)]
+
+    # Output taller than the coverage so that at least one batch contains no
+    # images at all and is never computed
+    shape_out = (80, 60)
+
+    kwargs = dict(
+        reproject_function=reproject_interp,
+        shape_out=shape_out,
+        combine_function=combine_function,
+        roundtrip_coords=False,
+        block_size=block_size,
+        blank_pixel_value=-1,
+    )
+
+    array_dask, footprint_dask = reproject_and_coadd(input_data, wcs1, return_type="dask", **kwargs)
+    array_zarr, footprint_zarr = reproject_and_coadd(
+        input_data,
+        wcs1,
+        return_type="zarr",
+        zarr_path=str(tmp_path / "coadd.zarr"),
+        zarr_batch_size=1,
+        **kwargs,
+    )
+
+    assert_allclose(np.asarray(array_zarr), np.asarray(array_dask))
+    assert_allclose(np.asarray(footprint_zarr), np.asarray(footprint_dask))
+
+
+def test_coadd_return_type_zarr_non_reprojected_dims(tmp_path):
+    # Batching along a non-reprojected leading dimension (the slab case)
+
+    n_time = 6
+    shape_out = (n_time, 30, 30)
+    wcs_in = _drifting_cube_wcs(drift=0.6)
+    wcs_out = _drifting_cube_wcs(drift=0.0)
+
+    rng = np.random.default_rng(12345)
+    input_data = [(rng.random(shape_out), wcs_in), (rng.random(shape_out), wcs_in)]
+
+    kwargs = dict(
+        reproject_function=reproject_interp,
+        shape_out=shape_out,
+        non_reprojected_dims=(0,),
+        roundtrip_coords=False,
+        block_size=(30, 30),
+    )
+
+    array_dask, footprint_dask = reproject_and_coadd(
+        input_data, wcs_out, return_type="dask", **kwargs
+    )
+    array_zarr, footprint_zarr = reproject_and_coadd(
+        input_data,
+        wcs_out,
+        return_type="zarr",
+        zarr_path=str(tmp_path / "coadd.zarr"),
+        zarr_batch_size=2,
+        **kwargs,
+    )
+
+    assert_allclose(np.asarray(array_zarr), np.asarray(array_dask))
+    assert_allclose(np.asarray(footprint_zarr), np.asarray(footprint_dask))
+
+
+def test_coadd_return_type_zarr_parallel(tmp_path):
+    # The batch computation follows the same parallel semantics as the
+    # individual reprojection functions
+
+    data = np.random.default_rng(0).random((30, 30))
+    wcs = WCS(naxis=2)
+    wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
+    wcs.wcs.cdelt = [-0.001, 0.001]
+
+    kwargs = dict(
+        reproject_function=reproject_interp,
+        shape_out=(30, 30),
+        roundtrip_coords=False,
+        block_size=(10, 10),
+        return_type="zarr",
+    )
+
+    results = {}
+    for parallel in [False, True, 2, "current-scheduler"]:
+        array, footprint = reproject_and_coadd(
+            [(data, wcs)],
+            wcs,
+            zarr_path=str(tmp_path / f"coadd_{parallel}.zarr"),
+            parallel=parallel,
+            **kwargs,
+        )
+        results[parallel] = np.asarray(array)
+
+    for parallel in [True, 2, "current-scheduler"]:
+        assert_allclose(results[parallel], results[False])
+
+    with pytest.raises(ValueError, match="strictly positive"):
+        reproject_and_coadd(
+            [(data, wcs)],
+            wcs,
+            zarr_path=str(tmp_path / "coadd_invalid.zarr"),
+            parallel=-1,
+            **kwargs,
+        )
+
+
+def test_coadd_return_type_zarr_validation(tmp_path):
+    data = np.ones((10, 10))
+    wcs = WCS(naxis=2)
+    wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
+
+    kwargs = dict(reproject_function=reproject_interp, shape_out=(10, 10))
+
+    with pytest.raises(ValueError, match="zarr_path should be set"):
+        reproject_and_coadd([(data, wcs)], wcs, return_type="zarr", **kwargs)
+
+    existing = tmp_path / "existing.zarr"
+    existing.mkdir()
+    with pytest.raises(ValueError, match="already exists"):
+        reproject_and_coadd(
+            [(data, wcs)], wcs, return_type="zarr", zarr_path=str(existing), **kwargs
+        )
+
+    with pytest.raises(ValueError, match="can only be set"):
+        reproject_and_coadd(
+            [(data, wcs)],
+            wcs,
+            return_type="dask",
+            zarr_path=str(tmp_path / "new.zarr"),
+            **kwargs,
+        )
