@@ -153,17 +153,24 @@ def dask_map_coordinates(image, coords, output=None, **kwargs):
             else:
                 raise exc
 
-    # dask-image's map_coordinates will crash if NaN values are passed in
-    # coords, so we filter these out (this is a good idea anyway for performance)
+    # dask-image's map_coordinates cannot handle NaN or out-of-range
+    # coordinates (its chunk lookup indexes past the ends of the chunk grid),
+    # so both are filtered out; the out-of-range points are reset to cval
+    # below anyway, and skipping them is a good idea for performance too
     keep = ~np.any(np.isnan(coords), axis=0)
+    for i in range(coords.shape[0]):
+        keep &= (coords[i] >= 0) & (coords[i] <= original_shape[i] - 1)
 
     # At the time of writing, dask-image's map_coordinates prefilter is False
     # by default, we hard-code this here to guard against any changes in
     # default
 
-    output[keep] = dask_image_map_coordinates(
-        image, coords[:, keep], prefilter=False, **kwargs
-    ).compute()
+    # A block can have no valid coordinates at all (e.g. entirely outside the
+    # input image), in which case the whole output stays at cval
+    if np.any(keep):
+        output[keep] = dask_image_map_coordinates(
+            image, coords[:, keep], prefilter=False, **kwargs
+        ).compute()
 
     reset = np.zeros(coords.shape[1], dtype=bool)
 

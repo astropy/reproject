@@ -464,6 +464,11 @@ def _coadd_dask(
             dtype=float,
             new_axis=0,
             chunks=((2,),) + lead_chunks + tuple((size,) for size in chunk_shape),
+            # Without an explicit meta, map_blocks infers it by calling the
+            # combine function on placeholder inputs, which allocates two
+            # full-size chunks per column at graph construction time (the
+            # placeholders are empty but the kwargs above are not)
+            meta=np.empty((0,) * (1 + n_lead + n_dim_reproject), dtype=float),
         )
 
     result = da.block(columns.tolist())
