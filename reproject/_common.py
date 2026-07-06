@@ -1,4 +1,5 @@
 import logging
+import mmap
 import os
 import tempfile
 import uuid
@@ -466,7 +467,16 @@ def _reproject_dispatcher(
             # memory-mapped array so that it can be used by the various reprojection
             # functions (which don't internally work with dask arrays).
 
-            if isinstance(array_in, np.memmap) and array_in.flags.c_contiguous:
+            # Only base memmaps can be reconstructed from filename and offset:
+            # views (e.g. a slice of a memmap) keep the parent's unadjusted
+            # .offset, so reconstructing them would silently read the wrong
+            # file region. Views fall through and are passed by reference like
+            # plain arrays.
+            if (
+                isinstance(array_in, np.memmap)
+                and array_in.flags.c_contiguous
+                and isinstance(array_in.base, mmap.mmap)
+            ):
                 array_in_or_path = array_in.filename, {
                     "dtype": array_in.dtype,
                     "shape": array_in.shape,

@@ -860,6 +860,34 @@ def test_reproject_order(block_size):
             assert_allclose(array_out_bilinear, array_out_biquadratic)
 
 
+def test_blocked_reprojection_sliced_memmap(tmp_path):
+    # A sliced memmap view keeps the parent's unadjusted .offset, so it must
+    # not be reconstructed from filename and offset inside the block tasks
+    # (which would silently reproject the wrong file region); views are passed
+    # by reference instead. Slicing off leading rows keeps the view
+    # c-contiguous, which is the case that used to take the reconstruction
+    # path.
+
+    hdu1 = fits.open(get_pkg_data_filename("galactic_center/gc_2mass_k.fits"))[0]
+    hdu2 = fits.open(get_pkg_data_filename("galactic_center/gc_msx_e.fits"))[0]
+
+    mm = np.memmap(tmp_path / "image.np", mode="w+", dtype=hdu2.data.dtype, shape=hdu2.data.shape)
+    mm[:] = hdu2.data
+    mm.flush()
+
+    wcs_in = WCS(hdu2.header)[5:]
+
+    reference, _ = reproject_interp(
+        (hdu2.data[5:], wcs_in), hdu1.header, parallel=False, block_size=None
+    )
+
+    array_out, _ = reproject_interp(
+        (mm[5:], wcs_in), hdu1.header, parallel=True, block_size=(100, 100)
+    )
+
+    assert_allclose(array_out, reference, equal_nan=True)
+
+
 def test_reproject_block_size_broadcasting():
     # Regression test for a bug that caused the default chunk size to be
     # inadequate when using broadcasting in parallel mode
