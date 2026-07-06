@@ -139,9 +139,8 @@ class TestReprojectAndCoAdd:
         assert_allclose(array, self.array, atol=ATOL)
 
     def test_coadd_dask_median(self, reproject_function):
-        # 'median' is only available through the deferred dask path (the return_type='numpy' path
-        # cannot compute a median on the fly). Check it against a direct numpy
-        # nanmedian of the reprojected images, and that the result is uncomputed.
+        # Check the deferred median against a direct numpy nanmedian of the
+        # reprojected images, and that the result is uncomputed.
         input_data = self._get_tiles(self._overlapping_views)
 
         array, footprint = reproject_and_coadd(
@@ -164,15 +163,55 @@ class TestReprojectAndCoAdd:
         covered = np.asarray(footprint) > 0
         assert_allclose(np.asarray(array)[covered], reference[covered], atol=ATOL)
 
-        # The return_type='numpy' path must still reject 'median'.
-        with pytest.raises(ValueError, match="combine_function should be one of"):
-            reproject_and_coadd(
-                input_data,
-                self.wcs,
-                shape_out=self.array.shape,
-                combine_function="median",
-                reproject_function=reproject_function,
-            )
+        # The return_type='numpy' path combines the retained reprojected
+        # arrays chunk by chunk and must match the deferred median exactly
+        array_numpy, footprint_numpy = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=self.array.shape,
+            combine_function="median",
+            reproject_function=reproject_function,
+        )
+        assert_allclose(array_numpy, np.asarray(array))
+        assert_allclose(footprint_numpy, np.asarray(footprint))
+
+    @pytest.mark.parametrize("intermediate_memmap", [False, True])
+    def test_coadd_numpy_median_memmap(self, reproject_function, intermediate_memmap):
+        # The retained reprojected arrays can be kept on disk while computing
+        # the median chunk by chunk
+        input_data = self._get_tiles(self._overlapping_views)
+
+        array, footprint = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=self.array.shape,
+            combine_function="median",
+            reproject_function=reproject_function,
+            intermediate_memmap=intermediate_memmap,
+        )
+        covered = footprint > 0
+        assert_allclose(array[covered], self.array[covered], atol=ATOL)
+
+    def test_coadd_numpy_median_match_background(self, reproject_function):
+        # match_background composes with the median since the corrections are
+        # applied to the retained arrays before the combine (this is not
+        # possible with the deferred paths)
+        input_data = self._get_tiles(self._overlapping_views)
+        input_data = [(array + iview, wcs) for iview, (array, wcs) in enumerate(input_data)]
+
+        array, footprint = reproject_and_coadd(
+            input_data,
+            self.wcs,
+            shape_out=self.array.shape,
+            combine_function="median",
+            reproject_function=reproject_function,
+            match_background=True,
+        )
+        covered = footprint > 0
+        # The mean of the corrections is zero, so the matched result is offset
+        # from the reference by the mean of the applied offsets
+        offset = np.mean(np.arange(len(input_data)))
+        assert_allclose(array[covered], (self.array + offset)[covered], atol=ATOL)
 
     def test_coadd_dask_median_uncovered(self):
         # Pixels covered by no image must not make the deferred median warn about

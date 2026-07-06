@@ -637,7 +637,9 @@ def _coadd_numpy(
     # Define 'on-the-fly' mode: in the case where we don't need to match the
     # backgrounds, we don't have to keep track of the intermediate arrays and
     # can just modify the output array on-the-fly
-    on_the_fly = not match_background
+    # A median cannot be computed on the fly, so like match_background it
+    # retains all the reprojected arrays and combines them at the end
+    on_the_fly = not match_background and combine_function != "median"
 
     on_the_fly_prefix = "Using" if on_the_fly else "Not using"
     logger.info(
@@ -802,11 +804,55 @@ def _coadd_numpy(
             for array, correction in zip(arrays, corrections, strict=True):
                 array.array -= correction
 
-        if match_background:
+        if not on_the_fly:
             logger.info(f"Combining reprojected arrays with function {combine_function}")
-            # if we're not matching the background, this part has already been done
-            for array in arrays:
-                _combine_array_into_output(combine_function, array, output_array, output_footprint)
+            # if we're combining on the fly, this part has already been done
+            if combine_function == "median":
+                # The median needs all the values covering each pixel at once,
+                # so combine chunk by chunk with the same per-chunk logic as
+                # the return_type='dask' path, gathering the overlapping piece
+                # of every retained reprojected array for each chunk.
+                for chunk in iterate_chunks(
+                    output_array.shape, max_chunk_size=DEFAULT_MAX_CHUNK_SIZE
+                ):
+                    pieces = []
+                    dests = []
+                    for subset in arrays:
+                        overlap = [
+                            (max(slc.start, imin), min(slc.stop, imax))
+                            for slc, (imin, imax) in zip(chunk, subset.bounds, strict=True)
+                        ]
+                        if any(hi <= lo for lo, hi in overlap):
+                            continue
+                        local = tuple(
+                            slice(lo - imin, hi - imin)
+                            for (lo, hi), (imin, _) in zip(overlap, subset.bounds, strict=True)
+                        )
+                        pieces.append(subset.array[local])
+                        pieces.append(subset.footprint[local])
+                        dests.append(
+                            tuple(
+                                slice(lo - slc.start, hi - slc.start)
+                                for (lo, hi), slc in zip(overlap, chunk, strict=True)
+                            )
+                        )
+                    if not pieces:
+                        # No coverage; the blank fill below takes care of it
+                        continue
+                    result = _combine_tile_pieces(
+                        *pieces,
+                        combine_function="median",
+                        blank_pixel_value=blank_pixel_value,
+                        dests=tuple(dests),
+                        trailing_shape=tuple(slc.stop - slc.start for slc in chunk),
+                    )
+                    output_array[chunk] = result[0]
+                    output_footprint[chunk] = result[1]
+            else:
+                for array in arrays:
+                    _combine_array_into_output(
+                        combine_function, array, output_array, output_footprint
+                    )
 
         if combine_function == "mean":
             logger.info("Handle normalization of output array")
@@ -907,7 +953,10 @@ def reproject_and_coadd(
         simply overlaid on top of each other. With respect to the order of the
         input images in ``input_data``, either the first or the last image to
         cover a region of overlap determines the output data for that region.
-        'median' is only available with ``return_type='dask'``.
+        The median is unweighted, and with ``return_type='numpy'`` it cannot
+        be computed on the fly, so all the reprojected arrays are kept until
+        the end (as for ``match_background``; ``intermediate_memmap`` can be
+        used to keep them on disk).
     match_background : bool
         Whether to match the backgrounds of the images. Only supported with
         ``return_type='numpy'``.
@@ -954,8 +1003,7 @@ def reproject_and_coadd(
         combination matches the ``return_type='numpy'`` path exactly
         (footprint-weighted for 'mean' and 'sum', footprint-aware selection for
         'first', 'last', 'min' and 'max'), and ``input_weights`` are supported. A
-        ``combine_function`` of 'median' is additionally available here (as an
-        unweighted median), which the ``return_type='numpy'`` path cannot compute.
+        ``combine_function`` of 'median' is available as an unweighted median.
         ``match_background``, ``output_array``, ``output_footprint`` and
         ``intermediate_memmap`` are not supported, since the result is an
         uncomputed graph rather than arrays filled in place. If ``'zarr'``,
@@ -1018,11 +1066,7 @@ def reproject_and_coadd(
     elif zarr_path is not None:
         raise ValueError("zarr_path can only be set when using return_type='zarr'")
 
-    # 'median' is only available for the deferred dask path (return_type='dask'); the
-    # return_type='numpy' path cannot compute a median on the fly.
-    allowed_combine = ("mean", "sum", "first", "last", "min", "max")
-    if return_type in ("dask", "zarr"):
-        allowed_combine = allowed_combine + ("median",)
+    allowed_combine = ("mean", "sum", "first", "last", "min", "max", "median")
     if combine_function not in allowed_combine:
         raise ValueError(f"combine_function should be one of {'/'.join(allowed_combine)}")
 
