@@ -15,6 +15,8 @@ concurrency:
 jobs:
 
   tests:
+    permissions:
+      id-token: write
     uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@e5af21e4ae37af089a73bb032e10b78b0e746174  # v3.0.1
     with:
       envs: |
@@ -34,7 +36,7 @@ jobs:
       libraries: |
         apt:
           - libopenblas-dev
-      coverage: 'codecov'
+      coverage: 'codecov-oidc'
 
   build:
     needs: tests
