@@ -322,8 +322,6 @@ def _combine_tile_pieces(
         if combine_function == "mean":
             output_array /= np.where(output_footprint == 0, 1, output_footprint)
 
-    # Parse the output projection to avoid having to do it for each
-
     # Match the return_type='numpy' path's final step: set pixels with no
     # coverage to the blank value (only where the summed footprint is exactly
     # zero, keeping pixels with a negative summed footprint).
@@ -778,23 +776,42 @@ def _coadd_numpy(
                 )
 
             # For the purposes of mosaicking, we mask out NaN values from the array
-            # and set the footprint to 0 at these locations. We do this in chunks
-            # to avoid excessive memory usage.
-            for chunk in iterate_chunks(array.shape, max_chunk_size=DEFAULT_MAX_CHUNK_SIZE):
+            # and set the footprint to 0 at these locations.
+            if isinstance(array, da.core.Array):
 
-                # Determine location of NaNs
-                reset = np.isnan(array[chunk])
+                # Assigning into a slice of a dask array only mutates the
+                # temporary object returned by the slicing, so the in-place
+                # chunked approach below would be silently lost. Instead we
+                # build lazy masked arrays, which are evaluated chunk by chunk
+                # when the subset is combined into the output.
+                reset = da.isnan(array)
                 if cutout.weights_in is not None:
-                    reset |= np.isnan(weights[chunk])
+                    reset |= da.isnan(weights)
 
-                # Mask them in-place in the arrays
-                array[chunk][reset] = 0.0
-                footprint[chunk][reset] = 0.0
-
-                # Combine weights and footprint
+                array = da.where(reset, 0.0, array)
                 if cutout.weights_in is not None:
-                    weights[chunk][reset] = 0.0
-                    footprint[chunk] *= weights[chunk]
+                    footprint = da.where(reset, 0.0, footprint * weights)
+                else:
+                    footprint = da.where(reset, 0.0, footprint)
+
+            else:
+
+                # We do this in chunks to avoid excessive memory usage.
+                for chunk in iterate_chunks(array.shape, max_chunk_size=DEFAULT_MAX_CHUNK_SIZE):
+
+                    # Determine location of NaNs
+                    reset = np.isnan(array[chunk])
+                    if cutout.weights_in is not None:
+                        reset |= np.isnan(weights[chunk])
+
+                    # Mask them in-place in the arrays
+                    array[chunk][reset] = 0.0
+                    footprint[chunk][reset] = 0.0
+
+                    # Combine weights and footprint
+                    if cutout.weights_in is not None:
+                        weights[chunk][reset] = 0.0
+                        footprint[chunk] *= weights[chunk]
 
             if cutout.weights_in is not None and intermediate_memmap is True:
                 # Remove the reference to the memmap before trying to remove the file itself

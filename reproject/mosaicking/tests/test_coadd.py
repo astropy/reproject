@@ -151,6 +151,48 @@ class TestReprojectAndCoAdd:
 
         assert_allclose(array, self.array, atol=ATOL)
 
+    def test_coadd_nan_masking_zarr(self, reproject_function, monkeypatch):
+        # NaN values in the input data and weights have to be masked out of
+        # the reprojected arrays and footprints before combination. With
+        # intermediate_memmap='zarr' the reprojected arrays are dask arrays,
+        # for which assigning into a slice only mutates the temporary object
+        # returned by the slicing, so the chunked in-place masking used for
+        # Numpy arrays would be silently lost whenever a chunk was a strict
+        # subset of the array (a slice covering the full array returns the
+        # array itself, which is why small test arrays did not catch this).
+        # Use a small chunk size to force multiple chunks per tile and check
+        # the zarr path against the plain Numpy path. The NaN values are
+        # placed in a single tile so that the overlapping tiles provide valid
+        # values at the same location; note that NaN data pixels only exercise
+        # the masking for reproject_exact, since reproject_interp derives its
+        # footprint from the non-NaN output pixels, so we also include NaN
+        # values in the weights of another tile.
+
+        monkeypatch.setattr("reproject.mosaicking._coadd.DEFAULT_MAX_CHUNK_SIZE", 1000)
+        monkeypatch.setattr("reproject.mosaicking._subset_array.DEFAULT_MAX_CHUNK_SIZE", 1000)
+
+        input_data = self._get_tiles(self._overlapping_views)
+        input_data[2][0][:10, :10] = np.nan
+
+        input_weights = [np.ones_like(array) for array, _ in input_data]
+        input_weights[10][:10, :10] = np.nan
+
+        results = {}
+        for intermediate in (False, "zarr"):
+            results[intermediate] = reproject_and_coadd(
+                input_data,
+                self.wcs,
+                shape_out=self.array.shape,
+                input_weights=input_weights,
+                combine_function="mean",
+                reproject_function=reproject_function,
+                intermediate_memmap=intermediate,
+            )
+
+        assert not np.any(np.isnan(results["zarr"][0]))
+        assert_allclose(results["zarr"][0], results[False][0], atol=ATOL)
+        assert_allclose(results["zarr"][1], results[False][1], atol=ATOL)
+
     def test_coadd_dask_median(self, reproject_function):
         # Check the deferred median against a direct numpy nanmedian of the
         # reprojected images, and that the result is uncomputed.
