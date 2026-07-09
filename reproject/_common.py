@@ -376,7 +376,7 @@ def _reproject_dispatcher(
                 "to compute the blocks concurrently)"
             )
 
-        if output_footprint is None and return_footprint and return_type != "dask":
+        if output_footprint is None and return_footprint and return_type == "numpy":
             output_footprint = np.zeros(shape_out, dtype=float)
 
         def reproject_single_block(a, array_or_path, block_info=None):
