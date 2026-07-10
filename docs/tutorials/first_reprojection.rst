@@ -92,3 +92,10 @@ now in the same projection:
    :context:
 
    fits.writeto('msx_on_2mass_header.fits', array, hdu1.header, overwrite=True)
+
+And that's it - you have reprojected your first image! To learn how to
+combine several images into one, continue with the :doc:`first_mosaicking`
+tutorial. To see the full range of inputs and options that the reprojection
+functions accept, see :ref:`reprojecting-images`, and to understand the
+different reprojection algorithms and when to use each one, see
+:ref:`choosing-algorithm`.
