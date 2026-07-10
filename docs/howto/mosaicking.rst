@@ -4,10 +4,6 @@
 Combining images into mosaics
 *****************************
 
-.. warning:: The mosaicking functionality in the reproject package is
-             currently experimental, so use with care and please report
-             issues at https://github.com/astropy/reproject
-
 The **reproject.mosaicking** sub-package includes helper functions for
 constructing mosaics from multiple images. These are
 :func:`~reproject.mosaicking.find_optimal_celestial_wcs`, which can be used to
