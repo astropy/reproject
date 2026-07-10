@@ -26,13 +26,23 @@ def _spectral_cube_wcs(crval_dec, crval_freq):
     return wcs
 
 
-def test_non_reprojected_dims(reproject_function):
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {},
+        {"parallel": True},
+        {"parallel": True, "block_size": "auto"},
+        {"parallel": True, "block_size": (20, 20)},
+    ],
+)
+def test_non_reprojected_dims(reproject_function, kwargs):
     # Reproject a cube where the input and output WCS have the same number of
     # dimensions as the data, treating the leading (spectral) axis as a
     # non-reprojected dimension. The result should match reprojecting each
     # spectral slice independently with the corresponding 2D WCS, and in
     # particular should not be affected by the (deliberately different) spectral
-    # part of the WCS.
+    # part of the WCS. When block_size is not specified (or set to 'auto'), it
+    # should default to one block per non-reprojected slice.
 
     data = np.arange(4 * 20 * 20, dtype=float).reshape((4, 20, 20))
     wcs_in = _spectral_cube_wcs(0.0, 1e9)
@@ -50,8 +60,7 @@ def test_non_reprojected_dims(reproject_function):
         wcs_out,
         shape_out=shape_out,
         non_reprojected_dims=(0,),
-        parallel=True,
-        block_size=(20, 20),
+        **kwargs,
     )
 
     assert_allclose(array_out, reference, equal_nan=True)
@@ -100,19 +109,23 @@ def test_non_reprojected_dims_inconsistent_with_wcs(reproject_function):
         )
 
 
-@pytest.mark.parametrize(
-    "kwargs", [{}, {"parallel": True}, {"parallel": True, "block_size": (4, 10, 10)}]
-)
+@pytest.mark.parametrize("kwargs", [{}, {"parallel": True}])
 def test_non_reprojected_dims_unsupported_mode(reproject_function, kwargs):
     # non_reprojected_dims with a full-dimensional WCS is only supported when
-    # parallelizing over the non-reprojected dimensions; other modes should
-    # raise rather than silently reprojecting the non-reprojected axis.
+    # each block covers a single non-reprojected slice in full; an explicit
+    # block size that subdivides the reprojected dimensions should raise rather
+    # than silently reprojecting the non-reprojected axis.
     data = np.ones((4, 20, 20))
     wcs_in = _spectral_cube_wcs(0.0, 1e9)
     wcs_out = _spectral_cube_wcs(0.02, 1e9 + 2e6)
     with pytest.raises(NotImplementedError, match="non_reprojected_dims"):
         reproject_function(
-            (data, wcs_in), wcs_out, shape_out=(4, 20, 20), non_reprojected_dims=(0,), **kwargs
+            (data, wcs_in),
+            wcs_out,
+            shape_out=(4, 20, 20),
+            non_reprojected_dims=(0,),
+            block_size=(4, 10, 10),
+            **kwargs,
         )
 
 

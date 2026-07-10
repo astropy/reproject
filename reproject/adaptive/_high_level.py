@@ -214,9 +214,11 @@ def reproject_adaptive(
         even when the input and output WCS have the same number of dimensions as
         the data. The dimensions must be the leading ones, given as a tuple of
         sequential integers starting from zero (e.g. ``(0,)`` or ``(0, 1)``).
-        This currently requires passing a ``block_size`` whose entries along
-        the reprojected dimensions match ``shape_out`` (optionally combined
-        with ``parallel`` to compute the blocks concurrently).
+        Each non-reprojected slice is processed as a separate block, so if
+        ``block_size`` is specified, its entries along the reprojected
+        dimensions have to match ``shape_out``; if not, this block size is
+        used automatically. Set ``parallel`` to compute the blocks
+        concurrently.
     parallel : bool or int or str, optional
         If `True`, the reprojection is carried out in parallel, and if a
         positive integer, this specifies the number of threads to use.

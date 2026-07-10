@@ -103,9 +103,10 @@ def _reproject_dispatcher(
         given as a tuple of sequential integers starting from zero (e.g.
         ``(0,)`` or ``(0, 1)``). If `None` (the default), any leading dimensions
         for which the WCS has fewer dimensions than the data are treated this
-        way. Reprojecting fewer dimensions than the WCS currently requires a
-        ``block_size`` that matches the output shape along the reprojected
-        dimensions.
+        way. Reprojecting fewer dimensions than the WCS is done with one block
+        per non-reprojected slice, so if ``block_size`` is specified, its
+        entries along the reprojected dimensions have to match the output
+        shape; if not, this block size is used automatically.
     array_out : `~numpy.ndarray`, optional
         An array in which to store the reprojected data.  This can be any numpy
         array including a memory map, which may be helpful when dealing with
@@ -216,6 +217,13 @@ def _reproject_dispatcher(
         n_dim_reproject < wcs_in.low_level_wcs.pixel_n_dim
         or n_dim_reproject < wcs_out.low_level_wcs.pixel_n_dim
     )
+
+    # When reprojecting fewer dimensions than the WCS describes, the only
+    # supported chunking is one block covering each non-reprojected slice in
+    # full, so if no block size was specified (or it was set to 'auto'), use
+    # the output shape along the reprojected dimensions as the default.
+    if wcs_slicing_required and (block_size is None or block_size == "auto"):
+        block_size = tuple(shape_out[-n_dim_reproject:])
 
     # We set up a global temporary directory since this will be used e.g. to
     # store memory mapped Numpy arrays and zarr arrays.
@@ -363,17 +371,14 @@ def _reproject_dispatcher(
             f"broadcasted dimension ({block_size=}, {shape_out=})"
         )
 
-        # TODO: support block_size="auto" (and the default of None) together
-        # with non_reprojected_dims so that this does not have to raise; "auto"
-        # currently falls through to the generic auto-chunking path further
-        # below, which cannot parallelize over the non-reprojected dimensions.
         if wcs_slicing_required and not broadcasted_parallelization:
             raise NotImplementedError(
                 "Reprojecting fewer dimensions than the input or output WCS "
                 "(for example using non_reprojected_dims) currently requires "
-                "passing a block_size whose entries along the reprojected "
-                "dimensions match the output shape (optionally with parallel=True "
-                "to compute the blocks concurrently)"
+                "each block to cover a single non-reprojected slice in full, "
+                "so block_size entries along the reprojected dimensions have "
+                "to match the output shape; leave block_size unset to use "
+                "this chunking automatically"
             )
 
         if output_footprint is None and return_footprint and return_type == "numpy":
