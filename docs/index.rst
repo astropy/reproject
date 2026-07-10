@@ -40,6 +40,7 @@ How-to guides
    :maxdepth: 1
 
    howto/images
+   howto/cubes
    howto/align_north
    howto/dimensions
    howto/multiple_images

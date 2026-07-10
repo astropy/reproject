@@ -5,7 +5,8 @@ Reprojecting an image
 *********************
 
 The most common use of *reproject* is to reproject an image from one WCS to
-another. All of the reprojection algorithms implemented in *reproject* are
+another (for higher-dimensional data, see also :doc:`cubes`). All of the
+reprojection algorithms implemented in *reproject* are
 available as functions named ``reproject_<algorithm>``, which can be imported
 from the top level of the package and called in the same way::
 
