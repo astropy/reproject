@@ -21,8 +21,6 @@ or with `conda <https://continuum.io/>`_::
 
     conda install -c conda-forge reproject
 
-More detailed installation instructions can be found in :ref:`installation`.
-
 .. _quickstart:
 
 Quick start
