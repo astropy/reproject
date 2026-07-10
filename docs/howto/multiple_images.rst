@@ -36,7 +36,7 @@ orientation:
     >>> filename = get_pkg_data_filename('avm/sig07-009.jpg')
 
 We can use :func:`~reproject.mosaicking.find_optimal_celestial_wcs` (see
-:ref:`mosaicking`) to find a WCS that covers the image and is aligned with
+:doc:`align_north`) to find a WCS that covers the image and is aligned with
 north in the ICRS equatorial frame, and then reproject all three color
 channels in a single call:
 
