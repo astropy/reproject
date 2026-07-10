@@ -61,3 +61,7 @@ is the celestial plane, then if you are reprojecting just the celestial part of
 the WCS you can specify a block size of (N, 2048, 2048) and this will enable a
 separate reprojection mode where the input array is not written to disk but
 where the reprojection is done in truly independent chunks with size (N, 2048, 2048).
+
+Multi-threading is not limited to single-image reprojection: the
+:func:`~reproject.mosaicking.reproject_and_coadd` function also accepts the
+``parallel=`` option, with the same semantics as above.

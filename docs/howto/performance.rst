@@ -1,11 +1,11 @@
-****************************************************
-Optimizing performance for single-image reprojection
-****************************************************
+*********************************
+Optimizing speed and memory usage
+*********************************
 
-This page describes options that can speed up a reprojection or reduce its
-memory usage. See also :doc:`chunked` for carrying out a reprojection in
-chunks and in parallel, and :doc:`dask` for using dask arrays as input or
-output.
+This page describes options that can speed up a reprojection or mosaicking
+run or reduce its memory usage. See also :doc:`chunked` for carrying out a
+reprojection in chunks and in parallel, and :doc:`dask` for using dask arrays
+as input or output.
 
 Disabling coordinate transformation round-tripping
 ==================================================
@@ -75,3 +75,49 @@ If you are dealing with FITS files, you can skip the numpy memmap step and use `
     >>> rslt = reproject.reproject_interp(hdu, header_out, output_array=hdu_out[0].data,
     ...                                   return_footprint=False)
     >>> hdu_out.flush()
+
+The same applies to mosaicking: if you are producing a large mosaic, you can
+write the mosaic and footprint from
+:func:`~reproject.mosaicking.reproject_and_coadd` to arrays of your choice in
+the same way:
+
+.. doctest-skip::
+
+    >>> output_array = np.memmap(filename='array.np', mode='w+',
+    ...                          shape=shape_out, dtype='float32')
+    >>> output_footprint = np.memmap(filename='footprint.np', mode='w+',
+    ...                              shape=shape_out, dtype='float32')
+    >>> reproject_and_coadd(...,
+    ...                     output_array=output_array,
+    ...                     output_footprint=output_footprint)
+
+Using memory-mapped intermediate arrays when mosaicking
+=======================================================
+
+During the mosaicking process, each image is reprojected to the minimal subset
+of the final header that it covers. In some cases, this can result in arrays
+that may not fit in memory. In this case, you can use the
+``intermediate_memmap`` option to indicate that all intermediate arrays in the
+mosaicking process should use memory-mapped arrays rather than in-memory
+arrays:
+
+.. doctest-skip::
+
+    >>> reproject_and_coadd(...,
+    ...                     intermediate_memmap=True)
+
+This option can also be set to ``'zarr'``, in which case the intermediate
+arrays are stored as zarr arrays on disk instead, which is typically more
+efficient - each image is then reprojected in blocks, and the zarr store is
+removed as soon as the image has been combined. Note however that this cannot
+be used together with ``match_background=True``.
+
+Combined with the above option to specify the output array and footprint for
+the final mosaic, it is possible to make sure that no large arrays are ever
+loaded into memory. Note however that you will need to make sure you have
+sufficient disk space in your temporary directory. If your default system
+temporary directory does not have sufficient space, you can set the ``TMPDIR``
+environment variable to point at another directory:
+
+    >>> import os
+    >>> os.environ['TMPDIR'] = '/home/lancelot/tmp'
