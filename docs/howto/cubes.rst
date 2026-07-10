@@ -10,33 +10,37 @@ as long as the input and output WCS have the same number of dimensions as the
 data. For a spectral cube, this means that the spectral axis is resampled
 along with the celestial axes in a single call.
 
-As an example, we can set up a small synthetic cube with two celestial axes
-and one spectral axis:
+As an example, we can download a 13CO spectral cube of the L1448 region from
+`http://data.astropy.org <http://data.astropy.org>`_, which has two celestial
+axes and one spectral (velocity) axis:
 
-    >>> import numpy as np
+    >>> from astropy.io import fits
+    >>> from astropy.utils.data import get_pkg_data_filename
+    >>> hdu = fits.open(get_pkg_data_filename('l1448/l1448_13co.fits'))[0]   # doctest: +REMOTE_DATA
+    >>> hdu.data.shape   # doctest: +REMOTE_DATA
+    (53, 105, 105)
+
+We can then reproject this to an output WCS with spectral channels twice as
+wide, halving the number of channels (dividing the reference pixel position
+along the spectral axis by two so that the cube covers the same velocity
+range):
+
     >>> from astropy.wcs import WCS
-    >>> cube = np.ones((24, 30, 30))
-    >>> wcs_in = WCS(naxis=3)
-    >>> wcs_in.wcs.ctype = 'RA---TAN', 'DEC--TAN', 'VELO-LSR'
-    >>> wcs_in.wcs.crpix = 15.5, 15.5, 1
-    >>> wcs_in.wcs.crval = 40., 0., 0.
-    >>> wcs_in.wcs.cdelt = -0.01, 0.01, 500.
-
-We can then reproject this to an output WCS which differs both in the
-celestial axes (a different projection) and in the spectral axis (channels
-twice as wide):
-
     >>> from reproject import reproject_interp
-    >>> wcs_out = wcs_in.deepcopy()
-    >>> wcs_out.wcs.ctype = 'RA---CAR', 'DEC--CAR', 'VELO-LSR'
-    >>> wcs_out.wcs.cdelt = -0.01, 0.01, 1000.
-    >>> new_cube, footprint = reproject_interp((cube, wcs_in), wcs_out,
-    ...                                        shape_out=(12, 30, 30))
-    >>> new_cube.shape
-    (12, 30, 30)
+    >>> wcs_in = WCS(hdu.header)   # doctest: +REMOTE_DATA
+    >>> wcs_out = wcs_in.deepcopy()   # doctest: +REMOTE_DATA
+    >>> wcs_out.wcs.cdelt[2] = 2 * wcs_in.wcs.cdelt[2]   # doctest: +REMOTE_DATA
+    >>> wcs_out.wcs.crpix[2] = (wcs_in.wcs.crpix[2] + 1) / 2   # doctest: +REMOTE_DATA
+    >>> new_cube, footprint = reproject_interp(hdu, wcs_out,
+    ...                                        shape_out=(27, 105, 105))   # doctest: +REMOTE_DATA
+    >>> new_cube.shape   # doctest: +REMOTE_DATA
+    (27, 105, 105)
 
-As for images, the input can also be given as e.g. a FITS filename or an HDU
-object - see :ref:`input-formats` for the full list of supported inputs.
+In this example only the spectral axis changes, but the celestial axes can be
+changed in the same call, for example to use a different projection or
+resolution. As for images, the input can also be given as e.g. a FITS
+filename or a plain array with a WCS - see :ref:`input-formats` for the full
+list of supported inputs.
 
 Note that full n-dimensional reprojection is only available for
 :func:`~reproject.reproject_interp` - the
