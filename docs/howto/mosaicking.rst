@@ -1,3 +1,5 @@
+.. _mosaicking:
+
 *****************************
 Combining images into mosaics
 *****************************

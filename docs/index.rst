@@ -40,6 +40,7 @@ How-to guides
    :maxdepth: 1
 
    howto/celestial
+   howto/align_north
    howto/healpix
    howto/hips
    howto/mosaicking
