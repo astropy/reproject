@@ -41,6 +41,8 @@ How-to guides
 
    howto/celestial
    howto/align_north
+   howto/dimensions
+   howto/multiple_images
    howto/healpix
    howto/hips
    howto/mosaicking
