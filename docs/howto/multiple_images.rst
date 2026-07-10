@@ -19,22 +19,21 @@ Reprojecting an RGB image
 =========================
 
 .. Convert the examples in this section to executed doctests and a plot
-   directive once a version of PyAVM that can parse current eso.org images
-   has been released and avm/eso1211a.jpg is available on data.astropy.org.
+   directive once avm/sig07-009.jpg is available on data.astropy.org.
 
 A color image is a natural example of images sharing coordinates: the three
 RGB channels are perfectly aligned. The reprojection functions can take the
 filename of a PNG or JPEG image with `AVM
 <https://www.virtualastronomy.org/avm_metadata.php>`_ metadata directly, in
 which case the image is loaded as an array of shape ``(3, ny, nx)`` along
-with the WCS. As an example, we can use a VST image of the Hercules galaxy
-cluster which is rotated by almost 90 degrees from a conventional north-up
+with the WCS. As an example, we can use a multiwavelength image of Messier 81
+which is rotated by almost 90 degrees from a conventional north-up
 orientation:
 
 .. doctest-skip::
 
     >>> from astropy.utils.data import get_pkg_data_filename
-    >>> filename = get_pkg_data_filename('avm/eso1211a.jpg')
+    >>> filename = get_pkg_data_filename('avm/sig07-009.jpg')
 
 We can use :func:`~reproject.mosaicking.find_optimal_celestial_wcs` (see
 :ref:`mosaicking`) to find a WCS that covers the image and is aligned with
@@ -49,7 +48,7 @@ channels in a single call:
     >>> rgb, footprint = reproject_interp(filename, wcs_out,
     ...                                   shape_out=(3,) + shape_out)
     >>> rgb.shape
-    (3, 1282, 889)
+    (3, 1611, 1250)
 
 The reprojected channels can then be combined back into an image that can be
 displayed with e.g. Matplotlib, converting the values back to 8-bit integers
