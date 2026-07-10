@@ -53,6 +53,7 @@ Explanation
    :maxdepth: 1
 
    explanation/footprints
+   explanation/algorithms
 
 Reference
 ---------
@@ -60,4 +61,5 @@ Reference
 .. toctree::
    :maxdepth: 1
 
+   reference/adaptive_options
    reference/api
