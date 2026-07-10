@@ -1,6 +1,6 @@
-**************
-HEALPIX images
-**************
+*********************************
+Reprojecting to and from HEALPix
+*********************************
 
 Images can also be stored using the HEALPIX representation, and the
 *reproject* package includes two functions,

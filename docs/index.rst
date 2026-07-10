@@ -68,4 +68,5 @@ Reference
 
    reference/options
    reference/adaptive_options
+   reference/hips_options
    reference/api

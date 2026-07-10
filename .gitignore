@@ -22,6 +22,9 @@ docs/api
 docs/_build
 docs/tutorials/msx_on_2mass_header.fits
 
+# Directories written out by the HiPS documentation examples
+gc_2mass_k*/
+
 # Eclipse editor project files
 .project
 .pydevproject
