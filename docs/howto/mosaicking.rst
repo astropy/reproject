@@ -56,9 +56,8 @@ with the files downloaded above, but no additional information:
     >>> wcs_out, shape_out = find_optimal_celestial_wcs(m17_hdus)
 
 The first argument to :func:`~reproject.mosaicking.find_optimal_celestial_wcs`
-should be a list where each element is either a filename, an HDU object (e.g.
-`~astropy.io.fits.PrimaryHDU` or `~astropy.io.fits.ImageHDU`), an
-`~astropy.io.fits.HDUList` object, or a tuple of ``(array, wcs)``. In the
+should be a list where each element is a dataset in any of the formats
+supported for single images (see :ref:`input-formats`). In the
 example above, we have passed a list of HDUs. We can now look at the output
 WCS and shape:
 
@@ -222,19 +221,10 @@ mosaic:
     ...                                        reproject_function=reproject_interp)
 
 The first argument to :func:`~reproject.mosaicking.reproject_and_coadd`
-should be a list where each element is either a filename, an HDU object (e.g.
-`~astropy.io.fits.PrimaryHDU` or `~astropy.io.fits.ImageHDU`), an
-`~astropy.io.fits.HDUList` object, or a tuple of ``(array, wcs)``.
-
-The second argument is the WCS information for the output image, which should
-be specified either as a :class:`~astropy.wcs.WCS` or a
-:class:`~astropy.io.fits.Header` instance. If this is specified as a
-:class:`~astropy.wcs.WCS` instance, the ``shape_out`` argument to
-:func:`~reproject.reproject_interp` should also be specified, and be
-given the shape of the output image using the Numpy ``(ny, nx)`` convention
-(this is because :class:`~astropy.wcs.WCS`, unlike
-:class:`~astropy.io.fits.Header`, does not contain information about image
-size).
+should be a list where each element is a dataset in any of the formats
+supported for single images (see :ref:`input-formats`), and the second
+argument is the WCS information for the output image, specified as for the
+reprojection functions (see :ref:`output-projection`).
 
 Finally, the ``reproject_function`` should be used to specify which function to
 use to reproject individual tiles - this should be either

@@ -76,8 +76,9 @@ what we mean in the context of *reproject*:
   is not flux-conserving by this definition, whereas the 'exact overlap' method
   is.
 
-We note that the :ref:`adaptive resampling<adaptive>` algorithm provides an option
-to conserve flux by appropriately rescaling each output pixel. With this option,
+We note that the adaptive resampling algorithm provides an option
+to conserve flux by appropriately rescaling each output pixel (see
+:ref:`adaptive-options`). With this option,
 an image in flux units need not be converted to surface brightness - however this is
 not guaranteed to be *photometrically* flux-conserving.
 

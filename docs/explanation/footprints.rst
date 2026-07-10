@@ -4,7 +4,7 @@
 Footprint arrays
 ****************
 
-As described for example in :ref:`celestial`, all reprojection functions in
+As described for example in :ref:`reprojecting-images`, all reprojection functions in
 this package return a data array (the reprojected values) and a footprint
 array, which shows which pixels in the new reprojected data fell inside the
 original image.

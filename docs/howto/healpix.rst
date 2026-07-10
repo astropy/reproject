@@ -127,7 +127,7 @@ The resulting map is the following:
 
 On the other hand, the :func:`~reproject.reproject_to_healpix` function takes
 input data in the same form as :func:`~reproject.reproject_interp`
-(see :ref:`interpolation`) for the first argument, and a coordinate frame as the
+(see :ref:`input-formats`) for the first argument, and a coordinate frame as the
 second argument, either as a string or as a
 :class:`~astropy.coordinates.BaseCoordinateFrame` instance e.g.::
 

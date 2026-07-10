@@ -1,3 +1,5 @@
+.. _adaptive-options:
+
 ***************************
 Adaptive resampling options
 ***************************

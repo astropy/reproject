@@ -39,7 +39,7 @@ How-to guides
 .. toctree::
    :maxdepth: 1
 
-   howto/celestial
+   howto/images
    howto/align_north
    howto/dimensions
    howto/multiple_images
@@ -66,5 +66,6 @@ Reference
 .. toctree::
    :maxdepth: 1
 
+   reference/options
    reference/adaptive_options
    reference/api
