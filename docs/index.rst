@@ -55,6 +55,7 @@ Explanation
 
    explanation/footprints
    explanation/algorithms
+   explanation/background_matching
 
 Reference
 ---------

@@ -268,13 +268,7 @@ match the backgrounds (assuming a constant additive offset in each image):
     ...                                        reproject_function=reproject_interp,
     ...                                        match_background=True)
 
-The background matching works by finding all overlapping pairs of images and
-determining the median difference for each pair, then using a `stochastic
-gradient descent <https://en.wikipedia.org/wiki/Stochastic_gradient_descent>`_
-method to find the optimal additive corrections (a positive or negative constant
-for each image) to minimize differences. We additionally place the constraint
-that the average correction should be zero, but since there's no reason that
-the average correction should be exactly zero, you should be aware that the
-final mosaic may be offset from the absolute surface brightness/flux by a
-constant additive factor. The algorithm should be robust for many situations
-and does not currently have any exposed options for fine tuning.
+Note that the corrections are determined such that their average is zero, so
+the final mosaic may be offset from the absolute surface brightness/flux by a
+constant additive factor. For more details about how the corrections are
+determined, see :ref:`background-matching`.
