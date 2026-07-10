@@ -47,6 +47,8 @@ How-to guides
    howto/hips
    howto/mosaicking
    howto/performance
+   howto/chunked
+   howto/dask
    howto/performance_mosaicking
 
 Explanation
