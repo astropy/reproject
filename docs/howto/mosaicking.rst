@@ -14,7 +14,10 @@ constructing mosaics from multiple images. These are
 construct a single optimal WCS/shape that overlaps with multiple images, and
 :func:`~reproject.mosaicking.reproject_and_coadd`, which given images and a
 target WCS/shape will reproject all the images then combine them into a mosaic.
-We describe these in the sections below.
+We describe these in the sections below. If you have never made a mosaic with
+*reproject* before, you may want to start off with the
+:doc:`../tutorials/first_mosaicking` tutorial, which walks through a simple
+example from start to finish.
 
 For the examples on this page we will use the `PyVO
 <https://pyvo.readthedocs.io>`_ module to retrieve tiles from the 2MASS survey
@@ -28,11 +31,8 @@ around the M17 region:
     >>> pos = SkyCoord.from_name('M17')
     >>> table = imagesearch('https://irsa.ipac.caltech.edu/cgi-bin/2MASS/IM/nph-im_sia?type=at&ds=asky&',
     ...                    pos, size=0.25).to_table()
-    >>> table = table[(table['band'].astype('S') == 'K') & (table['format'].astype('S') == 'image/fits')]
-    >>> m17_hdus =  [fits.open(url)[0] for url in table['download'].astype('S')]
-
-.. NOTE: Once we support only Astropy 4.1 and above, we can get rid of the 'astype()'
-..       calls above (prior to this, the string columns were object columns).
+    >>> table = table[(table['band'] == 'K') & (table['format'] == 'image/fits')]
+    >>> m17_hdus = [fits.open(row['download'])[0] for row in table]
 
 .. _optimal-wcs:
 
@@ -45,7 +45,7 @@ Basic usage
 Given a series of images, the
 :func:`~reproject.mosaicking.find_optimal_celestial_wcs` function can be
 used to find an output WCS and shape (i.e. an output header) that overlaps with
-all the inpute images. Note that you don't necessarily need to use this if you
+all the input images. Note that you don't necessarily need to use this if you
 already know the final header or WCS you want to use for the images - in this
 case you can skip straight to :ref:`coadding`.
 
@@ -248,53 +248,15 @@ Keyword arguments for these functions (e.g. ``order`` for
 :func:`~reproject.reproject_interp`) can be passed as keyword arguments to
 :func:`~reproject.mosaicking.reproject_and_coadd`.
 
-The example above will return an array which is the mosaic itself, and a
+The call above will return an array which is the mosaic itself, and a
 footprint, which shows how many input images contributed to each output pixel.
-We can take a look at the output:
+For a visual example of the results, see the
+:doc:`../tutorials/first_mosaicking` tutorial.
 
-.. plot::
-   :context: reset
-   :nofigs:
+Matching backgrounds
+--------------------
 
-    from astropy.io import fits
-    from astropy.coordinates import SkyCoord
-    from pyvo.dal import imagesearch
-
-    pos = SkyCoord.from_name('M17')
-    table = imagesearch('https://irsa.ipac.caltech.edu/cgi-bin/2MASS/IM/nph-im_sia?type=at&ds=asky&',
-                       pos, size=0.25).to_table()
-    table = table[(table['band'] == 'K') & (table['format'] == 'image/fits')]
-    m17_hdus = [fits.open(row['download'])[0] for row in table]
-
-    from astropy.coordinates import SkyCoord
-    from reproject.mosaicking import find_optimal_celestial_wcs
-    coord = SkyCoord.from_name('M17')
-    wcs_out, shape_out = find_optimal_celestial_wcs(m17_hdus,
-                                             reference=coord)
-
-    from reproject import reproject_interp
-    from reproject.mosaicking import reproject_and_coadd
-    array, footprint = reproject_and_coadd(m17_hdus,
-                                           wcs_out, shape_out=shape_out,
-                                           reproject_function=reproject_interp)
-
-.. plot::
-   :include-source:
-   :align: center
-   :context:
-
-    import numpy as np
-    import matplotlib.pyplot as plt
-
-    plt.figure(figsize=(10, 8))
-    ax1 = plt.subplot(1, 2, 1)
-    im1 = ax1.imshow(array, origin='lower', vmin=600, vmax=800)
-    ax1.set_title('Mosaic')
-    ax2 = plt.subplot(1, 2, 2)
-    im2 = ax2.imshow(footprint, origin='lower')
-    ax2.set_title('Footprint')
-
-In some cases, including the above example, each tile that was used to compute
+In some cases, including the example above, each tile that was used to compute
 the mosaic has an arbitrary offset due e.g. to different observing conditions.
 The :func:`~reproject.mosaicking.reproject_and_coadd` includes an option to
 match the backgrounds (assuming a constant additive offset in each image):
@@ -305,36 +267,6 @@ match the backgrounds (assuming a constant additive offset in each image):
     ...                                        wcs_out, shape_out=shape_out,
     ...                                        reproject_function=reproject_interp,
     ...                                        match_background=True)
-
-By adjusting the stretch, we can see the difference more clearly between
-the mosaic made with background matching and that made without - the one
-without shows vertical striping, especially on the left.
-
-.. plot::
-   :context:
-   :nofigs:
-
-    array_bgmatch, _ = reproject_and_coadd(m17_hdus,
-                                           wcs_out, shape_out=shape_out,
-                                           reproject_function=reproject_interp,
-                                           match_background=True)
-
-    plt.clf()
-
-.. plot::
-   :include-source:
-   :align: center
-   :context: close-figs
-
-    import numpy as np
-    import matplotlib.pyplot as plt
-
-    ax1 = plt.subplot(1, 2, 1)
-    im1 = ax1.imshow(array, origin='lower', vmin=635, vmax=660)
-    ax1.set_title('No background matching')
-    ax2 = plt.subplot(1, 2, 2)
-    im2 = ax2.imshow(array_bgmatch, origin='lower', vmin=635, vmax=660)
-    ax2.set_title('Background matching')
 
 The background matching works by finding all overlapping pairs of images and
 determining the median difference for each pair, then using a `stochastic
