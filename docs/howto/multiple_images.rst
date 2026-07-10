@@ -4,18 +4,71 @@
 Reprojecting multiple images with the same coordinates
 ******************************************************
 
-If you have multiple images with the exact same coordinate system (e.g. a raw
-image and a corresponding processed image) and want to reproject all of them to
-the same output frame, you can stack the images into a single array and
-reproject them in one call, which is faster than reprojecting each image
-separately. This makes use of the dimension-handling rules described in
-:doc:`dimensions`: since the stacked array has one more dimension than the WCS
-describes, the extra leading dimension is treated as representing separate
-images with the same coordinates, and the coordinate mapping between input and
-output pixels is computed only once and reused for each image.
+If you have multiple images with the exact same coordinate system (e.g. the
+red, green, and blue channels of a color image, or a raw image and a
+corresponding processed image) and want to reproject all of them to the same
+output frame, you can pass them to the reprojection functions as a single
+array with an extra leading dimension, and reproject them in one call. This
+makes use of the dimension-handling rules described in :doc:`dimensions`:
+since the array has one more dimension than the WCS describes, the extra
+leading dimension is treated as representing separate images with the same
+coordinates, and the coordinate mapping between input and output pixels is
+computed only once and reused for each image.
 
-As an example, we start by loading two images that share the exact same
-coordinate system:
+Reprojecting an RGB image
+=========================
+
+.. Convert the examples in this section to executed doctests and a plot
+   directive once a version of PyAVM that can parse current eso.org images
+   has been released and avm/eso1211a.jpg is available on data.astropy.org.
+
+A color image is a natural example of images sharing coordinates: the three
+RGB channels are perfectly aligned. The reprojection functions can take the
+filename of a PNG or JPEG image with `AVM
+<https://www.virtualastronomy.org/avm_metadata.php>`_ metadata directly, in
+which case the image is loaded as an array of shape ``(3, ny, nx)`` along
+with the WCS. As an example, we can use a VST image of the Hercules galaxy
+cluster which is rotated by almost 90 degrees from a conventional north-up
+orientation:
+
+.. doctest-skip::
+
+    >>> from astropy.utils.data import get_pkg_data_filename
+    >>> filename = get_pkg_data_filename('avm/eso1211a.jpg')
+
+We can use :func:`~reproject.mosaicking.find_optimal_celestial_wcs` (see
+:ref:`mosaicking`) to find a WCS that covers the image and is aligned with
+north in the ICRS equatorial frame, and then reproject all three color
+channels in a single call:
+
+.. doctest-skip::
+
+    >>> from reproject import reproject_interp
+    >>> from reproject.mosaicking import find_optimal_celestial_wcs
+    >>> wcs_out, shape_out = find_optimal_celestial_wcs(filename, frame='icrs')
+    >>> rgb, footprint = reproject_interp(filename, wcs_out,
+    ...                                   shape_out=(3,) + shape_out)
+    >>> rgb.shape
+    (3, 1282, 889)
+
+The reprojected channels can then be combined back into an image that can be
+displayed with e.g. Matplotlib, converting the values back to 8-bit integers
+and moving the color axis to the end:
+
+.. doctest-skip::
+
+    >>> import numpy as np
+    >>> import matplotlib.pyplot as plt
+    >>> image = np.moveaxis(np.nan_to_num(rgb), 0, -1).clip(0, 255).astype(np.uint8)
+    >>> ax = plt.subplot(projection=wcs_out)
+    >>> ax.imshow(image, origin='lower')
+
+Stacking images yourself
+========================
+
+If your images are not already combined into a single array, you can stack
+them yourself. For example, given a raw image and a corresponding
+background-subtracted image sharing the same coordinate system:
 
 .. doctest-skip::
 
@@ -23,7 +76,7 @@ coordinate system:
     >>> raw_image, header_in = fits.getdata('raw_image.fits', header=True)
     >>> bg_subtracted_image = fits.getdata('background_subtracted_image.fits')
 
-We then combine the two images into a single array, adding a leading
+We can combine the two images into a single array, adding a leading
 dimension:
 
 .. doctest-skip::
@@ -33,10 +86,9 @@ dimension:
     >>> image_stack.shape
     (2, 1024, 1024)
 
-The header still describes only the two celestial dimensions, so the extra
-leading dimension is treated as representing separate images sharing the same
-coordinates, and we can reproject both images in a single call (here
-``header_out`` is a header describing the desired output projection):
+The header still describes only the two celestial dimensions, so we can
+reproject both images in a single call (here ``header_out`` is a header
+describing the desired output projection):
 
 .. doctest-skip::
 
