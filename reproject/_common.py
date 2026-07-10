@@ -70,6 +70,7 @@ def _reproject_dispatcher(
     reproject_func_kwargs=None,
     return_type=None,
     dask_method=None,
+    zarr_path=None,
 ):
     """
     Main function that handles either calling the core algorithms directly or
@@ -124,8 +125,13 @@ def _reproject_dispatcher(
         dask.distributed), set this to ``'current-scheduler'``.
     reproject_func_kwargs : dict, optional
         Keyword arguments to pass through to ``reproject_func``
-    return_type : {'numpy', 'dask' }, optional
-        Whether to return numpy or dask arrays.
+    return_type : {'numpy', 'dask', 'zarr'}, optional
+        Whether to return numpy or dask arrays or whether to dump the result to
+        a zarr array on disk. If 'zarr', then the ``zarr_path`` keyword has to
+        also be specified, and the function will return dask arrays constructed
+        from the zarr array. In this case the reprojection is always carried out
+        in blocks (using dask, on the synchronous scheduler when ``parallel`` is
+        `False`), and ``block_size`` defaults to ``'auto'`` when not specified.
     dask_method : {'memmap', 'none'}, optional
         Method to use when input array is a dask array. The methods are:
             * ``'memmap'``: write out the entire input dask array to a temporary
@@ -138,14 +144,20 @@ def _reproject_dispatcher(
               fits into memory (as this will then be faster than ``'memmap'``),
               and when the data contains more dimensions than the input WCS and
               the block_size is chosen to iterate over the extra dimensions.
+    zarr_path : str, optional
+        If return_type is 'zarr', this specifies the path to use for the zarr
+        array. This should be a non-existent path.
     """
 
     logger = logging.getLogger(__name__)
 
     if return_type is None:
         return_type = "numpy"
-    elif return_type not in ("numpy", "dask"):
-        raise ValueError("return_type should be set to 'numpy' or 'dask'")
+    elif return_type not in ("numpy", "dask", "zarr"):
+        raise ValueError("return_type should be set to 'numpy', 'dask', or 'zarr'")
+
+    if return_type == "zarr" and block_size is None:
+        block_size = "auto"
 
     if dask_method is None:
         dask_method = "memmap"
@@ -154,6 +166,12 @@ def _reproject_dispatcher(
 
     if reproject_func_kwargs is None:
         reproject_func_kwargs = {}
+
+    if return_type == "zarr":
+        if zarr_path is None:
+            raise ValueError("zarr_path needs to be set if return_type is 'zarr'")
+        elif os.path.exists(zarr_path):
+            raise ValueError(f"Path {zarr_path} already exists")
 
     # For now, we are quite restrictive in what non_reprojected_dims can
     # be, but it is designed so that if we wanted we could support more use
@@ -204,7 +222,7 @@ def _reproject_dispatcher(
 
     with tempfile.TemporaryDirectory() as local_tmp_dir:
         if array_out is None:
-            if return_type != "dask":
+            if return_type == "numpy":
                 array_out = np.zeros(shape_out, dtype=float)
         elif array_out.shape != tuple(shape_out):
             raise ValueError(
@@ -227,9 +245,9 @@ def _reproject_dispatcher(
             # If a dask array was passed as input, we first convert this to a
             # Numpy memory mapped array
 
-            if return_type == "dask":
+            if return_type in ("dask", "zarr"):
                 raise ValueError(
-                    "Output cannot be returned as dask arrays "
+                    "Output cannot be returned as dask or zarr arrays "
                     "when parallel=False and no block size has "
                     "been specified"
                 )
@@ -358,7 +376,7 @@ def _reproject_dispatcher(
                 "to compute the blocks concurrently)"
             )
 
-        if output_footprint is None and return_footprint and return_type != "dask":
+        if output_footprint is None and return_footprint and return_type == "numpy":
             output_footprint = np.zeros(shape_out, dtype=float)
 
         def reproject_single_block(a, array_or_path, block_info=None):
@@ -556,7 +574,7 @@ def _reproject_dispatcher(
 
         # We now convert the dask arrays back to Numpy arrays
 
-        if parallel:
+        if parallel or return_type == "zarr":
             # As discussed in https://github.com/dask/dask/issues/9556, da.store
             # will not work well in parallel mode when the destination is a
             # Numpy array. Instead, in this case we save the dask array to a zarr
@@ -565,11 +583,15 @@ def _reproject_dispatcher(
             # 'synchronous' scheduler since that is I/O limited so does not need
             # to be done in parallel.
 
-            zarr_path = os.path.join(local_tmp_dir, f"{uuid.uuid4()}.zarr")
+            if return_type != "zarr":
+                zarr_path = os.path.join(local_tmp_dir, f"{uuid.uuid4()}.zarr")
 
             logger.info(f"Computing output array directly to zarr array at {zarr_path}")
 
-            if parallel == "current-scheduler":
+            if not parallel:
+                with dask.config.set(scheduler="synchronous"):
+                    result.to_zarr(zarr_path)
+            elif parallel == "current-scheduler":
                 # Just use whatever is the current active scheduler, which can
                 # be used for e.g. dask.distributed
                 result.to_zarr(zarr_path)
@@ -588,6 +610,12 @@ def _reproject_dispatcher(
                     result.to_zarr(zarr_path)
 
             result = da.from_zarr(zarr_path)
+
+            if return_type == "zarr":
+                if return_footprint:
+                    return result[0], result[1]
+                else:
+                    return result[0]
 
         logger.info("Copying output zarr array into output Numpy arrays")
 

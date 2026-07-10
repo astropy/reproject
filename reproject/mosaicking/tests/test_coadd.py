@@ -27,7 +27,7 @@ def reproject_function(request):
     return request.param
 
 
-@pytest.fixture(params=[False, True])
+@pytest.fixture(params=[False, True, "zarr"])
 def intermediate_memmap(request):
     return request.param
 
@@ -44,6 +44,11 @@ def _compute(result, return_type):
     if return_type == "dask":
         assert isinstance(result, da.core.Array)
     return np.asarray(result)
+
+
+@pytest.fixture(params=[False, True])
+def intermediate_memmap_nozarr(request):
+    return request.param
 
 
 class TestReprojectAndCoAdd:
@@ -102,6 +107,9 @@ class TestReprojectAndCoAdd:
         # Make sure that if all tiles are exactly non-overlapping, and
         # we use 'sum' or 'mean', we get the exact input array back.
 
+        if return_type == "dask" and intermediate_memmap:
+            pytest.skip("return_type='dask' does not support intermediate_memmap")
+
         input_data = self._get_tiles(self._nonoverlapping_views)
 
         array, footprint = reproject_and_coadd(
@@ -111,6 +119,7 @@ class TestReprojectAndCoAdd:
             combine_function=combine_function,
             reproject_function=reproject_function,
             return_type=return_type,
+            intermediate_memmap=intermediate_memmap,
         )
         # np.asarray is a no-op for the numpy path and computes the deferred dask
         # result for return_type='dask', which must match numerically.
@@ -124,6 +133,9 @@ class TestReprojectAndCoAdd:
         # Here we make the input tiles overlapping. We can only check the
         # mean, not the sum.
 
+        if return_type == "dask" and intermediate_memmap:
+            pytest.skip("return_type='dask' does not support intermediate_memmap")
+
         input_data = self._get_tiles(self._overlapping_views)
 
         array, footprint = reproject_and_coadd(
@@ -133,10 +145,53 @@ class TestReprojectAndCoAdd:
             combine_function="mean",
             reproject_function=reproject_function,
             return_type=return_type,
+            intermediate_memmap=intermediate_memmap,
         )
         array = _compute(array, return_type)
 
         assert_allclose(array, self.array, atol=ATOL)
+
+    def test_coadd_nan_masking_zarr(self, reproject_function, monkeypatch):
+        # NaN values in the input data and weights have to be masked out of
+        # the reprojected arrays and footprints before combination. With
+        # intermediate_memmap='zarr' the reprojected arrays are dask arrays,
+        # for which assigning into a slice only mutates the temporary object
+        # returned by the slicing, so the chunked in-place masking used for
+        # Numpy arrays would be silently lost whenever a chunk was a strict
+        # subset of the array (a slice covering the full array returns the
+        # array itself, which is why small test arrays did not catch this).
+        # Use a small chunk size to force multiple chunks per tile and check
+        # the zarr path against the plain Numpy path. The NaN values are
+        # placed in a single tile so that the overlapping tiles provide valid
+        # values at the same location; note that NaN data pixels only exercise
+        # the masking for reproject_exact, since reproject_interp derives its
+        # footprint from the non-NaN output pixels, so we also include NaN
+        # values in the weights of another tile.
+
+        monkeypatch.setattr("reproject.mosaicking._coadd.DEFAULT_MAX_CHUNK_SIZE", 1000)
+        monkeypatch.setattr("reproject.mosaicking._subset_array.DEFAULT_MAX_CHUNK_SIZE", 1000)
+
+        input_data = self._get_tiles(self._overlapping_views)
+        input_data[2][0][:10, :10] = np.nan
+
+        input_weights = [np.ones_like(array) for array, _ in input_data]
+        input_weights[10][:10, :10] = np.nan
+
+        results = {}
+        for intermediate in (False, "zarr"):
+            results[intermediate] = reproject_and_coadd(
+                input_data,
+                self.wcs,
+                shape_out=self.array.shape,
+                input_weights=input_weights,
+                combine_function="mean",
+                reproject_function=reproject_function,
+                intermediate_memmap=intermediate,
+            )
+
+        assert not np.any(np.isnan(results["zarr"][0]))
+        assert_allclose(results["zarr"][0], results[False][0], atol=ATOL)
+        assert_allclose(results["zarr"][1], results[False][1], atol=ATOL)
 
     def test_coadd_dask_median(self, reproject_function):
         # Check the deferred median against a direct numpy nanmedian of the
@@ -551,6 +606,7 @@ class TestReprojectAndCoAdd:
             reproject_function=reproject_function,
             output_array=output_array,
             output_footprint=output_footprint,
+            intermediate_memmap=intermediate_memmap,
         )
 
         assert_allclose(output_array, self.array, atol=ATOL)
@@ -599,7 +655,7 @@ class TestReprojectAndCoAdd:
             assert_allclose(output_values, (i + 7) % 20)
             array[view] = np.nan
 
-    def test_coadd_background_matching(self, reproject_function, intermediate_memmap):
+    def test_coadd_background_matching(self, reproject_function, intermediate_memmap_nozarr):
         # Test out the background matching
 
         input_data = self._get_tiles(self._overlapping_views)
@@ -615,6 +671,7 @@ class TestReprojectAndCoAdd:
             shape_out=self.array.shape,
             combine_function="mean",
             reproject_function=reproject_function,
+            intermediate_memmap=intermediate_memmap_nozarr,
         )
 
         assert not np.allclose(array, self.array, atol=ATOL)
@@ -628,6 +685,7 @@ class TestReprojectAndCoAdd:
             combine_function="mean",
             reproject_function=reproject_function,
             match_background=True,
+            intermediate_memmap=intermediate_memmap_nozarr,
         )
 
         # The absolute values of the two arrays will be offset since any
@@ -635,7 +693,9 @@ class TestReprojectAndCoAdd:
 
         assert_allclose(array - np.mean(array), self.array - np.mean(self.array), atol=ATOL)
 
-    def test_coadd_background_matching_one_array(self, reproject_function, intermediate_memmap):
+    def test_coadd_background_matching_one_array(
+        self, reproject_function, intermediate_memmap_nozarr
+    ):
         # Test that background matching doesn't affect the output when there's
         # only one input image.
 
@@ -648,6 +708,7 @@ class TestReprojectAndCoAdd:
             combine_function="mean",
             reproject_function=reproject_function,
             match_background=True,
+            intermediate_memmap=intermediate_memmap_nozarr,
         )
 
         array, footprint = reproject_and_coadd(
@@ -657,6 +718,7 @@ class TestReprojectAndCoAdd:
             combine_function="mean",
             reproject_function=reproject_function,
             match_background=False,
+            intermediate_memmap=intermediate_memmap_nozarr,
         )
         np.testing.assert_allclose(array, array_matched)
         np.testing.assert_allclose(footprint, footprint_matched)
@@ -733,7 +795,9 @@ class TestReprojectAndCoAdd:
         np.testing.assert_allclose(footprint_match, footprint_nomatch, atol=ATOL)
         np.testing.assert_allclose(array_match, array_nomatch, atol=ATOL)
 
-    def test_coadd_background_matching_with_nan(self, reproject_function, intermediate_memmap):
+    def test_coadd_background_matching_with_nan(
+        self, reproject_function, intermediate_memmap_nozarr
+    ):
         # Test out the background matching when NaN values are present. We do
         # this by using three arrays with the same footprint but with different
         # parts masked.
@@ -756,6 +820,7 @@ class TestReprojectAndCoAdd:
             combine_function="mean",
             reproject_function=reproject_function,
             match_background=True,
+            intermediate_memmap=intermediate_memmap_nozarr,
         )
 
         # The absolute values of the two arrays will be offset since any
@@ -769,6 +834,9 @@ class TestReprojectAndCoAdd:
         self, tmpdir, reproject_function, mode, intermediate_memmap, return_type
     ):
         # Make sure that things work properly when specifying weights
+
+        if return_type == "dask" and intermediate_memmap:
+            pytest.skip("return_type='dask' does not support intermediate_memmap")
 
         array1 = self.array + 1
         array2 = self.array - 1
@@ -804,6 +872,7 @@ class TestReprojectAndCoAdd:
             reproject_function=reproject_function,
             match_background=False,
             return_type=return_type,
+            intermediate_memmap=intermediate_memmap,
         )
         array = _compute(array, return_type)
 
@@ -839,6 +908,7 @@ class TestReprojectAndCoAdd:
             input_weights=input_weights,
             reproject_function=reproject_function,
             match_background=False,
+            intermediate_memmap=intermediate_memmap,
         )
 
         weights1_reprojected = reproject_function(
@@ -887,6 +957,7 @@ class TestReprojectAndCoAdd:
             shape_out=(3,) + self.array.shape,
             combine_function="mean",
             reproject_function=reproject_function,
+            intermediate_memmap=intermediate_memmap,
             **kwargs,
         )
 
