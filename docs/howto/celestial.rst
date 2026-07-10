@@ -1,3 +1,5 @@
+.. _celestial:
+
 **********************************
 Regular celestial images and cubes
 **********************************
@@ -137,7 +139,7 @@ input image, and the second is a 'footprint' array which shows the fraction of
 overlap of the input image on the output image grid. This footprint is 0 for
 output pixels that fall outside the input image, 1 for output pixels that fall
 inside the input image. For more information about footprint arrays, see the
-:doc:`footprints` section. To return only the main array and not the footprint,
+:ref:`footprints` section. To return only the main array and not the footprint,
 you can set ``return_footprint=False``.
 
 We can then easily write out the reprojected image to a new FITS file::
@@ -384,7 +386,7 @@ reprojection using the spherical polygon intersection of input and output pixels
     >>> from reproject import reproject_exact
 
 For this algorithm, the footprint array returned gives the exact fractional
-overlap of new pixels with the original image (see :doc:`footprints` for more
+overlap of new pixels with the original image (see :ref:`footprints` for more
 details).
 
 .. warning:: The :func:`~reproject.reproject_exact` is currently known to
