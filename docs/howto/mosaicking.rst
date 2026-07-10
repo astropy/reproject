@@ -98,7 +98,7 @@ shortcuts defined in astropy (e.g. ``'fk5'``, ``'galactic'``, etc.):
     >>> wcs_out, shape_out = find_optimal_celestial_wcs(m17_hdus,
     ...                                                 frame='galactic')
 
-the resulting WCS is then in Galactic coordinates::
+the resulting WCS is then in Galactic coordinates:
 
 .. doctest-requires:: pyvo
 

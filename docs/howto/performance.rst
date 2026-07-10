@@ -115,9 +115,6 @@ be used together with ``match_background=True``.
 Combined with the above option to specify the output array and footprint for
 the final mosaic, it is possible to make sure that no large arrays are ever
 loaded into memory. Note however that you will need to make sure you have
-sufficient disk space in your temporary directory. If your default system
-temporary directory does not have sufficient space, you can set the ``TMPDIR``
-environment variable to point at another directory:
-
-    >>> import os
-    >>> os.environ['TMPDIR'] = '/home/lancelot/tmp'
+sufficient disk space in your temporary directory - as when reprojecting dask
+arrays (see :doc:`dask`), the ``TMPDIR`` environment variable can be used to
+point at a directory with sufficient space.

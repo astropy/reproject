@@ -205,6 +205,6 @@ algorithm for you use case.
 Note that when you have a data cube, such as a spectral cube, it is possible in
 principle to reproject just the celestial slices from the cube and not reproject
 the remaining dimension (so e.g. keep the spectral axis the same). In this case,
-:func:`~reproject.reproject_adaptive` and   :func:`~reproject.reproject_exact`
-are valid options even though they can only handle 2-dimensional data. if th See
+:func:`~reproject.reproject_adaptive` and :func:`~reproject.reproject_exact`
+are valid options even though they can only handle 2-dimensional data. See
 :ref:`broadcasting` for more details.

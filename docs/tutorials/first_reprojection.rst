@@ -20,8 +20,9 @@ namely a 2MASS K-band image and an MSX band E image of the Galactic center:
     hdu1 = fits.open(get_pkg_data_filename('galactic_center/gc_2mass_k.fits'))[0]
     hdu2 = fits.open(get_pkg_data_filename('galactic_center/gc_msx_e.fits'))[0]
 
-We can examine the two images (this makes use of the
-`wcsaxes <wcsaxes.readthedocs.io>`_ package behind the scenes):
+We can examine the two images (this makes use of astropy's `WCSAxes
+<https://docs.astropy.org/en/stable/visualization/wcsaxes/>`_ framework
+behind the scenes):
 
 .. plot::
    :include-source:

@@ -15,8 +15,8 @@ of tiles at different resolutions. It is used for example by `Aladin
 The **reproject.hips** sub-package includes helper functions for constructing
 HiPS datasets from a variety of inputs. The main function is
 :func:`~reproject.hips.reproject_to_hips`, which takes in data in a variety of
-formats and types (see  :func:`~reproject.hips.reproject_to_hips`), for example
-FITS files, HDU objects, PNG/JPEG images with AVM metadata, and so on.
+formats and types, for example FITS files, HDU objects, PNG/JPEG images with
+AVM metadata, and so on.
 
 Unlike the other reprojection functions, the output is not a file but a
 directory, which contains all the tiles, as well as metadata and an
@@ -147,7 +147,7 @@ Generating HiPS3D datasets
 ==========================
 
 The :func:`~reproject.hips.reproject_to_hips` function can also be used to reproject
-spectral cubes to spectral HiPS3D datasets. When use in this way, the following
+spectral cubes to spectral HiPS3D datasets. When used in this way, the following
 arguments can be used to control the spectral axis:
 
 * ``tile_depth=``: the depth of the tile in pixels, analogous to ``tile_size=``
