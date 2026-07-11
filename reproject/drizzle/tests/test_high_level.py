@@ -152,14 +152,44 @@ def test_output_arrays():
     [{"block_size": (10, 10)}, {"block_size": "auto"}, {"parallel": True}, {"return_type": "dask"}],
 )
 def test_unsupported_blocked_modes(kwargs):
-    # Blocked reprojection would silently lose the flux that input pixels
-    # contribute across block boundaries, so anything relying on it should
-    # raise clearly
+    # Blocks that split the celestial dimensions would silently lose the flux
+    # that input pixels contribute across block boundaries, so anything
+    # relying on them should raise clearly
     wcs_in, wcs_out = _wcs_pair()
     data = _gaussian_data()
 
     with pytest.raises(NotImplementedError, match="block"):
         reproject_drizzle((data, wcs_in), wcs_out, shape_out=(80, 80), **kwargs)
+
+
+def test_blocked_over_broadcast_dims():
+    # Blocks that span the full celestial plane and only iterate over extra
+    # leading dimensions never split flux across a block boundary, so blocked,
+    # parallel and dask-output reprojection are all allowed and should match
+    # the unblocked result exactly
+    wcs_in, wcs_out = _wcs_pair()
+    data = _gaussian_data()
+    cube = np.stack([data, data * 2, data * 3])
+
+    reference, reference_footprint = reproject_drizzle(
+        (cube, wcs_in), wcs_out, shape_out=(3, 80, 80)
+    )
+
+    result, footprint = reproject_drizzle(
+        (cube, wcs_in), wcs_out, shape_out=(3, 80, 80), block_size=(1, 80, 80), parallel=2
+    )
+    assert_allclose(result, reference, equal_nan=True)
+    assert_allclose(footprint, reference_footprint)
+
+    result = reproject_drizzle(
+        (cube, wcs_in),
+        wcs_out,
+        shape_out=(3, 80, 80),
+        block_size=(1, 80, 80),
+        return_type="dask",
+        return_footprint=False,
+    )
+    assert_allclose(np.asarray(result), reference, equal_nan=True)
 
 
 def test_reproject_and_coadd():

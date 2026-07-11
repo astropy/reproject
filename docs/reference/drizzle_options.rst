@@ -30,3 +30,16 @@ flux is distributed onto the output grid, which reduces the correlation
 between neighboring output pixels when combining multiple dithered images.
 Note that ``pixfrac`` values below 1 are not in general useful when
 reprojecting a single image, since they leave gaps in the output.
+
+Blocked and parallel reprojection
+=================================
+
+Since the drizzle algorithm distributes the flux of each input pixel over the
+output pixels, input pixels contribute across output block boundaries, and
+blocked (and therefore parallel) reprojection (see :doc:`../howto/chunked`) is
+only supported when the blocks span the full extent of the celestial
+dimensions, iterating only over leading non-reprojected dimensions (either
+extra leading dimensions of the data, or dimensions designated with
+``non_reprojected_dims``). When using ``non_reprojected_dims``, ``block_size``
+can be left unset, in which case one block covering each non-reprojected
+slice in full is used automatically.

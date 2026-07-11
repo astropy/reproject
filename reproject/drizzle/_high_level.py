@@ -19,9 +19,11 @@ def reproject_drizzle(
     output_footprint=None,
     return_footprint=True,
     block_size=None,
+    non_reprojected_dims=None,
     parallel=False,
     return_type=None,
     dask_method=None,
+    zarr_path=None,
 ):
     """
     Reproject data to a new projection using the drizzle algorithm from
@@ -97,20 +99,43 @@ def reproject_drizzle(
         extremely large files.
     return_footprint : bool
         Whether to return the footprint in addition to the output array.
-    block_size : None
-        Included for compatibility with the other reprojection functions,
-        but only `None` is accepted. The drizzle algorithm distributes the
-        flux of each input pixel over the output pixels, so input pixels
+    block_size : tuple, optional
+        The size of blocks in terms of output array pixels that each block
+        will handle reprojecting. The drizzle algorithm distributes the flux
+        of each input pixel over the output pixels, so input pixels
         contribute across output block boundaries and the reprojection
-        cannot currently be carried out in independent blocks.
-    parallel : bool
-        Included for compatibility with the other reprojection functions,
-        but only `False` is accepted, since parallelization relies on
-        blocked reprojection (see ``block_size``).
-    return_type : {'numpy'}, optional
-        Included for compatibility with the other reprojection functions,
-        but only ``'numpy'`` is accepted, since the ``'dask'`` and ``'zarr'``
-        return types rely on blocked reprojection (see ``block_size``).
+        cannot be carried out in blocks that split the celestial dimensions.
+        The entries of ``block_size`` along the celestial dimensions must
+        therefore match ``shape_out``, so that blocks only iterate over
+        leading non-reprojected (broadcast) dimensions. When
+        ``non_reprojected_dims`` is used, ``block_size`` can be left unset,
+        in which case one block covering each non-reprojected slice in full
+        is used automatically.
+    non_reprojected_dims : tuple, optional
+        Leading dimensions of the data that should not be reprojected but for
+        which a one-to-one mapping between input and output pixels is assumed.
+        This makes it possible to broadcast a reprojection over these dimensions
+        even when the input and output WCS have the same number of dimensions as
+        the data. The dimensions must be the leading ones, given as a tuple of
+        sequential integers starting from zero (e.g. ``(0,)`` or ``(0, 1)``).
+        The reprojection is done with one block per non-reprojected slice, so
+        if ``block_size`` is specified, its entries along the reprojected
+        dimensions have to match ``shape_out``; if not, this block size is
+        used automatically.
+    parallel : bool or int or str, optional
+        If `True`, the reprojection is carried out in parallel, and if a
+        positive integer, this specifies the number of threads to use.
+        The reprojection will be parallelized over output array blocks that
+        span the full extent of the celestial dimensions (see ``block_size``),
+        so parallelization is only possible over leading non-reprojected
+        dimensions. To use the currently active dask scheduler (e.g.
+        dask.distributed), set this to ``'current-scheduler'``.
+    return_type : {'numpy', 'dask', 'zarr'}, optional
+        Whether to return numpy or dask arrays, or to write the output to a zarr
+        array on disk. If ``'zarr'``, ``zarr_path`` must also be given. The
+        ``'dask'`` and ``'zarr'`` return types compute the output in blocks, so
+        they require a ``block_size`` that spans the full extent of the
+        celestial dimensions (see ``block_size``).
     dask_method : {'memmap', 'none'}, optional
         Method to use when input array is a dask array. The methods are:
             * ``'memmap'``: write out the entire input dask array to a temporary
@@ -119,6 +144,9 @@ def reproject_drizzle(
               the entire array into memory.
             * ``'none'``: load the dask array into memory as needed. This may
               result in the entire array being loaded into memory.
+    zarr_path : str, optional
+        Path to use for the output zarr array when ``return_type='zarr'``. This
+        must be a path that does not already exist.
 
     Returns
     -------
@@ -134,34 +162,53 @@ def reproject_drizzle(
         slightly from the fraction of each output pixel covered.
     """
 
-    if block_size is not None:
-        raise NotImplementedError(
-            "The drizzle algorithm distributes the flux of each input pixel "
-            "over the output pixels, so input pixels contribute across block "
-            "boundaries and the reprojection cannot currently be carried out "
-            "in blocks (block_size should be None)"
-        )
-
-    if parallel is not False:
-        raise NotImplementedError(
-            "Parallel reprojection relies on blocked reprojection, which is "
-            "not currently supported by the drizzle algorithm (parallel "
-            "should be False)"
-        )
-
-    if return_type not in (None, "numpy"):
-        raise NotImplementedError(
-            "The 'dask' and 'zarr' return types rely on blocked reprojection, "
-            "which is not currently supported by the drizzle algorithm "
-            "(return_type should be 'numpy')"
-        )
-
     array_in, wcs_in = parse_input_data(input_data, hdu_in=hdu_in)
     wcs_out, shape_out = parse_output_projection(
         output_projection, shape_in=array_in.shape, shape_out=shape_out
     )
 
-    if has_celestial(wcs_in) and wcs_in.pixel_n_dim == 2 and wcs_in.world_n_dim == 2:
+    n_non_reprojected = 0 if non_reprojected_dims is None else len(non_reprojected_dims)
+
+    # Blocks are only acceptable if they span the full extent of the celestial
+    # dimensions, so that they iterate over leading non-reprojected dimensions
+    # and no flux is ever distributed across a block boundary. When
+    # non_reprojected_dims is used with a WCS that has more dimensions than are
+    # being reprojected, an unset (or 'auto') block size is also safe, since
+    # the dispatcher then defaults to one block covering each non-reprojected
+    # slice in full; without it, the automatic chunking may split the celestial
+    # dimensions.
+    if block_size is None or (isinstance(block_size, str) and block_size == "auto"):
+        blocks_split_celestial = not (
+            n_non_reprojected > 0 and wcs_in.pixel_n_dim == 2 + n_non_reprojected
+        )
+    else:
+        blocks_split_celestial = tuple(block_size[-2:]) != tuple(shape_out)[-2:]
+
+    if blocks_split_celestial and (
+        block_size is not None or parallel is not False or return_type in ("dask", "zarr")
+    ):
+        raise NotImplementedError(
+            "The drizzle algorithm distributes the flux of each input pixel "
+            "over the output pixels, so input pixels contribute across block "
+            "boundaries and the reprojection cannot be carried out in blocks "
+            "that split the celestial dimensions. Blocked or parallel "
+            "reprojection (including the 'dask' and 'zarr' return types) "
+            "therefore requires a block_size whose entries along the celestial "
+            "dimensions match shape_out, so that blocks only iterate over "
+            "leading non-reprojected dimensions (e.g. non_reprojected_dims or "
+            "extra leading dimensions of the data); when using "
+            "non_reprojected_dims, block_size can also be left unset to use "
+            "one block per non-reprojected slice automatically"
+        )
+
+    # When non_reprojected_dims is used with input and output WCS that have the
+    # same number of dimensions as the data, the dispatcher slices the WCS down
+    # to the celestial dimensions for each non-reprojected slice
+    if (
+        has_celestial(wcs_in)
+        and wcs_in.pixel_n_dim in (2, 2 + n_non_reprojected)
+        and wcs_in.world_n_dim == wcs_in.pixel_n_dim
+    ):
         return _reproject_dispatcher(
             _reproject_drizzle,
             array_in=array_in,
@@ -169,12 +216,14 @@ def reproject_drizzle(
             wcs_out=wcs_out,
             shape_out=shape_out,
             array_out=output_array,
-            parallel=False,
-            block_size=None,
+            parallel=parallel,
+            block_size=block_size,
+            non_reprojected_dims=non_reprojected_dims,
             return_footprint=return_footprint,
             output_footprint=output_footprint,
             return_type=return_type,
             dask_method=dask_method,
+            zarr_path=zarr_path,
             reproject_func_kwargs=dict(
                 kernel=kernel,
                 pixfrac=pixfrac,
