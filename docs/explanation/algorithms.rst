@@ -47,7 +47,10 @@ There are several existing algorithms that can be used to reproject data:
   non-celestial coordinates or from coordinates on the sky to coordinates on the
   surface of a spherical body).
 
-Currently, *reproject* implements all of the above except drizzling, and the functions to use for each are:
+Currently, *reproject* implements all of the above except drizzling (for this
+you can instead use the `drizzle
+<https://spacetelescope-drizzle.readthedocs.io/en/latest/>`_ package), and the
+functions to use for each are:
 
 * :func:`~reproject.reproject_interp` - interpolation
 * :func:`~reproject.reproject_adaptive` - adaptive resampling
@@ -182,9 +185,10 @@ Here we try and provide a few simple rules to help you choose the right
 algorithm for you use case.
 
 * First, if you are only reprojecting celestial images or the celestial slices
-  of a higher-dimensional cube (e.g. celestial slices in a spectral cube), and
-  you need the output images to be photometrically accurate (so that you can
-  e.g. carry out photometry on them), then use
+  of a higher-dimensional cube (e.g. celestial slices in a spectral cube), the
+  origin of the coordinate system does not change between the input and the
+  output WCS, and you need the output images to be photometrically accurate (so
+  that you can e.g. carry out photometry on them), then use
   :func:`~reproject.reproject_exact`. This will be slower than other methods,
   but is the most accurate.
 
