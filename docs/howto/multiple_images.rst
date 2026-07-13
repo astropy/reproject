@@ -18,49 +18,83 @@ computed only once and reused for each image.
 Reprojecting an RGB image
 =========================
 
-.. Convert the examples in this section to executed doctests and a plot
-   directive once avm/sig07-009.jpg is available on data.astropy.org.
-
 A color image is a natural example of images sharing coordinates: the three
 RGB channels are perfectly aligned. The reprojection functions can take the
 filename of a PNG or JPEG image with `AVM
 <https://www.virtualastronomy.org/avm_metadata.php>`_ metadata directly, in
 which case the image is loaded as an array of shape ``(3, ny, nx)`` along
-with the WCS. As an example, we can use a multiwavelength image of Messier 81
-which is rotated by almost 90 degrees from a conventional north-up
+with the WCS. As an example, we can download a multiwavelength image of
+Messier 81 which is rotated by almost 90 degrees from a conventional north-up
 orientation:
 
-.. doctest-skip::
+.. plot::
+   :include-source:
+   :nofigs:
+   :context: reset
 
-    >>> from astropy.utils.data import get_pkg_data_filename
-    >>> filename = get_pkg_data_filename('avm/sig07-009.jpg')
+    from astropy.utils.data import get_pkg_data_filename
+    filename = get_pkg_data_filename('avm/sig07-009.jpg')
 
 We can use :func:`~reproject.mosaicking.find_optimal_celestial_wcs` (see
 :doc:`align_north`) to find a WCS that covers the image and is aligned with
 north in the ICRS equatorial frame, and then reproject all three color
 channels in a single call:
 
-.. doctest-skip::
+.. plot::
+   :include-source:
+   :nofigs:
+   :context:
 
-    >>> from reproject import reproject_interp
-    >>> from reproject.mosaicking import find_optimal_celestial_wcs
-    >>> wcs_out, shape_out = find_optimal_celestial_wcs(filename, frame='icrs')
-    >>> rgb, footprint = reproject_interp(filename, wcs_out,
-    ...                                   shape_out=(3,) + shape_out)
-    >>> rgb.shape
-    (3, 1611, 1250)
+    from reproject import reproject_interp
+    from reproject.mosaicking import find_optimal_celestial_wcs
 
-The reprojected channels can then be combined back into an image that can be
-displayed with e.g. Matplotlib, converting the values back to 8-bit integers
-and moving the color axis to the end:
+    wcs_out, shape_out = find_optimal_celestial_wcs(filename, frame='icrs')
+    rgb, footprint = reproject_interp(filename, wcs_out,
+                                      shape_out=(3,) + shape_out)
 
-.. doctest-skip::
+The resulting ``rgb`` array has shape ``(3, 1611, 1250)`` - the leading
+dimension still represents the three color channels, which have all been
+reprojected using a single coordinate mapping.
 
-    >>> import numpy as np
-    >>> import matplotlib.pyplot as plt
-    >>> image = np.moveaxis(np.nan_to_num(rgb), 0, -1).clip(0, 255).astype(np.uint8)
-    >>> ax = plt.subplot(projection=wcs_out)
-    >>> ax.imshow(image, origin='lower')
+To display the result, we convert the values back to 8-bit integers and move
+the color axis to the end. For comparison, we also show the original image,
+reading its WCS with the `PyAVM <https://astrofrog.github.io/pyavm/>`_
+package (which is what the reprojection functions use behind the scenes) and
+flipping the rows of the image since JPEG files are stored starting from the
+top row:
+
+.. plot::
+   :include-source:
+   :context:
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from pyavm import AVM
+
+    wcs_in = AVM.from_image(filename).to_wcs()
+
+    original = plt.imread(filename)[::-1]
+    reprojected = np.moveaxis(np.nan_to_num(rgb), 0, -1).clip(0, 255).astype(np.uint8)
+
+    plt.figure(figsize=(10, 5))
+
+    ax1 = plt.subplot(1, 2, 1, projection=wcs_in)
+    ax1.imshow(original, origin='lower')
+    ax1.coords['ra'].set_axislabel('Right Ascension')
+    ax1.coords['dec'].set_axislabel('Declination')
+    ax1.coords.grid(color='white', alpha=0.5)
+    ax1.set_title('Original')
+
+    ax2 = plt.subplot(1, 2, 2, projection=wcs_out)
+    ax2.imshow(reprojected, origin='lower')
+    ax2.coords['ra'].set_axislabel('Right Ascension')
+    ax2.coords['dec'].set_axislabel('Declination')
+    ax2.coords['dec'].set_axislabel_position('r')
+    ax2.coords['dec'].set_ticklabel_position('r')
+    ax2.coords.grid(color='white', alpha=0.5)
+    ax2.set_title('Reprojected, north-up')
+
+    plt.tight_layout()
 
 Stacking images yourself
 ========================
