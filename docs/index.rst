@@ -1,14 +1,14 @@
 .. _reprojection:
 
-*******************************
-Image reprojection (resampling)
-*******************************
+****************************************
+Image and cube reprojection (resampling)
+****************************************
 
-The *reproject* package implements image reprojection (resampling) methods
-for astronomical images and more generally n-dimensional data. These assume
-that the WCS information contained in the data are correct. This package does
-**not** do image registration, which is the process of aligning images where
-one or more images may have incorrect or missing WCS.
+The *reproject* package implements reprojection (resampling) methods for
+astronomical images, spectral cubes, and other n-dimensional data. These
+assume that the WCS information contained in the data are correct. This
+package does **not** do image registration, which is the process of aligning
+images where one or more images may have incorrect or missing WCS.
 
 You can install *reproject* with `pip <http://www.pip-installer.org/en/latest/>`_::
 

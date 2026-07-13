@@ -44,10 +44,10 @@ The second argument is the WCS information for the output data, which should
 be specified either as a :class:`~astropy.wcs.WCS` or a
 :class:`~astropy.io.fits.Header` instance. If this is specified as a
 :class:`~astropy.wcs.WCS` instance, the ``shape_out`` keyword argument should
-also be specified, and be given the shape of the output image using the Numpy
+also be specified, and be given the shape of the output data using the Numpy
 ``(ny, nx)`` convention (this is because :class:`~astropy.wcs.WCS`, unlike
-:class:`~astropy.io.fits.Header`, does not contain information about image
-size).
+:class:`~astropy.io.fits.Header`, does not contain information about the
+data shape).
 
 Return values
 =============
