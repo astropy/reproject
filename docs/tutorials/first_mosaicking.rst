@@ -118,4 +118,6 @@ And that's it - you have made your first mosaic! To learn more about
 customizing the WCS of the mosaic (for example the coordinate system,
 rotation, resolution, or projection) and about the other options for
 combining images, see :ref:`mosaicking`. To understand what the values in
-the footprint array mean, see :ref:`footprints`.
+the footprint array mean, see :ref:`footprints`, and to find out how the
+background corrections we used above are determined, see
+:ref:`background-matching`.
