@@ -108,7 +108,7 @@ likewise, the amount of spatial averaging is adjusted as the scaling factor
 varies). This produces high-quality resampling with excellent photometric
 accuracy.
 
-To illustrate the benefits of this method, we consider a simple case
+To illustrate the benefits of this method, we consider a case
 where the reprojection includes a large change in resolution. We choose
 to use an artificial data example to better illustrate the differences:
 
@@ -126,7 +126,7 @@ to use an artificial data example to better illustrate the differences:
     input_array[:, ::20] = 1
     input_array[10::20, 10::20] = 1
 
-    # Define a simple input WCS
+    # Define the input WCS
     input_wcs = WCS(naxis=2)
     input_wcs.wcs.crpix = 128.5, 128.5
     input_wcs.wcs.cdelt = -0.01, 0.01
@@ -181,8 +181,8 @@ to pixel).
 Which algorithm should I use?
 =============================
 
-Here we try and provide a few simple rules to help you choose the right
-algorithm for you use case.
+Here we try and provide a few rules of thumb to help you choose the right
+algorithm for your use case.
 
 * First, if you are only reprojecting celestial images or the celestial slices
   of a higher-dimensional cube (e.g. celestial slices in a spectral cube), the
@@ -208,7 +208,7 @@ algorithm for you use case.
   :func:`~reproject.reproject_adaptive`
 
 Note that when you have a data cube, such as a spectral cube, it is possible in
-principle to reproject just the celestial slices from the cube and not reproject
+principle to reproject only the celestial slices from the cube and not reproject
 the remaining dimension (so e.g. keep the spectral axis the same). In this case,
 :func:`~reproject.reproject_adaptive` and :func:`~reproject.reproject_exact`
 are valid options even though they can only handle 2-dimensional data. See

@@ -134,7 +134,7 @@ second argument, either as a string or as a
     array, footprint = reproject_to_healpix((array, target_header), 'galactic', nside=128)
 
 The array returned is a 1-D array which can be stored in a HEALPIX FITS file.
-We can use the `~astropy.table.Table` object to easily write the array to a
+We can use the `~astropy.table.Table` object to write the array to a
 HEALPix FITS file::
 
     from astropy.table import Table

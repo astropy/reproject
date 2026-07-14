@@ -96,7 +96,7 @@ image, a range of boundary modes can be applied, and this is set with the
   replaced by a constant value, set with the ``boundary_fill_value`` argument.
   Output values will be ``boundary_fill_value`` if there are no valid input
   samples.
-* ``ignore`` --- Samples outside the input image are simply ignored,
+* ``ignore`` --- Samples outside the input image are ignored,
   contributing neither to the output value nor the sum-of-weights
   normalization. If there are no valid input samples, the output value will be
   ``NaN``.

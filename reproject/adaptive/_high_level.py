@@ -154,7 +154,7 @@ def reproject_adaptive(
               replaced by a constant value, set with the
               ``boundary_fill_value`` argument. Output values will be
               ``boundary_fill_value`` if there are no valid input samples.
-            * ``ignore`` --- Samples outside the input image are simply
+            * ``ignore`` --- Samples outside the input image are
               ignored, contributing neither to the output value nor the
               sum-of-weights normalization.
             * ``ignore_threshold`` --- Acts as ``ignore``, unless the total
@@ -241,7 +241,7 @@ def reproject_adaptive(
               the entire array into memory.
             * ``'none'``: load the dask array into memory as needed. This may
               result in the entire array being loaded into memory. However,
-              this can be efficient under two conditions: if the array easily
+              this can be efficient under two conditions: if the array comfortably
               fits into memory (as this will then be faster than ``'memmap'``),
               and when the data contains more dimensions than the input WCS and
               the block_size is chosen to iterate over the extra dimensions.

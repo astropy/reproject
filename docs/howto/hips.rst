@@ -33,7 +33,7 @@ image towards the center of our Galaxy:
     >>> from astropy.utils.data import get_pkg_data_filename
     >>> hdu = fits.open(get_pkg_data_filename('galactic_center/gc_2mass_k.fits'))[0]
 
-The simplest way to call :func:`~reproject.hips.reproject_to_hips` is
+A minimal call to :func:`~reproject.hips.reproject_to_hips` looks like:
 
     >>> from reproject import reproject_interp
     >>> from reproject.hips import reproject_to_hips
@@ -64,7 +64,7 @@ Once :func:`~reproject.hips.reproject_to_hips` has run, you can check the
 result by setting up a local web server and then viewing the result in a
 browser.
 
-The easiest way to do this is to go into the generated HiPS directory and start
+One way to do this is to go into the generated HiPS directory and start
 a web server using Python, e.g.::
 
     cd gc_2mass_k

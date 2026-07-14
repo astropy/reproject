@@ -12,7 +12,7 @@ construct a single optimal WCS/shape that overlaps with multiple images, and
 target WCS/shape will reproject all the images then combine them into a mosaic.
 We describe these in the sections below. If you have never made a mosaic with
 *reproject* before, you may want to start off with the
-:doc:`../tutorials/first_mosaicking` tutorial, which walks through a simple
+:doc:`../tutorials/first_mosaicking` tutorial, which walks through an
 example from start to finish.
 
 For the examples on this page we will use the `PyVO
@@ -46,8 +46,8 @@ already know the final header or WCS you want to use for the images - in this
 case you can skip straight to :ref:`coadding`.
 
 You can optionally provide options to try and constrain
-the solution, as we will see below. To start off, let's consider the simplest
-example, which is to call :func:`~reproject.mosaicking.find_optimal_celestial_wcs`
+the solution, as we will see below. To start off, let's call
+:func:`~reproject.mosaicking.find_optimal_celestial_wcs`
 with the files downloaded above, but no additional information:
 
 .. doctest-requires:: pyvo

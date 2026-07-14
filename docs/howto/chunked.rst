@@ -57,7 +57,7 @@ you can set the block size to be such that the block size along the dimensions
 being reprojected cover the whole image, while the other dimensions can be
 smaller. For example, if you are reprojecting a spectral cube with dimensions
 (500, 2048, 2048) where 500 is the number of spectral channels and (2048, 2048)
-is the celestial plane, then if you are reprojecting just the celestial part of
+is the celestial plane, then if you are reprojecting only the celestial part of
 the WCS you can specify a block size of (N, 2048, 2048) and this will enable a
 separate reprojection mode where the input array is not written to disk but
 where the reprojection is done in truly independent chunks with size (N, 2048, 2048).

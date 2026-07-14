@@ -56,7 +56,7 @@ inside the input image. For more information about footprint arrays, see the
 :ref:`footprints` section. To return only the main array and not the footprint,
 you can set ``return_footprint=False``.
 
-We can then easily write out the reprojected image to a new FITS file::
+We can then write out the reprojected image to a new FITS file::
 
     >>> fits.writeto('reprojected_image.fits', new_image, new_header)   # doctest: +REMOTE_DATA
 

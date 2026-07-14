@@ -102,7 +102,7 @@ def reproject_exact(
               the entire array into memory.
             * ``'none'``: load the dask array into memory as needed. This may
               result in the entire array being loaded into memory. However,
-              this can be efficient under two conditions: if the array easily
+              this can be efficient under two conditions: if the array comfortably
               fits into memory (as this will then be faster than ``'memmap'``),
               and when the data contains more dimensions than the input WCS and
               the block_size is chosen to iterate over the extra dimensions.
