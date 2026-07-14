@@ -118,3 +118,11 @@ loaded into memory. Note however that you will need to make sure you have
 sufficient disk space in your temporary directory - as when reprojecting dask
 arrays (see :doc:`dask`), the ``TMPDIR`` environment variable can be used to
 point at a directory with sufficient space.
+
+Note that ``intermediate_memmap`` applies to the default mode where the mosaic
+is computed immediately and returned as Numpy arrays. An alternative for large
+mosaics is to set ``return_type='zarr'``, which does not produce full-size
+intermediate reprojected arrays in the first place - instead, each chunk of
+the output is assembled directly from the images that overlap it (see the
+mosaicking section of :doc:`dask`). In that case ``intermediate_memmap``
+does not apply and cannot be used.
