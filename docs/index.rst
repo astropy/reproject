@@ -30,8 +30,8 @@ The main features of *reproject* are:
   <https://distributed.dask.org/en/stable/>`_ (see :doc:`howto/chunked` and
   :doc:`howto/dask`)
 * Reprojecting and mosaicking datasets that are larger than memory, using
-  memory-mapped or zarr arrays for the output and intermediate steps (see
-  :doc:`howto/performance`)
+  memory-mapped or zarr arrays for the output and optionally intermediate
+  steps (see :doc:`howto/performance`)
 
 You can install *reproject* with `pip <http://www.pip-installer.org/en/latest/>`_::
 
