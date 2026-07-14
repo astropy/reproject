@@ -20,13 +20,12 @@ Data with more dimensions than the WCS
 When the input array contains more dimensions than the input WCS describes,
 the extra leading dimensions are automatically treated as non-reprojected
 dimensions, and the reprojection loops over those dimensions after computing
-the pixel mapping. For example, if you have a spectral cube and a WCS that
-describes only its two celestial dimensions:
+the pixel mapping. For example, consider a spectral cube with 500 spectral
+channels, where ``wcs_in`` and ``wcs_out`` describe only the two celestial
+dimensions:
 
 .. doctest-skip::
 
-    >>> # The cube has 500 spectral channels, and wcs_in and wcs_out describe
-    >>> # only the two celestial dimensions
     >>> cube.shape
     (500, 2048, 2048)
     >>> reprojected, footprint = reproject_interp(
@@ -50,11 +49,11 @@ example a spectral cube with a 3-dimensional WCS - and you may still want to
 reproject only the celestial dimensions, keeping the remaining dimensions
 untouched. Rather than manually slicing the WCS down to its celestial
 dimensions, you can use the ``non_reprojected_dims`` option to specify the
-leading dimensions that should not be reprojected:
+leading dimensions that should not be reprojected. Taking the same cube as
+above, but with ``wcs_in`` and ``wcs_out`` that are now both 3-dimensional:
 
 .. doctest-skip::
 
-    >>> # This time wcs_in and wcs_out are both 3-dimensional
     >>> cube.shape
     (500, 2048, 2048)
     >>> reprojected, footprint = reproject_interp(
