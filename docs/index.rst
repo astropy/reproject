@@ -10,6 +10,29 @@ assume that the WCS information contained in the data are correct. This
 package does **not** do image registration, which is the process of aligning
 images where one or more images may have incorrect or missing WCS.
 
+The main features of *reproject* are:
+
+* Several reprojection algorithms to choose from: fast interpolation,
+  anti-aliased adaptive resampling, and exact flux-conserving spherical
+  polygon intersection (see :ref:`choosing-algorithm`)
+* Support for images, spectral cubes, and other n-dimensional data, with
+  celestial or non-celestial WCS (see :doc:`howto/images` and
+  :doc:`howto/cubes`)
+* A variety of input formats: FITS files and HDUs, arrays with a WCS or
+  header, NDData objects, and PNG/JPEG images with AVM metadata (see
+  :ref:`input-formats`)
+* Combining multiple images into mosaics, including background matching
+  (see :doc:`howto/mosaicking`)
+* Reprojecting to and from HEALPix, and generating HiPS datasets (see
+  :doc:`howto/healpix` and :doc:`howto/hips`)
+* Chunked and multi-threaded reprojection, including support for
+  distributed processing with `dask.distributed
+  <https://distributed.dask.org/en/stable/>`_ (see :doc:`howto/chunked` and
+  :doc:`howto/dask`)
+* Reprojecting and mosaicking datasets that are larger than memory, using
+  memory-mapped or zarr arrays for the output and intermediate steps (see
+  :doc:`howto/performance`)
+
 You can install *reproject* with `pip <http://www.pip-installer.org/en/latest/>`_::
 
     pip install reproject
@@ -17,11 +40,6 @@ You can install *reproject* with `pip <http://www.pip-installer.org/en/latest/>`
 or with `conda <https://continuum.io/>`_::
 
     conda install -c conda-forge reproject
-
-The *reproject* package supports a number of different algorithms for
-reprojection (interpolation, flux-conserving reprojection, etc.) and
-different types of data (images, spectral cubes, HEALPIX images, etc.). For
-more information, we encourage you to read the full documentation below!
 
 
 Tutorials
