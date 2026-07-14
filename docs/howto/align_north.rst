@@ -43,7 +43,6 @@ and we can then examine the result:
 
 .. plot::
    :include-source:
-   :nofigs:
    :context:
 
     import matplotlib.pyplot as plt
