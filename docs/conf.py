@@ -22,6 +22,22 @@ highlight_language = "python3"
 # directories to ignore when looking for source files.
 exclude_patterns.append("_templates")
 
+# Redirects for pages that existed before the documentation was reorganized
+# into tutorials, how-to guides, explanation, and reference sections.
+extensions.append("sphinx_reredirects")  # noqa: F405
+
+redirects = {
+    "installation": "index.html",
+    "celestial": "howto/images.html",
+    "noncelestial": "howto/images.html#non-celestial-data",
+    "healpix": "howto/healpix.html",
+    "hips": "howto/hips.html",
+    "footprints": "explanation/footprints.html",
+    "mosaicking": "howto/mosaicking.html",
+    "performance": "howto/performance.html",
+    "performance_mosaicking": "howto/performance.html",
+}
+
 # This is added to the end of RST files - a good place to put substitutions to
 # be used globally.
 rst_epilog += """

@@ -46,6 +46,7 @@ testall = [
 ]
 docs = [
     "sphinx-astropy[confv3]>=1.11",
+    "sphinx-reredirects",
     "pyvo",
     "matplotlib",
     "tqdm",
