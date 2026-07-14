@@ -4,11 +4,11 @@ About
 =====
 
 The `reproject` package is a Python package to reproject astronomical
-images using various techniques via a uniform interface. By
-*reprojection*, we mean the re-gridding of images from one world
+images and cubes using various techniques via a uniform interface. By
+*reprojection*, we mean the re-gridding of data from one world
 coordinate system to another (for example changing the pixel resolution,
 orientation, coordinate system). Currently, we have implemented
-reprojection of celestial images by interpolation (like
+reprojection by interpolation (like
 `SWARP <http://www.astromatic.net/software/swarp>`__), by the adaptive and
 anti-aliased algorithm of `DeForest (2004)
 <https://doi.org/10.1023/B:SOLA.0000021743.24248.b0>`_, and by finding the

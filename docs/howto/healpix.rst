@@ -1,9 +1,9 @@
-**************
-HEALPIX images
-**************
+*********************************
+Reprojecting to and from HEALPix
+*********************************
 
 Images can also be stored using the HEALPIX representation, and the
-*reproject* package includes two functions,
+**reproject** package includes two functions,
 :func:`~reproject.reproject_from_healpix` and
 :func:`~reproject.reproject_to_healpix`, which can be used to reproject
 from/to HEALPIX representations (these functions are wrappers around
@@ -127,14 +127,14 @@ The resulting map is the following:
 
 On the other hand, the :func:`~reproject.reproject_to_healpix` function takes
 input data in the same form as :func:`~reproject.reproject_interp`
-(see :ref:`interpolation`) for the first argument, and a coordinate frame as the
+(see :ref:`input-formats`) for the first argument, and a coordinate frame as the
 second argument, either as a string or as a
 :class:`~astropy.coordinates.BaseCoordinateFrame` instance e.g.::
 
     array, footprint = reproject_to_healpix((array, target_header), 'galactic', nside=128)
 
 The array returned is a 1-D array which can be stored in a HEALPIX FITS file.
-We can use the `~astropy.table.Table` object to easily write the array to a
+We can use the `~astropy.table.Table` object to write the array to a
 HEALPix FITS file::
 
     from astropy.table import Table
