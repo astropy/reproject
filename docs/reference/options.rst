@@ -31,7 +31,7 @@ In the case of a FITS file or an :class:`~astropy.io.fits.HDUList` object, if
 there is more than one Header-Data Unit (HDU), the ``hdu_in`` keyword argument
 is also required and should be set to the ID or the name of the HDU to use.
 
-The functions in the ``reproject.mosaicking`` sub-package take a list of
+The functions in the **reproject.mosaicking** sub-package take a list of
 datasets rather than a single one, where each element of the list can be any
 of the above.
 

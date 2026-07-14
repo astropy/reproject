@@ -3,7 +3,7 @@ Reprojecting to and from HEALPix
 *********************************
 
 Images can also be stored using the HEALPIX representation, and the
-*reproject* package includes two functions,
+**reproject** package includes two functions,
 :func:`~reproject.reproject_from_healpix` and
 :func:`~reproject.reproject_to_healpix`, which can be used to reproject
 from/to HEALPIX representations (these functions are wrappers around

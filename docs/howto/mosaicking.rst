@@ -11,7 +11,7 @@ construct a single optimal WCS/shape that overlaps with multiple images, and
 :func:`~reproject.mosaicking.reproject_and_coadd`, which given images and a
 target WCS/shape will reproject all the images then combine them into a mosaic.
 We describe these in the sections below. If you have never made a mosaic with
-*reproject* before, you may want to start off with the
+**reproject** before, you may want to start off with the
 :doc:`../tutorials/first_mosaicking` tutorial, which walks through an
 example from start to finish.
 

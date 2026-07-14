@@ -42,7 +42,7 @@ WCS that covers all of the input images:
 
 We can now reproject all the images to this common WCS and combine them into
 a mosaic using the :func:`~reproject.mosaicking.reproject_and_coadd`
-function. Since the *reproject* package provides several reprojection
+function. Since the **reproject** package provides several reprojection
 algorithms, we need to say which function should be used to reproject the
 individual images - here we use :func:`~reproject.reproject_interp`:
 

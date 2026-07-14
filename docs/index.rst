@@ -4,13 +4,13 @@
 Image and cube reprojection (resampling)
 ****************************************
 
-The *reproject* package implements reprojection (resampling) methods for
+The **reproject** package implements reprojection (resampling) methods for
 astronomical images, spectral cubes, and other n-dimensional data. These
 assume that the WCS information contained in the data are correct. This
 package does **not** do image registration, which is the process of aligning
 images where one or more images may have incorrect or missing WCS.
 
-The main features of *reproject* are:
+The main features of **reproject** are:
 
 * Several reprojection algorithms to choose from: fast interpolation,
   anti-aliased adaptive resampling, and exact flux-conserving spherical
@@ -33,7 +33,7 @@ The main features of *reproject* are:
   memory-mapped or zarr arrays for the output and optionally intermediate
   steps (see :doc:`howto/performance`)
 
-You can install *reproject* with `pip <http://www.pip-installer.org/en/latest/>`_::
+You can install **reproject** with `pip <http://www.pip-installer.org/en/latest/>`_::
 
     pip install reproject
 

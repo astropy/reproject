@@ -47,7 +47,7 @@ There are several existing algorithms that can be used to reproject data:
   non-celestial coordinates or from coordinates on the sky to coordinates on the
   surface of a spherical body).
 
-Currently, *reproject* implements all of the above except drizzling (for this
+Currently, **reproject** implements all of the above except drizzling (for this
 you can instead use the `drizzle
 <https://spacetelescope-drizzle.readthedocs.io/en/latest/>`_ package), and the
 functions to use for each are:
@@ -64,9 +64,9 @@ Flux/surface brightness conservation
 ====================================
 
 The term 'flux-conserving' can be used in two different ways, and so we clarify here
-what we mean in the context of *reproject*:
+what we mean in the context of **reproject**:
 
-* The reprojection/resampling in *reproject* the default is to assume that the
+* The reprojection/resampling in **reproject** the default is to assume that the
   image is in **surface brightness units**. For example, if you have an image with
   a constant value of 1, reprojecting the image to an image with twice as high
   resolution will result in an image where all pixels are all 1. If you have an
