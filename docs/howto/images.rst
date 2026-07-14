@@ -88,11 +88,6 @@ appropriate for your use case, and is discussed in detail in
   of new pixels with the original image (see :ref:`footprints` for more
   details).
 
-.. warning:: The :func:`~reproject.reproject_exact` function is known to
-             have precision issues for images with resolutions below
-             ~1e-6 arcsec, and will emit a warning in this case, so it is
-             best to avoid using it with such images.
-
 Non-celestial data
 ==================
 
