@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pytest
 from astropy.coordinates import FK5, Galactic
@@ -42,6 +44,10 @@ def test_parse_input_healpix_data(tmpdir):
     filename = tmpdir.join("test.fits").strpath
     hdu.writeto(filename)
     array, coordinate_system, nested = parse_input_healpix_data(filename)
+    np.testing.assert_allclose(array, data)
+
+    # As Path
+    array, coordinate_system, nested = parse_input_healpix_data(Path(filename))
     np.testing.assert_allclose(array, data)
 
     # As array
