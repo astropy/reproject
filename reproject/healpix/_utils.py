@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 from astropy.coordinates import (
     ICRS,
@@ -40,14 +42,13 @@ def parse_input_healpix_data(input_data, field=0, hdu_in=None, nested=None):
         array_in = data[data.columns[field].name].ravel()
         if "ORDERING" in header:
             nested = header["ORDERING"].lower() == "nested"
-    elif isinstance(input_data, str):
-        # NOTE: hdu is not closed here.
-        hdu = fits.open(input_data)[hdu_in or 1]
-        return parse_input_healpix_data(hdu, field=field)
-    elif isinstance(input_data, tuple) and isinstance(input_data[0], np.ndarray):
+        return array_in, coordinate_system_in, nested
+    if isinstance(input_data, str | Path):
+        with fits.open(input_data) as hdulist:
+            return parse_input_healpix_data(hdulist[hdu_in or 1], field=field)
+    if isinstance(input_data, tuple) and isinstance(input_data[0], np.ndarray):
         array_in = input_data[0]
         coordinate_system_in = parse_coord_system(input_data[1])
-    else:
-        raise TypeError("input_data should either be an HDU object or a tuple of (array, frame)")
+        return array_in, coordinate_system_in, nested
+    raise TypeError("input_data should either be an HDU object or a tuple of (array, frame)")
 
-    return array_in, coordinate_system_in, nested
