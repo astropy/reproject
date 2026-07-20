@@ -51,4 +51,3 @@ def parse_input_healpix_data(input_data, field=0, hdu_in=None, nested=None):
         coordinate_system_in = parse_coord_system(input_data[1])
         return array_in, coordinate_system_in, nested
     raise TypeError("input_data should either be an HDU object or a tuple of (array, frame)")
-
