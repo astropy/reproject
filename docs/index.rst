@@ -46,46 +46,30 @@ Tutorials
 ---------
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
 
-   tutorials/first_reprojection
-   tutorials/first_mosaicking
+   tutorials/tutorials
 
 How-to guides
 -------------
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
 
-   howto/images
-   howto/cubes
-   howto/align_north
-   howto/dimensions
-   howto/multiple_images
-   howto/healpix
-   howto/hips
-   howto/mosaicking
-   howto/performance
-   howto/chunked
-   howto/dask
+   howto/howto
 
 Explanation
 -----------
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
 
-   explanation/footprints
-   explanation/algorithms
-   explanation/background_matching
+   explanation/explanation
 
 Reference
 ---------
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
 
-   reference/options
-   reference/adaptive_options
-   reference/hips_options
-   reference/api
+   reference/reference
