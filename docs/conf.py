@@ -77,6 +77,8 @@ html_title = f"{project} v{release}"
 # Output file base name for HTML help builder.
 htmlhelp_basename = project + "doc"
 
+html_theme_options = {"collapse_navigation": False}
+
 
 # -- Options for LaTeX output --------------------------------------------------
 
