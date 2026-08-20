@@ -1,16 +1,18 @@
+.. _footprints:
+
 ****************
 Footprint arrays
 ****************
 
-As described for example in :doc:`celestial`, all reprojection functions in
+As described for example in :ref:`reprojecting-images`, all reprojection functions in
 this package return a data array (the reprojected values) and a footprint
 array, which shows which pixels in the new reprojected data fell inside the
 original image.
 
 For interpolation-based algorithms, the footprint array can either take a value
 of 0 or 1, but for the 'exact' algorithm based on spherical polygon
-intersection, and in future for the drizzle algorithm, we can actually find out
-what fraction of the new pixels overlapped with the original image.
+intersection, we can actually find out what fraction of the new pixels
+overlapped with the original image.
 
 To demonstrate this, we take the same example as in the :ref:`quickstart` guide,
 but this time we reproject the array using both the interpolation and 'exact'

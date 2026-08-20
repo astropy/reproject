@@ -154,7 +154,7 @@ def reproject_adaptive(
               replaced by a constant value, set with the
               ``boundary_fill_value`` argument. Output values will be
               ``boundary_fill_value`` if there are no valid input samples.
-            * ``ignore`` --- Samples outside the input image are simply
+            * ``ignore`` --- Samples outside the input image are
               ignored, contributing neither to the output value nor the
               sum-of-weights normalization.
             * ``ignore_threshold`` --- Acts as ``ignore``, unless the total
@@ -214,9 +214,11 @@ def reproject_adaptive(
         even when the input and output WCS have the same number of dimensions as
         the data. The dimensions must be the leading ones, given as a tuple of
         sequential integers starting from zero (e.g. ``(0,)`` or ``(0, 1)``).
-        This currently requires passing a ``block_size`` whose entries along
-        the reprojected dimensions match ``shape_out`` (optionally combined
-        with ``parallel`` to compute the blocks concurrently).
+        Each non-reprojected slice is processed as a separate block, so if
+        ``block_size`` is specified, its entries along the reprojected
+        dimensions have to match ``shape_out``; if not, this block size is
+        used automatically. Set ``parallel`` to compute the blocks
+        concurrently.
     parallel : bool or int or str, optional
         If `True`, the reprojection is carried out in parallel, and if a
         positive integer, this specifies the number of threads to use.
@@ -239,7 +241,7 @@ def reproject_adaptive(
               the entire array into memory.
             * ``'none'``: load the dask array into memory as needed. This may
               result in the entire array being loaded into memory. However,
-              this can be efficient under two conditions: if the array easily
+              this can be efficient under two conditions: if the array comfortably
               fits into memory (as this will then be faster than ``'memmap'``),
               and when the data contains more dimensions than the input WCS and
               the block_size is chosen to iterate over the extra dimensions.

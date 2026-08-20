@@ -271,3 +271,47 @@ class TestHDUToMemmap:
         mmap = hdu_to_numpy_memmap(hdu)
 
         np.testing.assert_allclose(hdu.data, mmap)
+
+
+@pytest.mark.filterwarnings("ignore:Spatial")
+@pytest.mark.parametrize("parse_function", [parse_input_data, parse_input_shape])
+def test_parse_avm_image_rescaled(tmp_path, parse_function):
+    # The AVM metadata in an image may be defined for a higher-resolution
+    # version of that image, in which case the WCS has to be rescaled to the
+    # dimensions of the image actually being parsed.
+    pytest.importorskip("PIL")
+    from PIL import Image
+    from pyavm import AVM
+
+    wcs_ref = WCS(naxis=2)
+    wcs_ref.wcs.ctype = "RA---TAN", "DEC--TAN"
+    wcs_ref.wcs.crpix = 10.5, 15.5
+    wcs_ref.wcs.crval = 30.0, 40.0
+    wcs_ref.wcs.cdelt = -0.01, 0.01
+
+    avm = AVM.from_wcs(wcs_ref, shape=(30, 20))
+
+    plain = tmp_path / "plain.png"
+    full = tmp_path / "full.png"
+    small_plain = tmp_path / "small_plain.png"
+    small = tmp_path / "small.png"
+
+    image = Image.fromarray(np.zeros((30, 20, 3), dtype=np.uint8))
+    image.save(plain)
+    avm.embed(str(plain), str(full))
+
+    # Embed the same AVM (defined for the (30, 20) image) in an image half the size
+    image.resize((10, 15)).save(small_plain)
+    avm.embed(str(small_plain), str(small))
+
+    result_full, wcs_full = parse_function(str(full))
+    result_small, wcs_small = parse_function(str(small))
+
+    # The world coordinates of the image corners should agree between the
+    # full-size and rescaled WCS to within half a pixel of the rescaled image
+    # (pyavm rescales the reference pixel without the FITS half-pixel edge
+    # offset, so exact agreement is not currently possible)
+    corners_full = wcs_full.pixel_to_world([-0.5, 19.5], [-0.5, 29.5])
+    corners_small = wcs_small.pixel_to_world([-0.5, 9.5], [-0.5, 14.5])
+    half_pixel_deg = 0.01
+    assert (corners_full.separation(corners_small).deg < half_pixel_deg).all()

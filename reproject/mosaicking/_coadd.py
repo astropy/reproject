@@ -999,7 +999,7 @@ def reproject_and_coadd(
     combine_function : { 'mean', 'sum', 'first', 'last', 'min', 'max', 'median' }
         The type of function to use for combining the values into the final
         image. For 'first' and 'last', respectively, the reprojected images are
-        simply overlaid on top of each other. With respect to the order of the
+        overlaid on top of each other. With respect to the order of the
         input images in ``input_data``, either the first or the last image to
         cover a region of overlap determines the output data for that region.
         The median is unweighted, and with ``return_type='numpy'`` it cannot
