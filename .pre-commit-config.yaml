@@ -39,10 +39,10 @@ repos:
         args: ["--fix", "--show-fixes"]
       - id: ruff-format
       
-  - repo: https://github.com/zizmorcore/zizmor-pre-commit                    
-    rev: v1.30.0                                                          
-    hooks:                                                                   
-      - id: zizmor 
+  - repo: https://github.com/zizmorcore/zizmor-pre-commit
+    rev: v1.30.0
+    hooks:
+      - id: zizmor
 
 ci:
   autofix_prs: false
