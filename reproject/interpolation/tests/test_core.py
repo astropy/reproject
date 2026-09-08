@@ -1105,7 +1105,6 @@ def test_reproject_order_method(order):
     # end up producing the same results
 
     with fits.open(get_pkg_data_filename("data/galactic_2d.fits", package="reproject.tests")) as pf:
-
         hdu_in = pf[0]
 
         header_out = hdu_in.header.copy()

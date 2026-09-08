@@ -337,11 +337,9 @@ def as_transparent_rgb(data, alpha=None):
     array = np.zeros((4,) + data.shape[1:], dtype=np.uint8)
 
     if alpha is None:
-
         alpha = np.ones(data.shape[1:])
 
     else:
-
         if alpha.ndim != 2:
             raise ValueError("alpha needs to be two-dimensional")
 

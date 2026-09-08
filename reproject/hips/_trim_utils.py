@@ -7,7 +7,6 @@ __all__ = ["fits_writeto_withtrim", "fits_getdata_untrimmed"]
 def fits_writeto_withtrim(filename, array, header, **kwargs):
 
     if array.ndim == 3:
-
         mask = ~np.isnan(array)
 
         slices = []

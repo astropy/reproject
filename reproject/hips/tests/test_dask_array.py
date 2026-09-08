@@ -13,7 +13,6 @@ from reproject.hips._high_level import find_indices
 
 
 class TestHIPSDaskArray:
-
     def setup_method(self):
         # We use an all-sky WCS image as input since this will test all parts
         # of the HiPS projection (some issues happen around boundaries for instance)

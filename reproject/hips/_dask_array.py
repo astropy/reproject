@@ -29,7 +29,6 @@ __all__ = ["hips_as_dask_array"]
 
 
 class HiPSArray:
-
     def __init__(self, directory_or_url, level=None, level_depth=None):
 
         # We strip any trailing slashes since we then assume in the rest of the
@@ -63,7 +62,6 @@ class HiPSArray:
                 self._level_spatial = int(level)
 
         if self.ndim == 3:
-
             # TODO: here need to check consistency, maybe actually don't allow spectral level to be passed in
 
             self._tile_depth = int(self._properties["hips_tile_depth"])
@@ -89,7 +87,6 @@ class HiPSArray:
             self._tile_dims = (self._tile_width, self._tile_depth)
 
         else:
-
             self._level_depth = None
             self._level = self._level_spatial
             self._tile_dims = self._tile_width
@@ -112,7 +109,6 @@ class HiPSArray:
         # since this will be huge and unnecessary
 
         if self.ndim == 3:
-
             wav_min = SpectralCoord(float(self._properties["em_min"]), u.m)
             wav_max = SpectralCoord(float(self._properties["em_max"]), u.m)
 
