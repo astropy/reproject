@@ -25,26 +25,6 @@ EXPECTED_FILES = [
     "Norder1/Dir0/Npix2.fits",
     "Norder2/Allsky.fits",
     "Norder2/Dir0/Npix9.fits",
-    "Norder3/Allsky.fits",
-    "Norder3/Dir0/Npix38.fits",
-    "Norder4/Dir0/Npix152.fits",
-    "Norder4/Dir0/Npix153.fits",
-    "Norder4/Dir0/Npix154.fits",
-    "Norder5/Dir0/Npix609.fits",
-    "Norder5/Dir0/Npix611.fits",
-    "Norder5/Dir0/Npix612.fits",
-    "Norder5/Dir0/Npix614.fits",
-    "Norder5/Dir0/Npix617.fits",
-    "Norder6/Dir0/Npix2439.fits",
-    "Norder6/Dir0/Npix2444.fits",
-    "Norder6/Dir0/Npix2445.fits",
-    "Norder6/Dir0/Npix2446.fits",
-    "Norder6/Dir0/Npix2447.fits",
-    "Norder6/Dir0/Npix2450.fits",
-    "Norder6/Dir0/Npix2456.fits",
-    "Norder6/Dir0/Npix2458.fits",
-    "Norder6/Dir0/Npix2468.fits",
-    "Norder6/Dir0/Npix2469.fits",
     "index.html",
     "properties",
 ]
@@ -59,6 +39,10 @@ def assert_files_expected(directory, expected):
 
 def test_reproject_to_hips(tmp_path, valid_celestial_input_data):
 
+    # This checks the different kinds of input, which is independent of the
+    # HiPS level, so we use a low level for speed - deeper levels are checked
+    # in e.g. test_reproject_to_hips_galactic.
+
     _, _, input_value, kwargs_in = valid_celestial_input_data
 
     output_directory = tmp_path / "output"
@@ -66,7 +50,7 @@ def test_reproject_to_hips(tmp_path, valid_celestial_input_data):
     reproject_to_hips(
         input_value,
         coord_system_out="equatorial",
-        level=6,
+        level=2,
         reproject_function=reproject_interp,
         output_directory=output_directory,
         **kwargs_in,
