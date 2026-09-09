@@ -1,5 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
+import functools
 from itertools import product
 
 import numpy as np
@@ -849,6 +850,8 @@ def test_reproject_adaptive_uncentered_jacobian(aia_test_data):
     return array_footprint_to_hdulist(output, footprint, header_out)
 
 
+# Cached since the tests using this only read the returned values
+@functools.cache
 def _setup_for_broadcast_test(
     conserve_flux=False,
     boundary_mode="strict",

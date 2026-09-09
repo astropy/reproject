@@ -1,5 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
+import functools
 import warnings
 
 import numpy as np
@@ -131,6 +132,8 @@ def test_reproject_flux_conservation(res, rtol):
     assert_allclose(9 * np.nansum(result), np.nansum(array), rtol=rtol)
 
 
+# Cached since the tests using this only read the returned values
+@functools.cache
 def _setup_for_broadcast_test():
     with fits.open(get_pkg_data_filename("data/galactic_2d.fits", package="reproject.tests")) as pf:
         hdu_in = pf[0]
