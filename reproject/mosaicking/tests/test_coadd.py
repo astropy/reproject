@@ -193,6 +193,9 @@ class TestReprojectAndCoAdd:
         assert_allclose(results["zarr"][0], results[False][0], atol=ATOL)
         assert_allclose(results["zarr"][1], results[False][1], atol=ATOL)
 
+    # The deferred median combination is independent of the reprojection
+    # algorithm, so use only the fast interpolation algorithm.
+    @pytest.mark.parametrize("reproject_function", [pytest.param(reproject_interp, id="interp")])
     def test_coadd_dask_median(self, reproject_function):
         # Check the deferred median against a direct numpy nanmedian of the
         # reprojected images, and that the result is uncomputed.
@@ -586,6 +589,9 @@ class TestReprojectAndCoAdd:
                 block_sizes=[(10, 10), (10, 10), (10, 10)],
             )
 
+    # The output array/footprint handling is independent of the reprojection
+    # algorithm, so use only the fast interpolation algorithm.
+    @pytest.mark.parametrize("reproject_function", [pytest.param(reproject_interp, id="interp")])
     def test_coadd_with_outputs(self, tmp_path, reproject_function, intermediate_memmap):
         # Test the options to specify output array/footprint
 
@@ -828,8 +834,12 @@ class TestReprojectAndCoAdd:
 
         assert_allclose(array - np.mean(array), self.array - np.mean(self.array), atol=ATOL)
 
+    # The weight handling here is independent of the reprojection algorithm,
+    # so use only the fast interpolation algorithm; weights are exercised with
+    # reproject_exact in test_coadd_with_weights_with_wcs.
     @pytest.mark.filterwarnings("ignore:unclosed file:ResourceWarning")
     @pytest.mark.parametrize("mode", ["arrays", "filenames", "hdus", "hdulist"])
+    @pytest.mark.parametrize("reproject_function", [pytest.param(reproject_interp, id="interp")])
     def test_coadd_with_weights(
         self, tmpdir, reproject_function, mode, intermediate_memmap, return_type
     ):
@@ -881,6 +891,17 @@ class TestReprojectAndCoAdd:
         assert_allclose(array, expected, atol=ATOL)
 
     @pytest.mark.filterwarnings("ignore:unclosed file:ResourceWarning")
+    # The intermediate array handling is independent of the reprojection
+    # algorithm, so only run the slower exact algorithm for a single case.
+    @pytest.mark.parametrize(
+        "reproject_function,intermediate_memmap",
+        [
+            pytest.param(reproject_interp, False, id="interp-False"),
+            pytest.param(reproject_interp, True, id="interp-True"),
+            pytest.param(reproject_interp, "zarr", id="interp-zarr"),
+            pytest.param(reproject_exact, False, id="exact-False"),
+        ],
+    )
     def test_coadd_with_weights_with_wcs(self, tmpdir, reproject_function, intermediate_memmap):
         # Make sure that things work properly when specifying weights that have offset WCS
 
@@ -929,7 +950,10 @@ class TestReprojectAndCoAdd:
 
         assert_allclose(array, expected, atol=ATOL)
 
+    # The broadcasting logic is independent of the reprojection algorithm, so
+    # use only the fast interpolation algorithm.
     @pytest.mark.parametrize("block_size_mode", (None, "block_size", "block_sizes"))
+    @pytest.mark.parametrize("reproject_function", [pytest.param(reproject_interp, id="interp")])
     def test_coadd_with_broadcasting(
         self, reproject_function, intermediate_memmap, block_size_mode
     ):
