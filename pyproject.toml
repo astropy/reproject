@@ -156,7 +156,7 @@ write_to = "reproject/version.py"
 [tool.cibuildwheel]
 skip = "cp36-* pp* *-musllinux* cp31?t-*"
 test-skip = "*-manylinux_aarch64"
-environment-pass = ["EXTENSION_HELPERS_PY_LIMITED_API"]
+environment-pass = ["EXTENSION_HELPERS_PY_LIMITED_API", "RUSTUP_TOOLCHAIN"]
 
 [tool.isort]
 profile = "black"
