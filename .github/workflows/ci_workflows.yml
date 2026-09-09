@@ -47,7 +47,7 @@ jobs:
       upload_to_pypi: false
       save_artifacts: true
       test_extras: test
-      test_command: pytest -p no:warnings --pyargs reproject --log-cli-level=INFO
+      test_command: pytest -n auto -p no:warnings --pyargs reproject --log-cli-level=INFO
       targets: |
         - cp*-manylinux_x86_64
         - target: cp*-manylinux_aarch64
