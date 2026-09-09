@@ -47,7 +47,7 @@ jobs:
       upload_to_pypi: false
       save_artifacts: true
       test_extras: test
-      test_command: pytest -n auto -p no:warnings --pyargs reproject
+      test_command: pytest -n auto --durations=20 -p no:warnings --pyargs reproject
       targets: |
         - cp*-manylinux_x86_64
         - target: cp*-manylinux_aarch64
