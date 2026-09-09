@@ -1,6 +1,5 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
-import functools
 from itertools import product
 
 import numpy as np
@@ -850,8 +849,6 @@ def test_reproject_adaptive_uncentered_jacobian(aia_test_data):
     return array_footprint_to_hdulist(output, footprint, header_out)
 
 
-# Cached since the tests using this only read the returned values
-@functools.cache
 def _setup_for_broadcast_test(
     conserve_flux=False,
     boundary_mode="strict",
@@ -895,12 +892,20 @@ def _setup_for_broadcast_test(
     return image_stack, array_ref, footprint_ref, header_in, header_out
 
 
+@pytest.fixture(scope="session")
+def default_setup_for_broadcast_test():
+    yield _setup_for_broadcast_test()
+
+
 @pytest.mark.parametrize("input_extra_dims", (1, 2))
 @pytest.mark.parametrize("output_shape", (None, "single", "full"))
 @pytest.mark.parametrize("input_as_wcs", (True, False))
 @pytest.mark.parametrize("output_as_wcs", (True, False))
-def test_broadcast_reprojection(input_extra_dims, output_shape, input_as_wcs, output_as_wcs):
-    image_stack, array_ref, footprint_ref, header_in, header_out = _setup_for_broadcast_test()
+def test_broadcast_reprojection(
+    input_extra_dims, output_shape, input_as_wcs, output_as_wcs, default_setup_for_broadcast_test
+):
+
+    image_stack, array_ref, footprint_ref, header_in, header_out = default_setup_for_broadcast_test
 
     # Test both single and multiple dimensions being broadcast
     if input_extra_dims == 2:
