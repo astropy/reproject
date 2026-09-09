@@ -212,7 +212,6 @@ def test_reproject_to_hips_automatic(tmp_path, simple_celestial_wcs):
     assert_files_expected(output_directory, EXPECTED_FILES_AUTO_1)
 
     if isinstance(wcs_in, WCS):
-
         output_directory = tmp_path / "output_2"
         wcs_in.wcs.cdelt = -0.001, 0.001
 

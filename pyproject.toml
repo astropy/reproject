@@ -158,23 +158,6 @@ skip = "cp315-* pp* *-musllinux* cp31?t-*"
 test-skip = "*-manylinux_aarch64"
 environment-pass = ["EXTENSION_HELPERS_PY_LIMITED_API", "RUSTUP_TOOLCHAIN"]
 
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-extend_skip_glob = [
-    "docs/*",
-    "setup.py"]
-line_length = 100
-known_third_party = ["astropy"]
-known_first_party = ["reproject"]
-group_by_package = true
-indented_import_headings = false
-length_sort_sections = ["future", "stdlib"]
-
-[tool.black]
-line-length = 100
-target-version = ['py38']
-
 [tool.numpydoc_validation]
 checks = [
     "all",   # report on all checks, except the below
@@ -197,6 +180,7 @@ ignore = [
 ]
 
 [tool.ruff]
+line-length = 100
 lint.select = [
   "B",  # flake8-bugbear
   "I",  # isort

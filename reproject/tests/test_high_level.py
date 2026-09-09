@@ -67,8 +67,7 @@ class TestReproject:
         with pytest.raises(ValueError) as exc:
             reproject_function(self.hdu_in, self.header_out)
         assert exc.value.args[0] == (
-            "Need to specify shape since output header "
-            "does not contain complete shape information"
+            "Need to specify shape since output header does not contain complete shape information"
         )
 
         reproject_interp(self.hdu_in, self.header_out_size)
@@ -82,8 +81,7 @@ class TestReproject:
         with pytest.raises(ValueError) as exc:
             reproject_function((self.array_in, self.wcs_in), self.header_out)
         assert exc.value.args[0] == (
-            "Need to specify shape since output header "
-            "does not contain complete shape information"
+            "Need to specify shape since output header does not contain complete shape information"
         )
 
         reproject_function((self.array_in, self.wcs_in), self.header_out_size)

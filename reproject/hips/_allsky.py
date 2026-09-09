@@ -43,7 +43,6 @@ def save_allsky(*, output_directory, tile_format, extension, tile_size, spatial_
     allsky_tile = tile_size // factor
 
     for order in range(min(ALLSKY_MAX_ORDER, spatial_level) + 1):
-
         n_tiles = 12 * 4**order
         width = math.isqrt(n_tiles)  # floor(sqrt(n_tiles))
         height = math.ceil(n_tiles / width)
@@ -56,7 +55,6 @@ def save_allsky(*, output_directory, tile_format, extension, tile_size, spatial_
 
         found = False
         for index in range(n_tiles):
-
             filename = tile_filename(
                 level=order, index=index, output_directory=output_directory, extension=extension
             )

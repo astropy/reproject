@@ -238,7 +238,6 @@ def tile_header_3d(
         headers = (headers,)
 
     for header in headers:
-
         # Then modify it to be 3D
         header["NAXIS"] = 3
         header["WCSAXES"] = 3

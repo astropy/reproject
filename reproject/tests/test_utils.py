@@ -262,7 +262,6 @@ def test_pixel_to_pixel_chunked_roundtrip():
 
 
 class TestHDUToMemmap:
-
     def test_compressed(self, tmp_path):
 
         hdu = fits.CompImageHDU(data=np.random.random((128, 128)))

@@ -49,7 +49,6 @@ def save_moc(*, output_directory, indices, coord_system, spatial_level, level_de
     fits_keywords = {"COORDSYS": COORDSYS[coord_system]}
 
     if level_depth is None:
-
         ipix = np.array(sorted(indices), dtype=np.int64)
         moc = MOC.from_healpix_cells(
             ipix=ipix, depth=np.full(ipix.size, spatial_level), max_depth=spatial_level
@@ -57,7 +56,6 @@ def save_moc(*, output_directory, indices, coord_system, spatial_level, level_de
         moc.save(filename, format="fits", overwrite=True, fits_keywords=fits_keywords)
 
     else:
-
         # Group the spatial cells by the frequency cell they belong to. The
         # frequency (FMOC) and spatial (HEALPix) tile indices are already exactly
         # the cell indices needed for the space-frequency MOC, so we build it

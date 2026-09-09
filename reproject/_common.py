@@ -201,7 +201,7 @@ def _reproject_dispatcher(
         n_dim_reproject = len(shape_out) - len(non_reprojected_dims)
         if n_dim_reproject < 1:
             raise ValueError(
-                "non_reprojected_dims should leave at least one dimension to be " "reprojected"
+                "non_reprojected_dims should leave at least one dimension to be reprojected"
             )
 
     # If we are reprojecting fewer dimensions than the input or output WCS has,
@@ -234,7 +234,7 @@ def _reproject_dispatcher(
                 array_out = np.zeros(shape_out, dtype=float)
         elif array_out.shape != tuple(shape_out):
             raise ValueError(
-                f"Output array shape {array_out.shape} should match " f"shape_out={shape_out}"
+                f"Output array shape {array_out.shape} should match shape_out={shape_out}"
             )
         elif (array_out.dtype.kind, array_out.dtype.itemsize) != (
             array_in.dtype.kind,
@@ -311,7 +311,6 @@ def _reproject_dispatcher(
         # the chunking is determined automatically further below.
 
         if block_size is not None and block_size != "auto":
-
             if len(block_size) > len(shape_out):
                 raise ValueError(
                     f"block_size {block_size} cannot have more elements "
@@ -468,7 +467,6 @@ def _reproject_dispatcher(
             return np.array([array, footprint])
 
         if broadcasted_parallelization:
-
             array_out_dask = da.empty(shape_out, chunks=block_size)
 
             # The input is reprojected in full for each output block, so it must
@@ -493,7 +491,6 @@ def _reproject_dispatcher(
             )
 
         else:
-
             # As we use the synchronous or threads scheduler, we don't need to worry about
             # the data getting copied, so if the data is already a Numpy array (including
             # a memory-mapped array) then we don't need to do anything special. However,
@@ -511,11 +508,14 @@ def _reproject_dispatcher(
                 and array_in.flags.c_contiguous
                 and isinstance(array_in.base, mmap.mmap)
             ):
-                array_in_or_path = array_in.filename, {
-                    "dtype": array_in.dtype,
-                    "shape": array_in.shape,
-                    "offset": array_in.offset,
-                }
+                array_in_or_path = (
+                    array_in.filename,
+                    {
+                        "dtype": array_in.dtype,
+                        "shape": array_in.shape,
+                        "offset": array_in.offset,
+                    },
+                )
             elif isinstance(array_in, da.core.Array) or return_type == "dask":
                 if dask_method == "memmap":
                     if return_type == "dask":

@@ -235,7 +235,6 @@ def map_coordinates(
             padding = 10
 
         for chunk in iterate_chunks(image.shape, max_chunk_size=max_chunk_size):
-
             include[...] = True
             for idim, slc in enumerate(chunk):
                 include[(coords[idim] < slc.start) | (coords[idim] >= slc.stop)] = False
@@ -309,7 +308,6 @@ def sample_array_edges(shape, *, n_samples):
 
 
 class ArrayWrapper:
-
     def __init__(self, array):
         self._array = array
         self.ndim = array.ndim

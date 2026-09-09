@@ -148,7 +148,6 @@ def _input_cutout_iterator(
     ndim_out = len(shape_out)
 
     for idata in progress_bar(range(len(input_data))):
-
         logger.info(f"Processing input data {idata + 1} of {len(input_data)}")
 
         # We need to pre-parse the data here since we need to figure out how to
@@ -669,9 +668,7 @@ def _coadd_numpy(
         output_array[...] = -np.inf
 
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=IS_WIN) as local_tmp_dir:
-
         for cutout in cutouts:
-
             # TODO: optimize handling of weights by making reprojection functions
             # able to handle weights, and make the footprint become the combined
             # footprint + weight map
@@ -680,13 +677,11 @@ def _coadd_numpy(
             array = footprint = None
 
             if intermediate_memmap == "zarr":
-
                 array_zarr_path = os.path.join(local_tmp_dir, f"array_{uuid.uuid4()}.zarr")
                 extra_kwargs["return_type"] = "zarr"
                 extra_kwargs["zarr_path"] = array_zarr_path
 
             elif intermediate_memmap:
-
                 array_path = os.path.join(local_tmp_dir, f"array_{uuid.uuid4()}.np")
 
                 logger.info(
@@ -714,7 +709,6 @@ def _coadd_numpy(
                 )
 
             else:
-
                 array = footprint = None
 
             logger.info(
@@ -734,18 +728,15 @@ def _coadd_numpy(
             )
 
             if cutout.weights_in is not None:
-
                 extra_kwargs = {}
                 weights = None
 
                 if intermediate_memmap == "zarr":
-
                     weights_zarr_path = os.path.join(local_tmp_dir, f"weights_{uuid.uuid4()}.zarr")
                     extra_kwargs["return_type"] = "zarr"
                     extra_kwargs["zarr_path"] = weights_zarr_path
 
                 elif intermediate_memmap:
-
                     weights_path = os.path.join(local_tmp_dir, f"weights_{uuid.uuid4()}.np")
 
                     logger.info(
@@ -778,7 +769,6 @@ def _coadd_numpy(
             # For the purposes of mosaicking, we mask out NaN values from the array
             # and set the footprint to 0 at these locations.
             if isinstance(array, da.core.Array):
-
                 # Assigning into a slice of a dask array only mutates the
                 # temporary object returned by the slicing, so the in-place
                 # chunked approach below would be silently lost. Instead we
@@ -795,10 +785,8 @@ def _coadd_numpy(
                     footprint = da.where(reset, 0.0, footprint)
 
             else:
-
                 # We do this in chunks to avoid excessive memory usage.
                 for chunk in iterate_chunks(array.shape, max_chunk_size=DEFAULT_MAX_CHUNK_SIZE):
-
                     # Determine location of NaNs
                     reset = np.isnan(array[chunk])
                     if cutout.weights_in is not None:
@@ -849,7 +837,6 @@ def _coadd_numpy(
                         _safe_remove(weights_zarr_path)
 
             else:
-
                 logger.info("Adding reprojected array to list to combine later")
                 arrays.append(array)
 
