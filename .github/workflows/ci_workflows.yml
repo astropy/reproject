@@ -43,11 +43,17 @@ jobs:
   build:
     needs: tests
     uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish.yml@22ddf09dfabb443adddfb9f861b7d41a787d6b1a  # v3.0.3
+    if: |
+      github.event_name != 'pull_request' ||
+      (
+        github.event_name == 'pull_request' &&
+        contains(github.event.pull_request.labels.*.name, 'Build wheels')
+      )
     with:
       upload_to_pypi: false
       save_artifacts: true
       test_extras: test
-      test_command: pytest -p no:warnings --pyargs reproject --log-cli-level=INFO
+      test_command: pytest -n auto --durations=20 -p no:warnings --pyargs reproject
       targets: |
         - cp*-manylinux_x86_64
         - target: cp*-manylinux_aarch64

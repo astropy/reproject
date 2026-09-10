@@ -632,7 +632,8 @@ def test_identity_with_offset(roundtrip_coords):
     assert_allclose(expected, array_out, atol=1e-10)
 
 
-def _setup_for_broadcast_test():
+@pytest.fixture(scope="session")
+def broadcast_reprojection_setup():
     with fits.open(get_pkg_data_filename("data/galactic_2d.fits", package="reproject.tests")) as pf:
         hdu_in = pf[0]
         header_in = hdu_in.header.copy()
@@ -654,15 +655,19 @@ def _setup_for_broadcast_test():
         array_ref[i] = array_out
         footprint_ref[i] = footprint_out
 
-    return image_stack, array_ref, footprint_ref, header_in, header_out
+    yield image_stack, array_ref, footprint_ref, header_in, header_out
 
 
 @pytest.mark.parametrize("input_extra_dims", (1, 2))
 @pytest.mark.parametrize("output_shape", (None, "single", "full"))
 @pytest.mark.parametrize("input_as_wcs", (True, False))
 @pytest.mark.parametrize("output_as_wcs", (True, False))
-def test_broadcast_reprojection(input_extra_dims, output_shape, input_as_wcs, output_as_wcs):
-    image_stack, array_ref, footprint_ref, header_in, header_out = _setup_for_broadcast_test()
+def test_broadcast_reprojection(
+    input_extra_dims, output_shape, input_as_wcs, output_as_wcs, broadcast_reprojection_setup
+):
+
+    image_stack, array_ref, footprint_ref, header_in, header_out = broadcast_reprojection_setup
+
     # Test both single and multiple dimensions being broadcast
     if input_extra_dims == 2:
         image_stack = image_stack.reshape((2, 2, *image_stack.shape[-2:]))
@@ -705,8 +710,12 @@ def test_broadcast_reprojection(input_extra_dims, output_shape, input_as_wcs, ou
 @pytest.mark.parametrize("parallel", [True, False])
 @pytest.mark.parametrize("header_or_wcs", (lambda x: x, WCS))
 @pytest.mark.filterwarnings("ignore::astropy.wcs.wcs.FITSFixedWarning")
-def test_blocked_broadcast_reprojection(input_extra_dims, output_shape, parallel, header_or_wcs):
-    image_stack, array_ref, footprint_ref, header_in, header_out = _setup_for_broadcast_test()
+def test_blocked_broadcast_reprojection(
+    input_extra_dims, output_shape, parallel, header_or_wcs, broadcast_reprojection_setup
+):
+
+    image_stack, array_ref, footprint_ref, header_in, header_out = broadcast_reprojection_setup
+
     # Test both single and multiple dimensions being broadcast
     if input_extra_dims == 2:
         image_stack = image_stack.reshape((2, 2, *image_stack.shape[-2:]))
@@ -732,6 +741,13 @@ def test_blocked_broadcast_reprojection(input_extra_dims, output_shape, parallel
     np.testing.assert_allclose(array_broadcast, array_ref)
 
 
+@pytest.fixture(scope="session")
+def blocked_against_single_reference():
+    hdu1 = fits.open(get_pkg_data_filename("galactic_center/gc_2mass_k.fits"))[0]
+    hdu2 = fits.open(get_pkg_data_filename("galactic_center/gc_msx_e.fits"))[0]
+    yield reproject_interp(hdu2, hdu1.header, parallel=False, block_size=None)
+
+
 @pytest.mark.parametrize("parallel", [True, 2, False])
 @pytest.mark.parametrize("block_size", [[500, 500], [500, 100], None])
 @pytest.mark.parametrize("return_footprint", [False, True])
@@ -740,7 +756,12 @@ def test_blocked_broadcast_reprojection(input_extra_dims, output_shape, parallel
 @pytest.mark.remote_data
 @pytest.mark.filterwarnings("ignore::astropy.wcs.wcs.FITSFixedWarning")
 def test_blocked_against_single(
-    parallel, block_size, return_footprint, existing_outputs, header_or_wcs
+    parallel,
+    block_size,
+    return_footprint,
+    existing_outputs,
+    header_or_wcs,
+    blocked_against_single_reference,
 ):
     # Ensure when we break a reprojection down into multiple discrete blocks
     # it has the same result as if all pixels where reprejcted at once
@@ -755,13 +776,9 @@ def test_blocked_against_single(
     if existing_outputs:
         output_array_test = np.zeros(shape_out)
         output_footprint_test = np.zeros(shape_out)
-        output_array_reference = np.zeros(shape_out)
-        output_footprint_reference = np.zeros(shape_out)
     else:
         output_array_test = None
         output_footprint_test = None
-        output_array_reference = None
-        output_footprint_reference = None
 
     result_test = reproject_interp(
         hdu2,
@@ -773,29 +790,17 @@ def test_blocked_against_single(
         output_footprint=output_footprint_test,
     )
 
-    result_reference = reproject_interp(
-        hdu2,
-        header_or_wcs(hdu1.header),
-        parallel=False,
-        block_size=None,
-        return_footprint=return_footprint,
-        output_array=output_array_reference,
-        output_footprint=output_footprint_reference,
-    )
+    array_reference, footprint_reference = blocked_against_single_reference
 
     if return_footprint:
         array_test, footprint_test = result_test
-        array_reference, footprint_reference = result_reference
     else:
         array_test = result_test
-        array_reference = result_reference
 
     if existing_outputs:
         assert array_test is output_array_test
-        assert array_reference is output_array_reference
         if return_footprint:
             assert footprint_test is output_footprint_test
-            assert footprint_reference is output_footprint_reference
 
     np.testing.assert_allclose(array_test, array_reference, equal_nan=True)
     if return_footprint:

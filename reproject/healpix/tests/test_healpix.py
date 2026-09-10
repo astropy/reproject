@@ -40,10 +40,17 @@ def get_reference_header(overscan=1, oversample=2, nside=1):
     return reference_header
 
 
+# The dtype handling is independent of the resolution, so we only test the
+# full set of dtypes at small nside and use a representative subset at larger
+# nside where each test is significantly slower.
+REPRESENTATIVE_DTYPES = [np.dtype("<i4"), np.dtype(">f4"), np.dtype("<f8")]
+
+
 @pytest.mark.parametrize(
     "nside,nested,healpix_system,image_system,dtype,order",
-    list(
-        itertools.product(
+    [
+        (nside, nested, healpix_system, image_system, dtype, order)
+        for (nside, nested, healpix_system, image_system, dtype, order) in itertools.product(
             [1, 2, 4, 8, 16, 32, 64],
             [True, False],
             ["C"],
@@ -51,7 +58,8 @@ def get_reference_header(overscan=1, oversample=2, nside=1):
             ALL_DTYPES,
             ["bilinear", "nearest-neighbor"],
         )
-    ),
+        if nside <= 8 or dtype in REPRESENTATIVE_DTYPES
+    ],
 )
 def test_reproject_healpix_to_image_footprint(
     nside, nested, healpix_system, image_system, dtype, order
@@ -90,11 +98,13 @@ def test_reproject_healpix_to_image_footprint(
 
 @pytest.mark.parametrize(
     "wcsapi,nside,nested,healpix_system,image_system,dtype",
-    list(
-        itertools.product(
+    [
+        (wcsapi, nside, nested, healpix_system, image_system, dtype)
+        for (wcsapi, nside, nested, healpix_system, image_system, dtype) in itertools.product(
             [True, False], [1, 2, 4, 8, 16, 32, 64], [True, False], ["C"], ["C"], ALL_DTYPES
         )
-    ),
+        if nside <= 8 or dtype in REPRESENTATIVE_DTYPES
+    ],
 )
 def test_reproject_healpix_to_image_round_trip(
     wcsapi, nside, nested, healpix_system, image_system, dtype

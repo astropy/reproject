@@ -131,7 +131,8 @@ def test_reproject_flux_conservation(res, rtol):
     assert_allclose(9 * np.nansum(result), np.nansum(array), rtol=rtol)
 
 
-def _setup_for_broadcast_test():
+@pytest.fixture(scope="session")
+def broadcast_test_setup():
     with fits.open(get_pkg_data_filename("data/galactic_2d.fits", package="reproject.tests")) as pf:
         hdu_in = pf[0]
         header_in = hdu_in.header.copy()
@@ -162,8 +163,12 @@ def _setup_for_broadcast_test():
 @pytest.mark.parametrize("output_shape", (None, "single", "full"))
 @pytest.mark.parametrize("input_as_wcs", (True, False))
 @pytest.mark.parametrize("output_as_wcs", (True, False))
-def test_broadcast_reprojection(input_extra_dims, output_shape, input_as_wcs, output_as_wcs):
-    image_stack, array_ref, footprint_ref, header_in, header_out = _setup_for_broadcast_test()
+def test_broadcast_reprojection(
+    input_extra_dims, output_shape, input_as_wcs, output_as_wcs, broadcast_test_setup
+):
+
+    image_stack, array_ref, footprint_ref, header_in, header_out = broadcast_test_setup
+
     # Test both single and multiple dimensions being broadcast
     if input_extra_dims == 2:
         image_stack = image_stack.reshape((2, 2, *image_stack.shape[-2:]))
@@ -198,8 +203,12 @@ def test_broadcast_reprojection(input_extra_dims, output_shape, input_as_wcs, ou
 @pytest.mark.parametrize("input_extra_dims", (1, 2))
 @pytest.mark.parametrize("output_shape", (None, "single", "full"))
 @pytest.mark.parametrize("parallel", (2, False))
-def test_broadcast_parallel_reprojection(input_extra_dims, output_shape, parallel):
-    image_stack, array_ref, footprint_ref, header_in, header_out = _setup_for_broadcast_test()
+def test_broadcast_parallel_reprojection(
+    input_extra_dims, output_shape, parallel, broadcast_test_setup
+):
+
+    image_stack, array_ref, footprint_ref, header_in, header_out = broadcast_test_setup
+
     # Test both single and multiple dimensions being broadcast
     if input_extra_dims == 2:
         image_stack = image_stack.reshape((2, 2, *image_stack.shape[-2:]))
