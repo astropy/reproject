@@ -57,6 +57,7 @@ def test_custom_map_coordinates(cval, shape, order, dtype):
     assert_allclose(result1, result2)
 
 
+@pytest.mark.thread_unsafe  # tracemalloc peak measurement is process-global
 def test_map_coordinates_clips_to_coordinate_bounding_box():
     # For non-native data (as read from FITS files), map_coordinates copies the
     # data since scipy's map_coordinates copies non-native input internally.

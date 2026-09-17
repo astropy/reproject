@@ -705,6 +705,7 @@ def test_broadcast_reprojection(
 # https://github.com/astropy/astropy/pull/12844
 
 
+@pytest.mark.parallel_threads_limit(1)
 @pytest.mark.parametrize("input_extra_dims", (1, 2))
 @pytest.mark.parametrize("output_shape", (None, "single", "full"))
 @pytest.mark.parametrize("parallel", [True, False])
@@ -831,6 +832,8 @@ def test_interp_input_output_types(valid_celestial_input_data, valid_celestial_o
 
 
 @pytest.mark.parametrize("block_size", [None, (32, 32)])
+@pytest.mark.force_parallel_threads(8)
+@pytest.mark.iterations(5)
 def test_reproject_order(block_size):
     # Check that the order keyword argument has an effect. This is a regression
     # test for a bug that caused the order= keyword argument to be ignored when
@@ -865,6 +868,7 @@ def test_reproject_order(block_size):
             assert_allclose(array_out_bilinear, array_out_biquadratic)
 
 
+@pytest.mark.parallel_threads_limit(1)
 def test_blocked_reprojection_sliced_memmap(tmp_path):
     # A sliced memmap view keeps the parent's unadjusted .offset, so it must
     # not be reconstructed from filename and offset inside the block tasks
@@ -893,6 +897,7 @@ def test_blocked_reprojection_sliced_memmap(tmp_path):
     assert_allclose(array_out, reference, equal_nan=True)
 
 
+@pytest.mark.parallel_threads_limit(1)
 def test_reproject_block_size_broadcasting():
     # Regression test for a bug that caused the default chunk size to be
     # inadequate when using broadcasting in parallel mode
@@ -944,6 +949,7 @@ def test_reproject_block_size_broadcasting():
         )
 
 
+@pytest.mark.parallel_threads_limit(1)
 def test_reproject_dask_return_type(dask_method):
     # Regression test for a bug that caused dask arrays to not be computable
     # when using return_type='dask' when the input was a dask array.
@@ -1004,6 +1010,7 @@ def test_auto_block_size(dask_method):
     assert footprint_out.chunksize[0] == 350
 
 
+@pytest.mark.parallel_threads_limit(1)
 @pytest.mark.parametrize("itemsize", (4, 8))
 def test_bigendian_dask(itemsize, dask_method):
 
@@ -1034,6 +1041,7 @@ def test_bigendian_dask(itemsize, dask_method):
     assert_allclose(array_out_be, array_out_le)
 
 
+@pytest.mark.parallel_threads_limit(1)
 def test_reproject_parallel_broadcasting(caplog, dask_method):
 
     # Unit test for reprojecting using parallelization along broadcasted

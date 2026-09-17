@@ -19,6 +19,11 @@ from reproject.tests.test_non_reprojected_dims import _drifting_cube_wcs
 
 ATOL = 1.0e-9
 
+# The co-addition tests are too expensive to multiply under
+# pytest-run-parallel, so cap them at one thread; selected cheap tests
+# below opt back in with force_parallel_threads.
+pytestmark = pytest.mark.parallel_threads_limit(1)
+
 DATA = os.path.join(os.path.dirname(__file__), "..", "..", "tests", "data")
 
 
@@ -896,9 +901,24 @@ class TestReprojectAndCoAdd:
     @pytest.mark.parametrize(
         "reproject_function,intermediate_memmap",
         [
-            pytest.param(reproject_interp, False, id="interp-False"),
-            pytest.param(reproject_interp, True, id="interp-True"),
-            pytest.param(reproject_interp, "zarr", id="interp-zarr"),
+            pytest.param(
+                reproject_interp,
+                False,
+                id="interp-False",
+                marks=pytest.mark.force_parallel_threads(4),
+            ),
+            pytest.param(
+                reproject_interp,
+                True,
+                id="interp-True",
+                marks=pytest.mark.force_parallel_threads(4),
+            ),
+            pytest.param(
+                reproject_interp,
+                "zarr",
+                id="interp-zarr",
+                marks=pytest.mark.force_parallel_threads(4),
+            ),
             pytest.param(reproject_exact, False, id="exact-False"),
         ],
     )
@@ -914,7 +934,9 @@ class TestReprojectAndCoAdd:
         input_data = [(array1, self.wcs), (array2, self.wcs)]
 
         # make weight WCS pixel scale bigger so that weights encompass data
-        weightwcs = self.wcs.copy()
+        # (deepcopy: WCS.copy() shares the underlying wcsprm, so the in-place
+        # cdelt scaling below would modify self.wcs as well)
+        weightwcs = self.wcs.deepcopy()
         weightwcs.wcs.cdelt *= 1.1
 
         hdu1 = fits.ImageHDU(weight1, header=weightwcs.to_header())

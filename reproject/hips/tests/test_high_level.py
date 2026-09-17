@@ -17,6 +17,10 @@ from .._high_level import compute_lower_resolution_tiles, reproject_to_hips
 from .._trim_utils import fits_getdata_untrimmed, fits_writeto_withtrim
 from .._utils import load_properties, tile_header_3d
 
+# The HiPS tests are too expensive (many tiles written to disk) to
+# multiply under pytest-run-parallel.
+pytestmark = pytest.mark.parallel_threads_limit(1)
+
 EXPECTED_FILES = [
     "Moc.fits",
     "Norder0/Allsky.fits",

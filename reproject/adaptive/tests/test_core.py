@@ -23,6 +23,8 @@ def as_high_level_wcs(wcs):
 @pytest.mark.parametrize("wcsapi", (False, True))
 @pytest.mark.parametrize("center_jacobian", (False, True))
 @pytest.mark.parametrize("roundtrip_coords", (False, True))
+@pytest.mark.force_parallel_threads(8)
+@pytest.mark.iterations(5)
 def test_reproject_adaptive_2d(wcsapi, center_jacobian, roundtrip_coords):
     # Set up initial array with pattern
     data_in = np.zeros((256, 256))
@@ -348,6 +350,7 @@ def test_reproject_adaptive_high_aliasing_potential_shearing(roundtrip_coords, c
             np.testing.assert_allclose(array_out, 0.5, atol=0.02, rtol=0)
 
 
+@pytest.mark.parallel_threads_limit(1)
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_reproject_adaptive_flux_conservation():
     # This is more than just testing the `conserve_flux` flag---the expectation

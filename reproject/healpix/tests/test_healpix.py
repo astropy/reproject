@@ -46,6 +46,7 @@ def get_reference_header(overscan=1, oversample=2, nside=1):
 REPRESENTATIVE_DTYPES = [np.dtype("<i4"), np.dtype(">f4"), np.dtype("<f8")]
 
 
+@pytest.mark.parallel_threads_limit(1)
 @pytest.mark.parametrize(
     "nside,nested,healpix_system,image_system,dtype,order",
     [
@@ -138,6 +139,8 @@ def test_reproject_healpix_to_image_round_trip(
     np.testing.assert_array_equal(healpix_data, healpix_data_2)
 
 
+@pytest.mark.force_parallel_threads(8)
+@pytest.mark.iterations(5)
 def test_reproject_file():
     reference_header = get_reference_header(oversample=2, nside=8)
     data, footprint = reproject_from_healpix(

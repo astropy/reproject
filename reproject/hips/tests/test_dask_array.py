@@ -11,6 +11,10 @@ from reproject.hips import reproject_to_hips
 from reproject.hips._dask_array import HiPSArray, hips_as_dask_array
 from reproject.hips._high_level import find_indices
 
+# The HiPS tests are too expensive (many tiles written to disk) to
+# multiply under pytest-run-parallel.
+pytestmark = pytest.mark.parallel_threads_limit(1)
+
 
 class TestHIPSDaskArray:
     def setup_method(self):

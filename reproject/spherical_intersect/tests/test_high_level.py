@@ -34,6 +34,7 @@ class TestReprojectExact:
     def test_array_header(self):
         reproject_exact((self.array_in, self.header_in), self.header_out)
 
+    @pytest.mark.parallel_threads_limit(1)
     def test_parallel_option(self):
         reproject_exact((self.array_in, self.header_in), self.header_out, parallel=1)
 
@@ -41,6 +42,7 @@ class TestReprojectExact:
             reproject_exact((self.array_in, self.header_in), self.header_out, parallel=-1)
         assert exc.value.args[0] == "The number of processors to use must be strictly positive"
 
+    @pytest.mark.parallel_threads_limit(1)
     def test_reproject_parallel_consistency(self):
         reproject_exact((self.array_in, self.header_in), self.header_out, parallel=1)
 
@@ -56,6 +58,7 @@ class TestReprojectExact:
         np.testing.assert_allclose(footprint1, footprint2, rtol=1.0e-10)
 
 
+@pytest.mark.parallel_threads_limit(1)
 def test_identity():
     # Reproject an array and WCS to itself
 
@@ -200,6 +203,7 @@ def test_broadcast_reprojection(
     np.testing.assert_allclose(array_broadcast, array_ref)
 
 
+@pytest.mark.parallel_threads_limit(1)
 @pytest.mark.parametrize("input_extra_dims", (1, 2))
 @pytest.mark.parametrize("output_shape", (None, "single", "full"))
 @pytest.mark.parametrize("parallel", (2, False))
