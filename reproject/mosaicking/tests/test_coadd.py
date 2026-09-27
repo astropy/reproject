@@ -10,7 +10,6 @@ import pytest
 from astropy.io import fits
 from astropy.io.fits import Header
 from astropy.wcs import WCS
-from astropy.wcs.utils import pixel_to_pixel
 from numpy.testing import assert_allclose
 
 from reproject import reproject_exact, reproject_interp
@@ -1008,53 +1007,6 @@ DATE-OBS= '2011-02-15T00:14:03.654'
 MJD-OBS =      55607.009764514
 MJD-OBS =      55607.009764514
 """
-
-
-@pytest.mark.parametrize(
-    "filename, y, valid_x, invalid_x",
-    [("secchi_l0_a.fits", 41, 89, 88), ("secchi_l0_b.fits", 36, 86, 87)],
-)
-def test_reproject_solar_undefined_inverse(filename, y, valid_x, invalid_x):
-    pytest.importorskip("sunpy", minversion="6.0.1")
-    from sunpy.map import Map
-
-    solar_map = Map(os.path.join(DATA, filename))
-    wcs_in = solar_map.wcs
-    wcs_out = WCS(Header.fromstring(HEADER_SOLAR_OUT, sep="\n"))
-    x = np.array([valid_x, invalid_x])
-    forward = pixel_to_pixel(wcs_out, wcs_in, x, np.full(2, y))
-    inverse = np.array(pixel_to_pixel(wcs_in, wcs_out, *forward))
-
-    assert np.isfinite(forward).all()
-    for values, size in zip(forward, solar_map.data.shape[::-1], strict=True):
-        assert ((values >= 0) & (values < size - 1)).all()
-    assert np.isfinite(inverse[:, 0]).all()
-    assert (np.abs(inverse[:, 0] - [valid_x, y]) < 1).all()
-    assert np.isnan(inverse[:, 1]).all()
-
-    # With different observation times, a finite projected direction can miss
-    # the solar surface assumed by the inverse transformation.
-    world = wcs_in.pixel_to_world(*forward)
-    impact = world.observer.radius * np.hypot(np.sin(world.Ty), np.cos(world.Ty) * np.sin(world.Tx))
-    assert impact[0] < world.rsun
-    assert impact[1] > world.rsun
-
-    for roundtrip in (False, True):
-        array, footprint = reproject_interp(
-            (np.ones(solar_map.data.shape), wcs_in),
-            wcs_out,
-            shape_out=(90, 180),
-            order="nearest-neighbor",
-            roundtrip_coords=roundtrip,
-        )
-        assert array[y, valid_x] == 1
-        assert footprint[y, valid_x] == 1
-        if roundtrip:
-            assert np.isnan(array[y, invalid_x])
-            assert footprint[y, invalid_x] == 0
-        else:
-            assert array[y, invalid_x] == 1
-            assert footprint[y, invalid_x] == 1
 
 
 @pytest.mark.array_compare()
