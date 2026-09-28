@@ -22,8 +22,8 @@ equivalent to :func:`~reproject.reproject_exact` (see
 `drizzle documentation <https://spacetelescope-drizzle.readthedocs.io>`_ for
 full details of the other kernels and their flux-conservation properties.
 
-Pixfrac
-=======
+Pixel fraction
+==============
 
 The ``pixfrac`` argument can be used to shrink each input pixel before its
 flux is distributed onto the output grid, which reduces the correlation

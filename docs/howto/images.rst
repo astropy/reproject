@@ -92,11 +92,10 @@ appropriate for your use case, and is discussed in detail in
 * :func:`~reproject.reproject_drizzle` carries out flux-conserving
   reprojection using the drizzle algorithm described in `Fruchter and Hook
   (2002) <https://doi.org/10.1086/338393>`_, as implemented in the `drizzle
-  <https://pypi.org/project/drizzle/>`_ package (which needs to be installed
-  in order to use this function). With the default arguments it is equivalent
-  to :func:`~reproject.reproject_exact` but significantly faster, as long as
-  individual pixels subtend small angles on the sky. This algorithm has a
-  number of specific options, described in :ref:`drizzle-options`.
+  <https://pypi.org/project/drizzle/>`_ package. With the default arguments it
+  is equivalent to :func:`~reproject.reproject_exact` but significantly faster,
+  as long as individual pixels subtend small angles on the sky. This algorithm
+  has a number of specific options, described in :ref:`drizzle-options`.
 
 Non-celestial data
 ==================

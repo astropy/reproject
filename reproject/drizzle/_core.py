@@ -2,6 +2,8 @@
 
 import numpy as np
 
+from .._wcs_utils import pixel_to_pixel_chunked
+
 
 def _reproject_drizzle(
     array,
@@ -16,11 +18,11 @@ def _reproject_drizzle(
 ):
     try:
         from drizzle.resample import Drizzle
-        from drizzle.utils import calc_pixmap, estimate_pixel_scale_ratio
+        from drizzle.utils import estimate_pixel_scale_ratio
     except ImportError:
         raise ImportError(
             "The drizzle package is required to use reproject_drizzle and can "
-            "be installed with 'pip install drizzle'"
+            "be installed with 'pip install reproject[all]' or 'pip install drizzle'"
         ) from None
 
     if array_out is None:
@@ -51,9 +53,10 @@ def _reproject_drizzle(
     low_level_wcs_out = getattr(wcs_out, "low_level_wcs", wcs_out)
 
     # Map the center of every input pixel to its position in the output image.
-    # This mapping is all the drizzle package needs from the WCS, and only
-    # uses the APE 14 *_values methods, so any WCS reproject accepts works.
-    pixmap = calc_pixmap(low_level_wcs_in, low_level_wcs_out, shape=array.shape[-2:])
+    # Note that we deliberately don't use calc_pixmap, which assumes input and
+    # output frames are the same.
+    pixel_in = np.broadcast_arrays(*np.indices(array.shape[-2:], dtype=float, sparse=True))[::-1]
+    pixmap = np.dstack(pixel_to_pixel_chunked(wcs_in, wcs_out, *pixel_in))
 
     # The weight map that drizzle accumulates is the overlap area in units of
     # *input* pixel areas, whereas the reproject footprint convention is the
@@ -68,15 +71,15 @@ def _reproject_drizzle(
     # images with the same coordinate information. The pixel mapping is
     # computed once and "broadcast" across those images.
     if len(array.shape) == wcs_in.low_level_wcs.pixel_n_dim:
-        # We don't need to broadcast the transformation over any extra
-        # axes---add an extra axis of length one just so we have something
-        # to loop over in all cases.
+        # We don't need to broadcast the transformation over any extra axes. We
+        # add an extra axis of length one just so we have something to loop
+        # over in all cases.
         array = array.reshape((1, *array.shape))
         array_out_loopable = array_out.reshape((1, *shape_out[-2:]))
         footprint_loopable = output_footprint.reshape((1, *shape_out[-2:]))
     elif len(array.shape) > wcs_in.low_level_wcs.pixel_n_dim:
-        # We're broadcasting. Flatten the extra dimensions so there's just one
-        # to loop over
+        # We need to broadcast. Flatten the extra dimensions so there is just
+        # one to loop over
         array = array.reshape((-1, *array.shape[-2:]))
         array_out_loopable = array_out.reshape((-1, *shape_out[-2:]))
         footprint_loopable = output_footprint.reshape((-1, *shape_out[-2:]))

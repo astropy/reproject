@@ -47,27 +47,15 @@ There are several existing algorithms that can be used to reproject data:
   non-celestial coordinates or from coordinates on the sky to coordinates on the
   surface of a spherical body).
 
-Currently, **reproject** implements all of the above, and the functions to
+Currently, **reproject** provides all of the above, and the functions to
 use for each are:
 
 * :func:`~reproject.reproject_interp` - interpolation
 * :func:`~reproject.reproject_adaptive` - adaptive resampling
 * :func:`~reproject.reproject_exact` - exact overlap
-* :func:`~reproject.reproject_drizzle` - drizzling, as implemented in the
+* :func:`~reproject.reproject_drizzle` - drizzling (which wraps the
   `drizzle <https://spacetelescope-drizzle.readthedocs.io/en/latest/>`_
-  package, which needs to be installed in order to use this function
-
-With its default arguments, :func:`~reproject.reproject_drizzle` distributes
-the flux of each input pixel over the output pixels based on their overlap
-area, and is therefore a flux-conserving algorithm equivalent to
-:func:`~reproject.reproject_exact`, with the difference that pixel edges are
-treated as straight lines in the output pixel plane rather than as arcs of
-great circles on the sky. The two agree to within the (single precision)
-numerical accuracy of the drizzle algorithm as long as individual pixels
-subtend small angles on the sky, and :func:`~reproject.reproject_drizzle` is
-significantly faster. For images where individual pixels span appreciable
-fractions of a degree, :func:`~reproject.reproject_exact` should be used
-instead.
+  package)
 
 If you aren't sure what algorithm to use see :ref:`choosing-algorithm`.
 

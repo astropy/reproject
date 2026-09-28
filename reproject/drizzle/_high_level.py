@@ -31,6 +31,11 @@ def reproject_drizzle(
     implemented in the `drizzle <https://pypi.org/project/drizzle/>`_ package
     (which needs to be installed to use this function).
 
+    Note that unlike the implementation in the `drizzle
+    <https://pypi.org/project/drizzle/>`_ package, the function here does not
+    require the input and output WCS coordinate frames to be the same, and will
+    correctly convert between the two.
+
     With the default ``kernel='square'`` and ``pixfrac=1``, this is a
     flux-conserving overlap-based algorithm equivalent to
     :func:`~reproject.reproject_exact` in the limit where individual pixels

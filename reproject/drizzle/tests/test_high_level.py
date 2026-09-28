@@ -2,6 +2,8 @@
 
 import numpy as np
 import pytest
+from astropy.io import fits
+from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
 from numpy.testing import assert_allclose
 
@@ -51,6 +53,24 @@ def test_against_exact():
     assert valid.sum() > 2000
     assert_allclose(result[valid], expected[valid], atol=5e-6)
     assert_allclose(footprint[valid], expected_footprint[valid], atol=0.01)
+
+
+def test_frame_change():
+
+    hdu1 = fits.open(get_pkg_data_filename("galactic_center/gc_2mass_k.fits"))[0]
+    hdu2 = fits.open(get_pkg_data_filename("galactic_center/gc_msx_e.fits"))[0]
+
+    data = hdu1.data
+    wcs_in = WCS(hdu1.header)
+    wcs_out = WCS(hdu2.header)
+
+    result, footprint = reproject_drizzle((data, wcs_in), wcs_out, shape_out=(80, 80))
+    expected, expected_footprint = reproject_exact((data, wcs_in), wcs_out, shape_out=(80, 80))
+
+    # As above, only compare in regions where the footprint is significant
+    valid = (footprint > 0.99) & (expected_footprint > 0.99)
+    assert valid.sum() > 2000
+    assert_allclose(result[valid], expected[valid], atol=5e-3)
 
 
 def test_flux_conservation():
