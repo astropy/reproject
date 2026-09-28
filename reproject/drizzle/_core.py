@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from .._wcs_utils import pixel_to_pixel_chunked
+from .._wcs_utils import pixel_scale, pixel_to_pixel_chunked
 
 
 def _reproject_drizzle(
@@ -18,7 +18,6 @@ def _reproject_drizzle(
 ):
     try:
         from drizzle.resample import Drizzle
-        from drizzle.utils import estimate_pixel_scale_ratio
     except ImportError:
         raise ImportError(
             "The drizzle package is required to use reproject_drizzle and can "
@@ -49,22 +48,34 @@ def _reproject_drizzle(
     if extra_dimens_in != extra_dimens_out:
         raise ValueError("Dimensions to be looped over must match exactly")
 
-    low_level_wcs_in = getattr(wcs_in, "low_level_wcs", wcs_in)
-    low_level_wcs_out = getattr(wcs_out, "low_level_wcs", wcs_out)
-
     # Map the center of every input pixel to its position in the output image.
     # Note that we deliberately don't use calc_pixmap, which assumes input and
     # output frames are the same.
     pixel_in = np.broadcast_arrays(*np.indices(array.shape[-2:], dtype=float, sparse=True))[::-1]
     pixmap = np.dstack(pixel_to_pixel_chunked(wcs_in, wcs_out, *pixel_in))
 
+    # Drizzle needs at least one 2x2 block of finite pixel map entries to form
+    # a pixel overlap quadrilateral, and raises an error otherwise, so treat
+    # that case as an input that simply does not overlap the output. Note that
+    # we deliberately don't use drizzle's estimate_pixel_scale_ratio for the
+    # scale ratio, since it mis-computes the pixel area when the reference
+    # pixel straddles the longitude wrap-around.
+    finite = np.all(np.isfinite(pixmap), axis=-1)
+    overlap_possible = bool(
+        np.any(finite[:-1, :-1] & finite[1:, :-1] & finite[:-1, 1:] & finite[1:, 1:])
+    )
+
     # The weight map that drizzle accumulates is the overlap area in units of
     # *input* pixel areas, whereas the reproject footprint convention is the
     # fraction of each output pixel covered by valid input values. The two
-    # differ by the output-to-input pixel area ratio, which we estimate at the
-    # image centers (so the footprint normalization is approximate for images
-    # with strong distortion or large projection-induced scale variation).
-    scale_ratio = estimate_pixel_scale_ratio(low_level_wcs_in, low_level_wcs_out)
+    # differ by the output-to-input pixel area ratio, which we estimate at a
+    # single reference position (so the footprint normalization is approximate
+    # for images with strong distortion or large projection-induced scale
+    # variation).
+    if overlap_possible:
+        scale_ratio = float(
+            pixel_scale(wcs_out, shape_out[-2:]) / pixel_scale(wcs_in, array.shape[-2:])
+        )
 
     # If the input array contains extra dimensions beyond what the input WCS
     # has, the extra leading dimensions are assumed to represent multiple
@@ -86,11 +97,17 @@ def _reproject_drizzle(
     else:
         raise ValueError("Too few dimensions for input array")
 
-    for i in range(len(array)):
-        driz = Drizzle(kernel=kernel, out_shape=shape_out[-2:], fillval=np.nan, disable_ctx=True)
-        driz.add_image(np.asarray(array[i]), exptime=1.0, pixmap=pixmap, pixfrac=pixfrac)
-        array_out_loopable[i] = driz.out_img
-        footprint_loopable[i] = driz.out_wht / scale_ratio**2
+    if overlap_possible:
+        for i in range(len(array)):
+            driz = Drizzle(
+                kernel=kernel, out_shape=shape_out[-2:], fillval=np.nan, disable_ctx=True
+            )
+            driz.add_image(np.asarray(array[i]), exptime=1.0, pixmap=pixmap, pixfrac=pixfrac)
+            array_out_loopable[i] = driz.out_img
+            footprint_loopable[i] = driz.out_wht / scale_ratio**2
+    else:
+        array_out[...] = np.nan
+        output_footprint[...] = 0
 
     if return_footprint:
         return array_out, output_footprint
