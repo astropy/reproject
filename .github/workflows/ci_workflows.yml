@@ -38,6 +38,7 @@ jobs:
       libraries: |
         apt:
           - libopenblas-dev
+      toxdeps: 'coverage[toml]'
       coverage: 'codecov-oidc'
 
   build:
