@@ -74,6 +74,7 @@ def pixel_to_pixel_chunked(wcs1, wcs2, *inputs, roundtrip=False, output=None, ch
                 inputs_check = [inputs_check]
             reset = np.zeros(inputs_check[0].shape, dtype=bool)
             for ipix in range(len(inputs_check)):
+                reset |= ~np.isfinite(inputs_check[ipix])
                 reset |= np.abs(inputs_check[ipix] - chunk_inputs[ipix]) > 1
             if reset.any():
                 results = [np.where(reset, np.nan, result) for result in results]
