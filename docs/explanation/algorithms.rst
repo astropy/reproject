@@ -47,14 +47,15 @@ There are several existing algorithms that can be used to reproject data:
   non-celestial coordinates or from coordinates on the sky to coordinates on the
   surface of a spherical body).
 
-Currently, **reproject** implements all of the above except drizzling (for this
-you can instead use the `drizzle
-<https://spacetelescope-drizzle.readthedocs.io/en/latest/>`_ package), and the
-functions to use for each are:
+Currently, **reproject** provides all of the above, and the functions to
+use for each are:
 
 * :func:`~reproject.reproject_interp` - interpolation
 * :func:`~reproject.reproject_adaptive` - adaptive resampling
 * :func:`~reproject.reproject_exact` - exact overlap
+* :func:`~reproject.reproject_drizzle` - drizzling (which wraps the
+  `drizzle <https://spacetelescope-drizzle.readthedocs.io/en/latest/>`_
+  package)
 
 If you aren't sure what algorithm to use see :ref:`choosing-algorithm`.
 
@@ -190,7 +191,9 @@ algorithm for your use case.
   output WCS, and you need the output images to be photometrically accurate (so
   that you can e.g. carry out photometry on them), then use
   :func:`~reproject.reproject_exact`. This will be slower than other methods,
-  but is the most accurate.
+  but is the most accurate. If individual pixels subtend small angles on the
+  sky (as is the case for most instruments), :func:`~reproject.reproject_drizzle`
+  gives equivalent results significantly faster.
 
 * If you are reprojecting data with three or more dimensions in both the input and
   output WCS, then :func:`~reproject.reproject_interp` is the only option. This

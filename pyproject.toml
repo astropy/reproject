@@ -31,7 +31,7 @@ file = "README.rst"
 content-type = "text/x-rst"
 
 [project.optional-dependencies]
-all = ["shapely"]
+all = ["shapely", "drizzle>=2.0"]
 test = [
     "pytest-astropy",
     "pytest-xdist",
@@ -43,6 +43,7 @@ testall = [
     "asdf",
     "gwcs",
     "pyvo",
+    "drizzle>=2.0",
 ]
 docs = [
     "sphinx-astropy[confv3]>=1.11",

@@ -1,0 +1,115 @@
+# Licensed under a 3-clause BSD style license - see LICENSE.rst
+
+import numpy as np
+
+from .._wcs_utils import pixel_scale, pixel_to_pixel_chunked
+
+
+def _reproject_drizzle(
+    array,
+    wcs_in,
+    wcs_out,
+    shape_out,
+    kernel="square",
+    pixfrac=1.0,
+    array_out=None,
+    output_footprint=None,
+    return_footprint=True,
+):
+    try:
+        from drizzle.resample import Drizzle
+    except ImportError:
+        raise ImportError(
+            "The drizzle package is required to use reproject_drizzle and can "
+            "be installed with 'pip install reproject[all]' or 'pip install drizzle'"
+        ) from None
+
+    if array_out is None:
+        array_out = np.empty(shape_out)
+
+    if output_footprint is None:
+        output_footprint = np.empty(shape_out)
+
+    shape_out = tuple(shape_out)
+
+    if wcs_in.pixel_n_dim != 2:
+        raise NotImplementedError("Only 2-dimensional arrays can be reprojected at this time")
+    elif len(shape_out) < wcs_out.low_level_wcs.pixel_n_dim:
+        raise ValueError("Too few dimensions in shape_out")
+    elif len(array.shape) < wcs_in.low_level_wcs.pixel_n_dim:
+        raise ValueError("Too few dimensions in input data")
+    elif len(array.shape) != len(shape_out):
+        raise ValueError("Number of dimensions in input and output data should match")
+
+    # Separate the "extra" dimensions that don't correspond to a WCS axis and
+    # which we'll be looping over
+    extra_dimens_in = array.shape[: -wcs_in.low_level_wcs.pixel_n_dim]
+    extra_dimens_out = shape_out[: -wcs_out.low_level_wcs.pixel_n_dim]
+    if extra_dimens_in != extra_dimens_out:
+        raise ValueError("Dimensions to be looped over must match exactly")
+
+    # Map the center of every input pixel to its position in the output image.
+    # Note that we deliberately don't use calc_pixmap, which assumes input and
+    # output frames are the same.
+    pixel_in = np.broadcast_arrays(*np.indices(array.shape[-2:], dtype=float, sparse=True))[::-1]
+    pixmap = np.dstack(pixel_to_pixel_chunked(wcs_in, wcs_out, *pixel_in))
+
+    # Drizzle needs at least one 2x2 block of finite pixel map entries to form
+    # a pixel overlap quadrilateral, and raises an error otherwise, so treat
+    # that case as an input that simply does not overlap the output. Note that
+    # we deliberately don't use drizzle's estimate_pixel_scale_ratio for the
+    # scale ratio, since it mis-computes the pixel area when the reference
+    # pixel straddles the longitude wrap-around.
+    finite = np.all(np.isfinite(pixmap), axis=-1)
+    overlap_possible = bool(
+        np.any(finite[:-1, :-1] & finite[1:, :-1] & finite[:-1, 1:] & finite[1:, 1:])
+    )
+
+    # The weight map that drizzle accumulates is the overlap area in units of
+    # *input* pixel areas, whereas the reproject footprint convention is the
+    # fraction of each output pixel covered by valid input values. The two
+    # differ by the output-to-input pixel area ratio, which we estimate at a
+    # single reference position (so the footprint normalization is approximate
+    # for images with strong distortion or large projection-induced scale
+    # variation).
+    if overlap_possible:
+        scale_ratio = float(
+            pixel_scale(wcs_out, shape_out[-2:]) / pixel_scale(wcs_in, array.shape[-2:])
+        )
+
+    # If the input array contains extra dimensions beyond what the input WCS
+    # has, the extra leading dimensions are assumed to represent multiple
+    # images with the same coordinate information. The pixel mapping is
+    # computed once and "broadcast" across those images.
+    if len(array.shape) == wcs_in.low_level_wcs.pixel_n_dim:
+        # We don't need to broadcast the transformation over any extra axes. We
+        # add an extra axis of length one just so we have something to loop
+        # over in all cases.
+        array = array.reshape((1, *array.shape))
+        array_out_loopable = array_out.reshape((1, *shape_out[-2:]))
+        footprint_loopable = output_footprint.reshape((1, *shape_out[-2:]))
+    elif len(array.shape) > wcs_in.low_level_wcs.pixel_n_dim:
+        # We need to broadcast. Flatten the extra dimensions so there is just
+        # one to loop over
+        array = array.reshape((-1, *array.shape[-2:]))
+        array_out_loopable = array_out.reshape((-1, *shape_out[-2:]))
+        footprint_loopable = output_footprint.reshape((-1, *shape_out[-2:]))
+    else:
+        raise ValueError("Too few dimensions for input array")
+
+    if overlap_possible:
+        for i in range(len(array)):
+            driz = Drizzle(
+                kernel=kernel, out_shape=shape_out[-2:], fillval=np.nan, disable_ctx=True
+            )
+            driz.add_image(np.asarray(array[i]), exptime=1.0, pixmap=pixmap, pixfrac=pixfrac)
+            array_out_loopable[i] = driz.out_img
+            footprint_loopable[i] = driz.out_wht / scale_ratio**2
+    else:
+        array_out[...] = np.nan
+        output_footprint[...] = 0
+
+    if return_footprint:
+        return array_out, output_footprint
+    else:
+        return array_out

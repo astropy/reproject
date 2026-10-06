@@ -13,6 +13,7 @@ from the top level of the package and called in the same way::
     >>> from reproject import reproject_interp
     >>> from reproject import reproject_adaptive
     >>> from reproject import reproject_exact
+    >>> from reproject import reproject_drizzle
 
 .. _common:
 
@@ -88,6 +89,14 @@ appropriate for your use case, and is discussed in detail in
   of new pixels with the original image (see :ref:`footprints` for more
   details).
 
+* :func:`~reproject.reproject_drizzle` carries out flux-conserving
+  reprojection using the drizzle algorithm described in `Fruchter and Hook
+  (2002) <https://doi.org/10.1086/338393>`_, as implemented in the `drizzle
+  <https://pypi.org/project/drizzle/>`_ package. With the default arguments it
+  is equivalent to :func:`~reproject.reproject_exact` but significantly faster,
+  as long as individual pixels subtend small angles on the sky. This algorithm
+  has a number of specific options, described in :ref:`drizzle-options`.
+
 Non-celestial data
 ==================
 
@@ -95,7 +104,8 @@ While reprojecting images of the sky is the most common use case, the
 :func:`~reproject.reproject_interp` and :func:`~reproject.reproject_adaptive`
 functions work with any WCS - the coordinates do not need to be celestial. For
 example, an image with spectral and temporal axes can be reprojected in
-exactly the same way as above. The exception is
+exactly the same way as above. The exceptions are
 :func:`~reproject.reproject_exact`, which computes the overlap of pixels as
-spherical polygons on the sky and therefore requires a 2-dimensional
-celestial WCS.
+spherical polygons on the sky, and :func:`~reproject.reproject_drizzle`,
+which distributes the flux of input pixels onto the output celestial grid -
+both therefore require a 2-dimensional celestial WCS.
