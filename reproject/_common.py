@@ -606,10 +606,15 @@ def _reproject_dispatcher(
 
         # We now convert the dask arrays back to Numpy arrays
 
-        if not parallel or parallel == "current-scheduler" or isinstance(parallel, bool):
-            workers = {}
+        if not parallel:
+            compute_config = {"scheduler": "synchronous"}
+        elif parallel == "current-scheduler":
+            # Use whatever scheduler is currently active, e.g. dask.distributed
+            compute_config = {}
+        elif isinstance(parallel, bool):
+            compute_config = {"scheduler": "threads"}
         elif parallel > 0:
-            workers = {"num_workers": parallel}
+            compute_config = {"scheduler": "threads", "num_workers": parallel}
         else:
             raise ValueError("The number of processors to use must be strictly positive")
 
@@ -623,16 +628,8 @@ def _reproject_dispatcher(
 
             logger.info(f"Computing output array directly to zarr array at {zarr_path}")
 
-            if not parallel:
-                with dask.config.set(scheduler="synchronous"):
-                    result.to_zarr(zarr_path)
-            elif parallel == "current-scheduler":
-                # Just use whatever is the current active scheduler, which can
-                # be used for e.g. dask.distributed
+            with dask.config.set(**compute_config):
                 result.to_zarr(zarr_path)
-            else:
-                with dask.config.set(scheduler="threads", **workers):
-                    result.to_zarr(zarr_path)
 
             result = da.from_zarr(zarr_path)
 
@@ -643,15 +640,12 @@ def _reproject_dispatcher(
                     return result[0]
 
             logger.info("Copying output zarr array into output Numpy arrays")
-            store_kwargs = {"scheduler": "synchronous"}
+            compute_config = {"scheduler": "synchronous"}
         else:
             # Threads share memory with the output arrays, so store blocks directly.
             logger.info("Computing output array directly into output Numpy arrays")
-            store_kwargs = (
-                {"scheduler": "threads", **workers} if parallel else {"scheduler": "synchronous"}
-            )
 
-        with dask.config.set(**store_kwargs):
+        with dask.config.set(**compute_config):
             if return_footprint:
                 da.store([result[0], result[1]], [array_out, output_footprint], compute=True)
                 output = array_out, output_footprint

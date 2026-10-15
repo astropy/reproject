@@ -896,12 +896,12 @@ def test_blocked_reprojection_sliced_memmap(tmp_path):
 
 @pytest.mark.parametrize("parallel", [True, 2])
 @pytest.mark.parametrize("return_footprint", [False, True])
-@pytest.mark.parametrize("existing_outputs", [False, True])
-def test_parallel_threads_store_directly(monkeypatch, parallel, return_footprint, existing_outputs):
-    # Threaded blocks are stored directly, without a temporary zarr array.
-
-    def to_zarr(*args, **kwargs):
-        raise AssertionError("threaded reprojection should not write a zarr array")
+@pytest.mark.parametrize("existing_outputs", [None, "numpy", "memmap"])
+def test_parallel_threads_store_directly(
+    tmp_path, monkeypatch, parallel, return_footprint, existing_outputs
+):
+    # Threaded blocks are stored directly into the output arrays (including
+    # memory-mapped ones), without a temporary zarr array.
 
     with fits.open(get_pkg_data_filename("data/galactic_2d.fits", package="reproject.tests")) as pf:
         hdu_in = pf[0]
@@ -912,16 +912,19 @@ def test_parallel_threads_store_directly(monkeypatch, parallel, return_footprint
         header_out["CRVAL2"] = -28.939779
 
         reference = reproject_interp(hdu_in, header_out, return_footprint=return_footprint)
-        outputs = (
-            dict(
-                output_array=np.empty_like(hdu_in.data),
-                output_footprint=np.empty_like(hdu_in.data),
-            )
-            if existing_outputs
-            else {}
-        )
 
-        monkeypatch.setattr(da.Array, "to_zarr", to_zarr)
+        outputs = {}
+        if existing_outputs:
+            shape, dtype = hdu_in.data.shape, hdu_in.data.dtype
+            for name in ("output_array", "output_footprint"):
+                if existing_outputs == "memmap":
+                    outputs[name] = np.memmap(tmp_path / name, dtype=dtype, mode="w+", shape=shape)
+                else:
+                    outputs[name] = np.empty(shape, dtype)
+
+        monkeypatch.setattr(
+            da.Array, "to_zarr", lambda *args, **kwargs: pytest.fail("unexpected zarr staging")
+        )
         result = reproject_interp(
             hdu_in,
             header_out,
@@ -931,11 +934,9 @@ def test_parallel_threads_store_directly(monkeypatch, parallel, return_footprint
             **outputs,
         )
 
-    if return_footprint:
-        assert_allclose(result[0], reference[0], equal_nan=True)
-        assert_allclose(result[1], reference[1])
-    else:
-        assert_allclose(result, reference, equal_nan=True)
+    if outputs:
+        assert (result[0] if return_footprint else result) is outputs["output_array"]
+    assert_allclose(result, reference, equal_nan=True)
 
 
 @pytest.mark.parametrize("output_name", ["output_array", "output_footprint"])
@@ -944,7 +945,9 @@ def test_parallel_overlapping_output(tmp_path, output_name, input_type):
     data = np.random.default_rng(0).random((64, 64))
     wcs_in = WCS(naxis=2)
     wcs_out = wcs_in.deepcopy()
-    wcs_out.wcs.crpix = [-8, -8]
+    # Transposing makes every off-diagonal block read a block that is written
+    # before it in any execution order, so a direct store would corrupt the result.
+    wcs_out.wcs.pc = [[0, 1], [1, 0]]
     reference = reproject_interp((data, wcs_in), wcs_out, shape_out=data.shape)
 
     if input_type == "memmap":
