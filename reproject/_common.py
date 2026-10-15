@@ -579,10 +579,17 @@ def _reproject_dispatcher(
 
         # We now convert the dask arrays back to Numpy arrays
 
-        if parallel or return_type == "zarr":
+        if not parallel or parallel == "current-scheduler" or isinstance(parallel, bool):
+            workers = {}
+        elif parallel > 0:
+            workers = {"num_workers": parallel}
+        else:
+            raise ValueError("The number of processors to use must be strictly positive")
+
+        if return_type == "zarr" or parallel == "current-scheduler":
             # As discussed in https://github.com/dask/dask/issues/9556, da.store
-            # will not work well in parallel mode when the destination is a
-            # Numpy array. Instead, in this case we save the dask array to a zarr
+            # does not work with a Numpy destination when tasks run in separate
+            # processes. Instead, in this case we save the dask array to a zarr
             # array on disk which can be done in parallel, and re-load it as a dask
             # array. We can then use da.store in the next step using the
             # 'synchronous' scheduler since that is I/O limited so does not need
@@ -601,16 +608,6 @@ def _reproject_dispatcher(
                 # be used for e.g. dask.distributed
                 result.to_zarr(zarr_path)
             else:
-                if isinstance(parallel, bool):
-                    workers = {}
-                else:
-                    if parallel > 0:
-                        workers = {"num_workers": parallel}
-                    else:
-                        raise ValueError(
-                            "The number of processors to use must be strictly positive"
-                        )
-
                 with dask.config.set(scheduler="threads", **workers):
                     result.to_zarr(zarr_path)
 
@@ -622,14 +619,21 @@ def _reproject_dispatcher(
                 else:
                     return result[0]
 
-        logger.info("Copying output zarr array into output Numpy arrays")
+            logger.info("Copying output zarr array into output Numpy arrays")
+            store_kwargs = {"scheduler": "synchronous"}
+        else:
+            # Threads share memory with the output arrays, so store blocks directly.
+            logger.info("Computing output array directly into output Numpy arrays")
+            store_kwargs = (
+                {"scheduler": "threads", **workers} if parallel else {"scheduler": "synchronous"}
+            )
 
         if return_footprint:
             da.store(
                 [result[0], result[1]],
                 [array_out, output_footprint],
                 compute=True,
-                scheduler="synchronous",
+                **store_kwargs,
             )
             output = array_out, output_footprint
         else:
@@ -637,7 +641,7 @@ def _reproject_dispatcher(
                 result[0],
                 array_out,
                 compute=True,
-                scheduler="synchronous",
+                **store_kwargs,
             )
             output = array_out
 

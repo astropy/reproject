@@ -893,6 +893,40 @@ def test_blocked_reprojection_sliced_memmap(tmp_path):
     assert_allclose(array_out, reference, equal_nan=True)
 
 
+@pytest.mark.parametrize("parallel", [True, 2])
+@pytest.mark.parametrize("return_footprint", [False, True])
+def test_parallel_threads_store_directly(monkeypatch, parallel, return_footprint):
+    # Threaded blocks are stored directly, without a temporary zarr array.
+
+    def to_zarr(*args, **kwargs):
+        raise AssertionError("threaded reprojection should not write a zarr array")
+
+    with fits.open(get_pkg_data_filename("data/galactic_2d.fits", package="reproject.tests")) as pf:
+        hdu_in = pf[0]
+        header_out = hdu_in.header.copy()
+        header_out["CTYPE1"] = "RA---TAN"
+        header_out["CTYPE2"] = "DEC--TAN"
+        header_out["CRVAL1"] = 266.39311
+        header_out["CRVAL2"] = -28.939779
+
+        reference = reproject_interp(hdu_in, header_out, return_footprint=return_footprint)
+
+        monkeypatch.setattr(da.Array, "to_zarr", to_zarr)
+        result = reproject_interp(
+            hdu_in,
+            header_out,
+            return_footprint=return_footprint,
+            parallel=parallel,
+            block_size=(32, 32),
+        )
+
+    if return_footprint:
+        assert_allclose(result[0], reference[0], equal_nan=True)
+        assert_allclose(result[1], reference[1])
+    else:
+        assert_allclose(result, reference, equal_nan=True)
+
+
 def test_reproject_block_size_broadcasting():
     # Regression test for a bug that caused the default chunk size to be
     # inadequate when using broadcasting in parallel mode
