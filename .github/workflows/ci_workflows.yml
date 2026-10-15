@@ -35,9 +35,20 @@ jobs:
         - windows: py312-test
         - windows: py313-test
         - windows: py314-test
+
+        # Builds using pytest-run-parallel - for now these require astropy dev
+        - linux: py314-test-devdeps-parallel
+        - linux: py314t-test-devdeps-parallel
+
       libraries: |
         apt:
           - libopenblas-dev
+      # mocpy has no freethreaded wheels so is built from source on py3xxt
+      # jobs, and rustup needs these to find the toolchain since tox
+      # overrides HOME
+      setenv: |
+        RUSTUP_HOME: /home/runner/.rustup
+        CARGO_HOME: /home/runner/.cargo
       coverage: 'codecov-oidc'
 
   build:
