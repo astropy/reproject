@@ -3,6 +3,7 @@
 import itertools
 import logging
 
+import dask
 import dask.array as da
 import numpy as np
 import pytest
@@ -895,7 +896,8 @@ def test_blocked_reprojection_sliced_memmap(tmp_path):
 
 @pytest.mark.parametrize("parallel", [True, 2])
 @pytest.mark.parametrize("return_footprint", [False, True])
-def test_parallel_threads_store_directly(monkeypatch, parallel, return_footprint):
+@pytest.mark.parametrize("existing_outputs", [False, True])
+def test_parallel_threads_store_directly(monkeypatch, parallel, return_footprint, existing_outputs):
     # Threaded blocks are stored directly, without a temporary zarr array.
 
     def to_zarr(*args, **kwargs):
@@ -910,6 +912,14 @@ def test_parallel_threads_store_directly(monkeypatch, parallel, return_footprint
         header_out["CRVAL2"] = -28.939779
 
         reference = reproject_interp(hdu_in, header_out, return_footprint=return_footprint)
+        outputs = (
+            dict(
+                output_array=np.empty_like(hdu_in.data),
+                output_footprint=np.empty_like(hdu_in.data),
+            )
+            if existing_outputs
+            else {}
+        )
 
         monkeypatch.setattr(da.Array, "to_zarr", to_zarr)
         result = reproject_interp(
@@ -918,6 +928,7 @@ def test_parallel_threads_store_directly(monkeypatch, parallel, return_footprint
             return_footprint=return_footprint,
             parallel=parallel,
             block_size=(32, 32),
+            **outputs,
         )
 
     if return_footprint:
@@ -925,6 +936,67 @@ def test_parallel_threads_store_directly(monkeypatch, parallel, return_footprint
         assert_allclose(result[1], reference[1])
     else:
         assert_allclose(result, reference, equal_nan=True)
+
+
+@pytest.mark.parametrize("output_name", ["output_array", "output_footprint"])
+@pytest.mark.parametrize("input_type", ["numpy", "memmap", "dask"])
+def test_parallel_overlapping_output(tmp_path, output_name, input_type):
+    data = np.random.default_rng(0).random((64, 64))
+    wcs_in = WCS(naxis=2)
+    wcs_out = wcs_in.deepcopy()
+    wcs_out.wcs.crpix = [-8, -8]
+    reference = reproject_interp((data, wcs_in), wcs_out, shape_out=data.shape)
+
+    if input_type == "memmap":
+        path = tmp_path / "input.npy"
+        array_in = np.memmap(path, dtype=float, mode="w+", shape=data.shape)
+        array_in[:] = data
+        # Separate mappings share file storage even though NumPy sees disjoint memory.
+        output = np.memmap(path, dtype=float, mode="r+", shape=data.shape).view(np.ndarray)
+        array_in = array_in.view(np.ndarray)
+    else:
+        output = data.view()
+        array_in = (
+            da.from_array(ArrayWrapper(data), name="shared-input", chunks=(16, 16))
+            if input_type == "dask"
+            else data
+        )
+
+    result = reproject_interp(
+        (array_in, wcs_in),
+        wcs_out,
+        shape_out=data.shape,
+        parallel=1,
+        block_size=(16, 16),
+        **{output_name: output},
+    )
+
+    assert result[0 if output_name == "output_array" else 1] is output
+    assert_allclose(result, reference, equal_nan=True)
+
+
+@pytest.mark.parametrize("dask_method", ["memmap", "none"])
+def test_parallel_threads_dask_input(dask_method):
+    @dask.delayed
+    def read_input():
+        # Nested computations must inherit both the scheduler and the worker limit.
+        assert dask.config.get("scheduler") == "threads"
+        assert dask.config.get("num_workers") == 2
+        return np.ones((16, 16))
+
+    data = da.from_delayed(read_input(), shape=(16, 16), dtype=float)
+    wcs = WCS(naxis=2)
+    with dask.config.set(scheduler="synchronous", num_workers=3):
+        result = reproject_interp(
+            (data, wcs),
+            wcs,
+            shape_out=data.shape,
+            parallel=2,
+            block_size=(8, 8),
+            dask_method=dask_method,
+        )
+
+    assert_allclose(result, 1)
 
 
 def test_reproject_block_size_broadcasting():

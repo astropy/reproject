@@ -54,6 +54,30 @@ def as_delayed_memmap_path(array, tmp_dir):
     return array_path
 
 
+def _arrays_may_share_storage(array_in, array_out):
+    if array_out is None:
+        return False
+    # Dask tasks can read from a supplied output without exposing that buffer.
+    if isinstance(array_in, da.Array) or np.may_share_memory(array_in, array_out):
+        return True
+
+    # Separate mappings of the same file do not share NumPy memory addresses.
+    filenames = []
+    for array in (array_in, array_out):
+        while isinstance(array, np.ndarray) and not isinstance(array, np.memmap):
+            array = array.base
+        if not isinstance(array, np.memmap | mmap.mmap):
+            return False
+        filenames.append(getattr(array, "filename", None))
+
+    if None in filenames:
+        return True
+    try:
+        return os.path.samefile(*filenames)
+    except OSError:
+        return True
+
+
 def _reproject_dispatcher(
     reproject_func,
     *,
@@ -229,6 +253,9 @@ def _reproject_dispatcher(
     # store memory mapped Numpy arrays and zarr arrays.
 
     with tempfile.TemporaryDirectory() as local_tmp_dir:
+        output_may_overlap = _arrays_may_share_storage(array_in, array_out) or (
+            return_footprint and _arrays_may_share_storage(array_in, output_footprint)
+        )
         if array_out is None:
             if return_type == "numpy":
                 array_out = np.zeros(shape_out, dtype=float)
@@ -586,14 +613,10 @@ def _reproject_dispatcher(
         else:
             raise ValueError("The number of processors to use must be strictly positive")
 
-        if return_type == "zarr" or parallel == "current-scheduler":
-            # As discussed in https://github.com/dask/dask/issues/9556, da.store
-            # does not work with a Numpy destination when tasks run in separate
-            # processes. Instead, in this case we save the dask array to a zarr
-            # array on disk which can be done in parallel, and re-load it as a dask
-            # array. We can then use da.store in the next step using the
-            # 'synchronous' scheduler since that is I/O limited so does not need
-            # to be done in parallel.
+        if return_type == "zarr" or parallel == "current-scheduler" or output_may_overlap:
+            # Separate processes cannot write to a shared Numpy destination
+            # (https://github.com/dask/dask/issues/9556). Staging also prevents
+            # outputs from overwriting input still needed by other blocks.
 
             if return_type != "zarr":
                 zarr_path = os.path.join(local_tmp_dir, f"{uuid.uuid4()}.zarr")
@@ -628,22 +651,13 @@ def _reproject_dispatcher(
                 {"scheduler": "threads", **workers} if parallel else {"scheduler": "synchronous"}
             )
 
-        if return_footprint:
-            da.store(
-                [result[0], result[1]],
-                [array_out, output_footprint],
-                compute=True,
-                **store_kwargs,
-            )
-            output = array_out, output_footprint
-        else:
-            da.store(
-                result[0],
-                array_out,
-                compute=True,
-                **store_kwargs,
-            )
-            output = array_out
+        with dask.config.set(**store_kwargs):
+            if return_footprint:
+                da.store([result[0], result[1]], [array_out, output_footprint], compute=True)
+                output = array_out, output_footprint
+            else:
+                da.store(result[0], array_out, compute=True)
+                output = array_out
 
     if return_footprint:
         return output[0], output[1]
