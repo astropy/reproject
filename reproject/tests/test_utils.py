@@ -319,10 +319,12 @@ def test_parse_avm_image_rescaled(tmp_path, parse_function):
 def test_generate_asdf_import_without_gwcs():
     """Regression test for #470: importing generate_asdf should not require gwcs."""
     import importlib.util
+    from unittest.mock import patch
 
     generate_asdf_path = get_pkg_data_filename("data/generate_asdf.py", package="reproject.tests")
     spec = importlib.util.spec_from_file_location("generate_asdf", generate_asdf_path)
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    with patch.dict("sys.modules", {"gwcs": None, "gwcs.coordinate_frames": None}):
+        spec.loader.exec_module(module)
     assert hasattr(module, "generate_asdf")
     assert hasattr(module, "generate_celestial_transform")
