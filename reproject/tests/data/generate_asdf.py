@@ -2,9 +2,7 @@ from collections.abc import Iterable
 
 import astropy.modeling.models as m
 import astropy.units as u
-import gwcs.coordinate_frames as cf
 from astropy.modeling import CompoundModel, Model
-from gwcs import WCS
 from numpy.typing import ArrayLike
 
 
@@ -78,7 +76,9 @@ def generate_celestial_transform(
 def generate_asdf(input_file="aia_171_level1.fits", output_file="aia_171_level1.asdf"):
     # Put imports for optional or not dependencies here
     import asdf
+    import gwcs.coordinate_frames as cf
     import sunpy.map
+    from gwcs import WCS
 
     aia_map = sunpy.map.Map(input_file)
 

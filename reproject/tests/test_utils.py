@@ -314,3 +314,15 @@ def test_parse_avm_image_rescaled(tmp_path, parse_function):
     corners_small = wcs_small.pixel_to_world([-0.5, 9.5], [-0.5, 14.5])
     half_pixel_deg = 0.01
     assert (corners_full.separation(corners_small).deg < half_pixel_deg).all()
+
+
+def test_generate_asdf_import_without_gwcs():
+    """Regression test for #470: importing generate_asdf should not require gwcs."""
+    import importlib.util
+
+    generate_asdf_path = get_pkg_data_filename("data/generate_asdf.py", package="reproject.tests")
+    spec = importlib.util.spec_from_file_location("generate_asdf", generate_asdf_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert hasattr(module, "generate_asdf")
+    assert hasattr(module, "generate_celestial_transform")
