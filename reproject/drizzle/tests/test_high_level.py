@@ -153,8 +153,8 @@ def test_kernels(kernel):
     )
 
     # The turbo kernel is a fast approximation of the square kernel, so the
-    # flux should also be conserved (the other kernels are not
-    # flux-conserving, hence the warning they emit)
+    # flux should also be conserved (the gaussian and lanczos3 kernels are
+    # not flux-conserving, hence the warning they emit)
     if kernel in ("square", "turbo"):
         assert_allclose(np.nansum(result), np.nansum(reference), rtol=1e-4)
 
@@ -336,7 +336,8 @@ def test_footprint_near_longitude_wrap():
     # The reference pixel around which the pixel scale ratio used for the
     # footprint normalization is estimated sits right on the longitude
     # wrap-around; drizzle's own estimate_pixel_scale_ratio mis-computes the
-    # pixel area in this case (which is why we don't use it)
+    # pixel area in this case (which is why we don't use it) -
+    # https://github.com/spacetelescope/drizzle/pull/246
     wcs_in = WCS(naxis=2)
     wcs_in.wcs.ctype = ["RA---TAN", "DEC--TAN"]
     wcs_in.wcs.crval = [0.0, 40.0]

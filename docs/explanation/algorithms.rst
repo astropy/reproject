@@ -193,7 +193,7 @@ algorithm for your use case.
   :func:`~reproject.reproject_exact`. This will be slower than other methods,
   but is the most accurate. If individual pixels subtend small angles on the
   sky (as is the case for most instruments), :func:`~reproject.reproject_drizzle`
-  gives equivalent results significantly faster. The latter is also particularly
+  gives equivalent results significantly faster. Drizzling is also particularly
   useful for undersampled data, especially when combining dithered exposures.
 
 * If you are reprojecting data with three or more dimensions in both the input and

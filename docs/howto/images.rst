@@ -89,13 +89,15 @@ appropriate for your use case, and is discussed in detail in
   of new pixels with the original image (see :ref:`footprints` for more
   details).
 
-* :func:`~reproject.reproject_drizzle` carries out flux-conserving
-  reprojection using the drizzle algorithm described in `Fruchter and Hook
+* :func:`~reproject.reproject_drizzle` carries out overlap-based reprojection
+  using the drizzle algorithm described in `Fruchter and Hook
   (2002) <https://doi.org/10.1086/338393>`_, as implemented in the `drizzle
   <https://pypi.org/project/drizzle/>`_ package. With the default arguments it
-  is equivalent to :func:`~reproject.reproject_exact` but significantly faster,
-  as long as individual pixels subtend small angles on the sky. This algorithm
-  has a number of specific options, described in :ref:`drizzle-options`.
+  is a photometrically accurate algorithm equivalent to
+  :func:`~reproject.reproject_exact` but significantly faster, as long as
+  individual pixels subtend small angles on the sky. As with the other
+  algorithms, it preserves surface brightness. This algorithm has a number of
+  specific options, described in :ref:`drizzle-options`.
 
 Non-celestial data
 ==================

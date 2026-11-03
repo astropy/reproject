@@ -16,8 +16,8 @@ Kernel
 The ``kernel`` argument can be used to select the kernel used to distribute
 the flux of each input pixel onto the output pixels. The default
 (``kernel='square'``) distributes the flux based on the overlap area of the
-input and output pixels, and is therefore a flux-conserving algorithm
-equivalent to :func:`~reproject.reproject_exact` (see
+input and output pixels, and is therefore a photometrically accurate
+overlap-based algorithm equivalent to :func:`~reproject.reproject_exact` (see
 :ref:`choosing-algorithm` for a discussion of when to use each). See the
 `drizzle documentation <https://spacetelescope-drizzle.readthedocs.io>`_ for
 full details of the other kernels and their flux-conservation properties.
