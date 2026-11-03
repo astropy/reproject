@@ -1,6 +1,5 @@
-import os
-from pathlib import Path
 from collections.abc import Iterable
+from pathlib import Path
 
 import astropy.modeling.models as m
 import astropy.units as u
@@ -115,7 +114,6 @@ def generate_asdf(*, input_file, output_file):
 
 
 if __name__ == "__main__":
-
     scripts_dir = Path(__file__).parent
     data_dir = scripts_dir / ".." / "reproject" / "tests" / "data"
 
