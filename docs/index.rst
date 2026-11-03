@@ -13,7 +13,7 @@ images where one or more images may have incorrect or missing WCS.
 The main features of **reproject** are:
 
 * Several reprojection algorithms to choose from: fast interpolation,
-  anti-aliased adaptive resampling, and exact flux-conserving spherical
+  anti-aliased adaptive resampling, drizzling, and exact flux-conserving spherical
   polygon intersection (see :ref:`choosing-algorithm`)
 * Support for images, spectral cubes, and other n-dimensional data, with
   celestial or non-celestial WCS (see :doc:`howto/images` and

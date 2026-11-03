@@ -1,18 +1,32 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
+import importlib.util
+
 import numpy as np
 import pytest
 from astropy.wcs import WCS
 from numpy.testing import assert_allclose
 
-from reproject import reproject_adaptive, reproject_interp
+from reproject import reproject_adaptive, reproject_drizzle, reproject_interp
+
+HAS_DRIZZLE = importlib.util.find_spec("drizzle") is not None
 
 # Reprojection functions that support non_reprojected_dims. reproject_exact can
 # be added here once it gains support.
-REPROJECT_FUNCTIONS = [reproject_interp, reproject_adaptive]
+REPROJECT_FUNCTIONS = [
+    reproject_interp,
+    reproject_adaptive,
+    pytest.param(
+        reproject_drizzle,
+        marks=pytest.mark.skipif(not HAS_DRIZZLE, reason="drizzle is not installed"),
+    ),
+]
 
 
-@pytest.fixture(params=REPROJECT_FUNCTIONS, ids=lambda func: func.__name__)
+@pytest.fixture(
+    params=REPROJECT_FUNCTIONS,
+    ids=["reproject_interp", "reproject_adaptive", "reproject_drizzle"],
+)
 def reproject_function(request):
     return request.param
 

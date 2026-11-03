@@ -47,6 +47,7 @@ intersphinx_resolve_self = "astropy"
 intersphinx_mapping.update(
     {
         "dask": ("https://docs.dask.org/en/stable/", None),
+        "drizzle": ("https://spacetelescope-drizzle.readthedocs.io/en/latest/", None),
     }
 )
 

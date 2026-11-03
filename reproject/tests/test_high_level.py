@@ -1,5 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
+import importlib.util
 import itertools
 import os
 from copy import deepcopy
@@ -11,11 +12,13 @@ from astropy.io import fits
 from astropy.utils.data import get_pkg_data_filename
 from astropy.wcs import WCS
 
-from .. import reproject_adaptive, reproject_exact, reproject_interp
+from .. import reproject_adaptive, reproject_drizzle, reproject_exact, reproject_interp
 
 # TODO: add reference comparisons
 
 DATA = os.path.join(os.path.dirname(__file__), "data")
+
+HAS_DRIZZLE = importlib.util.find_spec("drizzle") is not None
 
 ALL_MODES = (
     "nearest-neighbor",
@@ -25,6 +28,7 @@ ALL_MODES = (
     "flux-conserving",
     "adaptive-hann",
     "adaptive-gaussian",
+    "drizzle",
 )
 
 ALL_DTYPES = []
@@ -37,8 +41,16 @@ for endian in ("<", ">"):
 
 
 @pytest.fixture(
-    params=[reproject_interp, reproject_adaptive, reproject_exact],
-    ids=["interp", "adaptive", "exact"],
+    params=[
+        reproject_interp,
+        reproject_adaptive,
+        reproject_exact,
+        pytest.param(
+            reproject_drizzle,
+            marks=pytest.mark.skipif(not HAS_DRIZZLE, reason="drizzle is not installed"),
+        ),
+    ],
+    ids=["interp", "adaptive", "exact", "drizzle"],
 )
 def reproject_function(request):
     return request.param
@@ -138,6 +150,9 @@ def test_surface_brightness(projection_type, dtype):
 
     if projection_type == "flux-conserving":
         data_out, footprint = reproject_exact((data_in, header_in), header_out)
+    elif projection_type == "drizzle":
+        pytest.importorskip("drizzle")
+        data_out, footprint = reproject_drizzle((data_in, header_in), header_out)
     elif projection_type.startswith("adaptive"):
         data_out, footprint = reproject_adaptive(
             (data_in, header_in),
@@ -185,6 +200,9 @@ def test_identity_projection(projection_type):
     data_in = np.random.rand(header_in["NAXIS2"], header_in["NAXIS1"])
     if projection_type == "flux-conserving":
         data_out, footprint = reproject_exact((data_in, header_in), header_in)
+    elif projection_type == "drizzle":
+        pytest.importorskip("drizzle")
+        data_out, footprint = reproject_drizzle((data_in, header_in), header_in)
     elif projection_type.startswith("adaptive"):
         data_out, footprint = reproject_adaptive(
             (data_in, header_in),
@@ -209,7 +227,16 @@ def test_identity_projection(projection_type):
 
 
 @pytest.mark.parametrize(
-    "reproject_function", [reproject_interp, reproject_adaptive, reproject_exact]
+    "reproject_function",
+    [
+        reproject_interp,
+        reproject_adaptive,
+        reproject_exact,
+        pytest.param(
+            reproject_drizzle,
+            marks=pytest.mark.skipif(not HAS_DRIZZLE, reason="drizzle is not installed"),
+        ),
+    ],
 )
 def test_dimensions_checks(reproject_function):
     header_in = fits.Header.fromtextfile(

@@ -6,5 +6,6 @@ Reference
 
    options
    adaptive_options
+   drizzle_options
    hips_options
    api
