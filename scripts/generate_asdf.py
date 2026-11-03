@@ -1,5 +1,4 @@
 import os
-
 from collections.abc import Iterable
 
 import astropy.modeling.models as m
@@ -115,8 +114,10 @@ def generate_asdf(*, input_file, output_file):
 
 
 if __name__ == "__main__":
+    scripts_dir = os.path.dirname(__file__)
+    data_dir = os.path.join(scripts_dir, "..", "reproject", "tests", "data")
 
-    scripts = os.path.dirname(__file__)
-
-    generate_asdf(input_file=os.path.join(scripts, '..', 'reproject', 'tests', 'data', 'aia_171_level1.fits'),
-                  output_file=os.path.join(scripts, '..', 'reproject', 'tests', 'data', 'aia_171_level1.asdf'))
+    generate_asdf(
+        input_file=os.path.join(data_dir, "aia_171_level1.fits"),
+        output_file=os.path.join(data_dir, "aia_171_level1.asdf"),
+    )
