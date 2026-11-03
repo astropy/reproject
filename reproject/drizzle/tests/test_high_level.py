@@ -1,5 +1,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
+from contextlib import nullcontext
+
 import numpy as np
 import pytest
 from astropy.coordinates import SkyCoord
@@ -65,8 +67,8 @@ def test_against_exact():
 def test_frame_change():
     # The input and output WCS have different celestial frames - the drizzle
     # package itself ignores frame differences (its calc_pixmap assumes the
-    # frames are the same), so make sure our own pixel mapping converts
-    # between them
+    # frames are the same - see https://github.com/spacetelescope/drizzle/pull/161),
+    # so make sure our own pixel mapping converts between them
     wcs_in = WCS(naxis=2)
     wcs_in.wcs.ctype = ["GLON-TAN", "GLAT-TAN"]
     wcs_in.wcs.crval = [30.0, 40.0]
@@ -115,7 +117,7 @@ def test_footprint_normalization():
 
     # The outermost rim of the output is excluded because drizzle skips input
     # pixels whose centers map outside the output grid, even if their
-    # footprint extends into it
+    # footprint extends into it - https://github.com/spacetelescope/drizzle/issues/247
     assert_allclose(footprint[2:-2, 2:-2], 1, rtol=1e-5)
     assert_allclose(result[2:-2, 2:-2], 1, rtol=1e-6)
 
@@ -126,10 +128,18 @@ def test_kernels(kernel):
     wcs_in, wcs_out = _wcs_pair()
     data = _gaussian_data()
 
-    result, footprint = reproject_drizzle(
-        (data, wcs_in), wcs_out, shape_out=(80, 80), kernel=kernel
-    )
-    reference, reference_footprint = reproject_drizzle((data, wcs_in), wcs_out, shape_out=(80, 80))
+    if kernel in ('lanczos3', 'gaussian'):
+        ctx = pytest.warns(Warning, match=r'Kernel .* is not a flux-conserving kernel')
+    else:
+        ctx = nullcontext()
+
+    with ctx:
+
+        result, footprint = reproject_drizzle(
+            (data, wcs_in), wcs_out, shape_out=(80, 80), kernel=kernel,
+        )
+
+        reference, reference_footprint = reproject_drizzle((data, wcs_in), wcs_out, shape_out=(80, 80),)
 
     # All kernels should place the peak of the gaussian in the same position
     # as the default square kernel

@@ -37,11 +37,12 @@ def reproject_drizzle(
     correctly convert between the two.
 
     With the default ``kernel='square'`` and ``pixfrac=1``, this is a
-    flux-conserving overlap-based algorithm equivalent to
+    photometrically accurate overlap-based algorithm equivalent to
     :func:`~reproject.reproject_exact` in the limit where individual pixels
     subtend small angles on the sky, with the difference that pixel edges are
     treated as straight lines in the output pixel plane rather than as arcs of
-    great circles on the sky.
+    great circles on the sky. This algorithm, as other algorithms in reproject,
+    preserves surface brightness.
 
     Parameters
     ----------
