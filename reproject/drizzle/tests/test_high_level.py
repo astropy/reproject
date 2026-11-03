@@ -122,7 +122,6 @@ def test_footprint_normalization():
     assert_allclose(result[2:-2, 2:-2], 1, rtol=1e-6)
 
 
-@pytest.mark.filterwarnings("ignore:Kernel .* is not a flux-conserving kernel")
 @pytest.mark.parametrize("kernel", ["square", "turbo", "gaussian", "lanczos3", "point"])
 def test_kernels(kernel):
     wcs_in, wcs_out = _wcs_pair()
