@@ -128,18 +128,24 @@ def test_kernels(kernel):
     wcs_in, wcs_out = _wcs_pair()
     data = _gaussian_data()
 
-    if kernel in ('lanczos3', 'gaussian'):
-        ctx = pytest.warns(Warning, match=r'Kernel .* is not a flux-conserving kernel')
+    if kernel in ("lanczos3", "gaussian"):
+        ctx = pytest.warns(Warning, match=r"Kernel .* is not a flux-conserving kernel")
     else:
         ctx = nullcontext()
 
     with ctx:
-
         result, footprint = reproject_drizzle(
-            (data, wcs_in), wcs_out, shape_out=(80, 80), kernel=kernel,
+            (data, wcs_in),
+            wcs_out,
+            shape_out=(80, 80),
+            kernel=kernel,
         )
 
-        reference, reference_footprint = reproject_drizzle((data, wcs_in), wcs_out, shape_out=(80, 80),)
+        reference, reference_footprint = reproject_drizzle(
+            (data, wcs_in),
+            wcs_out,
+            shape_out=(80, 80),
+        )
 
     # All kernels should place the peak of the gaussian in the same position
     # as the default square kernel

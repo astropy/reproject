@@ -51,5 +51,5 @@ If the input image crosses a longitude wrap-around in the output image (for
 example an input image straddling the 0/360 degree meridian at the edges of an
 all-sky plate carree image), the flux of input pixels adjacent to the
 wrap-around is incorrectly smeared along the full longitude range of the
-output. For such cases, use :func:`~reproject.reproject_exact` or 
+output. For such cases, use :func:`~reproject.reproject_exact` or
 adjust the WCS to avoid the wrap-around instead.
