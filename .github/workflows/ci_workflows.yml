@@ -30,15 +30,13 @@ jobs:
         - linux: py312-test
           runs-on: ubuntu-24.04-arm
         - linux: py313-test
-          name: Python 3.13 (Linux) with remote data access
-          posargs: --remote-data=astropy
         - linux: py314-test-devdeps
+          name: Python 3.14 (Linux) with developer dependencies and remote data access
+          posargs: --remote-data
         - windows: py311-test-oldestdeps
         - windows: py312-test
         - windows: py313-test
         - windows: py314-test
-
-
       libraries: |
         apt:
           - libopenblas-dev
