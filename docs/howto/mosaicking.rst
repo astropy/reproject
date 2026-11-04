@@ -1,5 +1,7 @@
 .. _mosaicking:
 
+.. doctest-remote-data-all::
+
 *****************************
 Combining images into mosaics
 *****************************
