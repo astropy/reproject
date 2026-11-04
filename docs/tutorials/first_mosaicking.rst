@@ -17,7 +17,7 @@ around M17:
     from astropy.coordinates import SkyCoord
     from pyvo.dal import imagesearch
 
-    pos = SkyCoord.from_name('M17')
+    pos = SkyCoord('18h20m26s -16d10m36s')
     table = imagesearch('https://irsa.ipac.caltech.edu/cgi-bin/2MASS/IM/nph-im_sia?type=at&ds=asky&',
                         pos, size=0.25).to_table()
     table = table[(table['band'] == 'K') & (table['format'] == 'image/fits')]
