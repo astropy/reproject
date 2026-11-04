@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from pathlib import Path
 
 import astropy.modeling.models as m
 import astropy.units as u
@@ -75,7 +76,7 @@ def generate_celestial_transform(
     return shift | rot | scale | projection | skyrot
 
 
-def generate_asdf(input_file="aia_171_level1.fits", output_file="aia_171_level1.asdf"):
+def generate_asdf(*, input_file, output_file):
     # Put imports for optional or not dependencies here
     import asdf
     import sunpy.map
@@ -113,4 +114,10 @@ def generate_asdf(input_file="aia_171_level1.fits", output_file="aia_171_level1.
 
 
 if __name__ == "__main__":
-    generate_asdf()
+    scripts_dir = Path(__file__).parent
+    data_dir = scripts_dir / ".." / "reproject" / "tests" / "data"
+
+    generate_asdf(
+        input_file=data_dir / "aia_171_level1.fits",
+        output_file=data_dir / "aia_171_level1.asdf",
+    )

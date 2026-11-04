@@ -37,6 +37,8 @@ jobs:
         - windows: py312-test
         - windows: py313-test
         - windows: py314-test
+        - linux: generate_asdf
+          coverage: false
       libraries: |
         apt:
           - libopenblas-dev
