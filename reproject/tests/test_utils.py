@@ -261,6 +261,26 @@ def test_pixel_to_pixel_chunked_roundtrip():
     assert np.isfinite(cx).any()
 
 
+def test_reproject_undefined_inverse():
+    from reproject import reproject_interp
+
+    class PartialInverseWCS(WCS):
+        def world_to_pixel_values(self, *world):
+            x, y = super().world_to_pixel_values(*world)
+            return np.where(x > 0, np.nan, x), y
+
+    # Both forward coordinates are valid, but only the first has a defined inverse.
+    array, footprint = reproject_interp(
+        (np.array([[1.0, 2.0]]), WCS(naxis=2)),
+        PartialInverseWCS(naxis=2),
+        shape_out=(1, 2),
+        order="nearest-neighbor",
+    )
+
+    np.testing.assert_array_equal(array, [[1.0, np.nan]])
+    np.testing.assert_array_equal(footprint, [[1.0, 0.0]])
+
+
 class TestHDUToMemmap:
     def test_compressed(self, tmp_path):
 
