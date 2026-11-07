@@ -10,6 +10,8 @@ from ...interpolation.tests.test_core import as_high_level_wcs
 from .._core import _reproject_celestial
 
 
+@pytest.mark.force_parallel_threads(8)
+@pytest.mark.iterations(5)
 def test_reproject_celestial_slices_2d():
     header_in = fits.Header.fromtextfile(get_pkg_data_filename("../../tests/data/gc_ga.hdr"))
     header_out = fits.Header.fromtextfile(get_pkg_data_filename("../../tests/data/gc_eq.hdr"))

@@ -95,6 +95,14 @@ astropy_header = true
 doctest_plus = "enabled"
 text_file_format = "rst"
 addopts = ["-ra", "--strict-config", "--strict-markers", "--doctest-rst", "--arraydiff", "--arraydiff-default-format=fits", "--doctest-ignore-import-errors"]
+# pytest-run-parallel markers, registered here so that the marked tests also
+# collect under --strict-markers when the plugin is not installed
+markers = [
+    "thread_unsafe(reason=None): run this test single-threaded under pytest-run-parallel",
+    "parallel_threads_limit(n): cap the number of pytest-run-parallel threads for this test",
+    "force_parallel_threads(n): force this test to run in n pytest-run-parallel threads",
+    "iterations(n): run this test n times per thread under pytest-run-parallel",
+]
 filterwarnings = [
     "error",
     'ignore:numpy\.ufunc size changed:RuntimeWarning',
