@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pytest
 from astropy.coordinates import FK5, Galactic
@@ -44,6 +46,10 @@ def test_parse_input_healpix_data(tmpdir):
     array, coordinate_system, nested = parse_input_healpix_data(filename)
     np.testing.assert_allclose(array, data)
 
+    # As Path
+    array, coordinate_system, nested = parse_input_healpix_data(Path(filename))
+    np.testing.assert_allclose(array, data)
+
     # As array
     array, coordinate_system, nested = parse_input_healpix_data((data, "galactic"))
     np.testing.assert_allclose(array, data)
@@ -52,5 +58,6 @@ def test_parse_input_healpix_data(tmpdir):
     with pytest.raises(TypeError) as exc:
         parse_input_healpix_data(data)
     assert exc.value.args[0] == (
-        "input_data should either be an HDU object or a tuple of (array, frame)"
+        "input_data should be an HDU object, a filename, or a tuple "
+        f"of (array, frame), got type(input_data)={type(data)!r}"
     )
